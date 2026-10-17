@@ -34,8 +34,8 @@ namespace NoTrace {
     void Interact(Agent &agent, bool tool);
     void Cqc(Agent &agent);
     bool Fire(Agent &agent, bool lethal);
-    sf::Vector2f TraceWeapon(sf::Vector2f from, sf::Vector2f direction, float range, bool &blocked) const;
-    void DamageAgent(Agent &agent, float healthDamage, float staminaDamage, PlayerId actor, std::uint32_t source);
+    sf::Vector2f TraceWeapon(sf::Vector2f from, sf::Vector2f direction, float range, bool &blocked, float fromHeight = CombatConfig::StandingWeaponHeight, float slope = 0.f) const;
+    void DamageAgent(Agent &agent, float healthDamage, float staminaDamage, PlayerId actor, std::uint32_t source, bool enemyBullet = false);
     void HitGuard(Guard &guard, HitZone zone, bool lethal, PlayerId actor);
     void Incapacitate(Agent &agent, PlayerId actor, std::uint32_t source);
     void Revive(Agent &agent, PlayerId actor);

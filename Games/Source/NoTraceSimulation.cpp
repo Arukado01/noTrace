@@ -378,6 +378,40 @@ namespace NoTrace {
     }
   }
 
+  bool Simulation::HideoutPathClear(const Interactable &object, sf::Vector2f from, sf::Vector2f to) const {
+    const float radius = GameplayConfig::AgentRadius;
+    for (const auto &obstacle : world_.obstacles) if (WorldGeometry::BlocksMovement(obstacle) && WorldGeometry::SegmentRect(from, to, WorldGeometry::Expanded(obstacle.bounds, radius))) return false;
+    for (const auto &other : world_.objects) if (other.id != object.id && WorldGeometry::BlocksMovement(other) && WorldGeometry::SegmentRect(from, to, WorldGeometry::Expanded(WorldGeometry::ObjectFootprint(other), radius))) return false;
+    return true;
+  }
+
+  bool Simulation::HideoutExit(const Agent &agent, const Interactable &object, sf::Vector2f &position) const {
+    const auto bounds = WorldGeometry::ObjectFootprint(object);
+    const auto minimum = bounds.position, maximum = bounds.position + bounds.size;
+    const float radius = GameplayConfig::AgentRadius + SpatialConfig::CollisionSkin;
+    const std::array<sf::Vector2f, 9> candidates{{agent.hideoutExit,
+        {minimum.x - radius, object.position.y}, {maximum.x + radius, object.position.y},
+        {object.position.x, minimum.y - radius}, {object.position.x, maximum.y + radius},
+        minimum - sf::Vector2f{radius, radius}, maximum + sf::Vector2f{radius, radius},
+        {minimum.x - radius, maximum.y + radius}, {maximum.x + radius, minimum.y - radius}}};
+    for (const auto candidate : candidates) if (!Blocked(candidate, GameplayConfig::AgentRadius) && HideoutPathClear(object, object.position, candidate)) { position = candidate; return true; }
+    return false;
+  }
+
+  void Simulation::ReleaseHideout(Agent &agent) {
+    agent.decoyGuide = {};
+    if (agent.hideoutId != 0) {
+      const auto object = std::ranges::find_if(world_.objects, [&](const Interactable &entry) { return entry.id == agent.hideoutId; });
+      if (object != world_.objects.end()) {
+        sf::Vector2f exit;
+        if (HideoutExit(agent, *object, exit)) agent.position = exit;
+        if (object->occupantAgent == agent.id) { object->occupantAgent = 0; object->occupied = object->occupantGuard != 0; }
+      }
+    }
+    agent.hideoutId = 0; agent.hideoutExit = {}; agent.hidden = false; agent.actionPose = ActionPose::None; agent.actionPoseTime = 0.f;
+    ResolvePenetration(agent.position, GameplayConfig::AgentRadius);
+  }
+
   void Simulation::UpdateAgent(Agent &agent, const ActionCommand &command, float dt) {
     using namespace GameplayConfig;
     agent.actionCooldown = std::max(0.f, agent.actionCooldown - dt);
@@ -401,6 +435,7 @@ namespace NoTrace {
       }
     }
     const sf::Vector2f aim{command.aimX, command.aimY};
+    agent.aimSlope = std::isfinite(command.aimSlope) ? std::clamp(command.aimSlope, -CombatConfig::MaximumAimSlope, CombatConfig::MaximumAimSlope) : 0.f;
     if (std::isfinite(aim.x) && std::isfinite(aim.y) && Length(aim) > 0.1f) agent.facing = Unit(aim);
     if (agent.draggingGuard >= 0) for (auto &guard : world_.guards) if (static_cast<int>(guard.id) == agent.draggingGuard) guard.position = agent.position - agent.facing * BodyDragOffset;
     if (command.interact || command.tool) Interact(agent, command.tool);
@@ -520,39 +555,44 @@ namespace NoTrace {
     if (target->cqcState == CqcState::None) { target->cqcState = CqcState::Grabbed; target->heldBy = agent.id; target->stateTime = 0.f; world_.message = "Agarre. Pulsa CQC de nuevo para derribar."; }
     else if (target->cqcState == CqcState::Grabbed) { target->cqcState = CqcState::KnockedDown; target->stateTime = 0.f; world_.message = "Derribo. Pulsa CQC para inmovilizar."; }
     else if (target->cqcState == CqcState::KnockedDown) { target->cqcState = CqcState::Restrained; world_.message = "Inmovilizado. Pulsa CQC para incapacitar."; }
-    else { target->state = GuardState::Incapacitated; target->incapacityRemaining = GuardIncapacityDuration; target->heldBy = 0; target->cqcState = CqcState::None; Record(EventKind::GuardIncapacitated, agent.id, target->id); world_.message = "Guardia incapacitado temporalmente. Puedes arrastrar y ocultar el cuerpo."; }
+    else { HitGuard(*target, HitZone::Head, false, agent.id); world_.message = "Guardia incapacitado temporalmente. Puedes arrastrar y ocultar el cuerpo."; }
   }
 
-  sf::Vector2f Simulation::TraceWeapon(sf::Vector2f from, sf::Vector2f direction, float range, bool &blocked) const {
+  sf::Vector2f Simulation::TraceWeapon(sf::Vector2f from, sf::Vector2f direction, float range, bool &blocked, float fromHeight, float slope) const {
     direction = Unit(direction);
     if (direction.x > 0.f) range = std::min(range, (world_.size.x - from.x) / direction.x);
     else if (direction.x < 0.f) range = std::min(range, -from.x / direction.x);
     if (direction.y > 0.f) range = std::min(range, (world_.size.y - from.y) / direction.y);
     else if (direction.y < 0.f) range = std::min(range, -from.y / direction.y);
-    const auto end = from + direction * std::max(0.f, range);
-    float closest = 1.f;
-    blocked = false;
-    const auto clip = [&](const sf::FloatRect &bounds) {
-      float intersection = 1.f;
-      if (SegmentRect(from, end, bounds, &intersection) && intersection < closest) {
-        closest = intersection;
+    blocked = slope < 0.f && fromHeight / -slope < range;
+    if (blocked) range = fromHeight / -slope;
+    float closest = std::max(0.f, range);
+    const auto clip = [&](const sf::FloatRect &bounds, float height) {
+      const CombatGeometry::HitVolume volume{bounds.position + bounds.size * 0.5f, {1.f, 0.f}, bounds.size * 0.5f, 0.f, height, HitZone::None};
+      const auto intersection = CombatGeometry::IntersectVolume(from, direction, fromHeight, slope, closest, volume);
+      if (intersection && *intersection < closest) {
+        closest = *intersection;
         blocked = true;
       }
     };
-    for (const auto &obstacle : world_.obstacles) if (obstacle.solid) clip(obstacle.bounds);
-    for (const auto &object : world_.objects) if (object.kind == ObjectKind::Door && !object.open) clip({{object.position.x - 12.f, object.position.y - 30.f}, {24.f, 60.f}});
-    return from + (end - from) * closest;
+    for (const auto &obstacle : world_.obstacles) if (WorldGeometry::BlocksMovement(obstacle)) clip(obstacle.bounds, WorldGeometry::ObstacleHeight(obstacle));
+    for (const auto &object : world_.objects) if (WorldGeometry::BlocksMovement(object)) clip(WorldGeometry::ObjectFootprint(object), WorldGeometry::ObjectHeight(object));
+    return from + direction * closest;
   }
 
   void Simulation::Incapacitate(Agent &agent, PlayerId actor, std::uint32_t source) {
+    ReleaseHideout(agent);
     agent.incapacitated = true; agent.incapacityRemaining = GameplayConfig::IncapacityDuration;
+    agent.cover = {};
     agent.stamina = 0.f; agent.moving = false; agent.running = false; agent.hidden = false; agent.draggingGuard = -1;
     Record(EventKind::AgentIncapacitated, actor, source);
     world_.message = "Agente inconsciente: un compañero puede reanimarlo o se recuperará tras unos segundos.";
   }
 
   void Simulation::Revive(Agent &agent, PlayerId actor) {
+    ReleaseHideout(agent);
     agent.incapacitated = false; agent.incapacityRemaining = 0.f; agent.bodyReported = false;
+    agent.cover = {};
     agent.health = std::max(agent.health, GameplayConfig::RevivedHealth);
     agent.stamina = GameplayConfig::RevivedStamina;
     agent.actionCooldown = GameplayConfig::WeaponCooldown;
@@ -560,18 +600,39 @@ namespace NoTrace {
     world_.message = "Agente recuperado.";
   }
 
-  void Simulation::DamageAgent(Agent &agent, float healthDamage, float staminaDamage, PlayerId actor, std::uint32_t source) {
-    if (!agent.alive || agent.incapacitated || agent.extracted) return;
+  void Simulation::DamageAgent(Agent &agent, float healthDamage, float staminaDamage, PlayerId actor, std::uint32_t source, bool enemyBullet) {
+    if (!agent.alive || agent.extracted || (agent.incapacitated && healthDamage <= 0.f)) return;
+    // La protección tumbado se aplica también aquí aunque cambie la selección de blancos enemigos.
+    if (enemyBullet && agent.stance == Stance::Prone) return;
     agent.health = std::max(0.f, agent.health - healthDamage);
     agent.stamina = std::max(0.f, agent.stamina - staminaDamage);
     Record(EventKind::AgentDamaged, actor, agent.id);
     if (agent.health <= 0.f) {
+      ReleaseHideout(agent);
       agent.alive = false; agent.incapacitated = false; agent.incapacityRemaining = 0.f;
+      agent.cover = {};
       agent.moving = false; agent.running = false; agent.hidden = false; agent.draggingGuard = -1;
       Record(EventKind::AgentKilled, actor, agent.id);
       world_.message = "Un agente ha muerto por sus heridas.";
     } else if (agent.stamina <= 0.f) Incapacitate(agent, actor, source);
     else world_.message = "Agente herido: rompe la línea de visión y busca cobertura.";
+  }
+
+  void Simulation::HitGuard(Guard &guard, HitZone zone, bool lethal, PlayerId actor) {
+    using namespace GameplayConfig;
+    if (IsBody(guard)) return;
+    if (lethal) guard.health = std::max(0.f, guard.health - CombatGeometry::LethalDamage(zone));
+    else guard.stun = std::min(CombatConfig::MaxGuardStun, guard.stun + CombatGeometry::StunDamage(zone));
+    if (guard.health <= 0.f || guard.stun >= CombatConfig::MaxGuardStun) {
+      guard.state = guard.health <= 0.f ? GuardState::Dead : GuardState::Incapacitated;
+      guard.incapacityRemaining = guard.health <= 0.f ? 0.f : GuardIncapacityDuration;
+      guard.heldBy = 0; guard.cqcState = CqcState::None;
+      Record(guard.health <= 0.f ? EventKind::GuardKilled : EventKind::GuardIncapacitated, actor, guard.id);
+      world_.message = lethal ? "Guardia eliminado; el cuerpo y el ruido comprometen el sigilo." : "Guardia inconsciente. Oculta el cuerpo.";
+    } else {
+      guard.state = GuardState::Search; guard.stateTime = 0.f; guard.lastKnown = guard.position;
+      world_.message = lethal ? "Guardia herido; un impacto en torso o extremidades no siempre es mortal." : "Guardia aturdido; los impactos no letales acumulan inconsciencia.";
+    }
   }
 
   bool Simulation::Fire(Agent &agent, bool lethal) {
@@ -582,55 +643,61 @@ namespace NoTrace {
     Record(lethal ? EventKind::WeaponLethal : EventKind::WeaponNonLethal, agent.id);
     EmitNoise(agent.position, lethal ? LethalNoiseRadius : NonLethalNoiseRadius, agent.id);
     const auto direction = Unit(agent.facing);
+    const float fromHeight = CombatGeometry::WeaponHeight(agent.stance);
+    const float slope = std::isfinite(agent.aimSlope) ? std::clamp(agent.aimSlope, -CombatConfig::MaximumAimSlope, CombatConfig::MaximumAimSlope) : 0.f;
     bool blocked = false;
-    auto impact = TraceWeapon(agent.position, direction, WeaponRange, blocked);
+    auto impact = TraceWeapon(agent.position, direction, WeaponRange, blocked, fromHeight, slope);
     float nearest = Distance(agent.position, impact);
+    HitZone zone = HitZone::None;
     Guard *guardTarget = nullptr;
     Agent *agentTarget = nullptr;
     for (auto &guard : world_.guards) if (!IsBody(guard)) {
-      const float distance = RayCircle(agent.position, direction, guard.position, AgentRadius);
-      if (distance < nearest) { nearest = distance; guardTarget = &guard; }
+      const bool down = guard.cqcState == CqcState::KnockedDown || guard.cqcState == CqcState::Restrained;
+      const auto intersection = CombatGeometry::IntersectActor(agent.position, direction, fromHeight, slope, nearest, guard.position, guard.facing, Stance::Standing, down);
+      if (intersection && intersection->distance < nearest) { nearest = intersection->distance; zone = intersection->zone; guardTarget = &guard; }
     }
     if (GetContract(world_.contract).traitor) for (auto &other : world_.agents) if (other.id != agent.id && other.alive && other.connected && !other.extracted) {
-      const float distance = RayCircle(agent.position, direction, other.position, AgentRadius);
-      if (distance < nearest) { nearest = distance; agentTarget = &other; guardTarget = nullptr; }
+      const auto intersection = CombatGeometry::IntersectActor(agent.position, direction, fromHeight, slope, nearest, other.position, other.facing, other.stance, other.incapacitated);
+      if (intersection && intersection->distance < nearest) { nearest = intersection->distance; zone = intersection->zone; agentTarget = &other; guardTarget = nullptr; }
     }
     const bool hit = guardTarget || agentTarget;
     if (hit) impact = agent.position + direction * nearest;
-    world_.shots.push_back({agent.position, impact, ShotTraceDuration, lethal, agent.id, 0, hit, blocked && !hit});
+    world_.shots.push_back({agent.position, impact, ShotTraceDuration, lethal, agent.id, 0, hit, blocked && !hit, zone, fromHeight, std::max(0.f, fromHeight + slope * nearest), agentTarget ? agentTarget->id : guardTarget ? guardTarget->id : 0, agentTarget ? ShotTarget::Agent : guardTarget ? ShotTarget::Guard : ShotTarget::None});
     if (agentTarget) {
-      if (lethal) DamageAgent(*agentTarget, MaxHealth, 0.f, agent.id, agentTarget->id);
-      else Incapacitate(*agentTarget, agent.id, agentTarget->id);
+      if (lethal) DamageAgent(*agentTarget, CombatGeometry::LethalDamage(zone), 0.f, agent.id, agentTarget->id);
+      else if (zone == HitZone::Head) Incapacitate(*agentTarget, agent.id, agentTarget->id);
+      else DamageAgent(*agentTarget, 0.f, CombatGeometry::StunDamage(zone), agent.id, agentTarget->id);
     }
     else if (guardTarget) {
-      guardTarget->state = lethal ? GuardState::Dead : GuardState::Incapacitated;
-      guardTarget->incapacityRemaining = lethal ? 0.f : GuardIncapacityDuration;
-      guardTarget->heldBy = 0; guardTarget->cqcState = CqcState::None;
-      Record(lethal ? EventKind::GuardKilled : EventKind::GuardIncapacitated, agent.id, guardTarget->id);
-      world_.message = lethal ? "Guardia eliminado; el cuerpo y el ruido comprometen el sigilo." : "Guardia incapacitado. Oculta el cuerpo.";
+      HitGuard(*guardTarget, zone, lethal, agent.id);
     } else world_.message = blocked ? "El disparo impactó contra una cobertura sólida." : "Disparo sin impacto. El uso de armas queda registrado.";
     return true;
   }
 
   void Simulation::UpdateGuards(float dt) {
     using namespace GameplayConfig;
+    for (auto &cue : world_.footsteps) cue.remaining -= dt;
+    std::erase_if(world_.footsteps, [](const FootstepCue &cue) { return cue.remaining <= 0.f; });
     for (auto &guard : world_.guards) {
+      const auto previousPosition = guard.position;
       guard.attackTime = std::max(0.f, guard.attackTime - dt);
+      guard.detectedTime = std::max(0.f, guard.detectedTime - dt);
       if (guard.state == GuardState::Incapacitated && !guard.bodyHidden && guard.incapacityRemaining > 0.f) {
         guard.incapacityRemaining = std::max(0.f, guard.incapacityRemaining - dt);
         if (guard.incapacityRemaining <= 0.f) {
-          guard.state = GuardState::Search; guard.stateTime = 0.f; guard.suspicion = 0.f; guard.lastKnown = guard.position; guard.bodyReported = false;
+          guard.state = GuardState::Search; guard.stateTime = 0.f; guard.suspicion = 0.f; guard.lastKnown = guard.position; guard.bodyReported = false; guard.stun = 0.f;
           for (auto &agent : world_.agents) if (agent.draggingGuard == static_cast<int>(guard.id)) agent.draggingGuard = -1;
         }
       }
-      if (IsBody(guard)) continue;
+      if (IsBody(guard)) { guard.stepTime = 0.f; continue; }
+      guard.stun = std::max(0.f, guard.stun - CombatConfig::GuardStunRecoveryPerSecond * dt);
       guard.stateTime += dt;
       guard.attackCooldown = std::max(0.f, guard.attackCooldown - dt);
       if (guard.cqcState != CqcState::None) {
         const auto holder = std::ranges::find_if(world_.agents, [&guard](const Agent &agent) { return agent.id == guard.heldBy && agent.connected && agent.alive && !agent.incapacitated; });
         if (holder == world_.agents.end() || Distance(holder->position, guard.position) > CqcDistance * CqcMaximumStretch || guard.stateTime > CqcEscapeDuration) {
           guard.heldBy = 0; guard.cqcState = CqcState::None; guard.state = GuardState::Search; guard.stateTime = 0.f; guard.lastKnown = guard.position;
-        } else continue;
+        } else { guard.stepTime = 0.f; continue; }
       }
       Agent *seen = nullptr;
       for (auto &agent : world_.agents) if (CanSee(guard.position, guard.facing, agent, world_.alarm ? VisionDistance * AlarmVisionMultiplier : VisionDistance) && (!seen || Distance(guard.position, agent.position) < Distance(guard.position, seen->position))) seen = &agent;
@@ -638,17 +705,20 @@ namespace NoTrace {
         guard.lastKnown = seen->position;
         guard.suspicion += dt / ConfirmationTime;
         if (guard.suspicion >= 1.f) {
-          if (guard.state != GuardState::Alert) Detect(*seen, guard.id);
+          if (guard.state != GuardState::Alert) { Detect(*seen, guard.id); guard.detectedTime = CombatConfig::ConfirmedIconDuration; }
           else alarmRemaining_ = AlarmDuration;
           guard.state = GuardState::Alert; guard.stateTime = 0.f;
           const auto aim = Unit(seen->position - guard.position);
           const float distance = Distance(guard.position, seen->position);
           guard.facing = aim;
-          if (distance <= GuardWeaponRange && guard.attackCooldown <= 0.f && (distance <= GuardAttackDistance || guard.ammo > 0)) {
+          const bool melee = distance <= GuardAttackDistance;
+          if (distance <= GuardWeaponRange && guard.attackCooldown <= 0.f && (melee || (seen->stance != Stance::Prone && guard.ammo > 0))) {
             guard.attackCooldown = GuardAttackInterval; guard.attackTime = AttackAnimationDuration;
-            guard.meleeAttack = distance <= GuardAttackDistance;
+            guard.meleeAttack = melee;
+            const float fromHeight = CombatGeometry::WeaponHeight(Stance::Standing);
+            const float slope = (CombatGeometry::TorsoCenterHeight(seen->stance) - fromHeight) / std::max(1.f, distance);
             bool blocked = false;
-            auto impact = TraceWeapon(guard.position, aim, distance, blocked);
+            auto impact = TraceWeapon(guard.position, aim, distance, blocked, fromHeight, melee ? 0.f : slope);
             if (guard.meleeAttack) {
               if (!blocked) {
                 Record(EventKind::GuardMelee, 0, guard.id);
@@ -658,15 +728,19 @@ namespace NoTrace {
               --guard.ammo;
               Agent *hit = nullptr;
               float closest = Distance(guard.position, impact);
-              for (auto &agent : world_.agents) if (agent.connected && agent.alive && !agent.incapacitated && !agent.extracted) {
-                const float candidate = RayCircle(guard.position, aim, agent.position, AgentRadius);
-                if (candidate < closest) { closest = candidate; hit = &agent; }
+              HitZone zone = HitZone::None;
+              for (auto &agent : world_.agents) if (agent.connected && agent.alive && !agent.incapacitated && !agent.extracted && agent.stance != Stance::Prone) {
+                const auto candidate = CombatGeometry::IntersectActor(guard.position, aim, fromHeight, slope, closest, agent.position, agent.facing, agent.stance);
+                if (candidate && candidate->distance < closest) { closest = candidate->distance; zone = candidate->zone; hit = &agent; }
               }
               if (hit) impact = guard.position + aim * closest;
-              world_.shots.push_back({guard.position, impact, ShotTraceDuration, true, 0, guard.id, hit != nullptr, blocked && !hit});
+              world_.shots.push_back({guard.position, impact, ShotTraceDuration, true, 0, guard.id, hit != nullptr, blocked && !hit, zone, fromHeight, std::max(0.f, fromHeight + slope * closest), hit ? hit->id : 0, hit ? ShotTarget::Agent : ShotTarget::None});
               Record(EventKind::GuardShot, 0, guard.id);
               EmitNoise(guard.position, LethalNoiseRadius, 0, guard.id);
-              if (hit) DamageAgent(*hit, GuardShotDamage, GuardShotStaminaDamage, 0, hit->id);
+              if (hit) {
+                const float damage = zone == HitZone::Head ? CombatConfig::LethalHeadDamage : zone == HitZone::Limbs ? CombatConfig::GuardLimbDamage : GuardShotDamage;
+                DamageAgent(*hit, damage, GuardShotStaminaDamage, 0, hit->id, true);
+              }
             }
           }
         } else { guard.state = GuardState::Suspicion; guard.stateTime = 0.f; }
@@ -706,6 +780,18 @@ namespace NoTrace {
         guard.facing = {guard.facing.x * std::cos(angle) - guard.facing.y * std::sin(angle), guard.facing.x * std::sin(angle) + guard.facing.y * std::cos(angle)};
       }
       if ((guard.state == GuardState::Investigate && guard.stateTime > InvestigationDuration) || (guard.state == GuardState::Search && guard.stateTime > SearchDuration)) { guard.state = GuardState::Patrol; guard.stateTime = 0.f; }
+      const auto displacement = guard.position - previousPosition;
+      if (Length(displacement) > DistractionConfig::MinimumFootstepMovement) {
+        guard.stepTime += dt;
+        if (guard.stepTime >= DistractionConfig::FootstepInterval) {
+          guard.stepTime = std::fmod(guard.stepTime, DistractionConfig::FootstepInterval);
+          if (world_.footsteps.size() >= DistractionConfig::MaximumFootstepCues) world_.footsteps.erase(world_.footsteps.begin());
+          auto approximate = DistractionGeometry::QuantizeFootstep(guard.position);
+          approximate.x = std::clamp(approximate.x, 0.f, world_.size.x - SpatialConfig::CollisionSkin);
+          approximate.y = std::clamp(approximate.y, 0.f, world_.size.y - SpatialConfig::CollisionSkin);
+          world_.footsteps.push_back({approximate, DistractionGeometry::FootstepDirection(displacement), DistractionConfig::FootstepLifetime, guard.id});
+        }
+      } else guard.stepTime = 0.f;
     }
   }
 

@@ -1,5 +1,8 @@
 #include "NoTraceSimulation.h"
 #include "Config/NoTraceGameplayConfig.h"
+#include "NoTraceCombatGeometry.h"
+#include "NoTraceDistractionGeometry.h"
+#include "NoTraceWorldGeometry.h"
 #include <cmath>
 #include <iostream>
 #include <queue>
@@ -28,6 +31,13 @@ namespace {
   void Advance(Simulation &simulation, ActionCommand command, int frames, float dt = 0.1f) {
     for (int index = 0; index < frames; ++index) simulation.Step(dt, {{1, command}});
   }
+  void AimHead(ActionCommand &command, const Agent &actor, sf::Vector2f position, sf::Vector2f facing, Stance stance = Stance::Standing) {
+    const auto head = CombatGeometry::ActorVolumes(position, facing, stance).front().center;
+    const auto offset = head - actor.position;
+    command.aimX = offset.x; command.aimY = offset.y;
+    const float height = CombatGeometry::HeadCenterHeight(stance) + (stance == Stance::Prone ? 0.f : CombatConfig::HeadHeight * 0.25f);
+    command.aimSlope = (height - CombatGeometry::WeaponHeight(actor.stance)) / std::max(0.001f, offset.length());
+  }
   nlohmann::json GuardJson(Simulation &simulation, sf::Vector2f position, sf::Vector2f facing) {
     simulation.ResetBase(); simulation.Deploy(0);
     auto value = simulation.SnapshotFor(1)["guards"][0];
@@ -50,13 +60,13 @@ namespace {
     Advance(simulation, move, 10);
     Require(std::abs(simulation.GetState().agents[0].position.x - start.x - GameplayConfig::WalkSpeed) < 0.1f, "Caminar debe usar segundos");
     simulation.ResetBase();
-    move.moveY = 1.f;
+    move.moveX = -1.f; move.moveY = -1.f;
     Advance(simulation, move, 10);
     Require(std::abs((simulation.GetState().agents[0].position - start).length() - GameplayConfig::WalkSpeed) < 0.1f, "La diagonal no debe acelerar");
     simulation.ResetBase();
     ActionCommand prone; prone.prone = true;
     simulation.Step(0.1f, {{1, prone}});
-    move.moveY = 0.f;
+    move.moveX = 1.f; move.moveY = 0.f;
     Advance(simulation, move, 10);
     Require(std::abs(simulation.GetState().agents[0].position.x - start.x - GameplayConfig::CrawlSpeed) < 0.1f, "Moverse tumbado debe arrastrar automáticamente sin otra tecla");
     simulation.ResetBase();
@@ -92,7 +102,7 @@ namespace {
     ActionCommand decoy; decoy.throwDecoy = true; decoy.aimX = 1.f;
     simulation.Step(0.1f, {{1, decoy}});
     Require(simulation.GetState().guards[0].state == GuardState::Investigate, "El ruido debe provocar investigación");
-    Require((simulation.GetState().guards[0].lastKnown - sf::Vector2f{320.f, 500.f}).length() < 0.01f, "El guardia debe investigar el señuelo, no conocer al agente");
+    Require((simulation.GetState().guards[0].lastKnown - sf::Vector2f{150.f + DistractionConfig::MaximumDecoyDistance, 500.f}).length() < 0.01f, "El guardia debe investigar el señuelo, no conocer al agente");
     Require(!simulation.GetState().alarm, "Un ruido sin visión no activa alarma de agente");
     Require(std::ranges::none_of(simulation.GetState().events, [](const MissionEvent &event) { return event.kind == EventKind::ConfirmedDetection; }), "Investigación no equivale a detección");
 
@@ -175,9 +185,9 @@ namespace {
     simulation.Step(0.1f, {{1, drag}});
     Require(simulation.GetState().agents[0].draggingGuard == 1, "Debe permitir arrastrar un cuerpo cercano");
     auto hide = simulation.SnapshotFor(1);
-    hide["objects"].push_back({{"id", 90}, {"kind", static_cast<int>(ObjectKind::Hideout)}, {"position", {300.f, 500.f}}, {"name", "Escondite"}, {"active", true}, {"completed", false}, {"open", false}, {"progress", 0.f}, {"facing", {1.f, 0.f}}});
+    hide["objects"].push_back({{"id", 90}, {"kind", static_cast<int>(ObjectKind::Hideout)}, {"position", {368.f, 500.f}}, {"name", "Escondite"}, {"active", true}, {"completed", false}, {"open", false}, {"progress", 0.f}, {"facing", {1.f, 0.f}}});
     Load(simulation, hide);
-    ActionCommand interact; interact.interact = true;
+    ActionCommand interact; interact.interact = true; interact.dragBody = true;
     simulation.Step(0.1f, {{1, interact}});
     Require(simulation.GetState().guards[0].bodyHidden, "Debe poder ocultar un cuerpo en escondite válido");
 
@@ -185,6 +195,7 @@ namespace {
     snapshot["guards"].push_back(GuardJson(donor, {400.f, 500.f}, {1.f, 0.f}));
     Load(simulation, snapshot);
     ActionCommand shoot; shoot.fireNonLethal = true; shoot.aimX = 1.f;
+    AimHead(shoot, simulation.GetState().agents[0], simulation.GetState().guards[0].position, simulation.GetState().guards[0].facing);
     simulation.Step(0.1f, {{1, shoot}});
     Require(simulation.GetState().guards[0].state == GuardState::Incapacitated, "El arma no letal debe incapacitar");
     Load(simulation, snapshot);
@@ -202,9 +213,11 @@ namespace {
     snapshot["guards"][1]["id"] = 2;
     Load(simulation, snapshot);
     ActionCommand shoot; shoot.fireLethal = true; shoot.aimX = 1.f;
+    AimHead(shoot, simulation.GetState().agents[0], simulation.GetState().guards[0].position, simulation.GetState().guards[0].facing);
     simulation.Step(0.1f, {{1, shoot}});
     Require(simulation.GetState().guards[0].state == GuardState::Dead && simulation.GetState().guards[1].state != GuardState::Dead, "La bala sigue el rayo de puntería, no selecciona un guardia cercano fuera de trayectoria");
-    Require(simulation.GetState().shots.size() == 1 && simulation.GetState().shots[0].hit && std::abs(simulation.GetState().shots[0].to.x - 438.f) < 0.01f, "El trazo termina en la primera intersección real con el cuerpo");
+    const float headEntry = 450.f + CombatConfig::HeadForwardOffset - CombatConfig::HeadHalfLength;
+    Require(simulation.GetState().shots.size() == 1 && simulation.GetState().shots[0].hit && simulation.GetState().shots[0].zone == HitZone::Head && std::abs(simulation.GetState().shots[0].to.x - headEntry) < 0.01f, "El trazo termina en la primera intersección real con el volumen orientado de cabeza");
     const auto fired = simulation.SnapshotFor(1);
     Load(replica, fired);
     Require(replica.GetState().shots[0].hit && replica.GetState().shots[0].to == simulation.GetState().shots[0].to, "El snapshot propaga impacto y trayectoria autoritativos");
@@ -289,6 +302,7 @@ namespace {
     snapshot["guards"].push_back(GuardJson(donor, {400.f, 500.f}, {1.f, 0.f}));
     Load(simulation, snapshot);
     ActionCommand stun; stun.fireNonLethal = true; stun.aimX = 1.f;
+    AimHead(stun, simulation.GetState().agents[0], simulation.GetState().guards[0].position, simulation.GetState().guards[0].facing);
     simulation.Step(0.1f, {{1, stun}});
     snapshot = simulation.SnapshotFor(1);
     snapshot["guards"][0]["incapacityRemaining"] = 0.15f;
@@ -415,7 +429,12 @@ namespace {
     ActionCommand lethal; lethal.fireLethal = true;
     auto towardOther = (simulation.GetState().agents[1].position - simulation.GetState().agents[0].position).normalized();
     lethal.aimX = towardOther.x; lethal.aimY = towardOther.y;
+    AimHead(lethal, simulation.GetState().agents[0], simulation.GetState().agents[1].position, simulation.GetState().agents[1].facing);
     simulation.Step(0.1f, {{1, lethal}});
+    if (simulation.GetState().phase != GamePhase::Results) {
+      const auto &state = simulation.GetState();
+      throw std::runtime_error("Traidor: salud objetivo=" + std::to_string(state.agents[1].health) + " zona=" + std::to_string(state.shots.empty() ? -1 : static_cast<int>(state.shots.back().zone)) + " slope=" + std::to_string(lethal.aimSlope) + " blocked=" + std::to_string(!state.shots.empty() && state.shots.back().blocked));
+    }
     Require(simulation.GetState().phase == GamePhase::Results && simulation.GetState().results.at(1).traitorVictory, "El traidor debe ganar solo después de eliminar al equipo sin alarma");
     Require(!simulation.GetState().agents[1].alive, "La victoria del traidor exige eliminación real");
     simulation.ResetBase({{1, "Uno"}, {2, "Dos"}}); simulation.SetContract(ContractId::DoubleCross); simulation.Deploy(0);
@@ -434,9 +453,9 @@ namespace {
       const auto blocked = [&world](int x, int y) {
         const sf::Vector2f point{10.f + x * 20.f, 10.f + y * 20.f};
         if (point.x < 12.f || point.y < 12.f || point.x > world.size.x - 12.f || point.y > world.size.y - 12.f) return true;
-        for (const auto &obstacle : world.obstacles) if (obstacle.solid && sf::FloatRect{obstacle.bounds.position - sf::Vector2f{12.f, 12.f}, obstacle.bounds.size + sf::Vector2f{24.f, 24.f}}.contains(point)) return true;
-        for (const auto &object : world.objects) if (object.kind == ObjectKind::Door && !object.open && sf::FloatRect{{object.position.x - 24.f, object.position.y - 42.f}, {48.f, 84.f}}.contains(point)) return true;
-        return false;
+        bool occupied = false;
+        WorldGeometry::ForEachSolid(world, [&](const sf::FloatRect &bounds) { occupied |= WorldGeometry::CircleOverlaps(point, GameplayConfig::AgentRadius, bounds); });
+        return occupied;
       };
       std::array<bool, columns * rows> visited{};
       std::queue<std::pair<int, int>> queue;
@@ -453,7 +472,7 @@ namespace {
       }
       for (const auto &object : world.objects) if (object.kind == ObjectKind::Terminal || object.kind == ObjectKind::Secondary || object.kind == ObjectKind::CoopSwitch || object.kind == ObjectKind::Extraction) {
         bool reachable = false;
-        for (int y = 0; y < rows; ++y) for (int x = 0; x < columns; ++x) if (visited[y * columns + x] && (sf::Vector2f{10.f + x * 20.f, 10.f + y * 20.f} - object.position).length() < 45.f) reachable = true;
+        for (int y = 0; y < rows; ++y) for (int x = 0; x < columns; ++x) if (visited[y * columns + x] && WorldGeometry::DistanceToBounds({10.f + x * 20.f, 10.f + y * 20.f}, WorldGeometry::ObjectFootprint(object)) < GameplayConfig::InteractionDistance) reachable = true;
         Require(reachable, "Toda semilla necesita acceso a objetivos y extracción");
       }
       for (const auto &agent : world.agents) Require(visited[static_cast<int>(agent.position.y / 20.f) * columns + static_cast<int>(agent.position.x / 20.f)], "Los cuatro puntos de inserción deben compartir un corredor conectado");
@@ -472,8 +491,7 @@ namespace {
         for (const auto &agent : world.agents) {
           const float radius = GameplayConfig::AgentRadius;
           Require(agent.position.x >= radius && agent.position.y >= radius && agent.position.x <= world.size.x - radius && agent.position.y <= world.size.y - radius, "Los cuatro agentes deben aparecer dentro del mapa");
-          for (const auto &obstacle : world.obstacles) if (obstacle.solid) Require(!sf::FloatRect{obstacle.bounds.position - sf::Vector2f{radius, radius}, obstacle.bounds.size + sf::Vector2f{radius * 2.f, radius * 2.f}}.contains(agent.position), "La inserción no debe intersectar obstáculos");
-          for (const auto &object : world.objects) if (object.kind == ObjectKind::Door && !object.open) Require(!sf::FloatRect{{object.position.x - 12.f - radius, object.position.y - 30.f - radius}, {24.f + radius * 2.f, 60.f + radius * 2.f}}.contains(agent.position), "La inserción no debe intersectar una puerta cerrada");
+          WorldGeometry::ForEachSolid(world, [&](const sf::FloatRect &bounds) { Require(!WorldGeometry::CircleOverlaps(agent.position, radius, bounds), "La inserción no debe intersectar muros, muebles ni puertas sólidas"); });
           for (const auto &other : world.agents) if (other.id != agent.id) Require((agent.position - other.position).length() >= radius * 2.f, "Los agentes no deben aparecer superpuestos");
           for (const auto &guard : world.guards) for (std::size_t index = 0; index < guard.patrol.size(); ++index) {
             const auto start = guard.patrol[index], end = guard.patrol[(index + 1) % guard.patrol.size()];
@@ -491,14 +509,15 @@ namespace {
     }
   }
 
-  std::vector<sf::Vector2f> PlanRoute(const Simulation &simulation, sf::Vector2f goal, bool stealth) {
+  std::vector<sf::Vector2f> PlanRoute(const Simulation &simulation, const Interactable &target, bool stealth) {
     const auto &world = simulation.GetState();
     constexpr int columns = 50, rows = 38;
     const auto blocked = [&world, &simulation, stealth](sf::Vector2f point) {
       if (point.x < 12.f || point.y < 12.f || point.x > world.size.x - 12.f || point.y > world.size.y - 12.f) return true;
-      for (const auto &obstacle : world.obstacles) if (obstacle.solid && sf::FloatRect{obstacle.bounds.position - sf::Vector2f{12.f, 12.f}, obstacle.bounds.size + sf::Vector2f{24.f, 24.f}}.contains(point)) return true;
+      bool occupied = false;
+      WorldGeometry::ForEachSolid(world, [&](const sf::FloatRect &bounds) { occupied |= WorldGeometry::CircleOverlaps(point, GameplayConfig::AgentRadius + 0.5f, bounds); });
+      if (occupied) return true;
       for (const auto &object : world.objects) {
-        if (object.kind == ObjectKind::Door && !object.open && sf::FloatRect{{object.position.x - 24.f, object.position.y - 42.f}, {48.f, 84.f}}.contains(point)) return true;
         if (object.kind == ObjectKind::Camera && object.active) {
           Agent candidate; candidate.position = point; candidate.stance = stealth ? Stance::Prone : Stance::Crouched;
           if (simulation.CanSee(object.position, object.facing, candidate, GameplayConfig::CameraDistance + 25.f)) return true;
@@ -520,7 +539,13 @@ namespace {
     while (!queue.empty()) {
       const int current = queue.front(); queue.pop();
       const int x = current % columns, y = current / columns;
-      if ((sf::Vector2f{10.f + x * 20.f, 10.f + y * 20.f} - goal).length() < 35.f) { finish = current; break; }
+      const sf::Vector2f point{10.f + x * 20.f, 10.f + y * 20.f};
+      const auto closest = WorldGeometry::ClosestPoint(point, WorldGeometry::ObjectFootprint(target));
+      Agent candidate; candidate.position = closest;
+      const bool interaction = (point - closest).length() < GameplayConfig::InteractionDistance * 0.5f &&
+          (target.kind != ObjectKind::CoopSwitch || (point - target.position).length() < GameplayConfig::InteractionDistance - 1.f);
+      const auto toward = closest - point;
+      if (interaction && !blocked(point) && (toward.length() < 0.01f || simulation.CanSee(point, toward.normalized(), candidate, GameplayConfig::InteractionDistance))) { finish = current; break; }
       for (const auto [dx, dy] : std::array<std::pair<int, int>, 4>{{{1, 0}, {-1, 0}, {0, 1}, {0, -1}}}) {
         const int nx = x + dx, ny = y + dy, next = ny * columns + nx;
         if (nx < 0 || ny < 0 || nx >= columns || ny >= rows || previous[next] != -1 || blocked({10.f + nx * 20.f, 10.f + ny * 20.f})) continue;
@@ -530,6 +555,7 @@ namespace {
     std::vector<sf::Vector2f> route;
     if (finish < 0) return route;
     for (int index = finish; index != start; index = previous[index]) route.push_back({10.f + index % columns * 20.f, 10.f + index / columns * 20.f});
+    if (route.empty()) route.push_back({10.f + finish % columns * 20.f, 10.f + finish / columns * 20.f});
     std::ranges::reverse(route);
     return route;
   }
@@ -537,7 +563,6 @@ namespace {
   void ReachAndInteract(Simulation &simulation, ObjectKind kind, bool stealth) {
     const auto target = std::ranges::find_if(simulation.GetState().objects, [kind](const Interactable &object) { return object.kind == kind; });
     Require(target != simulation.GetState().objects.end(), "El escenario debe contener el objeto solicitado");
-    const auto goal = target->position;
     std::vector<sf::Vector2f> route;
     constexpr float dt = 1.f / 30.f;
     for (int frame = 0; frame < 9000; ++frame) {
@@ -548,38 +573,80 @@ namespace {
       if (stealth && agent.stance != Stance::Prone) command.prone = true;
       if (!stealth && agent.stance != Stance::Crouched) command.crouch = true;
       command.crawl = stealth;
-      if ((agent.position - goal).length() < 40.f) {
+      const auto closest = WorldGeometry::ClosestPoint(agent.position, WorldGeometry::ObjectFootprint(*target));
+      const auto toward = closest - agent.position;
+      Agent interactionPoint; interactionPoint.position = closest;
+      if (toward.length() < GameplayConfig::InteractionDistance * 0.5f &&
+          (kind != ObjectKind::CoopSwitch || (agent.position - target->position).length() < GameplayConfig::InteractionDistance - 1.f) &&
+          (toward.length() < 0.01f || simulation.CanSee(agent.position, toward.normalized(), interactionPoint, GameplayConfig::InteractionDistance))) {
         command.interact = true;
         simulation.Step(dt, {{1, command}});
         if (kind == ObjectKind::CoopSwitch) Advance(simulation, {}, 40);
-        return;
+        if (target->completed || simulation.GetState().agents.front().extracted || simulation.GetState().phase == GamePhase::Results) return;
+        continue;
       }
-      if (frame % 6 == 0 || route.empty()) route = PlanRoute(simulation, goal, stealth);
-      while (!route.empty() && (route.front() - agent.position).length() < 4.f) route.erase(route.begin());
+      if (frame % 6 == 0 || route.empty()) route = PlanRoute(simulation, *target, stealth);
+      while (!route.empty() && (route.front() - agent.position).length() < 0.25f) route.erase(route.begin());
       if (!route.empty()) {
-        const auto direction = (route.front() - agent.position).normalized();
+        const auto offset = route.front() - agent.position;
+        const float stepDistance = (stealth ? GameplayConfig::CrawlSpeed : GameplayConfig::CrouchSpeed) * dt;
+        const auto direction = offset / std::max(offset.length(), stepDistance);
         command.moveX = direction.x; command.moveY = direction.y;
       }
       if (!stealth) {
+        const Guard *nearest = nullptr;
+        float distance = GameplayConfig::WeaponRange;
+        Agent aimingAgent = agent;
+        if (command.crouch) aimingAgent.stance = Stance::Crouched;
         for (const auto &guard : state.guards) if (guard.state != GuardState::Dead && guard.state != GuardState::Incapacitated) {
           Agent candidate; candidate.position = guard.position;
           const auto offset = guard.position - agent.position;
-          if (offset.length() > 0.1f && simulation.CanSee(agent.position, offset.normalized(), candidate, GameplayConfig::WeaponRange)) {
-            command.fireNonLethal = true; command.aimX = offset.x; command.aimY = offset.y;
+          if (offset.length() < 0.1f || offset.length() >= distance || !simulation.CanSee(agent.position, offset.normalized(), candidate, GameplayConfig::WeaponRange)) continue;
+          ActionCommand aim; AimHead(aim, aimingAgent, guard.position, guard.facing);
+          const sf::Vector2f direction = sf::Vector2f{aim.aimX, aim.aimY}.normalized();
+          const float height = CombatGeometry::WeaponHeight(aimingAgent.stance);
+          const auto hit = CombatGeometry::IntersectActor(agent.position, direction, height, aim.aimSlope, GameplayConfig::WeaponRange, guard.position, guard.facing, Stance::Standing);
+          if (!hit || hit->zone != HitZone::Head) continue;
+          bool blocked = false;
+          const auto clip = [&](const sf::FloatRect &bounds, float top) {
+            const CombatGeometry::HitVolume volume{bounds.position + bounds.size * 0.5f, {1.f, 0.f}, bounds.size * 0.5f, 0.f, top, HitZone::None};
+            const auto obstruction = CombatGeometry::IntersectVolume(agent.position, direction, height, aim.aimSlope, hit->distance, volume);
+            blocked |= obstruction && *obstruction < hit->distance;
+          };
+          for (const auto &obstacle : state.obstacles) if (WorldGeometry::BlocksMovement(obstacle)) clip(obstacle.bounds, WorldGeometry::ObstacleHeight(obstacle));
+          for (const auto &object : state.objects) if (WorldGeometry::BlocksMovement(object)) clip(WorldGeometry::ObjectFootprint(object), WorldGeometry::ObjectHeight(object));
+          if (!blocked) { nearest = &guard; distance = offset.length(); }
+        }
+        if (nearest) { command.fireNonLethal = true; AimHead(command, aimingAgent, nearest->position, nearest->facing); }
+      } else if (agent.loadout.decoys > 0 && agent.actionCooldown <= 0.f) {
+        for (const auto &guard : state.guards) if ((guard.state == GuardState::Patrol || guard.state == GuardState::Suspicion) && (guard.position - agent.position).length() < 210.f) {
+          const auto towardGuard = guard.position - agent.position;
+          const auto forward = towardGuard.normalized();
+          const sf::Vector2f lateral{-forward.y, forward.x};
+          float bestScore = 0.f;
+          sf::Vector2f best;
+          for (float side : {-1.f, -0.5f, 0.f, 0.5f, 1.f}) {
+            const auto desired = guard.position + forward * 110.f + lateral * (side * 150.f);
+            const auto offset = desired - agent.position;
+            const auto path = DistractionGeometry::TraceDecoy(state, agent.position, offset, offset.length());
+            const auto diversion = path.to - guard.position;
+            if (!path.valid || diversion.length() > DistractionConfig::DecoyHearingDistance || diversion.dot(forward) < 55.f) continue;
+            float separation = (path.to - agent.position).length();
+            for (std::size_t point = 0; point < std::min<std::size_t>(route.size(), 12); ++point) separation = std::min(separation, (path.to - route[point]).length());
+            if (separation > bestScore) { bestScore = separation; best = path.to; }
+          }
+          if (bestScore > 150.f) {
+            const auto offset = best - agent.position;
+            command.throwDecoy = true; command.decoyDistance = offset.length();
+            command.aimX = offset.x; command.aimY = offset.y;
             break;
           }
-        }
-      } else if (agent.loadout.decoys > 0 && agent.actionCooldown <= 0.f) {
-        for (const auto &guard : state.guards) if ((guard.state == GuardState::Patrol || guard.state == GuardState::Suspicion) && (guard.position - agent.position).length() < 235.f) {
-          const auto towardGuard = guard.position - agent.position;
-          command.throwDecoy = true;
-          command.aimX = towardGuard.y; command.aimY = -towardGuard.x;
-          break;
         }
       }
       simulation.Step(dt, {{1, command}});
     }
-    throw std::runtime_error("No se pudo llegar mediante controles al objeto " + std::to_string(static_cast<int>(kind)) + "; " + simulation.GetState().message);
+    const auto &stuck = simulation.GetState();
+    throw std::runtime_error("No se pudo llegar mediante controles al objeto " + std::to_string(static_cast<int>(kind)) + " seed=" + std::to_string(stuck.seed) + " contrato=" + std::to_string(static_cast<int>(stuck.contract)) + " posicion=" + std::to_string(stuck.agents[0].position.x) + "," + std::to_string(stuck.agents[0].position.y) + " t=" + std::to_string(stuck.elapsed) + " ruta=" + std::to_string(route.size()) + "; " + stuck.message);
   }
 
   void CompleteOperationWithoutStateShortcuts() {
