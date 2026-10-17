@@ -96,12 +96,13 @@ namespace {
     node.session.SetContract(ContractId::DoubleCross);
     node.session.SetReady(true);
     node.Until([&] {
-      return node.session.CanDeploy() && FindAgent(node.session.GetWorld(), 2).position.x > clientPosition.x + 10.f;
+      const auto &client = FindAgent(node.session.GetWorld(), 2);
+      return node.session.CanDeploy() && client.position.x > clientPosition.x + 10.f && client.stance == Stance::Prone;
     });
     Require(node.session.GetWorld().contract == ContractId::DoubleCross, "El cliente modificó el contrato del anfitrión");
     Require(FindAgent(node.session.GetWorld(), 1).position == hostPosition, "El mando del cliente movió al anfitrión");
     Require(node.session.GetWorld().objectives == 0, "Los objetivos cambiaron durante la preparación");
-    std::cout << "PASS host: identidad, sala preparada y movimiento autoritativo del cliente" << std::endl;
+    std::cout << "PASS host: identidad, sala preparada y arrastre automatico autoritativo del cliente" << std::endl;
     node.session.Deploy();
     Require(node.session.GetWorld().phase == GamePhase::Mission, "No se desplegó desde la base");
     bool fired = false;
@@ -112,8 +113,9 @@ namespace {
       const auto found = world.results.find(agent.id);
       Require(found != world.results.end(), "Falta un informe del anfitrión");
       Require(found->second.traitorVictory == (agent.privateOrder == PrivateOrder::Traitor), "Resultado privado incorrecto");
+      Require(agent.alive || agent.health == 0.f, "La eliminacion autoritativa no agoto la salud");
       std::cout << "RESULT host player=" << agent.id << " seed=" << world.seed << " score=" << found->second.score
-                << " traitorVictory=" << found->second.traitorVictory << std::endl;
+                << " traitorVictory=" << found->second.traitorVictory << " health=" << agent.health << " stamina=" << agent.stamina << std::endl;
     }
     node.Advance(1.f);
     node.session.ReturnToBase();
@@ -142,14 +144,17 @@ namespace {
     const auto origin = FindAgent(node.session.GetWorld(), 2).position;
     ActionCommand move;
     move.moveX = 1.f;
+    move.prone = true;
     node.session.Submit(move);
-    node.Advance(0.3f);
+    node.Advance(0.45f);
     node.session.Submit({});
     node.Until([&] { return FindAgent(node.session.GetWorld(), 2).position.x > origin.x + 10.f; });
+    Require(FindAgent(node.session.GetWorld(), 2).stance == Stance::Prone, "El arrastre perdio la postura sin pulsar crawl");
     Require(node.session.GetWorld().phase == GamePhase::Base && node.session.GetWorld().contract == ContractId::DoubleCross,
             "El cliente logró cambiar contrato o desplegar");
     node.session.SetReady(true);
     node.Until([&] { return node.session.GetWorld().phase == GamePhase::Mission; });
+    Require(!node.session.RestartOperation(), "El cliente pudo reiniciar la operacion del anfitrion");
     const auto ownOrder = FindAgent(node.session.GetWorld(), 2).privateOrder;
     Require(ownOrder != PrivateOrder::None, "El cliente no recibió su orden privada");
     Require(FindAgent(node.session.GetWorld(), 1).privateOrder == PrivateOrder::None, "Se filtró la orden del anfitrión");
@@ -162,8 +167,10 @@ namespace {
     const auto result = world.results.at(2);
     Require(result.traitorVictory == (ownOrder == PrivateOrder::Traitor), "El informe del cliente no coincide con su orden");
     Require(FindAgent(world, 1).privateOrder == PrivateOrder::None, "El informe filtró una orden privada ajena");
+    for (const auto &agent : world.agents) Require(agent.alive || agent.health == 0.f, "El snapshot de eliminacion conservo salud");
     std::cout << "RESULT client player=2 seed=" << world.seed << " score=" << result.score
-              << " traitorVictory=" << result.traitorVictory << std::endl;
+              << " traitorVictory=" << result.traitorVictory << " health=" << FindAgent(world, 2).health
+              << " stamina=" << FindAgent(world, 2).stamina << std::endl;
     node.Until([&] { return node.session.GetWorld().phase == GamePhase::Base; });
     node.session.SetReady(true);
     node.Advance(0.15f);

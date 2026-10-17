@@ -2,10 +2,13 @@
 
 #include "Types/BounceTypes.h"
 
+namespace EngineTests { struct GuiAccess; }
+
 // Escena del juego Bounce
 namespace Bounce {
   class Game : public Scene {
   private:
+    friend struct EngineTests::GuiAccess;
     // --- Estado del juego ---
     Paddle paddle; // La paleta del jugador
     std::vector<Ball> balls; // Pelotas activas (puede haber varias simultáneas)

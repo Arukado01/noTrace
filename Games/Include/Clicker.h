@@ -2,9 +2,12 @@
 
 #include "Types/ClickerTypes.h"
 
+namespace EngineTests { struct GuiAccess; }
+
 namespace Clicker {
   class Game : public Scene {
   private:
+    friend struct EngineTests::GuiAccess;
     Target target;
     Stats stats;
 

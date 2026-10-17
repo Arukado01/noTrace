@@ -2,6 +2,8 @@
 #include <SFML/System/Clock.hpp>
 #include <SFML/System/Time.hpp>
 
+namespace EngineTests { struct GuiAccess; }
+
 class TimeManager {
 private:
   sf::Clock clock_;
@@ -15,5 +17,6 @@ public:
 private:
   // Solo la clase Engine puede acceder a la funcion privada Update
   friend class Engine;
+  friend struct EngineTests::GuiAccess;
   void Update();
 };

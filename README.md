@@ -29,7 +29,7 @@ El archivo secundario y el repetidor pueden añadir recompensas u órdenes priva
 
 ## Sigilo y entorno
 
-Caminar, correr, agacharse y tumbarse cambian la velocidad, el ruido y la distancia a la que pueden verte. **Tumbarse no desplaza al agente:** mantén X mientras te mueves para arrastrarte. La cobertura baja protege a quien está agachado o tumbado; la alta interrumpe la visión. Solo los escondites señalados permiten ocultarse explícitamente.
+Caminar, correr, agacharse y tumbarse cambian la velocidad, el ruido y la distancia a la que pueden verte. Pulsa **Z** para tumbarte: al introducir una dirección te arrastras automáticamente; al soltarla permaneces tumbado. Pulsa Z otra vez para levantarte. La cobertura baja protege a quien está agachado o tumbado; la alta interrumpe la visión. Solo los escondites señalados permiten ocultarse explícitamente.
 
 Los guardias distinguen patrulla, sospecha, investigación, alerta y búsqueda. Sus conos de observación, los obstáculos y tu postura afectan a la detección. Un ruido los atrae a su origen; no les revela automáticamente dónde estás. Después de perderte buscan en la última posición que pudieron observar.
 
@@ -37,7 +37,9 @@ Lanza señuelos, golpea una pared, abre puertas, recupera archivos y usa herrami
 
 ## CQC y armas
 
-Acércate a un guardia y pulsa **Q** en cuatro acciones separadas: agarre, derribo, inmovilización e incapacitación. Las armas letales eliminan; las no letales incapacitan. Apunta con el cursor táctico. Cada disparo consume munición y queda registrado aunque no impacte.
+Acércate a un guardia y pulsa **Q** en cuatro acciones separadas: agarre, derribo, inmovilización e incapacitación. Las armas letales eliminan; las no letales y el CQC dejan inconsciente al guardia temporalmente. Apunta con el cursor táctico. Cada disparo consume munición y queda registrado aunque no impacte; las superficies sólidas detienen su trayectoria.
+
+Los guardias que te detectan pueden disparar cuando tienen línea de visión y atacar cuerpo a cuerpo a corta distancia. Su munición es finita; al agotarla intentan acercarse para atacar. El HUD muestra únicamente la vida y la resistencia de tu agente. Correr y ejecutar CQC consumen resistencia; descansar permite recuperarla. La salud agotada por daño letal elimina al agente. La incapacitación temporal permite recuperarse o recibir ayuda de un compañero.
 
 Pulsa **B** cerca de un guardia neutralizado para arrastrarlo; pulsa **E** junto a un escondite para ocultar el cuerpo. Las patrullas reaccionan a los cuerpos que encuentran. En Doble filo un agente incapacitado puede ser reanimado por un compañero con E; incapacitar no satisface la orden de eliminar.
 
@@ -61,10 +63,11 @@ Maestro exige completar los objetivos obligatorios, extraerse y terminar sin arm
 | Correr | Mayús |
 | Agacharse / levantarse | C |
 | Tumbarse / levantarse | Z |
-| Arrastrarse tumbado | Mantener X y mover |
+| Arrastrarse tumbado | Moverse tras tumbarse con Z |
 | Interactuar / extraerse / reanimar | E |
 | CQC por etapas | Q |
 | Apuntar | Cursor táctico |
+| Acercar / alejar la vista | Rueda del ratón |
 | Disparo letal / no letal | Clic izquierdo / derecho |
 | Lanzar señuelo | G |
 | Golpear pared | K |
@@ -73,11 +76,11 @@ Maestro exige completar los objetivos obligatorios, extraerse y terminar sin arm
 | Mostrar orden privada | Tab |
 | Sala de despliegue en la base | F2 |
 | Pausa local | Escape |
-| Volver al menú | M |
+| Reanudar, reiniciar, opciones, base, menú o salir | Menú propio de pausa |
 | Captura | F12 |
 | Alternar pantalla completa | F11 o Alt + Enter |
 
-En una partida individual la pausa detiene la simulación. En LAN el mundo continúa para los demás; tu agente deja de recibir órdenes de movimiento mientras tienes la pausa abierta o la ventana sin foco.
+En una partida individual la pausa detiene la simulación. En LAN el mundo continúa para los demás; tu agente deja de recibir órdenes de movimiento mientras tienes la pausa abierta o la ventana sin foco. El anfitrión controla el reinicio de una operación y el regreso del equipo a la base. El zoom solo cambia tu vista y conserva la puntería sobre el mundo.
 
 ## Pantalla y sonido
 
