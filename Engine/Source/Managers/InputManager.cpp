@@ -2,6 +2,7 @@
 #include "SFML/Window/Joystick.hpp"
 #include "Utils/InputBindings.h"
 #include <algorithm>
+#include <cmath>
 
 void InputManager::Bind(int action, const Input::Binding &binding) {
   bindings_.emplace(action, binding);
@@ -11,6 +12,7 @@ void InputManager::BeginFrame() {
   pressedKeys_.clear();
   pressedMouseButtons_.clear();
   pressedGamepadButtons_.clear();
+  wheelDelta_ = 0.f;
 }
 
 void InputManager::CaptureEvent(const sf::Event &event, bool gameplayAllowed) {
@@ -24,6 +26,12 @@ void InputManager::CaptureEvent(const sf::Event &event, bool gameplayAllowed) {
     });
   }
   if (!gameplayAllowed) {
+    return;
+  }
+  if (const auto *wheel = event.getIf<sf::Event::MouseWheelScrolled>()) {
+    if (wheel->wheel == sf::Mouse::Wheel::Vertical && std::isfinite(wheel->delta)) {
+      wheelDelta_ = std::clamp(wheelDelta_ + wheel->delta, -100.f, 100.f);
+    }
     return;
   }
   // Conserva los pulsos breves hasta Update aunque su liberación llegue en el mismo frame.

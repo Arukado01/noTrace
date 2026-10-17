@@ -1,6 +1,7 @@
 #include "Managers/InputManager.h"
 
 #include <iostream>
+#include <limits>
 #include <stdexcept>
 
 namespace {
@@ -122,6 +123,32 @@ namespace {
     Require(start.has_value() && input.HandleGlobalEvent(sf::Event::JoystickButtonPressed{7, static_cast<unsigned int>(*start)}, true) == GlobalShortcut::Consume,
             "Start del mando atravesó la confirmación");
   }
+
+  void WheelRoutingAndLifetime() {
+    InputManager input;
+    auto wheel = [](float delta, sf::Mouse::Wheel axis = sf::Mouse::Wheel::Vertical) {
+      return sf::Event(sf::Event::MouseWheelScrolled{axis, delta, {40, 60}});
+    };
+    input.CaptureEvent(wheel(1.f));
+    input.CaptureEvent(wheel(0.5f));
+    input.CaptureEvent(wheel(-0.25f));
+    Require(input.WheelDelta() == 1.25f, "La rueda perdio pasos o direccion entre eventos");
+    Require(input.WheelDelta() == 1.25f, "Consultar la rueda consumio su valor");
+    input.CaptureEvent(wheel(5.f, sf::Mouse::Wheel::Horizontal));
+    input.CaptureEvent(wheel(std::numeric_limits<float>::quiet_NaN()));
+    input.CaptureEvent(wheel(std::numeric_limits<float>::infinity()));
+    Require(input.WheelDelta() == 1.25f, "La rueda horizontal o invalida altero el zoom");
+    input.BeginFrame();
+    Require(input.WheelDelta() == 0.f, "La rueda persistio mas de un frame");
+    input.CaptureEvent(wheel(2.f), false);
+    Require(input.WheelDelta() == 0.f, "La rueda atraveso una ruta bloqueada");
+    input.CaptureEvent(wheel(-2.f));
+    input.CaptureEvent(sf::Event::FocusLost{}, false);
+    Require(input.WheelDelta() == 0.f, "La perdida de foco conservo zoom pendiente");
+    input.CaptureEvent(wheel(3.f));
+    input.Clear();
+    Require(input.WheelDelta() == 0.f, "Cambiar de escena conservo la rueda anterior");
+  }
 }
 
 int main() {
@@ -131,6 +158,7 @@ int main() {
     PhysicalGamepadIdentity();
     BlockedRoutingAndFocus();
     GlobalShortcutsRemainSeparate();
+    WheelRoutingAndLifetime();
     std::cout << "PASS entrada: " << checks << " comprobaciones de pulsos, foco, rutas y atajos\n";
     return 0;
   } catch (const std::exception &error) {

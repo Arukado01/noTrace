@@ -14,12 +14,14 @@ private:
   std::unordered_set<std::uint64_t> pressedGamepadButtons_;
   bool fullscreenShortcutHeld_ = false;
   sf::Keyboard::Scancode fullscreenShortcutKey_ = sf::Keyboard::Scan::Unknown;
+  float wheelDelta_ = 0.f;
 
 public:
   void Bind(int action, const Input::Binding &binding);
   void BeginFrame();
   void CaptureEvent(const sf::Event &event, bool gameplayAllowed = true);
   bool Pressed(int action) const;
+  float WheelDelta() const { return wheelDelta_; }
   void Clear();
   GlobalShortcut HandleGlobalEvent(const sf::Event &event, bool displayConfirmationPending);
 
