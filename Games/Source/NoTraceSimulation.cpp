@@ -20,35 +20,6 @@ namespace NoTrace {
     sf::Vector2f Unit(sf::Vector2f value) { const float length = Length(value); return length > 0.0001f ? value / length : sf::Vector2f{}; }
     float Distance(sf::Vector2f left, sf::Vector2f right) { return Length(left - right); }
     bool IsBody(const Guard &guard) { return guard.state == GuardState::Dead || guard.state == GuardState::Incapacitated; }
-    bool SegmentRect(sf::Vector2f start, sf::Vector2f end, const sf::FloatRect &rect, float *intersection = nullptr) {
-      float near = 0.f, far = 1.f;
-      const auto direction = end - start;
-      for (int axis = 0; axis < 2; ++axis) {
-        const float origin = axis == 0 ? start.x : start.y;
-        const float delta = axis == 0 ? direction.x : direction.y;
-        const float minimum = axis == 0 ? rect.position.x : rect.position.y;
-        const float maximum = minimum + (axis == 0 ? rect.size.x : rect.size.y);
-        if (std::abs(delta) < 0.0001f) { if (origin < minimum || origin > maximum) return false; }
-        else {
-          float first = (minimum - origin) / delta, second = (maximum - origin) / delta;
-          if (first > second) std::swap(first, second);
-          near = std::max(near, first); far = std::min(far, second);
-          if (near > far) return false;
-        }
-      }
-      if (far < 0.f || near > 1.f) return false;
-      if (intersection) *intersection = std::max(0.f, near);
-      return true;
-    }
-    float RayCircle(sf::Vector2f from, sf::Vector2f direction, sf::Vector2f center, float radius) {
-      const auto offset = center - from;
-      const float projection = offset.dot(direction);
-      const float perpendicularSquared = offset.dot(offset) - projection * projection;
-      if (perpendicularSquared > radius * radius) return std::numeric_limits<float>::infinity();
-      const float halfChord = std::sqrt(std::max(0.f, radius * radius - perpendicularSquared));
-      if (projection + halfChord < 0.f) return std::numeric_limits<float>::infinity();
-      return std::max(0.f, projection - halfChord);
-    }
     nlohmann::json VectorJson(sf::Vector2f value) { return {value.x, value.y}; }
     sf::Vector2f ParseVector(const nlohmann::json &value) {
       if (!value.is_array() || value.size() != 2) throw std::runtime_error("Vector inválido");
@@ -316,11 +287,7 @@ namespace NoTrace {
   }
 
   bool Simulation::Occluded(sf::Vector2f from, sf::Vector2f to, Stance stance) const {
-    for (const auto &obstacle : world_.obstacles) {
-      if ((obstacle.cover == CoverKind::High || (obstacle.cover == CoverKind::Low && stance != Stance::Standing)) && SegmentRect(from, to, obstacle.bounds)) return true;
-    }
-    for (const auto &object : world_.objects) if (object.kind == ObjectKind::Door && !object.open && SegmentRect(from, to, {{object.position.x - 12.f, object.position.y - 30.f}, {24.f, 60.f}})) return true;
-    return false;
+    return !Visibility::HasLineOfSight(world_, from, to, stance);
   }
 
   bool Simulation::CanSee(sf::Vector2f from, sf::Vector2f facing, const Agent &agent, float range) const {
@@ -1044,49 +1011,124 @@ namespace NoTrace {
     }
   }
 
-  nlohmann::json Simulation::SnapshotFor(PlayerId player) const {
+  nlohmann::json Simulation::SnapshotFor(PlayerId player, bool visibilityFiltered) const {
     using nlohmann::json;
+    const auto foundObserver = std::ranges::find_if(world_.agents, [player](const Agent &agent) { return agent.id == player; });
+    const Agent *observer = foundObserver == world_.agents.end() ? nullptr : &*foundObserver;
+    const bool filtered = visibilityFiltered && world_.phase == GamePhase::Mission;
+    const auto visible = [&](sf::Vector2f point, Stance stance = Stance::Standing) {
+      return !filtered || (observer && Visibility::IsVisible(world_, *observer, point, stance));
+    };
+    std::unordered_set<std::uint32_t> visibleGuards, visibleObjects, visibleAgents;
+    for (const auto &guard : world_.guards) if (!filtered || (observer && Visibility::GuardVisible(world_, *observer, guard))) visibleGuards.insert(guard.id);
+    for (const auto &object : world_.objects) if (!filtered || (observer && Visibility::ObjectVisible(world_, *observer, object))) visibleObjects.insert(object.id);
+    for (const auto &agent : world_.agents) if (!filtered || agent.id == player || (!agent.hidden && visible(agent.position, agent.stance))) visibleAgents.insert(agent.id);
     json snapshot{{"version", GameplayConfig::ProtocolVersion}, {"player", player}, {"phase", static_cast<int>(world_.phase)},
       {"contract", static_cast<int>(world_.contract)}, {"seed", world_.seed}, {"tick", world_.tick}, {"size", VectorJson(world_.size)},
       {"elapsed", world_.elapsed}, {"alarm", world_.alarm}, {"alarmRemaining", alarmRemaining_}, {"alarmCount", world_.alarmCount}, {"objectives", world_.objectives},
-      {"secondary", world_.secondary}, {"message", world_.message}};
+      {"secondary", world_.secondary}, {"message", filtered ? "Operación en curso." : world_.message}, {"visibilityFiltered", filtered}};
+    snapshot["visibility"] = nullptr;
+    if (filtered && observer) {
+      const auto grid = Visibility::BuildGrid(world_, *observer);
+      snapshot["visibility"] = {{"observer", grid.observer}, {"tick", grid.tick}, {"cellSize", grid.cellSize},
+        {"columns", grid.columns}, {"rows", grid.rows}, {"cells", grid.cells}};
+    }
     snapshot["agents"] = json::array();
     for (const auto &agent : world_.agents) {
+      if (filtered && agent.id != player && (agent.hidden || !visible(agent.position, agent.stance))) continue;
+      auto cover = agent.cover;
+      if (filtered && agent.id != player && cover.object != 0 && !visibleObjects.contains(cover.object)) cover = {};
       json value{{"id", agent.id}, {"name", agent.name}, {"position", VectorJson(agent.position)}, {"facing", VectorJson(agent.facing)},
         {"stance", static_cast<int>(agent.stance)}, {"alive", agent.alive}, {"incapacitated", agent.incapacitated}, {"bodyReported", agent.bodyReported}, {"connected", agent.connected}, {"hidden", agent.hidden},
         {"moving", agent.moving}, {"running", agent.running}, {"extracted", agent.extracted}, {"animationTime", agent.animationTime},
         {"health", agent.health}, {"stamina", agent.stamina}, {"incapacityRemaining", agent.incapacityRemaining}, {"actionCooldown", agent.actionCooldown}, {"footstepTime", agent.footstepTime},
-        {"draggingGuard", agent.draggingGuard}, {"loadout", {agent.loadout.lethalAmmo, agent.loadout.nonLethalAmmo, agent.loadout.decoys, agent.loadout.tools}}};
-      if (agent.id == player) { value["privateOrder"] = static_cast<int>(agent.privateOrder); value["privateComplete"] = agent.privateComplete; }
+        {"draggingGuard", filtered && agent.id != player && !visibleGuards.contains(static_cast<std::uint32_t>(agent.draggingGuard)) ? -1 : agent.draggingGuard}, {"aimSlope", agent.aimSlope},
+        {"hideoutId", agent.hideoutId}, {"hideoutExit", VectorJson(agent.hideoutExit)},
+        {"actionPose", static_cast<int>(agent.actionPose)}, {"actionPoseTime", agent.actionPoseTime},
+        {"cover", {{"active", cover.active}, {"anchor", VectorJson(cover.anchor)}, {"normal", VectorJson(cover.normal)},
+          {"surfacePosition", VectorJson(cover.surface.position)}, {"surfaceSize", VectorJson(cover.surface.size)},
+          {"obstacle", cover.obstacle}, {"object", cover.object}, {"peekSide", static_cast<int>(cover.peekSide)},
+          {"canPeekLeft", cover.canPeekLeft}, {"canPeekRight", cover.canPeekRight}}},
+        {"loadout", {agent.loadout.lethalAmmo, agent.loadout.nonLethalAmmo, agent.loadout.decoys, agent.loadout.tools}}};
+      if (agent.id == player) {
+        value["privateOrder"] = static_cast<int>(agent.privateOrder); value["privateComplete"] = agent.privateComplete;
+        const auto &guide = agent.decoyGuide;
+        value["decoyGuide"] = {{"active", guide.active}, {"direction", VectorJson(guide.direction)}, {"distance", guide.distance},
+          {"destination", VectorJson(guide.destination)}, {"maximum", VectorJson(guide.maximum)}, {"travelled", guide.travelled},
+          {"maximumTravelled", guide.maximumTravelled}, {"valid", guide.valid}, {"blocked", guide.blocked}, {"maximumBlocked", guide.maximumBlocked}};
+      }
       snapshot["agents"].push_back(std::move(value));
     }
     snapshot["guards"] = json::array();
     for (const auto &guard : world_.guards) {
+      if (!visibleGuards.contains(guard.id)) continue;
       json patrol = json::array();
-      for (auto point : guard.patrol) patrol.push_back(VectorJson(point));
+      if (!filtered) for (auto point : guard.patrol) patrol.push_back(VectorJson(point));
       snapshot["guards"].push_back({{"id", guard.id}, {"position", VectorJson(guard.position)}, {"facing", VectorJson(guard.facing)},
-        {"state", static_cast<int>(guard.state)}, {"cqcState", static_cast<int>(guard.cqcState)}, {"patrol", patrol}, {"waypoint", guard.waypoint},
-        {"lastKnown", VectorJson(guard.lastKnown)}, {"suspicion", guard.suspicion}, {"bodyHidden", guard.bodyHidden}, {"bodyReported", guard.bodyReported}, {"heldBy", guard.heldBy},
-        {"stateTime", guard.stateTime}, {"attackCooldown", guard.attackCooldown}, {"attackTime", guard.attackTime}, {"meleeAttack", guard.meleeAttack}, {"ammo", guard.ammo}, {"incapacityRemaining", guard.incapacityRemaining}});
+        {"state", static_cast<int>(guard.state)}, {"cqcState", static_cast<int>(guard.cqcState)}, {"patrol", patrol}, {"waypoint", filtered ? 0 : guard.waypoint},
+        {"lastKnown", VectorJson(filtered ? guard.position : guard.lastKnown)}, {"suspicion", guard.suspicion}, {"bodyHidden", guard.bodyHidden}, {"bodyReported", guard.bodyReported}, {"heldBy", guard.heldBy},
+        {"stateTime", guard.stateTime}, {"attackCooldown", guard.attackCooldown}, {"attackTime", guard.attackTime}, {"meleeAttack", guard.meleeAttack}, {"ammo", guard.ammo}, {"incapacityRemaining", guard.incapacityRemaining},
+        {"health", guard.health}, {"stun", guard.stun}, {"detectedTime", guard.detectedTime}, {"storedIn", guard.storedIn}, {"stepTime", guard.stepTime}});
     }
     snapshot["obstacles"] = json::array();
     for (const auto &obstacle : world_.obstacles) snapshot["obstacles"].push_back({{"position", VectorJson(obstacle.bounds.position)},
-      {"size", VectorJson(obstacle.bounds.size)}, {"cover", static_cast<int>(obstacle.cover)}, {"solid", obstacle.solid}, {"name", obstacle.name}});
+      {"size", VectorJson(obstacle.bounds.size)}, {"cover", static_cast<int>(obstacle.cover)}, {"solid", obstacle.solid},
+      {"blocksVision", obstacle.blocksVision}, {"wallCover", obstacle.wallCover}, {"name", obstacle.name}});
     snapshot["objects"] = json::array();
-    for (const auto &object : world_.objects) snapshot["objects"].push_back({{"id", object.id}, {"kind", static_cast<int>(object.kind)},
+    for (const auto &object : world_.objects) {
+      if (!visibleObjects.contains(object.id)) continue;
+      snapshot["objects"].push_back({{"id", object.id}, {"kind", static_cast<int>(object.kind)},
       {"position", VectorJson(object.position)}, {"name", object.name}, {"active", object.active}, {"completed", object.completed},
-      {"open", object.open}, {"progress", object.progress}, {"facing", VectorJson(object.facing)}});
+      {"open", object.open}, {"progress", object.progress}, {"facing", VectorJson(object.facing)},
+      {"footprint", VectorJson(object.footprint)}, {"solid", static_cast<int>(object.solid)},
+      {"blocksVision", static_cast<int>(object.blocksVision)}, {"wallCover", static_cast<int>(object.wallCover)}, {"interactive", object.interactive}, {"decorative", object.decorative},
+      {"hideoutKind", static_cast<int>(object.hideoutKind)}, {"occupied", WorldGeometry::HideoutOccupied(object)}, {"occupantAgent", !filtered || object.occupantAgent == player ? object.occupantAgent : 0}, {"occupantGuard", filtered ? 0 : object.occupantGuard}});
+    }
+    snapshot["footsteps"] = json::array();
+    for (const auto &cue : world_.footsteps) {
+      if (filtered && (!observer || !Visibility::FootstepAudible(world_, *observer, cue))) continue;
+      json value{{"position", VectorJson(cue.position)}, {"direction", cue.direction}, {"remaining", cue.remaining}};
+      if (!filtered) value["sourceGuard"] = cue.sourceGuard;
+      snapshot["footsteps"].push_back(std::move(value));
+    }
     snapshot["noises"] = json::array();
-    for (const auto &noise : world_.noises) snapshot["noises"].push_back({{"position", VectorJson(noise.position)}, {"radius", noise.radius}, {"remaining", noise.remaining}, {"actor", noise.actor}, {"guardId", noise.guardId}});
+    for (const auto &noise : world_.noises) if (visible(noise.position)) snapshot["noises"].push_back({{"position", VectorJson(noise.position)}, {"radius", noise.radius}, {"remaining", noise.remaining}, {"actor", !filtered || visibleAgents.contains(noise.actor) ? noise.actor : 0}, {"guardId", visibleGuards.contains(noise.guardId) ? noise.guardId : 0}});
     snapshot["shots"] = json::array();
-    for (const auto &shot : world_.shots) snapshot["shots"].push_back({{"from", VectorJson(shot.from)}, {"to", VectorJson(shot.to)}, {"remaining", shot.remaining}, {"lethal", shot.lethal}, {"actor", shot.actor}, {"guardId", shot.guardId}, {"hit", shot.hit}, {"blocked", shot.blocked}});
+    for (const auto &shot : world_.shots) {
+      if (!visible(shot.from) && !visible(shot.to)) continue;
+      auto from = shot.from, to = shot.to;
+      const bool sourceKnown = !filtered || (shot.guardId ? visibleGuards.contains(shot.guardId) : shot.actor == 0 || visibleAgents.contains(shot.actor));
+      const bool targetKnown = !filtered || shot.targetKind == ShotTarget::None || (shot.targetKind == ShotTarget::Guard ? visibleGuards.contains(shot.targetId) : visibleAgents.contains(shot.targetId));
+      const bool sourceVisible = visible(from) && sourceKnown, targetVisible = visible(to) && targetKnown;
+      if (filtered && !sourceKnown && !(shot.targetKind == ShotTarget::Agent && shot.targetId == player)) continue;
+      if (!sourceVisible || !targetVisible) {
+        bool found = false;
+        for (int sample = 0; sample <= 64; ++sample) {
+          const auto point = shot.from + (shot.to - shot.from) * (static_cast<float>(sample) / 64.f);
+          if (!visible(point)) continue;
+          if (!found) { from = point; found = true; }
+          to = point;
+        }
+        if (!found) continue;
+      }
+      snapshot["shots"].push_back({{"from", VectorJson(from)}, {"to", VectorJson(to)}, {"remaining", shot.remaining}, {"lethal", shot.lethal},
+        {"actor", sourceVisible ? shot.actor : 0}, {"guardId", sourceVisible ? shot.guardId : 0}, {"hit", targetVisible && shot.hit}, {"blocked", targetVisible && shot.blocked},
+        {"zone", targetVisible ? static_cast<int>(shot.zone) : 0}, {"fromHeight", shot.fromHeight}, {"toHeight", shot.toHeight}, {"targetId", targetVisible ? shot.targetId : 0}, {"targetKind", targetVisible ? static_cast<int>(shot.targetKind) : 0}});
+    }
     snapshot["events"] = json::array();
     const auto first = world_.events.size() > 64 ? world_.events.size() - 64 : 0;
     // El anfitrión conserva todo el registro; los clientes reciben solo actividad reciente y nunca órdenes ajenas.
     for (std::size_t index = first; index < world_.events.size(); ++index) {
       const auto &event = world_.events[index];
       if (event.kind == EventKind::PrivateObjective && event.actor != player) continue;
-      snapshot["events"].push_back({{"sequence", event.sequence}, {"tick", event.tick}, {"actor", event.actor}, {"kind", static_cast<int>(event.kind)}, {"target", event.target}});
+      if (filtered && event.actor != player) {
+        const bool localDamage = (event.kind == EventKind::AgentDamaged || event.kind == EventKind::AgentKilled || event.kind == EventKind::AgentIncapacitated || event.kind == EventKind::AgentRevived) && event.target == player;
+        const bool guardEvent = event.kind == EventKind::GuardShot || event.kind == EventKind::GuardMelee || event.kind == EventKind::GuardKilled || event.kind == EventKind::GuardIncapacitated || event.kind == EventKind::BodyFound;
+        if (!localDamage && !(guardEvent && visibleGuards.contains(event.target))) continue;
+      }
+      const bool hiddenObserver = filtered && (event.kind == EventKind::ConfirmedDetection || event.kind == EventKind::AgentAlarm) && !visibleGuards.contains(event.target);
+      const bool hiddenGuard = filtered && (event.kind == EventKind::GuardKilled || event.kind == EventKind::GuardIncapacitated) && !visibleGuards.contains(event.target);
+      snapshot["events"].push_back({{"sequence", event.sequence}, {"tick", event.tick}, {"actor", event.actor}, {"kind", static_cast<int>(event.kind)}, {"target", hiddenObserver || hiddenGuard ? 0 : event.target}});
     }
     snapshot["results"] = json::array();
     for (const auto &[id, result] : world_.results) snapshot["results"].push_back({{"id", id}, {"success", result.success}, {"traitorVictory", result.traitorVictory},
@@ -1138,6 +1180,23 @@ namespace NoTrace {
         agent.health = finite(value.at("health"), GameplayConfig::MaxHealth); agent.stamina = finite(value.at("stamina"), GameplayConfig::MaxStamina);
         agent.incapacityRemaining = finite(value.at("incapacityRemaining"), GameplayConfig::IncapacityDuration);
         agent.actionCooldown = finite(value.at("actionCooldown"), 60.f); agent.footstepTime = finite(value.at("footstepTime"), 86400.f);
+        agent.aimSlope = value.value("aimSlope", 0.f);
+        agent.hideoutId = value.value("hideoutId", std::uint32_t{0});
+        agent.hideoutExit = ParseVector(value.value("hideoutExit", VectorJson(sf::Vector2f{})));
+        agent.actionPose = ParseEnum<ActionPose>(value.value("actionPose", nlohmann::json(0)), 2);
+        agent.actionPoseTime = finite(value.value("actionPoseTime", nlohmann::json(0.f)), GameplayConfig::AttackAnimationDuration);
+        if (!std::isfinite(agent.aimSlope) || std::abs(agent.aimSlope) > CombatConfig::MaximumAimSlope) throw std::runtime_error("Elevación de apuntado inválida");
+        if (value.contains("cover")) {
+          const auto &cover = value.at("cover");
+          agent.cover.active = cover.at("active").get<bool>(); agent.cover.anchor = ParseVector(cover.at("anchor")); agent.cover.normal = ParseVector(cover.at("normal"));
+          agent.cover.surface = {ParseVector(cover.at("surfacePosition")), ParseVector(cover.at("surfaceSize"))};
+          agent.cover.obstacle = cover.at("obstacle").get<int>(); agent.cover.object = cover.at("object").get<std::uint32_t>();
+          agent.cover.peekSide = ParseEnum<PeekSide>(cover.at("peekSide"), 2);
+          agent.cover.canPeekLeft = cover.at("canPeekLeft").get<bool>(); agent.cover.canPeekRight = cover.at("canPeekRight").get<bool>();
+          if (agent.cover.active && (agent.cover.surface.size.x <= 0.f || agent.cover.surface.size.y <= 0.f || std::abs(agent.cover.normal.lengthSquared() - 1.f) > 0.01f ||
+              agent.cover.anchor.x < GameplayConfig::AgentRadius || agent.cover.anchor.y < GameplayConfig::AgentRadius ||
+              agent.cover.anchor.x > replacement.size.x - GameplayConfig::AgentRadius || agent.cover.anchor.y > replacement.size.y - GameplayConfig::AgentRadius)) throw std::runtime_error("Cobertura inválida");
+        }
         if ((!agent.alive && (agent.incapacitated || agent.incapacityRemaining > 0.f)) || (agent.alive && agent.health <= 0.f) || (agent.incapacitated != (agent.incapacityRemaining > 0.f))) throw std::runtime_error("Estado vital de agente inválido");
         const auto &loadout = value.at("loadout");
         if (!loadout.is_array() || loadout.size() != 4) throw std::runtime_error("Equipo inválido");
@@ -1150,6 +1209,20 @@ namespace NoTrace {
         agent.loadout = {counts[0], counts[1], counts[2], counts[3]};
         if (agent.id == recipient && value.contains("privateOrder")) { agent.privateOrder = ParseEnum<PrivateOrder>(value.at("privateOrder"), 3); agent.privateComplete = value.at("privateComplete").get<bool>(); }
         else if (value.contains("privateOrder") || value.contains("privateComplete")) throw std::runtime_error("Orden ajena incluida en estado público");
+        if (value.contains("decoyGuide")) {
+          if (agent.id != recipient) throw std::runtime_error("Guía de lanzamiento ajena");
+          const auto &valueGuide = value.at("decoyGuide"); auto &guide = agent.decoyGuide;
+          guide.active = valueGuide.at("active").get<bool>(); guide.direction = ParseVector(valueGuide.at("direction"));
+          guide.distance = finite(valueGuide.at("distance"), DistractionConfig::MaximumDecoyDistance);
+          guide.destination = ParseVector(valueGuide.at("destination")); guide.maximum = ParseVector(valueGuide.at("maximum"));
+          guide.travelled = finite(valueGuide.at("travelled"), DistractionConfig::MaximumDecoyDistance);
+          guide.maximumTravelled = finite(valueGuide.at("maximumTravelled"), DistractionConfig::MaximumDecoyDistance);
+          guide.valid = valueGuide.at("valid").get<bool>(); guide.blocked = valueGuide.at("blocked").get<bool>(); guide.maximumBlocked = valueGuide.at("maximumBlocked").get<bool>();
+          if (guide.active && (!agent.alive || agent.incapacitated || agent.hidden || agent.extracted || std::abs(guide.direction.lengthSquared() - 1.f) > 0.01f ||
+              std::abs((guide.destination - agent.position).length() - guide.travelled) > 0.15f || std::abs((guide.maximum - agent.position).length() - guide.maximumTravelled) > 0.15f ||
+              guide.destination.x < 0.f || guide.destination.y < 0.f || guide.destination.x > replacement.size.x || guide.destination.y > replacement.size.y ||
+              guide.maximum.x < 0.f || guide.maximum.y < 0.f || guide.maximum.x > replacement.size.x || guide.maximum.y > replacement.size.y)) throw std::runtime_error("Guía autoritativa inválida");
+        }
         replacement.agents.push_back(agent);
       }
       for (const auto &value : array("guards", 32)) {
@@ -1172,6 +1245,11 @@ namespace NoTrace {
         if (ammo < 0 || ammo > GameplayConfig::GuardAmmo) throw std::runtime_error("Munición de guardia inválida");
         guard.ammo = static_cast<int>(ammo);
         guard.incapacityRemaining = finite(value.at("incapacityRemaining"), GameplayConfig::GuardIncapacityDuration);
+        guard.health = finite(value.value("health", nlohmann::json(CombatConfig::MaxGuardHealth)), CombatConfig::MaxGuardHealth);
+        guard.stun = finite(value.value("stun", nlohmann::json(0.f)), CombatConfig::MaxGuardStun);
+        guard.detectedTime = finite(value.value("detectedTime", nlohmann::json(0.f)), CombatConfig::ConfirmedIconDuration);
+        guard.storedIn = value.value("storedIn", std::uint32_t{0});
+        guard.stepTime = finite(value.value("stepTime", nlohmann::json(0.f)), 86400.f);
         replacement.guards.push_back(guard);
       }
       for (const auto &value : array("obstacles", 128)) {
@@ -1179,6 +1257,7 @@ namespace NoTrace {
         obstacle.bounds = {ParseVector(value.at("position")), ParseVector(value.at("size"))};
         if (obstacle.bounds.size.x <= 0.f || obstacle.bounds.size.y <= 0.f) throw std::runtime_error("Obstáculo sin dimensiones");
         obstacle.cover = ParseEnum<CoverKind>(value.at("cover"), 3); obstacle.solid = value.at("solid").get<bool>(); obstacle.name = text(value.at("name"), 128);
+        obstacle.blocksVision = value.value("blocksVision", true); obstacle.wallCover = value.value("wallCover", true);
         replacement.obstacles.push_back(obstacle);
       }
       for (const auto &value : array("objects", 64)) {
@@ -1188,10 +1267,46 @@ namespace NoTrace {
         object.kind = ParseEnum<ObjectKind>(value.at("kind"), 11); object.position = ParseVector(value.at("position")); object.name = text(value.at("name"), 128);
         object.active = value.at("active").get<bool>(); object.completed = value.at("completed").get<bool>(); object.open = value.at("open").get<bool>();
         object.progress = finite(value.at("progress"), 86400.f); object.facing = ParseVector(value.at("facing"));
+        if (value.contains("footprint")) {
+          object.footprint = ParseVector(value.at("footprint"));
+          if (object.footprint.x < 0.f || object.footprint.y < 0.f || (object.footprint.x == 0.f) != (object.footprint.y == 0.f) || object.footprint.x > replacement.size.x || object.footprint.y > replacement.size.y) throw std::runtime_error("Huella de objeto inválida");
+        }
+        object.solid = ParseEnum<SpatialOverride>(value.value("solid", nlohmann::json(0)), 2);
+        object.blocksVision = ParseEnum<SpatialOverride>(value.value("blocksVision", nlohmann::json(0)), 2);
+        object.wallCover = ParseEnum<SpatialOverride>(value.value("wallCover", nlohmann::json(0)), 2);
+        object.interactive = value.value("interactive", true); object.decorative = value.value("decorative", false);
+        object.hideoutKind = ParseEnum<HideoutKind>(value.value("hideoutKind", nlohmann::json(0)), 3);
+        object.occupantAgent = value.value("occupantAgent", PlayerId{0}); object.occupantGuard = value.value("occupantGuard", std::uint32_t{0});
+        object.occupied = value.value("occupied", object.occupantAgent != 0 || object.occupantGuard != 0);
+        const bool hasOccupant = object.occupantAgent != 0 || object.occupantGuard != 0;
+        if ((!snapshot.value("visibilityFiltered", false) && object.occupied != hasOccupant) || (hasOccupant && !object.occupied)) throw std::runtime_error("Estado de ocupación incoherente");
+        if (object.occupantAgent && object.occupantGuard) throw std::runtime_error("Escondite con capacidad excedida");
+        if ((object.occupantAgent || object.occupantGuard) && WorldGeometry::HideoutType(object) == HideoutKind::None) throw std::runtime_error("Ocupante sin escondite compatible");
         replacement.objects.push_back(object);
       }
+      if (snapshot.contains("footsteps")) for (const auto &value : array("footsteps", 128)) {
+        FootstepCue cue;
+        cue.position = ParseVector(value.at("position"));
+        if (!value.at("direction").is_number_integer()) throw std::runtime_error("Dirección de pista inválida");
+        const int direction = value.at("direction").get<int>();
+        if (direction < 0 || direction > 7 || cue.position.x < 0.f || cue.position.y < 0.f || cue.position.x > replacement.size.x || cue.position.y > replacement.size.y) throw std::runtime_error("Pista de pasos inválida");
+        cue.direction = static_cast<std::uint8_t>(direction);
+        cue.remaining = finite(value.at("remaining"), DistractionConfig::FootstepLifetime);
+        cue.sourceGuard = value.value("sourceGuard", std::uint32_t{0});
+        if (snapshot.value("visibilityFiltered", false) && value.contains("sourceGuard")) throw std::runtime_error("Pista con identidad privada");
+        replacement.footsteps.push_back(cue);
+      }
       for (const auto &value : array("noises", 128)) replacement.noises.push_back({ParseVector(value.at("position")), finite(value.at("radius"), 10000.f), finite(value.at("remaining"), 60.f), value.at("actor").get<PlayerId>(), value.value("guardId", std::uint32_t{0})});
-      for (const auto &value : array("shots", 128)) replacement.shots.push_back({ParseVector(value.at("from")), ParseVector(value.at("to")), finite(value.at("remaining"), GameplayConfig::ShotTraceDuration), value.at("lethal").get<bool>(), value.at("actor").get<PlayerId>(), value.at("guardId").get<std::uint32_t>(), value.at("hit").get<bool>(), value.at("blocked").get<bool>()});
+      for (const auto &value : array("shots", 128)) {
+        ShotTrace shot{ParseVector(value.at("from")), ParseVector(value.at("to")), finite(value.at("remaining"), GameplayConfig::ShotTraceDuration), value.at("lethal").get<bool>(), value.at("actor").get<PlayerId>(), value.at("guardId").get<std::uint32_t>(), value.at("hit").get<bool>(), value.at("blocked").get<bool>()};
+        shot.zone = ParseEnum<HitZone>(value.value("zone", nlohmann::json(0)), 3);
+        const float maximumHeight = GameplayConfig::WeaponRange * CombatConfig::MaximumAimSlope + CombatConfig::StandingHeight;
+        shot.fromHeight = finite(value.value("fromHeight", nlohmann::json(0.f)), CombatConfig::StandingHeight);
+        shot.toHeight = finite(value.value("toHeight", nlohmann::json(0.f)), maximumHeight);
+        shot.targetId = value.value("targetId", std::uint32_t{0});
+        shot.targetKind = ParseEnum<ShotTarget>(value.value("targetKind", nlohmann::json(0)), 2);
+        replacement.shots.push_back(shot);
+      }
       for (const auto &value : array("events", 64)) {
         MissionEvent event{value.at("sequence").get<std::uint64_t>(), value.at("tick").get<std::uint64_t>(), value.at("actor").get<PlayerId>(), ParseEnum<EventKind>(value.at("kind"), 21), value.at("target").get<std::uint32_t>()};
         if (event.kind == EventKind::PrivateObjective && event.actor != recipient) throw std::runtime_error("Evento privado ajeno");
@@ -1205,6 +1320,81 @@ namespace NoTrace {
         result.score = value.at("score").get<int>(); result.rank = ParseEnum<Rank>(value.at("rank"), 6); result.reason = text(value.at("reason"), 2048);
         if (replacement.results.contains(id) || result.score < 0 || result.score > 1000000) throw std::runtime_error("Resultado inválido");
         replacement.results.emplace(id, result);
+      }
+      if (snapshot.value("visibilityFiltered", false)) {
+        const auto &grid = snapshot.at("visibility");
+        if (!grid.is_object() || grid.at("observer").get<PlayerId>() != recipient || grid.at("tick").get<std::uint64_t>() != replacement.tick) throw std::runtime_error("Destinatario de visibilidad inválido");
+        replacement.visibility.authoritative = true; replacement.visibility.observer = recipient; replacement.visibility.tick = replacement.tick;
+        replacement.visibility.cellSize = finite(grid.at("cellSize"), VisibilityConfig::CellSize);
+        replacement.visibility.columns = grid.at("columns").get<unsigned int>(); replacement.visibility.rows = grid.at("rows").get<unsigned int>();
+        if (replacement.visibility.cellSize != VisibilityConfig::CellSize || replacement.visibility.columns != static_cast<unsigned int>(std::ceil(replacement.size.x / VisibilityConfig::CellSize)) ||
+            replacement.visibility.rows != static_cast<unsigned int>(std::ceil(replacement.size.y / VisibilityConfig::CellSize))) throw std::runtime_error("Dimensiones de visibilidad inválidas");
+        const auto count = static_cast<std::size_t>(replacement.visibility.columns) * replacement.visibility.rows;
+        const auto &cells = grid.at("cells");
+        if (count > VisibilityConfig::MaximumCells || !cells.is_array() || cells.size() != count) throw std::runtime_error("Máscara de visibilidad inválida");
+        for (const auto &cell : cells) {
+          if (!cell.is_number_integer() || (cell != 0 && cell != 1)) throw std::runtime_error("Celda de visibilidad inválida");
+          replacement.visibility.cells.push_back(cell.get<std::uint8_t>());
+        }
+        if (std::ranges::none_of(replacement.agents, [recipient](const Agent &agent) { return agent.id == recipient; })) throw std::runtime_error("Estado sin agente local");
+      }
+      for (const auto &object : replacement.objects) {
+        if (object.occupantGuard && !WorldGeometry::HideoutAllowsBody(object)) throw std::runtime_error("El escondite no admite cuerpos");
+        if (object.occupantAgent) {
+          const auto agent = std::ranges::find_if(replacement.agents, [&](const Agent &entry) { return entry.id == object.occupantAgent; });
+          if (agent == replacement.agents.end() || !agent->hidden || agent->hideoutId != object.id) throw std::runtime_error("Ocupación de agente incoherente");
+        }
+        if (object.occupantGuard) {
+          const auto guard = std::ranges::find_if(replacement.guards, [&](const Guard &entry) { return entry.id == object.occupantGuard; });
+          if (guard == replacement.guards.end() || !guard->bodyHidden || guard->storedIn != object.id) throw std::runtime_error("Ocupación de cuerpo incoherente");
+        }
+      }
+      for (const auto &guard : replacement.guards) if (guard.storedIn) {
+        const auto object = std::ranges::find_if(replacement.objects, [&](const Interactable &entry) { return entry.id == guard.storedIn; });
+        if (!guard.bodyHidden || (guard.state != GuardState::Dead && guard.state != GuardState::Incapacitated) || object == replacement.objects.end() || object->occupantGuard != guard.id) throw std::runtime_error("Cuerpo almacenado inválido");
+      }
+      for (const auto &agent : replacement.agents) {
+        if (agent.hideoutId) {
+          const auto object = std::ranges::find_if(replacement.objects, [&](const Interactable &entry) { return entry.id == agent.hideoutId; });
+          if (!agent.hidden || agent.moving || agent.running || agent.draggingGuard >= 0 || agent.cover.active || object == replacement.objects.end() || object->occupantAgent != agent.id ||
+              !WorldGeometry::ObjectFootprint(*object).contains(agent.position) || (WorldGeometry::HideoutType(*object) == HideoutKind::UnderTable && agent.stance != Stance::Prone)) throw std::runtime_error("Agente oculto inválido");
+        }
+        const auto &cover = agent.cover;
+        if (!cover.active) {
+          if (cover.peekSide != PeekSide::None || cover.canPeekLeft || cover.canPeekRight || cover.obstacle != -1 || cover.object != 0) throw std::runtime_error("Cobertura inactiva con acciones o referencias activas");
+          continue;
+        }
+        const bool horizontal = std::abs(cover.normal.x) > 0.999f && std::abs(cover.normal.y) < 0.001f;
+        const bool vertical = std::abs(cover.normal.y) > 0.999f && std::abs(cover.normal.x) < 0.001f;
+        if ((!horizontal && !vertical) || cover.obstacle < -1) throw std::runtime_error("Normal de cobertura no axial");
+        sf::FloatRect surface;
+        if (cover.obstacle >= 0) {
+          const auto index = static_cast<std::size_t>(cover.obstacle);
+          if (cover.object != 0 || index >= replacement.obstacles.size() || !WorldGeometry::SupportsWallCover(replacement.obstacles[index])) throw std::runtime_error("Referencia de pared de cobertura inválida");
+          surface = replacement.obstacles[index].bounds;
+        } else {
+          const auto object = std::ranges::find_if(replacement.objects, [&](const Interactable &entry) { return entry.id == cover.object; });
+          if (cover.object == 0 || object == replacement.objects.end() || !WorldGeometry::SupportsWallCover(*object)) throw std::runtime_error("Referencia de objeto de cobertura inválida");
+          surface = WorldGeometry::ObjectFootprint(*object);
+        }
+        if (surface != cover.surface) throw std::runtime_error("La huella de cobertura contradice su superficie real");
+        const auto minimum = surface.position, maximum = surface.position + surface.size;
+        const float radius = GameplayConfig::AgentRadius + SpatialConfig::CollisionSkin;
+        const float expected = horizontal ? (cover.normal.x < 0.f ? minimum.x - radius : maximum.x + radius) : (cover.normal.y < 0.f ? minimum.y - radius : maximum.y + radius);
+        const float actual = horizontal ? cover.anchor.x : cover.anchor.y;
+        const float along = horizontal ? cover.anchor.y : cover.anchor.x;
+        const float lower = horizontal ? minimum.y : minimum.x, upper = horizontal ? maximum.y : maximum.x;
+        const float tolerance = SpatialConfig::CoverPositionTolerance;
+        if (std::abs(actual - expected) > tolerance || along < lower - tolerance || along > upper + tolerance ||
+            std::abs((agent.position - cover.anchor).dot(cover.normal)) > tolerance || WorldGeometry::PositionBlocked(replacement, cover.anchor, GameplayConfig::AgentRadius) ||
+            WorldGeometry::PositionBlocked(replacement, agent.position, GameplayConfig::AgentRadius)) throw std::runtime_error("Posición de cobertura fuera de su cara válida");
+        const float bodyAlong = horizontal ? agent.position.y : agent.position.x;
+        if (bodyAlong < lower - SpatialConfig::CoverPeekClearance - tolerance || bodyAlong > upper + SpatialConfig::CoverPeekClearance + tolerance) throw std::runtime_error("Asomado fuera del extremo permitido");
+        sf::Vector2f left, right;
+        const bool canLeft = WorldGeometry::CoverPeekPosition(cover, PeekSide::Left, left) && WorldGeometry::ClearMovementSegment(replacement, cover.anchor, left, GameplayConfig::AgentRadius);
+        const bool canRight = WorldGeometry::CoverPeekPosition(cover, PeekSide::Right, right) && WorldGeometry::ClearMovementSegment(replacement, cover.anchor, right, GameplayConfig::AgentRadius);
+        if ((!replacement.visibility.authoritative && (cover.canPeekLeft != canLeft || cover.canPeekRight != canRight)) ||
+            (cover.peekSide == PeekSide::Left && !cover.canPeekLeft) || (cover.peekSide == PeekSide::Right && !cover.canPeekRight)) throw std::runtime_error("Lado de asomado incompatible con la geometría");
       }
       world_ = std::move(replacement);
       alarmRemaining_ = alarmRemaining;

@@ -16,7 +16,7 @@ namespace NoTrace {
     void Step(float deltaTime, const std::unordered_map<PlayerId, ActionCommand> &commands);
     void ReturnToBase();
     const WorldState &GetState() const { return world_; }
-    nlohmann::json SnapshotFor(PlayerId player) const;
+    nlohmann::json SnapshotFor(PlayerId player, bool visibilityFiltered = false) const;
     bool LoadSnapshot(const nlohmann::json &snapshot, std::string &error);
     bool CanSee(sf::Vector2f from, sf::Vector2f facing, const Agent &agent, float range = 260.f) const;
 
