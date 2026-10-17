@@ -9,6 +9,7 @@ from pathlib import Path, PurePosixPath
 import re
 import shutil
 import subprocess
+import time
 import uuid
 import zipfile
 
@@ -140,6 +141,23 @@ def compile_runner(source, destination):
     return executable
 
 
+def publish_staging(staging, target, verify):
+    for attempt in range(25):
+        try:
+            staging.rename(target)
+            return
+        except FileExistsError:
+            verify(target)
+            return
+        except PermissionError:
+            if target.exists():
+                verify(target)
+                return
+            if attempt == 24:
+                raise
+            time.sleep(0.05)
+
+
 def prepare_host_package(summary, rows):
     host = BUILD / ("lan-host-vm-" + package_label(summary))
     if not host.exists():
@@ -149,10 +167,7 @@ def prepare_host_package(summary, rows):
             with zipfile.ZipFile(summary["zip"]) as zipped:
                 zipped.extractall(staging)
             verify_folder(staging, rows, summary)
-            try:
-                staging.rename(host)
-            except FileExistsError:
-                verify_folder(host, rows, summary)
+            publish_staging(staging, host, lambda folder: verify_folder(folder, rows, summary))
         except Exception as error:
             raise RuntimeError("Copia incompleta conservada en " + str(staging) + ": " + str(error)) from error
     verify_folder(host, rows, summary)
@@ -166,10 +181,7 @@ def publish_archive(summary):
         with Path(summary["zip"]).open("rb") as read, temporary.open("xb") as write:
             shutil.copyfileobj(read, write)
         require(digest(temporary) == summary["zip_sha256"], "El ZIP compartido no termino de copiarse: " + str(temporary))
-        try:
-            temporary.rename(target)
-        except FileExistsError:
-            require(digest(target) == summary["zip_sha256"], "El ZIP publicado por otro proceso difiere")
+        publish_staging(temporary, target, lambda path: require(digest(path) == summary["zip_sha256"], "El ZIP publicado por otro proceso difiere"))
     require(digest(target) == summary["zip_sha256"], "El ZIP compartido difiere")
     return target
 
