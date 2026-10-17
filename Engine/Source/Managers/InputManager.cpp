@@ -3,6 +3,7 @@
 #include "Utils/InputBindings.h"
 #include <algorithm>
 #include <cmath>
+#include <type_traits>
 
 void InputManager::Bind(int action, const Input::Binding &binding) {
   bindings_.emplace(action, binding);
@@ -10,6 +11,7 @@ void InputManager::Bind(int action, const Input::Binding &binding) {
 
 void InputManager::BeginFrame() {
   pressedKeys_.clear();
+  keyEdges_.clear();
   pressedMouseButtons_.clear();
   pressedGamepadButtons_.clear();
   wheelDelta_ = 0.f;
@@ -17,14 +19,19 @@ void InputManager::BeginFrame() {
 
 void InputManager::CaptureEvent(const sf::Event &event, bool gameplayAllowed) {
   if (event.is<sf::Event::FocusLost>()) {
+    heldKeys_.clear(); heldMouseButtons_.clear(); heldGamepadButtons_.clear();
     BeginFrame();
     return;
   }
   if (const auto *disconnected = event.getIf<sf::Event::JoystickDisconnected>()) {
+    std::erase_if(heldGamepadButtons_, [disconnected](std::uint64_t button) { return (button >> 32) == disconnected->joystickId; });
     std::erase_if(pressedGamepadButtons_, [disconnected](std::uint64_t button) {
       return (button >> 32) == disconnected->joystickId;
     });
   }
+  if (const auto *key = event.getIf<sf::Event::KeyReleased>()) heldKeys_.erase(key->scancode);
+  if (const auto *mouse = event.getIf<sf::Event::MouseButtonReleased>()) heldMouseButtons_.erase(mouse->button);
+  if (const auto *gamepad = event.getIf<sf::Event::JoystickButtonReleased>()) heldGamepadButtons_.erase((static_cast<std::uint64_t>(gamepad->joystickId) << 32) | gamepad->button);
   if (!gameplayAllowed) {
     return;
   }
@@ -36,12 +43,17 @@ void InputManager::CaptureEvent(const sf::Event &event, bool gameplayAllowed) {
   }
   // Conserva los pulsos breves hasta Update aunque su liberación llegue en el mismo frame.
   if (const auto *key = event.getIf<sf::Event::KeyPressed>()) {
-    if (key->scancode != sf::Keyboard::Scan::Unknown) pressedKeys_.insert(key->scancode);
+    if (key->scancode != sf::Keyboard::Scan::Unknown) {
+      if (heldKeys_.insert(key->scancode).second) keyEdges_.insert(key->scancode);
+      pressedKeys_.insert(key->scancode);
+    }
   } else if (const auto *mouse = event.getIf<sf::Event::MouseButtonPressed>()) {
+    heldMouseButtons_.insert(mouse->button);
     pressedMouseButtons_.insert(mouse->button);
   } else if (const auto *gamepad = event.getIf<sf::Event::JoystickButtonPressed>()) {
     if (gamepad->joystickId < sf::Joystick::Count && gamepad->button < sf::Joystick::ButtonCount) {
       pressedGamepadButtons_.insert((static_cast<std::uint64_t>(gamepad->joystickId) << 32) | gamepad->button);
+      heldGamepadButtons_.insert((static_cast<std::uint64_t>(gamepad->joystickId) << 32) | gamepad->button);
     }
   }
 }
@@ -71,7 +83,38 @@ bool InputManager::Pressed(int action) const {
 
 void InputManager::Clear() {
   bindings_.clear();
+  heldKeys_.clear(); heldMouseButtons_.clear(); heldGamepadButtons_.clear();
   BeginFrame();
+}
+
+bool InputManager::Held(int action) const {
+  const auto [first, last] = bindings_.equal_range(action);
+  return std::any_of(first, last, [this](const auto &entry) {
+    return std::visit([this](const auto &binding) {
+      using Binding = std::decay_t<decltype(binding)>;
+      if constexpr (std::is_same_v<Binding, Input::Keyboard>) return heldKeys_.contains(binding.key) || (hardwarePolling_ && sf::Keyboard::isKeyPressed(binding.key));
+      else if constexpr (std::is_same_v<Binding, Input::Mouse>) return heldMouseButtons_.contains(binding.button) || (hardwarePolling_ && sf::Mouse::isButtonPressed(binding.button));
+      else if constexpr (std::is_same_v<Binding, Input::Gamepad>) {
+        const auto button = Input::LogicalToHardware(binding.button, binding.id);
+        return button && (heldGamepadButtons_.contains((static_cast<std::uint64_t>(binding.id) << 32) | static_cast<unsigned int>(*button)) || (hardwarePolling_ && sf::Joystick::isButtonPressed(binding.id, *button)));
+      } else return Pressed(binding);
+    }, entry.second);
+  });
+}
+
+bool InputManager::JustPressed(int action) const {
+  const auto [first, last] = bindings_.equal_range(action);
+  return std::any_of(first, last, [this](const auto &entry) {
+    return std::visit([this](const auto &binding) {
+      using Binding = std::decay_t<decltype(binding)>;
+      if constexpr (std::is_same_v<Binding, Input::Keyboard>) return keyEdges_.contains(binding.key);
+      else if constexpr (std::is_same_v<Binding, Input::Mouse>) return pressedMouseButtons_.contains(binding.button);
+      else if constexpr (std::is_same_v<Binding, Input::Gamepad>) {
+        const auto button = Input::LogicalToHardware(binding.button, binding.id);
+        return button && pressedGamepadButtons_.contains((static_cast<std::uint64_t>(binding.id) << 32) | static_cast<unsigned int>(*button));
+      } else return false;
+    }, entry.second);
+  });
 }
 
 GlobalShortcut InputManager::HandleGlobalEvent(const sf::Event &event,

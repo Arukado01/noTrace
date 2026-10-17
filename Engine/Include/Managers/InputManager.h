@@ -13,6 +13,10 @@ private:
   friend struct EngineTests::GuiAccess;
   std::unordered_multimap<int, Input::Binding> bindings_;
   std::unordered_set<sf::Keyboard::Scancode> pressedKeys_;
+  std::unordered_set<sf::Keyboard::Scancode> heldKeys_;
+  std::unordered_set<sf::Keyboard::Scancode> keyEdges_;
+  std::unordered_set<sf::Mouse::Button> heldMouseButtons_;
+  std::unordered_set<std::uint64_t> heldGamepadButtons_;
   std::unordered_set<sf::Mouse::Button> pressedMouseButtons_;
   std::unordered_set<std::uint64_t> pressedGamepadButtons_;
   bool fullscreenShortcutHeld_ = false;
@@ -25,6 +29,8 @@ public:
   void BeginFrame();
   void CaptureEvent(const sf::Event &event, bool gameplayAllowed = true);
   bool Pressed(int action) const;
+  bool Held(int action) const;
+  bool JustPressed(int action) const;
   float WheelDelta() const { return wheelDelta_; }
   void Clear();
   GlobalShortcut HandleGlobalEvent(const sf::Event &event, bool displayConfirmationPending);

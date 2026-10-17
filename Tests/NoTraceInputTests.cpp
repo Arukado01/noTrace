@@ -64,6 +64,24 @@ namespace {
     Require(!input.Pressed(1), "Clear conservó pulsos de la escena anterior");
   }
 
+  void DeliberateHeldInput() {
+    InputManager input;
+    EngineTests::GuiAccess::UseSyntheticInput(input);
+    input.Bind(9, Input::Keyboard{sf::Keyboard::Scan::F});
+    input.CaptureEvent(KeyDown(sf::Keyboard::Scan::F));
+    Require(input.Held(9) && input.JustPressed(9), "F no distingue el inicio de la pulsación");
+    input.BeginFrame();
+    Require(input.Held(9) && !input.JustPressed(9), "Mantener F repite el flanco inicial");
+    input.CaptureEvent(KeyDown(sf::Keyboard::Scan::F));
+    Require(input.Held(9) && !input.JustPressed(9), "La repetición del sistema operativo cuenta como pulsación deliberada");
+    input.CaptureEvent(KeyUp(sf::Keyboard::Scan::F));
+    Require(!input.Held(9), "Soltar F no libera el estado mantenido");
+    input.CaptureEvent(KeyDown(sf::Keyboard::Scan::F));
+    Require(input.Held(9) && input.JustPressed(9), "Una nueva pulsación real de F no genera flanco");
+    input.CaptureEvent(sf::Event::FocusLost{});
+    Require(!input.Held(9) && !input.JustPressed(9), "Perder foco conserva el agarre mantenido");
+  }
+
   void BriefMousePulseAndSharedAction() {
     InputManager input;
     input.Bind(1, Input::Mouse{sf::Mouse::Button::Extra2});
@@ -174,6 +192,7 @@ namespace {
 int main() {
   try {
     SyntheticInputIsolation();
+    DeliberateHeldInput();
     BriefKeyboardPulse();
     BriefMousePulseAndSharedAction();
     PhysicalGamepadIdentity();
