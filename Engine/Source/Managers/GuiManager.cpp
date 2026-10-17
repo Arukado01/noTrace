@@ -71,6 +71,11 @@ void GuiManager::Remove(const tgui::Widget::Ptr &widget) {
   gui_.remove(widget);
 }
 
+bool GuiManager::IsTextInputFocused() const {
+  const auto focused = gui_.getFocusedLeaf();
+  return focused && (focused->getWidgetType() == "EditBox" || focused->getWidgetType() == "TextArea");
+}
+
 void GuiManager::SyncPresentation(sf::Vector2f logicalSize, const sf::FloatRect &viewport) {
   gui_.setAbsoluteView({0, 0, logicalSize.x, logicalSize.y});
   gui_.setRelativeViewport({viewport.position.x, viewport.position.y,

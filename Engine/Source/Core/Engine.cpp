@@ -82,7 +82,12 @@ void Engine::ProcessEvent() {
       continue;
     }
 
-    event->visit(EngineVisitor{*this});
+    const auto *key = event->getIf<sf::Event::KeyPressed>();
+    const bool typingShortcut = key && (key->scancode == sf::Keyboard::Scan::R || key->scancode == sf::Keyboard::Scan::M)
+                                && context_.gui.IsTextInputFocused();
+    if (!typingShortcut) {
+      event->visit(EngineVisitor{*this});
+    }
     if (!window_.isOpen()) {
       break;
     }
@@ -109,10 +114,11 @@ void Engine::ProcessEvent() {
 
 void Engine::Update() {
   context_.time.Update();
-  context_.cursor.Update(context_.time.GetDeltaTime());
-  if (!overlay_.IsVisible() && !context_.window.IsDisplayConfirmationPending()) {
+  if (window_.hasFocus()) context_.cursor.Update(context_.time.GetDeltaTime());
+  if (window_.hasFocus() && !overlay_.IsVisible() && !context_.window.IsDisplayConfirmationPending()) {
     currentScene_->Update();
   }
+  currentScene_->UpdateBackground();
 }
 
 void Engine::Render() {

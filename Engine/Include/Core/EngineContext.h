@@ -7,6 +7,7 @@
 #include "Managers/CursorManager.h"
 #include "Managers/GuiManager.h"
 #include "Managers/InputManager.h"
+#include "Managers/NetworkManager.h"
 #include "Managers/RandomManager.h"
 #include "Managers/RenderManager.h"
 #include "Managers/ResourceManager.h"
@@ -30,6 +31,7 @@ struct EngineContext {
   CursorManager cursor;
   GuiManager gui;
   SceneManager scenes;
+  NetworkManager network;
 
   EngineContext(sf::RenderWindow &nativeWindow)
       : window(nativeWindow, save), screenshot(nativeWindow),

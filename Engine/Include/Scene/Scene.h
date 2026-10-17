@@ -15,6 +15,7 @@ public:
 
   virtual void Start() = 0;
   virtual void Update() = 0;
+  virtual void UpdateBackground() {};
   virtual void Render() const = 0;
 
   virtual void OnEvent(const sf::Event &) {};

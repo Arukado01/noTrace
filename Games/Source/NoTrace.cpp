@@ -1,5 +1,6 @@
 #include "NoTrace.h"
 #include "Config/NoTraceConfig.h"
+#include "Config/NoTraceGameplayConfig.h"
 
 #include <algorithm>
 #include <cmath>
@@ -85,7 +86,7 @@ namespace NoTrace {
 
   void Menu::InitMainPage() {
     mainFocus_ = AddButton(ctx, mainPage_, "NUEVA OPERACIÓN", "5.5%", "43%");
-    mainFocus_->onPress([this] { ctx.scenes.ChangeScene(RECEPTION_SCENE); });
+    mainFocus_->onPress([this] { ctx.scenes.ChangeScene(std::string(GameplayConfig::GameScene)); });
     AddButton(ctx, mainPage_, "OPCIONES", "5.5%", "54%")->onPress([this] { ShowPage(MenuPage::Options); });
     AddButton(ctx, mainPage_, "SALIR", "5.5%", "65%")->onPress([this] { ctx.scenes.RequestQuit(); });
     AddLabel(mainPage_, "OPERACIONES CLANDESTINAS", "5.5%", "78%", "40%", SMALL_TEXT_SIZE, MUTED_COLOR);

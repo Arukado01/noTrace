@@ -19,6 +19,7 @@ public:
 
   void Add(const tgui::Widget::Ptr &widget);
   void Remove(const tgui::Widget::Ptr &widget);
+  bool IsTextInputFocused() const;
 
 private:
   friend class Engine;
