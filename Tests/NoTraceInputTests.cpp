@@ -4,6 +4,12 @@
 #include <limits>
 #include <stdexcept>
 
+namespace EngineTests {
+  struct GuiAccess {
+    static void UseSyntheticInput(InputManager &input) { input.hardwarePolling_ = false; }
+  };
+}
+
 namespace {
   int checks = 0;
 
@@ -23,6 +29,20 @@ namespace {
     sf::Event::KeyReleased key;
     key.scancode = code;
     return key;
+  }
+
+  void SyntheticInputIsolation() {
+    InputManager input;
+    EngineTests::GuiAccess::UseSyntheticInput(input);
+    input.Bind(1, Input::Keyboard{sf::Keyboard::Scan::D});
+    input.Bind(2, Input::Mouse{sf::Mouse::Button::Left});
+    input.Bind(3, Input::Axis{sf::Joystick::Axis::X, 0.1f, 0});
+    Require(!input.Pressed(1) && !input.Pressed(2) && !input.Pressed(3), "La prueba sintética consulta controles físicos del usuario");
+    input.CaptureEvent(KeyDown(sf::Keyboard::Scan::D));
+    input.CaptureEvent(sf::Event::MouseButtonPressed{sf::Mouse::Button::Left, {10, 10}});
+    Require(input.Pressed(1) && input.Pressed(2), "Aislar el hardware descartó los eventos sintéticos");
+    input.BeginFrame();
+    Require(!input.Pressed(1) && !input.Pressed(2), "El hardware reactivó un control sintético después de su frame");
   }
 
   void BriefKeyboardPulse() {
@@ -153,6 +173,7 @@ namespace {
 
 int main() {
   try {
+    SyntheticInputIsolation();
     BriefKeyboardPulse();
     BriefMousePulseAndSharedAction();
     PhysicalGamepadIdentity();

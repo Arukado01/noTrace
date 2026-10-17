@@ -6,8 +6,11 @@
 #include <unordered_map>
 #include <unordered_set>
 
+namespace EngineTests { struct GuiAccess; }
+
 class InputManager {
 private:
+  friend struct EngineTests::GuiAccess;
   std::unordered_multimap<int, Input::Binding> bindings_;
   std::unordered_set<sf::Keyboard::Scancode> pressedKeys_;
   std::unordered_set<sf::Mouse::Button> pressedMouseButtons_;
@@ -15,6 +18,7 @@ private:
   bool fullscreenShortcutHeld_ = false;
   sf::Keyboard::Scancode fullscreenShortcutKey_ = sf::Keyboard::Scan::Unknown;
   float wheelDelta_ = 0.f;
+  bool hardwarePolling_ = true;
 
 public:
   void Bind(int action, const Input::Binding &binding);

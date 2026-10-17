@@ -79,7 +79,7 @@ GlobalShortcut InputManager::HandleGlobalEvent(const sf::Event &event,
   if (event.is<sf::Event::FocusLost>() || event.is<sf::Event::FocusGained>()) {
     // Una liberación perdida al recrear la ventana no debe bloquear los siguientes atajos.
     if (event.is<sf::Event::FocusLost>() ||
-        (fullscreenShortcutHeld_ && !sf::Keyboard::isKeyPressed(fullscreenShortcutKey_))) {
+        (fullscreenShortcutHeld_ && (!hardwarePolling_ || !sf::Keyboard::isKeyPressed(fullscreenShortcutKey_)))) {
       fullscreenShortcutHeld_ = false;
       fullscreenShortcutKey_ = sf::Keyboard::Scan::Unknown;
     }
@@ -132,11 +132,11 @@ GlobalShortcut InputManager::HandleGlobalEvent(const sf::Event &event,
 }
 
 bool InputManager::Pressed(const Input::Keyboard &binding) const {
-  return pressedKeys_.contains(binding.key) || sf::Keyboard::isKeyPressed(binding.key);
+  return pressedKeys_.contains(binding.key) || (hardwarePolling_ && sf::Keyboard::isKeyPressed(binding.key));
 }
 
 bool InputManager::Pressed(const Input::Mouse &binding) const {
-  return pressedMouseButtons_.contains(binding.button) || sf::Mouse::isButtonPressed(binding.button);
+  return pressedMouseButtons_.contains(binding.button) || (hardwarePolling_ && sf::Mouse::isButtonPressed(binding.button));
 }
 
 bool InputManager::Pressed(const Input::Gamepad &binding) const {
@@ -144,12 +144,13 @@ bool InputManager::Pressed(const Input::Gamepad &binding) const {
   const auto button = Input::LogicalToHardware(binding.button, binding.id);
   if (!button) return false;
   const auto key = (static_cast<std::uint64_t>(binding.id) << 32) | static_cast<unsigned int>(*button);
-  return pressedGamepadButtons_.contains(key) || sf::Joystick::isButtonPressed(binding.id, *button);
+  return pressedGamepadButtons_.contains(key) || (hardwarePolling_ && sf::Joystick::isButtonPressed(binding.id, *button));
 }
 
 /** Se lee el valor del joysticj axis y se divide entre 100 para normalizarlo
  * entre -1 y 1 **/
 bool InputManager::Pressed(const Input::Axis &binding) const {
+  if (!hardwarePolling_) return false;
   const float axis =
       sf::Joystick::getAxisPosition(binding.id, binding.axis) / 100;
   return (binding.threshold >= 0) ? axis > binding.threshold
