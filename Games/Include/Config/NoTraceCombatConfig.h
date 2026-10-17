@@ -1,0 +1,53 @@
+#pragma once
+
+namespace NoTrace::CombatConfig {
+  inline constexpr float MaximumAimSlope = 4.f;
+  inline constexpr float StandingWeaponHeight = 22.f;
+  inline constexpr float CrouchedWeaponHeight = 10.f;
+  inline constexpr float ProneWeaponHeight = 6.f;
+  inline constexpr float StandingHeight = 46.f;
+  inline constexpr float CrouchedHeight = 34.f;
+  inline constexpr float ProneHeight = 14.f;
+  inline constexpr float HeadHeight = 12.f;
+  inline constexpr float HeadForwardOffset = 2.f;
+  inline constexpr float HeadHalfLength = 5.f;
+  inline constexpr float HeadHalfWidth = 5.5f;
+  inline constexpr float TorsoHalfLength = 6.f;
+  inline constexpr float TorsoHalfWidth = 8.f;
+  inline constexpr float StandingTorsoBottom = 14.f;
+  inline constexpr float CrouchedTorsoBottom = 8.f;
+  inline constexpr float ArmSideOffset = 11.f;
+  inline constexpr float ArmHalfLength = 5.f;
+  inline constexpr float ArmHalfWidth = 3.f;
+  inline constexpr float LegSideOffset = 5.f;
+  inline constexpr float LegHalfLength = 5.f;
+  inline constexpr float LegHalfWidth = 3.f;
+  inline constexpr float ProneHeadOffset = 15.f;
+  inline constexpr float ProneTorsoHalfLength = 9.f;
+  inline constexpr float ProneTorsoHalfWidth = 7.f;
+  inline constexpr float ProneLegOffset = 15.f;
+  inline constexpr float ProneLegHalfLength = 8.f;
+  inline constexpr float ProneArmForwardOffset = 9.f;
+  inline constexpr float ProneArmSideOffset = 10.f;
+  inline constexpr float ProneArmHalfLength = 8.f;
+  inline constexpr float ProneArmHalfWidth = 2.5f;
+  inline constexpr float ProneHeadBottom = 3.f;
+  inline constexpr float ProneTorsoBottom = 2.f;
+  inline constexpr float ProneTorsoTop = 12.f;
+  inline constexpr float ProneArmBottom = 2.f;
+  inline constexpr float ProneArmTop = 7.f;
+  inline constexpr float ProneLegTop = 6.f;
+  inline constexpr float ArmBottomMargin = 1.f;
+  inline constexpr float ArmTopMargin = 2.f;
+  inline constexpr float MaxGuardHealth = 100.f;
+  inline constexpr float MaxGuardStun = 100.f;
+  inline constexpr float LethalHeadDamage = 100.f;
+  inline constexpr float LethalTorsoDamage = 45.f;
+  inline constexpr float LethalLimbDamage = 20.f;
+  inline constexpr float NonLethalHeadStun = 100.f;
+  inline constexpr float NonLethalTorsoStun = 55.f;
+  inline constexpr float NonLethalLimbStun = 30.f;
+  inline constexpr float GuardStunRecoveryPerSecond = 6.f;
+  inline constexpr float GuardLimbDamage = 12.f;
+  inline constexpr float ConfirmedIconDuration = 0.75f;
+}

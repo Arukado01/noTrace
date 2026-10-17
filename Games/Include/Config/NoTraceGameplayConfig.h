@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Config/NoTraceDistractionConfig.h"
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -45,12 +46,12 @@ namespace NoTrace::GameplayConfig {
   inline constexpr float FootstepInterval = 0.4f;
   inline constexpr float RunningNoiseRadius = 170.f;
   inline constexpr float WalkingNoiseRadius = 38.f;
-  inline constexpr float DecoyNoiseRadius = 260.f;
-  inline constexpr float KnockNoiseRadius = 190.f;
-  inline constexpr float KnockDistance = 28.f;
+  inline constexpr float DecoyNoiseRadius = DistractionConfig::DecoyHearingDistance;
+  inline constexpr float KnockNoiseRadius = DistractionConfig::KnockHearingDistance;
+  inline constexpr float KnockDistance = DistractionConfig::KnockDistance;
   inline constexpr float LethalNoiseRadius = 360.f;
   inline constexpr float NonLethalNoiseRadius = 80.f;
-  inline constexpr float DecoyDistance = 170.f;
+  inline constexpr float DecoyDistance = DistractionConfig::MaximumDecoyDistance;
   inline constexpr float NoiseDuration = 0.6f;
   inline constexpr float CameraDistance = 220.f;
   inline constexpr float GuardAttackInterval = 2.f;
@@ -84,7 +85,7 @@ namespace NoTrace::GameplayConfig {
   inline constexpr std::uint32_t HostPlayerId = 1;
   inline constexpr std::size_t MaximumEvents = 20000;
   inline constexpr std::size_t MaximumSnapshotBytes = 60 * 1024;
-  inline constexpr std::uint32_t ProtocolVersion = 2;
+  inline constexpr std::uint32_t ProtocolVersion = 3;
   inline constexpr float SimulationHz = 60.f;
   inline constexpr float CommandHz = 30.f;
   inline constexpr float SnapshotHz = 20.f;
