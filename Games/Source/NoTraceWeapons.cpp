@@ -33,7 +33,10 @@ namespace NoTrace {
     }
     if (command.weaponChoice >= 0 && command.weaponChoice <= 1) {
       const auto choice = static_cast<WeaponKind>(command.weaponChoice);
-      if (choice != agent.selectedWeapon) { CancelReload(agent); agent.selectedWeapon = choice; agent.reloadingWeapon = choice; }
+      if (choice != agent.selectedWeapon) {
+        CancelReload(agent); agent.selectedWeapon = choice; agent.reloadingWeapon = choice;
+        EmitSound(SoundKind::Lock, agent.position, AudioConfig::QuietRadius, agent.id);
+      }
     }
     if (command.toggleSuppressor) {
       auto &equipped = agent.selectedWeapon == WeaponKind::Pistol ? agent.pistolSuppressorEquipped : agent.nonLethalSuppressorEquipped;
