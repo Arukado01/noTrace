@@ -1,12 +1,24 @@
 CompileFlags:
   Add:
-    - --target=x86_64-w64-mingw32
-    - --gcc-toolchain=C:/Users/Arukado/AppData/Local/Microsoft/WinGet/Packages/BrechtSanders.WinLibs.POSIX.UCRT_Microsoft.Winget.Source_8wekyb3d8bbwe/mingw64
-    - -I
-    - D:/Proyectos/SFML/AwesomeEngine/Engine/Include
-    - -I
-    - D:/Proyectos/SFML/AwesomeEngine/Games/Include
+    - --target=x86_64-pc-windows-msvc
+    - -isystem
+    - C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/VC/Tools/MSVC/14.51.36231/include
+    - -isystem
+    - C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/VC/Auxiliary/VS/include
+    - -isystem
+    - C:/Program Files (x86)/Windows Kits/10/include/10.0.26100.0/ucrt
+    - -isystem
+    - C:/Program Files (x86)/Windows Kits/10/include/10.0.26100.0/um
+    - -isystem
+    - C:/Program Files (x86)/Windows Kits/10/include/10.0.26100.0/shared
+    - -isystem
+    - C:/Program Files (x86)/Windows Kits/10/include/10.0.26100.0/winrt
+    - -isystem
+    - C:/Program Files (x86)/Windows Kits/10/include/10.0.26100.0/cppwinrt
   Remove:
+    - /Fo*
+    - /Fd*
+    - /FS
     - -fmodules-ts
     - -fmodule-mapper=*
     - -fdeps-format=*

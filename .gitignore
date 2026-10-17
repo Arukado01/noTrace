@@ -72,3 +72,8 @@ Save.json
 /.agents/skills/no-trace-phase-workflow/
 /.agents/skills/no-trace-code-style/
 /.agents/skills/no-trace-use-managers/
+/.agents/skills/no-trace-build-pruebas/
+/.agents/skills/no-trace-red-lan/
+/.agents/skills/no-trace-sigilo-tactico/
+/opencode.json
+/opencode.jsonc
