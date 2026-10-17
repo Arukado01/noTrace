@@ -43,6 +43,11 @@ namespace NoTrace {
     void UpdateWeapon(Agent &agent, const ActionCommand &command, float dt);
     void BeginReload(Agent &agent);
     void CancelReload(Agent &agent);
+    bool UpdateManeuver(Agent &agent, const ActionCommand &command, float dt);
+    void CancelManeuver(Agent &agent);
+    void ReportWeaponShot(Agent &agent, bool lethal);
+    void BuildPuzzleNodes();
+    void UpdateDecoys(float dt);
     void BuildMission(std::uint32_t seed);
     void UpdateAgent(Agent &agent, const ActionCommand &command, float dt);
     void UpdateGuards(float dt);
@@ -52,6 +57,7 @@ namespace NoTrace {
     void CancelPuzzle(Agent &agent);
     bool BeginPuzzle(Agent &agent, Interactable &object);
     void CompletePuzzle(Agent &agent, Interactable &object);
+    void FailPuzzle(Agent &agent, Interactable &object);
     void Detonate(Interactable &object);
     void CheckResults();
     void Finish(bool success, const std::string &reason, bool traitorVictory = false);
@@ -65,11 +71,12 @@ namespace NoTrace {
     void HitGuard(Guard &guard, HitZone zone, bool lethal, PlayerId actor);
     void Incapacitate(Agent &agent, PlayerId actor, std::uint32_t source);
     void Revive(Agent &agent, PlayerId actor);
-    void EmitNoise(sf::Vector2f position, float radius, PlayerId actor, std::uint32_t guardId = 0);
+    void EmitNoise(sf::Vector2f position, float radius, PlayerId actor, std::uint32_t guardId = 0, SoundKind kind = SoundKind::Impact);
     void EmitSound(SoundKind kind, sf::Vector2f position, float radius, PlayerId actor = 0);
     void HandleDistractions(Agent &agent, const ActionCommand &command);
     void Record(EventKind kind, PlayerId actor, std::uint32_t target = 0);
     void Detect(Agent &agent, std::uint32_t observer);
+    void ReportPerception(Agent &agent, float progress, bool confirmed);
     void Move(sf::Vector2f &position, sf::Vector2f displacement, float radius) const;
     bool Blocked(sf::Vector2f position, float radius) const;
     bool Occluded(sf::Vector2f from, sf::Vector2f to, Stance targetStance) const;

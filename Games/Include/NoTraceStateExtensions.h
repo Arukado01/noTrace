@@ -1,6 +1,7 @@
 #pragma once
 
 #include "NoTraceVisibility.h"
+#include "NoTraceTacticalState.h"
 #include "Config/NoTraceAudioConfig.h"
 #include "Config/NoTraceWeaponConfig.h"
 #include "Config/NoTraceTrainingConfig.h"
@@ -38,8 +39,7 @@ namespace NoTrace::StateExtensions {
       j["selectedWeapon"] = static_cast<int>(a.selectedWeapon); j["reloadingWeapon"] = static_cast<int>(a.reloadingWeapon);
       j["lethalMagazine"] = a.lethalMagazine; j["nonLethalMagazine"] = a.nonLethalMagazine; j["reloadRemaining"] = a.reloadRemaining;
       if (!filtered || a.id == player) j["operationLoadout"] = {a.operationLoadout.lethalAmmo, a.operationLoadout.nonLethalAmmo, a.operationLoadout.decoys, a.operationLoadout.tools};
-      if (!filtered || a.id == player) j["puzzle"] = {{"target", a.puzzle.target}, {"kind", static_cast<int>(a.puzzle.kind)},
-        {"stage", a.puzzle.stage}, {"length", a.puzzle.length}, {"clueA", a.puzzle.clueA}, {"clueB", a.puzzle.clueB}};
+      if (!filtered || a.id == player) j["puzzle"] = TacticalState::Puzzle(a.puzzle);
     }
     for (auto &j : snapshot["guards"]) {
       const auto &g = *std::ranges::find_if(world.guards, [&](const Guard &g) { return g.id == j["id"]; });
@@ -62,6 +62,7 @@ namespace NoTrace::StateExtensions {
       j["puzzleDevice"] = {{"kind", static_cast<int>(p.kind)}, {"state", static_cast<int>(p.state)}, {"difficulty", p.difficulty},
         {"cooldown", p.cooldown}, {"intelligence", !filtered || p.state == PuzzleState::Solved ? p.intelligence : ""}};
     }
+    TacticalState::Write(snapshot, world, player, filtered);
     const auto observer = std::ranges::find_if(world.agents, [player](const Agent &a) { return a.id == player; });
     snapshot["sounds"] = Json::array();
     for (const auto &s : world.sounds) {
@@ -103,11 +104,7 @@ namespace NoTrace::StateExtensions {
       if (a.friendlyIncapacitated && !a.incapacitated) throw std::runtime_error("Incapacitación amistosa incoherente");
       if (j.contains("puzzle")) {
         if (filtered && a.id != recipient) throw std::runtime_error("Puzle privado ajeno");
-        const auto &p = j.at("puzzle"); a.puzzle = {p.at("target").get<std::uint32_t>(), Enum<PuzzleKind>(p,"kind",4),
-          p.at("stage").get<unsigned int>(), p.at("length").get<unsigned int>(), p.at("clueA").get<unsigned int>(), p.at("clueB").get<unsigned int>()};
-        if (a.puzzle.length > 8 || a.puzzle.stage > a.puzzle.length || a.puzzle.clueA > 99 || a.puzzle.clueB > 99) throw std::runtime_error("Sesión de puzle inválida");
-        if (a.puzzle.target && (a.puzzle.kind == PuzzleKind::None || a.puzzle.length < DevicesConfig::PuzzleMinimumStages || a.puzzle.length > DevicesConfig::PuzzleMaximumStages || a.puzzle.stage >= a.puzzle.length || a.puzzle.clueA < 1 || a.puzzle.clueA > 8 || a.puzzle.clueB < 1 || a.puzzle.clueB > 8)) throw std::runtime_error("Reto de puzle incompleto");
-        if (!a.puzzle.target && (a.puzzle.kind != PuzzleKind::None || a.puzzle.stage || a.puzzle.length || a.puzzle.clueA || a.puzzle.clueB)) throw std::runtime_error("Reto sin dispositivo");
+        TacticalState::ReadPuzzle(j.at("puzzle"), a.puzzle);
       }
     }
     for (std::size_t i = 0; i < world.guards.size(); ++i) {
@@ -148,12 +145,13 @@ namespace NoTrace::StateExtensions {
         v.damage=Number(t,"damage",110.f,0.f,1000.f); v.effectRemaining=Number(t,"effectRemaining",0.f,0.f,5.f);
       }
       if (j.contains("puzzleDevice")) {
-        const auto &p=j.at("puzzleDevice"); o.puzzle.kind=Enum<PuzzleKind>(p,"kind",4); o.puzzle.state=Enum<PuzzleState>(p,"state",3);
+        const auto &p=j.at("puzzleDevice"); o.puzzle.kind=Enum<PuzzleKind>(p,"kind",5); o.puzzle.state=Enum<PuzzleState>(p,"state",3);
         o.puzzle.difficulty=p.at("difficulty").get<unsigned int>(); o.puzzle.cooldown=Number(p,"cooldown",0.f,0.f,60.f);
         o.puzzle.intelligence=p.at("intelligence").get<std::string>();
         if (o.puzzle.difficulty>8 || o.puzzle.intelligence.size()>1024 || (filtered && o.puzzle.state!=PuzzleState::Solved && !o.puzzle.intelligence.empty())) throw std::runtime_error("Datos de puzle inválidos o privados");
       }
     }
+    TacticalState::Read(snapshot, world);
     for (const auto &a : world.agents) {
       if ((a.cqcHeldBy && (a.cqcHoldingAgent || a.cqcHoldingGuard)) || (a.cqcStrikePending && a.cqcAttackTime <= 0.f)) throw std::runtime_error("Estado CQC incompatible");
       if (a.cqcHoldingAgent && a.cqcHoldingGuard) throw std::runtime_error("Dos objetivos CQC simultáneos");
@@ -164,7 +162,7 @@ namespace NoTrace::StateExtensions {
       if (a.cqcHeldBy && std::ranges::none_of(world.agents,[&](const Agent &v){return v.id==a.cqcHeldBy && v.cqcHoldingAgent==a.id;})) throw std::runtime_error("Sujeción amistosa huérfana");
       if (a.puzzle.target) {
         const auto target=std::ranges::find_if(world.objects,[&](const Interactable &v){return v.id==a.puzzle.target;});
-        if (!a.alive || a.incapacitated || target==world.objects.end() || target->puzzle.kind!=a.puzzle.kind || target->puzzle.state!=PuzzleState::InUse || target->user!=a.id) throw std::runtime_error("Sesión de puzle huérfana");
+        if (!a.alive || a.incapacitated || target==world.objects.end() || target->puzzle.kind!=a.puzzle.kind || target->puzzle.state!=PuzzleState::InUse || (a.puzzle.family!=PuzzleFamily::Coordination && target->user!=a.id)) throw std::runtime_error("Sesión de puzle huérfana");
       }
     }
     if (snapshot.contains("sounds")) {

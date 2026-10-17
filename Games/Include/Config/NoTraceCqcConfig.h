@@ -9,6 +9,10 @@ namespace NoTrace::CqcConfig {
   inline constexpr float RearCosine = 0.7f;
   inline constexpr float MinimumGripDistance = 20.f;
   inline constexpr float MaximumPressBuffer = 1.f;
+  inline constexpr float GripSeparation = 28.f;
+  inline constexpr float ApproachSpeed = 180.f;
+  inline constexpr float ApproachTimeout = 1.2f;
+  inline constexpr float ApproachBlockedTolerance = 0.05f;
   inline constexpr float PunchReach = 38.f;
   inline constexpr float KickReach = 44.f;
   inline constexpr float PunchWindup = 0.12f;

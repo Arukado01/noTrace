@@ -2,7 +2,9 @@
 #include "Bounce.h"
 #include "Clicker.h"
 #include "Config/NoTraceGameplayConfig.h"
+#include "Config/NoTraceManeuverConfig.h"
 #include "Config/NoTracePreparationConfig.h"
+#include "Config/NoTraceWeaponConfig.h"
 #include "Core/EngineConfig.h"
 #include "Core/Overlay.h"
 #include "NoTraceWorldGuiFixtures.h"
@@ -59,7 +61,8 @@ namespace EngineTests {
       Require(game.health_->isVisible() && game.health_->getValue() == 37 && game.stamina_->getValue() == 12, "El HUD no refleja salud y resistencia de la simulación");
       unsigned int bars = 0;
       for (const auto &widget : game.root_->getWidgets()) bars += std::dynamic_pointer_cast<tgui::ProgressBar>(widget) ? 1u : 0u;
-      Require(bars == 2, "El HUD debe contener solo los dos indicadores del jugador local");
+      const float suppressor = agent.selectedWeapon == WeaponKind::Pistol ? agent.pistolSuppressor : agent.nonLethalSuppressor;
+      Require(bars == 3 && game.suppressor_->isVisible() && game.suppressor_->getValue() == static_cast<unsigned int>(suppressor), "El HUD debe conservar salud, resistencia y desgaste del silenciador del jugador local");
       agent.health = health; agent.stamina = stamina; game.RefreshHud();
     }
     static void VerifyGameOverAndRetry(Game &game) {
@@ -74,10 +77,12 @@ namespace EngineTests {
     }
     static void VerifyAudioRestart(Game &game) {
       const auto previous = game.lastSound_;
+      const auto *agent = game.LocalAgent();
+      const auto expectedSound = agent->pistolSuppressorEquipped && agent->pistolSuppressor > 0.f ? SoundKind::Suppressed : SoundKind::Pistol;
       ActionCommand fire; fire.fireLethal = true; fire.aimX = 1.f;
       game.session_.Submit(fire); Step(game);
       const auto &sounds = game.session_.GetWorld().sounds;
-      Require(std::ranges::any_of(sounds, [previous](const SoundEvent &sound) { return sound.sequence > previous && sound.kind == SoundKind::Pistol; }),
+      Require(std::ranges::any_of(sounds, [previous, expectedSound](const SoundEvent &sound) { return sound.sequence > previous && sound.kind == expectedSound; }),
         "El disparo posterior al reinicio no genera una señal de audio nueva");
       Require(!sounds.empty() && game.lastSound_ == sounds.back().sequence && game.lastSound_ > previous && !game.voices_.empty(),
         "Reiniciar la misión impide reproducir las nuevas señales de audio de la simulación");
@@ -147,6 +152,7 @@ namespace EngineTests {
       Require(game.LocalAgent()->stance == Stance::Standing, "Z no permite levantarse después del arrastre");
     }
     static void VerifyTacticalControls(Game &game, EngineContext &context) {
+      context.input.Clear(); game.BindInputs(); game.held_.fill(false);
       auto &world = const_cast<WorldState &>(game.session_.GetWorld());
       const auto saved = world;
       world.objects.clear(); world.obstacles.clear(); world.guards.clear(); world.noises.clear(); world.shots.clear(); world.events.clear();
@@ -166,7 +172,9 @@ namespace EngineTests {
       press(sf::Keyboard::Scan::G);
       Require(game.preparingDecoy_ && agent.loadout.decoys == initialDecoys, "Mantener G no prepara el señuelo antes de consumirlo");
       release(sf::Keyboard::Scan::G);
-      Require(!game.preparingDecoy_ && agent.loadout.decoys == initialDecoys - 1 && !world.noises.empty(), "Soltar G no envía el lanzamiento previsto");
+      Require(!game.preparingDecoy_ && agent.loadout.decoys == initialDecoys - 1 && world.decoys.size() == 1 && world.noises.empty(), "Soltar G no envía un señuelo físico silencioso durante su vuelo");
+      for (int frame = 0; frame < 90 && !world.decoys.empty(); ++frame) { context.input.BeginFrame(); game.Update(); Step(game); }
+      Require(world.decoys.empty() && std::ranges::any_of(world.noises, [](const NoiseEvent &noise) { return noise.kind == SoundKind::Decoy; }), "El señuelo no genera su ruido autoritativo al aterrizar");
       agent.actionCooldown = 0.f; press(sf::Keyboard::Scan::G); Escape(game);
       Require(!game.preparingDecoy_ && game.page_ == Game::Page::None, "Esc no cancela primero la preparación del señuelo");
       release(sf::Keyboard::Scan::G);
@@ -177,14 +185,16 @@ namespace EngineTests {
       context.input.CaptureEvent(sf::Event::MouseButtonPressed{sf::Mouse::Button::Right, {1050, 480}});
       game.Update(); Step(game); release(sf::Keyboard::Scan::G);
       Require(!game.preparingDecoy_ && agent.loadout.nonLethalAmmo == nonLethalAmmo, "Cancelar G con clic derecho en el mismo frame disparó el arma");
+      context.input.BeginFrame(); context.input.CaptureEvent(sf::Event::MouseButtonReleased{sf::Mouse::Button::Right, {1050, 480}}); game.Update(); Step(game);
       press(sf::Keyboard::Scan::G); game.Open(Game::Page::Pause); game.ClosePanel();
       press(sf::Keyboard::Scan::G);
       Require(!game.preparingDecoy_, "Reanudar con G mantenida prepara otro lanzamiento sin pulsación nueva");
       release(sf::Keyboard::Scan::G);
       Require(agent.loadout.decoys == initialDecoys - 1, "Abrir la pausa y soltar G conservó un lanzamiento cancelado");
       world.noises.clear(); agent.actionCooldown = 0.f;
-      press(sf::Keyboard::Scan::Q); release(sf::Keyboard::Scan::Q);
-      Require(world.noises.empty() && world.guards.empty(), "Q generó ruido sin pared válida o conservó la acción CQC");
+      press(sf::Keyboard::Scan::Q);
+      Require(game.page_ == Game::Page::Weapons && HasButton(game, "1 / PISTOLA LETAL") && HasButton(game, "2 / ARMA NO LETAL") && world.noises.empty(), "Q no abre el equipo táctico o produce una distracción involuntaria");
+      Escape(game); release(sf::Keyboard::Scan::Q);
       Guard body; body.id = 77; body.position = agent.position + sf::Vector2f{20.f, 0.f}; body.state = GuardState::Incapacitated; body.incapacityRemaining = 60.f; world.guards.push_back(body);
       press(sf::Keyboard::Scan::E);
       Require(agent.draggingGuard == 77, "E mantenida no inicia arrastre contextual");
@@ -194,14 +204,14 @@ namespace EngineTests {
       Require(agent.draggingGuard < 0, "Soltar E no termina el arrastre");
       world.guards.clear(); world.obstacles.push_back({{{200.f, 150.f}, {40.f, 100.f}}, CoverKind::High, true, "Pared"});
       agent.position = {187.99f, 155.f}; agent.cover = {};
-      press(sf::Keyboard::Scan::R); release(sf::Keyboard::Scan::R);
-      Require(agent.cover.active, "R no activa la cobertura desde la entrada del juego");
+      press(sf::Keyboard::Scan::LAlt); release(sf::Keyboard::Scan::LAlt);
+      Require(agent.cover.active, "ALT no activa la cobertura desde la entrada del juego");
       const float anchorY = agent.cover.anchor.y;
       context.input.BeginFrame();
-      sf::Event::KeyPressed alt; alt.scancode = sf::Keyboard::Scan::LAlt; context.input.CaptureEvent(alt);
+      context.input.CaptureEvent(sf::Event::MouseButtonPressed{sf::Mouse::Button::Right, {1050, 480}});
       sf::Event::KeyPressed right; right.scancode = sf::Keyboard::Scan::D; context.input.CaptureEvent(right);
       game.Update(); Step(game);
-      Require(agent.cover.peekSide == PeekSide::Left && agent.position.y < anchorY, "Alt + dirección asoma al extremo opuesto de la pared");
+      Require(agent.aiming && agent.cover.peekSide == PeekSide::Left && agent.position.y < anchorY, "Apuntar con clic derecho y dirección no asoma al extremo de la pared");
       context.input.Clear(); game.BindInputs(); game.held_.fill(false); world = saved;
     }
     static tgui::Button::Ptr FindButton(Game &game, const std::string &text) {
@@ -228,20 +238,136 @@ namespace EngineTests {
       game.UpdateBackground();
     }
     static void VerifyFireInput(Game &game, EngineContext &context) {
+      context.input.Clear(); game.BindInputs(); game.held_.fill(false);
+      auto &world = const_cast<WorldState &>(game.session_.GetWorld());
+      const auto saved = world;
+      const auto savedSound = game.lastSound_;
+      world.objects.clear(); world.obstacles.clear(); world.guards.clear(); world.noises.clear(); world.shots.clear(); world.events.clear();
+      auto &agent = world.agents[0]; agent.position = {300.f, 350.f}; agent.stance = Stance::Standing; agent.cover = {}; agent.actionCooldown = 0.f;
+      agent.selectedWeapon = WeaponKind::Pistol; agent.reloadRemaining = 0.f;
+      agent.loadout.lethalAmmo = 6; agent.loadout.nonLethalAmmo = 6;
+      agent.lethalMagazine = WeaponConfig::PistolCapacity; agent.nonLethalMagazine = WeaponConfig::NonLethalCapacity;
+      agent.pistolSuppressor = agent.nonLethalSuppressor = WeaponConfig::MaximumSuppressor;
+      agent.pistolSuppressorEquipped = agent.nonLethalSuppressorEquipped = true;
       context.cursor.SetPosition({1000.f, 480.f});
-      const auto fire = [&](sf::Mouse::Button button) {
-        context.input.BeginFrame();
-        context.input.CaptureEvent(sf::Event::MouseButtonPressed{button, {1000, 480}});
-        context.input.CaptureEvent(sf::Event::MouseButtonReleased{button, {1000, 480}});
-        game.Update(); Step(game); context.input.BeginFrame();
+      const auto idle = [&](int frames = 1) {
+        for (int frame = 0; frame < frames; ++frame) { context.input.BeginFrame(); game.Update(); Step(game); }
       };
-      const int lethal = game.LocalAgent()->loadout.lethalAmmo, nonLethal = game.LocalAgent()->loadout.nonLethalAmmo;
-      fire(sf::Mouse::Button::Left);
-      Require(game.LocalAgent()->loadout.lethalAmmo == lethal - 1 && !game.session_.GetWorld().shots.empty() && game.session_.GetWorld().shots.back().lethal, "El clic breve izquierdo no llega al disparo autoritativo con efecto visible");
-      for (unsigned int frame = 0; frame < 42; ++frame) { game.Update(); Step(game); context.input.BeginFrame(); }
-      Require(game.LocalAgent()->loadout.lethalAmmo == lethal - 1, "El clic izquierdo se procesó más de una vez");
-      fire(sf::Mouse::Button::Right);
-      Require(game.LocalAgent()->loadout.nonLethalAmmo == nonLethal - 1 && !game.session_.GetWorld().shots.back().lethal, "El clic breve derecho no llega al disparo no letal autoritativo");
+      const auto mouse = [&](sf::Mouse::Button button, bool pressed) {
+        context.input.BeginFrame();
+        if (pressed) context.input.CaptureEvent(sf::Event::MouseButtonPressed{button, {1000, 480}});
+        else context.input.CaptureEvent(sf::Event::MouseButtonReleased{button, {1000, 480}});
+        game.Update(); Step(game);
+      };
+      const auto fire = [&] {
+        context.input.BeginFrame();
+        context.input.CaptureEvent(sf::Event::MouseButtonPressed{sf::Mouse::Button::Left, {1000, 480}});
+        context.input.CaptureEvent(sf::Event::MouseButtonReleased{sf::Mouse::Button::Left, {1000, 480}});
+        game.Update(); Step(game);
+      };
+      mouse(sf::Mouse::Button::Right, true); idle(3);
+      Require(agent.aiming && world.shots.empty() && agent.loadout.lethalAmmo == 6 && agent.loadout.nonLethalAmmo == 6, "Mantener clic derecho no conserva el apuntado o consume munición sin disparar");
+      mouse(sf::Mouse::Button::Right, false);
+      Require(!agent.aiming && world.shots.empty(), "Soltar clic derecho no termina el apuntado sin disparar");
+      fire();
+      Require(agent.loadout.lethalAmmo == 5 && agent.lethalMagazine == WeaponConfig::PistolCapacity - 1 && !world.shots.empty() && world.shots.back().lethal, "El clic breve izquierdo no dispara una sola vez la pistola seleccionada");
+      Require(agent.pistolSuppressor == WeaponConfig::MaximumSuppressor - WeaponConfig::PistolSuppressorWear && agent.nonLethalSuppressor == WeaponConfig::MaximumSuppressor, "El disparo no desgasta exclusivamente el silenciador del arma utilizada");
+      idle(42);
+      Require(agent.loadout.lethalAmmo == 5, "El clic izquierdo se procesó más de una vez");
+      Key(game, context, sf::Keyboard::Scan::Num2); idle();
+      Require(agent.selectedWeapon == WeaponKind::NonLethal && agent.loadout.nonLethalAmmo == 6 && agent.nonLethalMagazine == WeaponConfig::NonLethalCapacity, "2 no selecciona el arma no letal conservando su munición");
+      mouse(sf::Mouse::Button::Right, true); fire();
+      Require(agent.aiming && agent.loadout.nonLethalAmmo == 5 && !world.shots.empty() && !world.shots.back().lethal && agent.loadout.lethalAmmo == 5, "Apuntar y pulsar clic izquierdo no dispara el arma no letal seleccionada");
+      mouse(sf::Mouse::Button::Right, false); idle(42);
+      Key(game, context, sf::Keyboard::Scan::H); idle();
+      Require(!agent.nonLethalSuppressorEquipped && agent.pistolSuppressorEquipped && agent.nonLethalSuppressor == WeaponConfig::MaximumSuppressor - WeaponConfig::NonLethalSuppressorWear, "H no desmonta solo el silenciador seleccionado o restaura su desgaste");
+      Require(game.suppressor_->getText().toStdString() == "SILENCIADOR DESMONTADO", "El HUD no refleja que el silenciador seleccionado está desmontado");
+      Key(game, context, sf::Keyboard::Scan::Num1); idle();
+      Require(agent.selectedWeapon == WeaponKind::Pistol, "1 no vuelve a seleccionar la pistola");
+      const float durability = agent.pistolSuppressor;
+      agent.lethalMagazine = 0;
+      Key(game, context, sf::Keyboard::Scan::R);
+      Require(agent.reloadRemaining > 0.f && agent.lethalMagazine == 0 && !agent.cover.active, "R no inicia una recarga temporal o activa la antigua cobertura");
+      fire();
+      Require(agent.loadout.lethalAmmo == 5 && agent.lethalMagazine == 0 && agent.reloadRemaining > 0.f, "El clic izquierdo dispara antes de completar la recarga");
+      idle(static_cast<int>(std::ceil(WeaponConfig::ReloadDuration * GameplayConfig::SimulationHz)) + 2);
+      Require(agent.reloadRemaining == 0.f && agent.lethalMagazine == WeaponConfig::PistolCapacity && agent.loadout.lethalAmmo == 5 && agent.pistolSuppressor == durability, "Recargar no conserva el total de cartuchos o restablece el silenciador gastado");
+      const float elapsed = world.elapsed;
+      Key(game, context, sf::Keyboard::Scan::Q);
+      Require(game.page_ == Game::Page::Weapons && HasButton(game, "1 / PISTOLA LETAL") && HasButton(game, "2 / ARMA NO LETAL") && world.elapsed == elapsed, "Q no abre ambos equipos o deja avanzar la operación individual mientras se selecciona");
+      Press(game, "2 / ARMA NO LETAL"); idle();
+      Require(game.page_ == Game::Page::None && agent.selectedWeapon == WeaponKind::NonLethal && agent.loadout.lethalAmmo == 5 && agent.loadout.nonLethalAmmo == 5 && !agent.nonLethalSuppressorEquipped, "El menú no aplica la elección autoritativa o altera munición y silenciador");
+      context.input.Clear(); game.BindInputs(); game.held_.fill(false); game.pendingWeaponChoice_ = -1; game.session_.Submit({});
+      world = saved; game.lastSound_ = savedSound; game.UpdateBackground();
+    }
+    static void VerifyManeuverControls(Game &game, EngineContext &context) {
+      context.input.Clear(); game.BindInputs(); game.held_.fill(false);
+      auto &world = const_cast<WorldState &>(game.session_.GetWorld());
+      const auto saved = world;
+      const auto savedSound = game.lastSound_;
+      const int savedDive = context.save.Get("NoTrace:DiveKey", 0), savedRoll = context.save.Get("NoTrace:RollKey", 1);
+      world.objects.clear(); world.obstacles.clear(); world.guards.clear(); world.noises.clear(); world.shots.clear(); world.events.clear();
+      auto &agent = world.agents[0]; agent = Agent{}; agent.id = saved.agents[0].id; agent.name = saved.agents[0].name; agent.position = {300.f, 350.f};
+      const auto idle = [&](int frames = 1) {
+        for (int frame = 0; frame < frames; ++frame) { context.input.BeginFrame(); game.Update(); Step(game); }
+      };
+      const auto controls = [&] {
+        Escape(game); Press(game, "OPCIONES"); Press(game, "CONFIGURAR ZAMBULLIDA Y RODADA");
+        std::vector<tgui::ComboBox::Ptr> selectors;
+        for (const auto &widget : game.panel_->getWidgets()) if (const auto box = std::dynamic_pointer_cast<tgui::ComboBox>(widget)) selectors.push_back(box);
+        Require(game.page_ == Game::Page::Controls && selectors.size() == 2, "Las opciones no exponen un selector independiente para cada maniobra");
+        return selectors;
+      };
+      auto selectors = controls();
+      selectors[0]->setSelectedItemByIndex(3); selectors[1]->setSelectedItemByIndex(3);
+      Press(game, "GUARDAR CONTROLES");
+      Require(game.page_ == Game::Page::Controls && context.save.Get("NoTrace:DiveKey", 0) == savedDive && context.save.Get("NoTrace:RollKey", 1) == savedRoll, "La GUI acepta teclas duplicadas o altera el guardado al rechazarlas");
+      selectors[0]->setSelectedItemByIndex(0); selectors[1]->setSelectedItemByIndex(1);
+      Press(game, "GUARDAR CONTROLES");
+      Require(game.page_ == Game::Page::Options && context.save.Get("NoTrace:DiveKey", -1) == 0 && context.save.Get("NoTrace:RollKey", -1) == 1, "Guardar no aplica ESPACIO y CTRL IZQUIERDO como controles distintos");
+      Escape(game); Escape(game);
+      const auto dive = [&](sf::Keyboard::Scan scan) {
+        context.input.BeginFrame();
+        for (const auto key : {sf::Keyboard::Scan::LShift, sf::Keyboard::Scan::D}) { sf::Event::KeyPressed pressed; pressed.scancode = key; context.input.CaptureEvent(pressed); }
+        game.Update(); Step(game);
+        Require(agent.running && agent.moving, "La entrada de Shift y dirección no inicia la carrera previa a zambullirse");
+        context.input.BeginFrame();
+        for (const auto key : {sf::Keyboard::Scan::LShift, sf::Keyboard::Scan::D, scan}) { sf::Event::KeyPressed pressed; pressed.scancode = key; context.input.CaptureEvent(pressed); }
+        sf::Event::KeyReleased released; released.scancode = scan; context.input.CaptureEvent(released);
+        game.Update(); Step(game);
+      };
+      dive(ManeuverConfig::DefaultDiveKey);
+      Require(agent.maneuver.kind == ManeuverKind::Dive && agent.maneuver.phase == ManeuverPhase::Start, "ESPACIO no inicia una zambullida autoritativa durante la carrera");
+      const auto diveOrigin = agent.position;
+      bool diveTravel = false, diveRecovery = false;
+      for (int frame = 0; frame < 90 && agent.maneuver.kind != ManeuverKind::None; ++frame) {
+        idle(); diveTravel |= agent.maneuver.phase == ManeuverPhase::Travel; diveRecovery |= agent.maneuver.phase == ManeuverPhase::Recover;
+      }
+      Require(diveTravel && diveRecovery && agent.maneuver.kind == ManeuverKind::None && agent.stance == Stance::Prone && (agent.position - diveOrigin).length() > 100.f, "La zambullida desde la GUI no atraviesa impulso y recuperación hasta aterrizar tumbado");
+      Key(game, context, sf::Keyboard::Scan::C); idle(static_cast<int>(std::ceil(ManeuverConfig::DiveCooldown * GameplayConfig::SimulationHz)) + 1);
+      const auto rollOrigin = agent.position;
+      Key(game, context, ManeuverConfig::DefaultRollKey);
+      Require(agent.maneuver.kind == ManeuverKind::Roll && agent.stance == Stance::Crouched, "CTRL IZQUIERDO no inicia la rodada desde agachado");
+      bool rollRecovery = false;
+      for (int frame = 0; frame < 90 && agent.maneuver.kind != ManeuverKind::None; ++frame) { idle(); rollRecovery |= agent.maneuver.phase == ManeuverPhase::Recover; }
+      Require(rollRecovery && agent.maneuver.kind == ManeuverKind::None && agent.stance == Stance::Crouched && (agent.position - rollOrigin).length() > 60.f, "La rodada desde la GUI no desplaza al agente y recupera la postura agachada");
+      selectors = controls(); selectors[0]->setSelectedItemByIndex(3); selectors[1]->setSelectedItemByIndex(4);
+      Press(game, "GUARDAR CONTROLES"); Escape(game); Escape(game);
+      idle(static_cast<int>(std::ceil(ManeuverConfig::RollCooldown * GameplayConfig::SimulationHz)) + 1);
+      Key(game, context, ManeuverConfig::DefaultRollKey); idle();
+      Require(agent.maneuver.kind == ManeuverKind::None, "CTRL IZQUIERDO conserva la rodada después de remapearla a K");
+      Key(game, context, sf::Keyboard::Scan::K);
+      Require(agent.maneuver.kind == ManeuverKind::Roll, "El control guardado K no llega a la rodada autoritativa");
+      for (int frame = 0; frame < 90 && agent.maneuver.kind != ManeuverKind::None; ++frame) idle();
+      idle(static_cast<int>(std::ceil(ManeuverConfig::RollCooldown * GameplayConfig::SimulationHz)) + 1);
+      Key(game, context, sf::Keyboard::Scan::C); idle();
+      dive(ManeuverConfig::DefaultDiveKey);
+      Require(agent.maneuver.kind == ManeuverKind::None, "ESPACIO conserva la zambullida después de remapearla a J");
+      dive(sf::Keyboard::Scan::J);
+      Require(agent.maneuver.kind == ManeuverKind::Dive, "El control guardado J no llega a la zambullida autoritativa");
+      context.save.Set("NoTrace:DiveKey", savedDive); context.save.Set("NoTrace:RollKey", savedRoll);
+      context.input.Clear(); game.BindInputs(); game.held_.fill(false); game.session_.Submit({});
+      world = saved; game.lastSound_ = savedSound; game.UpdateBackground();
     }
     static void Sync(EngineContext &context) {
       context.gui.SyncPresentation(gConfig.windowSize, {{0.f, 0.f}, {1.f, 1.f}});
@@ -273,7 +399,7 @@ namespace EngineTests {
       const auto elapsed = world.elapsed;
       Step(game, 0.2f);
       Require(world.elapsed > elapsed && world.objects[0].locked, "La interfaz de puzle congela el mundo o abre la puerta sin resolverla");
-      const auto answer = [&] { return std::to_string((agent.puzzle.clueA + agent.puzzle.clueB) % 4u + 1u); };
+      const auto answer = [&] { const auto value = agent.puzzle.sequence.at(agent.puzzle.stage); const std::array<const char *, 4> names{"ARRIBA", "DERECHA", "ABAJO", "IZQUIERDA"}; return std::to_string(value) + "  " + names.at(value - 1); };
       Click(game, context, window, answer()); game.Update(); Step(game);
       Require(agent.puzzle.stage == 1 && world.objects[0].locked && game.puzzleStageRendered_ == 1, "El clic de respuesta no actualiza la etapa real y su representación");
       game.Update(); Step(game);
@@ -287,7 +413,7 @@ namespace EngineTests {
 
       world.objects.clear();
       Interactable computer{91, ObjectKind::Computer, {240.f, 300.f}, "Computador contextual"};
-      computer.footprint = {24.f, 24.f}; computer.puzzle.kind = PuzzleKind::Computer; computer.puzzle.difficulty = 2;
+      computer.footprint = {24.f, 24.f}; computer.puzzle.kind = PuzzleKind::Computer; computer.puzzle.family = PuzzleFamily::Arrows; computer.puzzle.difficulty = 2;
       computer.puzzle.intelligence = "INTELIGENCIA: acceso norte y cámaras del grupo 1."; world.objects.push_back(computer);
       const auto secondary = world.secondary;
       Interact(game, context); capture("13-puzzle-computer");
@@ -297,6 +423,89 @@ namespace EngineTests {
       capture("14-computer-intelligence");
 
       world.objects.clear();
+      Interactable panel{93, ObjectKind::CameraPanel, {240.f, 300.f}, "Cableado contextual"};
+      panel.footprint = {24.f, 24.f}; panel.puzzle.kind = PuzzleKind::CameraPanel; world.objects.push_back(panel);
+      Interactable camera{94, ObjectKind::Camera, {400.f, 300.f}, "Cámara del circuito"}; camera.facing = {1.f, 0.f}; world.objects.push_back(camera);
+      Interact(game, context);
+      Require(agent.puzzle.family == PuzzleFamily::Wires && HasButton(game, "CABLE A") && HasButton(game, "PUERTO 4"),
+        "El cableado no presenta sus cuatro orígenes y puertos");
+      const auto connect = [&](unsigned int source) {
+        const auto port = MatchingWirePort(agent.puzzle, source);
+        Click(game, context, window, "CABLE " + std::string(1, static_cast<char>('A' + source - 1)));
+        Click(game, context, window, "PUERTO " + std::to_string(port)); game.Update(); Step(game);
+      };
+      connect(1);
+      Require(agent.puzzle.stage == 1 && agent.puzzle.connectedSources == 1 && world.objects[1].active,
+        "Elegir cable y puerto no produce una conexión autoritativa o resuelve todo el panel");
+      capture("17-puzzle-wires");
+      Escape(game); game.Update(); Step(game);
+      Require(agent.puzzle.target == 0 && world.objects[1].active && !world.objects[0].completed,
+        "Cancelar un cableado parcial desactiva la cámara");
+      Interact(game, context);
+      for (unsigned int source = 1; source <= 4; ++source) connect(source);
+      Require(world.objects[0].completed && !world.objects[1].active && game.page_ == Game::Page::None,
+        "Las cuatro conexiones válidas mediante GUI no desactivan el circuito real");
+
+      world.objects.clear();
+      Interactable relay{95, ObjectKind::CoopSwitch, {240.f, 300.f}, "Coordinación contextual"};
+      relay.footprint = {24.f, 24.f}; relay.puzzle.kind = PuzzleKind::Coordination; relay.puzzle.family = PuzzleFamily::Coordination;
+      relay.solid = SpatialOverride::Disabled; relay.blocksVision = SpatialOverride::Disabled; world.objects.push_back(relay);
+      Interact(game, context);
+      Require(game.page_ == Game::Page::Puzzle && agent.puzzle.family == PuzzleFamily::Coordination && game.puzzleProgress_,
+        "La coordinación no presenta su interfaz mantenida y barra de progreso");
+      const auto holdButton = FindButton(game, "MANTENER INTERRUPTOR");
+      const auto holdPosition = holdButton->getAbsolutePosition() + holdButton->getSize() / 2.f;
+      const auto holdPixel = window.mapCoordsToPixel({holdPosition.x, holdPosition.y});
+      context.gui.ProcessEvent(sf::Event::MouseMoved{holdPixel});
+      context.gui.ProcessEvent(sf::Event::MouseButtonPressed{sf::Mouse::Button::Left, holdPixel});
+      for (int frame = 0; frame < 5; ++frame) { game.Update(); Step(game, 0.1f); }
+      Require(game.pendingPuzzleHeld_ && agent.puzzle.holding && agent.puzzle.coordinationProgress > 0.4f && game.puzzleProgress_->getValue() > 0 &&
+        FindButton(game, "MANTENER INTERRUPTOR") == holdButton && !world.objects[0].completed,
+        "La GUI reconstruye el botón mantenido, pierde su nivel de entrada o no muestra el progreso real");
+      capture("18-puzzle-coordination");
+      context.gui.ProcessEvent(sf::Event::MouseButtonReleased{sf::Mouse::Button::Left, holdPixel}); game.Update(); Step(game, 0.1f);
+      Require(!game.pendingPuzzleHeld_ && !agent.puzzle.holding && agent.puzzle.coordinationProgress == 0.f && !world.objects[0].completed,
+        "Soltar el botón de coordinación conserva progreso o resuelve el relé");
+      Escape(game); game.Update(); Step(game);
+      Require(game.page_ == Game::Page::None && agent.puzzle.target == 0 && world.objects[0].active,
+        "Cancelar la coordinación desde GUI activa el dispositivo");
+      Interact(game, context);
+      const auto retryButton = FindButton(game, "MANTENER INTERRUPTOR");
+      const auto retryPosition = retryButton->getAbsolutePosition() + retryButton->getSize() / 2.f;
+      const auto retryPixel = window.mapCoordsToPixel({retryPosition.x, retryPosition.y});
+      context.gui.ProcessEvent(sf::Event::MouseMoved{retryPixel}); context.gui.ProcessEvent(sf::Event::MouseButtonPressed{sf::Mouse::Button::Left, retryPixel});
+      for (int frame = 0; frame < 22 && !world.objects[0].completed; ++frame) { game.Update(); Step(game, 0.1f); }
+      context.gui.ProcessEvent(sf::Event::MouseButtonReleased{sf::Mouse::Button::Left, retryPixel});
+      Require(world.objects[0].completed && !world.objects[0].active && !game.pendingPuzzleHeld_ && game.page_ == Game::Page::None,
+        "Mantener el control real no completa la coordinación individual o deja un control fantasma");
+
+      world.objects.clear();
+      Interactable levers{96, ObjectKind::Computer, {240.f, 300.f}, "Palancas contextuales"};
+      levers.footprint = {24.f, 24.f}; levers.puzzle.kind = PuzzleKind::Computer; levers.puzzle.family = PuzzleFamily::Levers;
+      levers.puzzle.leverOrder = {2, 4, 1, 3}; levers.puzzle.intelligence = "INTELIGENCIA: secuencia física comprobada."; world.objects.push_back(levers);
+      for (unsigned int index = 0; index < 4; ++index) {
+        Interactable node{97u + index, ObjectKind::PuzzleNode, {360.f + index * 100.f, 450.f}, "Palanca contextual"};
+        node.footprint = {16.f, 16.f}; node.solid = SpatialOverride::Disabled; node.blocksVision = SpatialOverride::Disabled;
+        node.puzzle.kind = PuzzleKind::Computer; node.puzzle.parentDevice = 96; node.puzzle.nodeIndex = index + 1; world.objects.push_back(node);
+      }
+      Interact(game, context);
+      Require(agent.puzzle.family == PuzzleFamily::Levers && agent.puzzle.sequence == levers.puzzle.leverOrder && HasButton(game, "VOLVER A LAS PALANCAS") && !HasButton(game, "1"),
+        "El computador distribuido no presenta la secuencia física o conserva respuestas matemáticas");
+      capture("19-puzzle-levers");
+      Click(game, context, window, "VOLVER A LAS PALANCAS"); game.Update(); Step(game);
+      Require(game.page_ == Game::Page::None && !world.objects[0].completed && world.objects[0].puzzle.sequenceProgress == 0,
+        "Cerrar la instrucción de palancas activa el mecanismo automáticamente");
+      for (const auto node : levers.puzzle.leverOrder) {
+        agent.position = world.objects[node].position - sf::Vector2f{30.f, 0.f}; agent.actionCooldown = 0.f; Interact(game, context);
+        Require(world.objects[node].open && game.page_ == Game::Page::None, "E no acciona la palanca física o abre una respuesta remota");
+        // Cada pulsación física necesita un fotograma liberado antes de la siguiente.
+        context.input.BeginFrame(); game.Update(); Step(game);
+      }
+      Require(world.objects[0].completed && world.objects[0].puzzle.sequenceProgress == 4 && game.message_->getText().toStdString().find("secuencia física comprobada") != std::string::npos,
+        "Completar las palancas con E no revela la inteligencia real");
+
+      world.objects.clear();
+      agent.position = {200.f, 300.f}; agent.facing = {1.f, 0.f};
       Interactable trap{92, ObjectKind::Explosive, {240.f, 300.f}, "Temporizador contextual"}; trap.footprint = {16.f, 12.f};
       trap.solid = SpatialOverride::Disabled; trap.blocksVision = SpatialOverride::Disabled; trap.puzzle.kind = PuzzleKind::Explosive; trap.trap.fuse = 0.6f;
       world.objects.push_back(trap);
@@ -588,6 +797,7 @@ namespace {
     Access::VerifyFireInput(game, context);
     Access::VerifyAutomaticCrawl(game, context);
     Access::VerifyTacticalControls(game, context);
+    Access::VerifyManeuverControls(game, context);
     for (const auto &entry : Access::VerifyPuzzleGui(game, context, window, output)) metrics.push_back(entry);
     Access::Escape(game);
     Access::Require(Access::HasButton(game, "REINICIAR") && Access::HasButton(game, "VOLVER A LA BASE"), "La misión individual no ofrece las acciones de pausa correspondientes");
@@ -655,7 +865,7 @@ int main() {
       ++overflow;
       std::cout << "TEXT_OVERFLOW " << entry.at("page") << ' ' << entry.at("kind") << ' ' << entry.at("text") << '\n';
     }
-    std::cout << "PASS GUI: overlay separado, pausa propia, foco/modal, opciones por teclado, HUD local y resolución, zoom, arrastre sin X, armas, estaciones, equipo, reinicio, sesión y regresiones Bounce/Clicker; Save original intacto\n";
+    std::cout << "PASS GUI: overlay separado, pausa propia, foco/modal, opciones por teclado, HUD local y resolución, zoom, arrastre sin X, apuntado, armas y recarga, cobertura, equipo táctico, maniobras y remapeo, estaciones, reinicio, sesión y regresiones Bounce/Clicker; Save original intacto\n";
     std::cout << "CAPTURES=" << output.string() << "\nTEXT_OVERFLOWS=" << overflow << '\n';
     return overflow == 0 ? 0 : 2;
   } catch (const std::exception &error) {

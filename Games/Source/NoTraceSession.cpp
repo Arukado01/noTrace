@@ -74,7 +74,7 @@ namespace NoTrace {
       normalize(command.aimX, command.aimY);
       command.aimSlope = std::isfinite(command.aimSlope) ? std::clamp(command.aimSlope, -CombatConfig::MaximumAimSlope, CombatConfig::MaximumAimSlope) : 0.f;
       command.decoyDistance = std::isfinite(command.decoyDistance) ? std::clamp(command.decoyDistance, 0.f, DistractionConfig::MaximumDecoyDistance) : 0.f;
-      if (command.puzzleInput < -1 || command.puzzleInput > 4) command.puzzleInput = -1;
+      if (command.puzzleInput < -1 || command.puzzleInput > 16) command.puzzleInput = -1;
       if (command.weaponChoice < -1 || command.weaponChoice > 1) command.weaponChoice = -1;
       return command;
     }
@@ -87,14 +87,14 @@ namespace NoTrace {
              (command.throwDecoy ? 256u : 0u) | (command.knock ? 512u : 0u) |
              (command.dragBody ? 1024u : 0u) | (command.tool ? 2048u : 0u) |
              (command.coverToggle ? 4096u : 0u) | (command.peekLeft ? 8192u : 0u) | (command.peekRight ? 16384u : 0u) | (command.prepareDecoy ? 32768u : 0u) |
-             (command.cqcHeld ? 65536u : 0u) | (command.push ? 131072u : 0u) | (command.reloadWeapon ? 262144u : 0u) | (command.fireSelected ? 524288u : 0u);
+             (command.cqcHeld ? 65536u : 0u) | (command.push ? 131072u : 0u) | (command.reloadWeapon ? 262144u : 0u) | (command.fireSelected ? 524288u : 0u) | (command.aiming ? 1048576u : 0u) | (command.dive ? 2097152u : 0u) | (command.roll ? 4194304u : 0u) | (command.toggleSuppressor ? 8388608u : 0u) | (command.puzzleHeld ? 16777216u : 0u);
     }
 
     bool ReadCommand(const Json &message, ActionCommand &command) {
       std::uint64_t flags = 0;
       if (!ReadVector(message.at("move"), command.moveX, command.moveY) ||
           !ReadVector(message.at("aim"), command.aimX, command.aimY) ||
-          !ReadUnsigned(message.at("flags"), flags) || flags > 1048575 || !message.at("slope").is_number() || !message.at("decoyDistance").is_number()) {
+          !ReadUnsigned(message.at("flags"), flags) || flags > 33554431 || !message.at("slope").is_number() || !message.at("decoyDistance").is_number()) {
         return false;
       }
       command.run = (flags & 1) != 0;
@@ -116,15 +116,17 @@ namespace NoTrace {
       command.cqcHeld = (flags & 65536) != 0;
       command.push = (flags & 131072) != 0;
       command.reloadWeapon = (flags & 262144) != 0; command.fireSelected = (flags & 524288) != 0;
+      command.aiming = (flags & 1048576) != 0; command.dive = (flags & 2097152) != 0; command.roll = (flags & 4194304) != 0;
+      command.toggleSuppressor = (flags & 8388608) != 0; command.puzzleHeld = (flags & 16777216) != 0;
       command.aimSlope = message.at("slope").get<float>();
       if (!std::isfinite(command.aimSlope) || std::abs(command.aimSlope) > CombatConfig::MaximumAimSlope) return false;
       command.decoyDistance = message.at("decoyDistance").get<float>();
       if (!std::isfinite(command.decoyDistance) || command.decoyDistance < 0.f || command.decoyDistance > DistractionConfig::MaximumDecoyDistance) return false;
       const auto puzzle = message.value("puzzleInput", Json(-1));
-      if (!puzzle.is_number_integer() || puzzle < -1 || puzzle > 4) return false;
+      if (!puzzle.is_number_integer() || puzzle < -1 || puzzle > 16) return false;
       command.puzzleInput = puzzle.get<int>();
       std::uint64_t target = 0;
-      if (command.puzzleInput < -1 || command.puzzleInput > 4 || !ReadUnsigned(message.value("puzzleTarget", Json(0)), target) || target > 1000000) return false;
+      if (command.puzzleInput < -1 || command.puzzleInput > 16 || !ReadUnsigned(message.value("puzzleTarget", Json(0)), target) || target > 1000000) return false;
       command.puzzleTarget = static_cast<std::uint32_t>(target);
       const auto weapon = message.value("weaponChoice", Json(-1)); if (!weapon.is_number_integer() || weapon < -1 || weapon > 1) return false;
       command.weaponChoice = weapon.get<int>(); if (command.weaponChoice < -1 || command.weaponChoice > 1) return false;
@@ -143,12 +145,14 @@ namespace NoTrace {
       command.knock = false;
       command.tool = false;
       command.coverToggle = false;
-      command.puzzleInput = -1; command.puzzleTarget = 0;
+      command.puzzleInput = -1; if (!command.puzzleHeld) command.puzzleTarget = 0;
       command.reloadWeapon = false; command.fireSelected = false; command.weaponChoice = -1;
+      command.dive = false; command.roll = false; command.toggleSuppressor = false;
     }
 
     void MergePulses(ActionCommand &command, const ActionCommand &previous) {
       command.reloadWeapon |= previous.reloadWeapon;
+      command.dive |= previous.dive; command.roll |= previous.roll; command.toggleSuppressor |= previous.toggleSuppressor;
       if (command.weaponChoice == -1) command.weaponChoice = previous.weaponChoice;
       if (command.puzzleInput == -1 && previous.puzzleInput != -1) { command.puzzleInput = previous.puzzleInput; command.puzzleTarget = previous.puzzleTarget; }
       if ((previous.fireLethal || previous.fireNonLethal || previous.fireSelected) && !command.fireLethal && !command.fireNonLethal && !command.fireSelected) {

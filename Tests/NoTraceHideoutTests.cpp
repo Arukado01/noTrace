@@ -46,13 +46,16 @@ namespace {
       Simulation simulation;
       auto snapshot = Empty(simulation, {150.f, 180.f}, true); snapshot["objects"].push_back(Hideout(kind)); Load(simulation, snapshot);
       const auto entry = AgentAt(simulation).position;
-      ActionCommand use; use.interact = true; Step(simulation, use);
+      ActionCommand use; use.interact = true; use.aiming = true; Step(simulation, use);
       Require(AgentAt(simulation).hidden && AgentAt(simulation).hideoutId == 77 && simulation.GetState().objects[0].occupantAgent == 1, "El agente no ocupa su escondite");
+      Require(!AgentAt(simulation).aiming, "Entrar en un escondite conserva el apuntado exterior del agente");
       const auto hiddenPosition = AgentAt(simulation).position;
       ActionCommand invalid; invalid.moveX = 1.f; invalid.run = true; invalid.prone = true; invalid.fireLethal = true; invalid.fireNonLethal = true; invalid.cqc = true; invalid.dragBody = true;
+      invalid.aiming = true;
       const auto ammo = AgentAt(simulation).loadout;
       Step(simulation, invalid, 8);
       Require(AgentAt(simulation).position == hiddenPosition && !AgentAt(simulation).moving && !AgentAt(simulation).running, "El agente se mueve libremente dentro del escondite");
+      Require(!AgentAt(simulation).aiming, "Mantener el apuntado reactiva una acción incompatible dentro del escondite");
       Require(AgentAt(simulation).loadout.lethalAmmo == ammo.lethalAmmo && AgentAt(simulation).loadout.nonLethalAmmo == ammo.nonLethalAmmo && simulation.GetState().shots.empty(), "El escondite permite disparar a través de su volumen");
       Require(!simulation.CanSee({120.f, 180.f}, {1.f, 0.f}, AgentAt(simulation)), "La IA detecta sin inspección a un agente oculto");
       if (kind == HideoutKind::UnderTable) Require(AgentAt(simulation).stance == Stance::Prone, "Debajo de la mesa el agente puede permanecer de pie");

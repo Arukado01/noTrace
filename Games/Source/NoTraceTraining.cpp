@@ -15,7 +15,7 @@ namespace NoTrace {
       world_.guards.push_back(dummy);
     }
     Interactable camera{100, ObjectKind::Camera, {1690.f, 260.f}, "Cámara de prácticas"};
-    camera.camera.sweeping = true; camera.camera.baseAngle = 3.14159265f; camera.camera.controlGroup = TrainingConfig::CameraControlGroup;
+    camera.camera.sweeping = true; camera.camera.baseAngle = 3.14159265f; camera.camera.controlGroup = TrainingConfig::CameraControlGroup; camera.facing = {-1.f, 0.f};
     world_.objects.push_back(camera);
     Interactable panel{101, ObjectKind::CameraPanel, {1640.f, 430.f}, "Circuito de cámaras"};
     panel.footprint = {28.f, 24.f}; panel.puzzle.kind = PuzzleKind::CameraPanel; panel.puzzle.difficulty = 2;
@@ -42,6 +42,7 @@ namespace NoTrace {
     world_.obstacles.push_back({{{1488.f, 520.f}, {24.f, 48.f}}, CoverKind::High, true, "Marco de prácticas"});
     world_.obstacles.push_back({{{1488.f, 632.f}, {24.f, 68.f}}, CoverKind::High, true, "Marco de prácticas"});
     world_.obstacles.push_back({{{1170.f, 420.f}, {120.f, 28.f}}, CoverKind::Low, true, "Cobertura de prácticas"});
+    BuildPuzzleNodes();
     world_.message = "CIO: estaciones de preparación al oeste; campo de prácticas al este. Sin enemigos, con protección y suministros ilimitados.";
   }
 
@@ -75,6 +76,7 @@ namespace NoTrace {
       dummy.bodyHidden = false; dummy.storedIn = 0; dummy.navigation.clear(); dummy.patrol.clear(); dummy.suspicion = 0.f;
     }
     for (auto &agent : world_.agents) if (agent.connected) {
+      agent.health = std::min(GameplayConfig::MaxHealth, agent.health + TrainingConfig::HealthRecoveryPerSecond * dt);
       agent.loadout.lethalAmmo = TrainingConfig::RefilledAmmo; agent.loadout.nonLethalAmmo = TrainingConfig::RefilledAmmo;
       agent.loadout.decoys = TrainingConfig::RefilledDecoys; agent.loadout.tools = TrainingConfig::RefilledTools;
     }
@@ -84,13 +86,18 @@ namespace NoTrace {
     if (!IsTraining(world_) || !agent.connected || !agent.alive || agent.incapacitated || agent.hidden || agent.extracted) return;
     const auto console = std::ranges::find_if(world_.objects, [](const Interactable &object) { return object.kind == ObjectKind::TrainingReset; });
     if (console == world_.objects.end() || WorldGeometry::DistanceToBounds(agent.position, WorldGeometry::ObjectFootprint(*console)) >= GameplayConfig::InteractionDistance) return;
-    for (auto &user : world_.agents) { CancelPuzzle(user); ReleaseCqc(user); }
+    for (auto &user : world_.agents) { CancelPuzzle(user); ReleaseCqc(user); user.pistolSuppressor = user.nonLethalSuppressor = 100.f; user.pistolSuppressorEquipped = user.nonLethalSuppressorEquipped = true; }
     for (auto &object : world_.objects) {
+      if (object.kind == ObjectKind::PuzzleNode) object.open = false;
+      if (object.kind == ObjectKind::CoopSwitch) object.progress = 0.f;
       if (object.kind == ObjectKind::Camera) {
         object.active = true; object.completed = false; object.progress = 0.f; object.observedAgent = 0;
+        object.camera.trackedAgent = 0; object.camera.lastKnown = {}; object.camera.perception = CameraPerception::Sweeping;
+        object.camera.searchRemaining = object.camera.suspicionRemaining = object.camera.confirmedRemaining = object.camera.indicatorProgress = 0.f;
         object.camera.state = CameraState::Operating; object.camera.reactivationRemaining = 0.f; object.camera.pauseRemaining = 0.f;
       }
       if (object.puzzle.kind == PuzzleKind::None) continue;
+      object.puzzle.sequenceProgress = 0; object.puzzle.coordinationProgress = 0.f;
       object.puzzle.state = PuzzleState::Ready; object.puzzle.cooldown = 0.f; object.user = 0; object.completed = false; object.active = true;
       if (object.kind == ObjectKind::Explosive) {
         object.trap.state = TrapState::Armed; object.trap.remaining = -1.f; object.trap.tickRemaining = 0.f; object.trap.effectRemaining = 0.f;

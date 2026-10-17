@@ -7,8 +7,8 @@
 
 namespace NoTrace {
   void Simulation::ResetSecurity() {
-    world_.sounds.clear();
-    for (auto &agent : world_.agents) { CancelPuzzle(agent); agent.friendlyIncapacitated = false; }
+    world_.sounds.clear(); world_.decoys.clear();
+    for (auto &agent : world_.agents) { CancelPuzzle(agent); CancelManeuver(agent); agent.maneuver = {}; agent.aiming = false; agent.friendlyIncapacitated = false; agent.detectionIndicatorRemaining = agent.confirmedIndicatorRemaining = 0.f; }
     securityContactAge_ = 0.f;
     reinforcementTimer_ = 0.f;
     securityLastKnown_ = {};

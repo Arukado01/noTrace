@@ -26,8 +26,8 @@ namespace NoTrace {
 
   private:
     friend struct EngineTests::GuiAccess;
-    enum Action { Left, Right, Up, Down, Run, Crouch, Prone, Interact, Cqc, Lethal, NonLethal, Decoy, Knock, Drag, Tool, Orders, Lobby, WallCover, Peek, Shove, Reload, SelectPistol, SelectNonLethal, Count };
-    enum class Page { Connection, Operations, Armory, Intelligence, Deployment, Results, Pause, Options, Puzzle, None };
+    enum Action { Left, Right, Up, Down, Run, Crouch, Prone, Interact, Cqc, Lethal, NonLethal, Decoy, Knock, Drag, Tool, Orders, Lobby, WallCover, Peek, Shove, Reload, SelectPistol, SelectNonLethal, Dive, Roll, Suppressor, WeaponMenu, Count };
+    enum class Page { Connection, Operations, Armory, Intelligence, Deployment, Results, Pause, Options, Puzzle, Weapons, Controls, None };
     Session session_;
     WorldRenderer worldRenderer_;
     tgui::Group::Ptr root_;
@@ -45,6 +45,8 @@ namespace NoTrace {
     tgui::Button::Ptr lobby_;
     tgui::ProgressBar::Ptr health_;
     tgui::ProgressBar::Ptr stamina_;
+    tgui::ProgressBar::Ptr suppressor_;
+    tgui::ProgressBar::Ptr puzzleProgress_;
     tgui::ComboBox::Ptr resolutionBox_;
     tgui::ComboBox::Ptr modeBox_;
     DisplaySettings observedDisplay_;
@@ -60,6 +62,8 @@ namespace NoTrace {
     std::vector<std::unique_ptr<sf::Sound>> voices_;
     std::uint64_t lastSound_ = 0;
     int pendingPuzzleInput_ = -1;
+    bool pendingPuzzleHeld_ = false;
+    int pendingWeaponChoice_ = -1;
     unsigned int puzzleStageRendered_ = 0;
     std::uint32_t puzzleTargetRendered_ = 0;
 
@@ -70,6 +74,8 @@ namespace NoTrace {
     void BuildStation(Page page);
     void BuildResults();
     void BuildPuzzle();
+    void BuildWeapons();
+    void BuildControls();
     void BuildPause();
     void BuildOptions();
     void SyncDisplayOptions();

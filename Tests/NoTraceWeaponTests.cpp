@@ -111,8 +111,48 @@ namespace {
     simulation.Step(0.1f, {{1, lethal}});
     Require(!world.agents[1].alive && world.agents[1].health == 0.f, "La protección de entrenamiento persiste al recibir daño letal en una misión real");
   }
+  void SuppressorWearAndFiniteAmmo() {
+    Simulation simulation, replica; auto &world = Fixture(simulation);
+    simulation.Step(0.1f, {{1, Shoot()}});
+    Require(world.agents[0].pistolSuppressor == WeaponConfig::MaximumSuppressor - WeaponConfig::PistolSuppressorWear && world.agents[0].nonLethalSuppressor == WeaponConfig::MaximumSuppressor, "Disparar no desgasta únicamente el silenciador del arma utilizada");
+    Require(!world.noises.empty() && world.noises.back().radius == WeaponConfig::PistolSuppressedNoise && world.noises.back().kind == SoundKind::Suppressed, "El silenciador no reduce el radio acústico real del disparo");
+    Advance(simulation, 8); ActionCommand reload; reload.reloadWeapon = true;
+    simulation.Step(0.1f, {{1, reload}}); Advance(simulation, 13);
+    Require(world.agents[0].pistolSuppressor == WeaponConfig::MaximumSuppressor - WeaponConfig::PistolSuppressorWear, "Recargar munición restaura indebidamente la durabilidad del silenciador");
+    const int lethalAmmo = world.agents[0].loadout.lethalAmmo;
+    ActionCommand select; select.weaponChoice = 1; simulation.Step(0.1f, {{1, select}});
+    simulation.Step(0.1f, {{1, Shoot()}});
+    Require(world.agents[0].nonLethalSuppressor == WeaponConfig::MaximumSuppressor - WeaponConfig::NonLethalSuppressorWear && world.agents[0].loadout.lethalAmmo == lethalAmmo, "Cambiar de arma reinicia la durabilidad o consume munición del arma anterior");
+    Advance(simulation, 8); select.weaponChoice = 0; simulation.Step(0.1f, {{1, select}});
+    ActionCommand toggle; toggle.toggleSuppressor = true; simulation.Step(0.1f, {{1, toggle}});
+    simulation.Step(0.1f, {{1, Shoot()}});
+    Require(!world.agents[0].pistolSuppressorEquipped && world.noises.back().radius == WeaponConfig::PistolNoise && world.noises.back().kind == SoundKind::Pistol, "Retirar el silenciador no restaura un disparo convencional fuerte");
+    Require(world.agents[0].pistolSuppressor == WeaponConfig::MaximumSuppressor - WeaponConfig::PistolSuppressorWear, "Un silenciador retirado continúa desgastándose");
+    simulation.Step(0.1f, {{1, toggle}});
+    const auto shootReady = [&] {
+      Advance(simulation, 8);
+      if (world.agents[0].lethalMagazine == 0 && world.agents[0].loadout.lethalAmmo > 0) { simulation.Step(0.1f, {{1, reload}}); Advance(simulation, 13); }
+      simulation.Step(0.1f, {{1, Shoot()}});
+    };
+    for (int shot = 0; shot < 4; ++shot) shootReady();
+    Require(world.agents[0].pistolSuppressor == 0.f && !world.agents[0].pistolSuppressorEquipped && world.agents[0].nonLethalSuppressor > 0.f, "Agotar un silenciador conserva su reducción o rompe también el de otra arma");
+    Require(world.noises.back().radius == WeaponConfig::PistolSuppressedNoise, "El último cartucho útil del silenciador aplica un estado acústico incoherente");
+    shootReady();
+    Require(world.noises.back().radius == WeaponConfig::PistolNoise && world.agents[0].pistolSuppressor == 0.f, "Un silenciador roto sigue reduciendo el ruido o presenta durabilidad negativa");
+    simulation.Step(0.1f, {{1, toggle}});
+    Require(!world.agents[0].pistolSuppressorEquipped, "Alternar el equipo repara un silenciador roto");
+    std::string error;
+    Require(replica.LoadSnapshot(simulation.SnapshotFor(1, true), error) && replica.GetState().agents[0].pistolSuppressor == 0.f, "La rotura del silenciador no llega al destinatario");
+    auto invalid = simulation.SnapshotFor(1, true); invalid["agents"][0]["pistolSuppressor"] = -1.f;
+    Require(!replica.LoadSnapshot(invalid, error), "El protocolo permite durabilidad negativa del silenciador");
+    shootReady(); const int shots = Shots(world);
+    shootReady();
+    Require(world.agents[0].loadout.lethalAmmo == 0 && world.agents[0].lethalMagazine == 0 && Shots(world) == shots, "Una misión repone munición o permite disparar después de agotar el total");
+    simulation.Step(0.1f, {{1, reload}}); Advance(simulation, 13);
+    Require(world.agents[0].loadout.lethalAmmo == 0 && world.agents[0].lethalMagazine == 0 && world.agents[0].pistolSuppressor == 0.f, "Una recarga sin reserva repone cartuchos o repara el silenciador");
+  }
 }
 int main() {
-  try { ReloadAndInventory(); SelectionAndInterruption(); ProneReload(); TrainingProtectionAndTransition(); std::cout << "PASS armas y seguridad: " << checks << " comprobaciones\n"; return 0; }
+  try { ReloadAndInventory(); SelectionAndInterruption(); ProneReload(); TrainingProtectionAndTransition(); SuppressorWearAndFiniteAmmo(); std::cout << "PASS armas y seguridad: " << checks << " comprobaciones\n"; return 0; }
   catch (const std::exception &error) { std::cerr << "FAIL armas tras " << checks << ": " << error.what() << '\n'; return 1; }
 }

@@ -20,6 +20,7 @@ namespace NoTrace::TrainingConfig {
   inline constexpr int RefilledDecoys = GameplayConfig::MaximumDecoys;
   inline constexpr int RefilledTools = GameplayConfig::MaximumTools;
   inline constexpr float TrainingTrapFuse = 8.f;
+  inline constexpr float HealthRecoveryPerSecond = 30.f;
   inline constexpr std::size_t MaximumRetainedEvents = 256;
   inline constexpr sf::Vector2f ResetPosition{1120.f, 440.f};
 }

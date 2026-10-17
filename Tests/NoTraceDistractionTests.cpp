@@ -1,6 +1,7 @@
 #include "NoTraceDistractionGeometry.h"
 #include "NoTraceSimulation.h"
 #include "NoTraceVisibility.h"
+#include "Config/NoTraceAudioConfig.h"
 #include <algorithm>
 #include <cmath>
 #include <iostream>
@@ -17,13 +18,15 @@ namespace {
   WorldState &Fixture(Simulation &simulation) {
     simulation.ResetBase(); simulation.Deploy(0);
     auto &world = const_cast<WorldState &>(simulation.GetState());
-    world.objects.clear(); world.obstacles.clear(); world.guards.clear(); world.noises.clear(); world.shots.clear(); world.footsteps.clear();
+    world.mode = SimulationMode::Operation;
+    world.objects.clear(); world.obstacles.clear(); world.guards.clear(); world.noises.clear(); world.shots.clear(); world.footsteps.clear(); world.decoys.clear(); world.sounds.clear(); world.events.clear(); world.securityEntries.clear();
     world.agents[0].position = {100.f, 500.f}; world.agents[0].facing = {1.f, 0.f};
     return world;
   }
   void Advance(Simulation &simulation, int frames) {
     for (int frame = 0; frame < frames; ++frame) simulation.Step(0.1f, {});
   }
+  void Land(Simulation &simulation) { for (int frame = 0; frame < 30 && !simulation.GetState().decoys.empty(); ++frame) simulation.Step(0.1f, {}); }
 
   void SharedTrajectory() {
     WorldState world;
@@ -43,6 +46,12 @@ namespace {
     Require(!DistractionGeometry::TraceDecoy(world, {100.f, 500.f}, {1.f, 0.f}).blocked, "Una puerta abierta permite el lanzamiento");
     Require(DistractionGeometry::TraceDecoy(world, {100.f, 500.f}, {1.f, 0.f}, 10000.f).requestedDistance == DistractionConfig::MaximumDecoyDistance, "El host debe limitar una distancia solicitada excesiva");
     Require(!DistractionGeometry::TraceDecoy(world, {100.f, 500.f}, {}, 200.f).valid && !DistractionGeometry::TraceDecoy(world, {100.f, 500.f}, {1.f, 0.f}, std::numeric_limits<float>::quiet_NaN()).valid, "Una guía sin dirección o distancia finita no autoriza un lanzamiento");
+    DecoyProjectile disc{{100.f, 500.f}, {420.f, 500.f}, 0.f, 1.f, DistractionConfig::DecoyArcHeight, 1, false};
+    Require(DistractionGeometry::DecoyPosition(disc) == disc.from && DistractionGeometry::DecoyHeight(disc) == 0.f, "El disco no empieza en el origen real y a nivel del suelo");
+    disc.elapsed = 0.5f;
+    Require(DistractionGeometry::DecoyPosition(disc) == sf::Vector2f{260.f, 500.f} && DistractionGeometry::DecoyHeight(disc) == DistractionConfig::DecoyArcHeight, "El vuelo y la guía no comparten una curva con altura máxima a mitad del recorrido");
+    disc.elapsed = disc.duration;
+    Require(DistractionGeometry::DecoyPosition(disc) == disc.to && DistractionGeometry::DecoyHeight(disc) == 0.f, "El arco no termina en el punto de aterrizaje previsto");
   }
 
   void AuthoritativeDecoyAndHearing() {
@@ -52,45 +61,68 @@ namespace {
     ActionCommand command; command.throwDecoy = true; command.aimX = 1.f; command.decoyDistance = 320.f;
     const auto preview = DistractionGeometry::TraceDecoy(world, world.agents[0].position, {1.f, 0.f}, command.decoyDistance);
     simulation.Step(0.1f, {{1, command}});
-    Require(world.noises.size() == 1 && world.noises[0].position == preview.to && world.noises[0].radius == DistractionConfig::DecoyHearingDistance, "El ruido del host debe coincidir con la guía compartida");
-    Require(world.agents[0].loadout.decoys == 2 && world.guards[0].state == GuardState::Investigate && world.guards[0].lastKnown == preview.to, "El lanzamiento consume un señuelo y dirige la investigación al punto de caída");
+    Require(world.noises.empty() && world.decoys.size() == 1 && world.decoys[0].to == preview.to && world.decoys[0].elapsed < world.decoys[0].duration, "El señuelo genera ruido de impacto antes de terminar su vuelo real");
+    Require(world.agents[0].loadout.decoys == 2 && world.guards[0].state != GuardState::Investigate, "La investigación se anticipa a un impacto que aún no ocurrió");
     Require(world.agents[0].actionPose == ActionPose::ThrowDecoy && world.agents[0].actionPoseTime > 0.f, "Un lanzamiento ejecutado conserva su fotograma de acción autoritativo");
     Require(!world.alarm && std::ranges::none_of(world.events, [](const MissionEvent &event) { return event.kind == EventKind::ConfirmedDetection; }), "Oír un señuelo no revela automáticamente al agente");
     simulation.Step(0.1f, {{1, command}});
-    Require(world.agents[0].loadout.decoys == 2, "El cooldown no permite duplicar el lanzamiento");
+    Require(world.agents[0].loadout.decoys == 2 && world.decoys.size() == 1, "El cooldown no permite duplicar el lanzamiento");
+    Land(simulation);
+    Require(world.decoys.empty() && world.noises.size() == 1 && world.noises[0].position == preview.to && world.noises[0].radius == DistractionConfig::DecoyHearingDistance && world.noises[0].kind == SoundKind::Decoy, "El ruido del aterrizaje no coincide con la guía o el tipo y alcance configurados");
+    Require(world.guards[0].state == GuardState::Investigate && world.guards[0].lastKnown == preview.to && !world.alarm, "La patrulla no investiga el impacto o conoce automáticamente al lanzador");
+    const auto noises = std::ranges::count_if(world.events, [](const MissionEvent &event) { return event.kind == EventKind::Noise; });
+    Advance(simulation, 3);
+    Require(noises == 1 && std::ranges::count_if(world.events, [](const MissionEvent &event) { return event.kind == EventKind::Noise; }) == noises, "El disco aterrizado repite el evento acústico cada fotograma");
     auto &blocked = Fixture(simulation);
     blocked.obstacles.push_back({{{120.f, 480.f}, {20.f, 40.f}}, CoverKind::High, true, "Pared cercana"});
     simulation.Step(0.1f, {{1, command}});
-    Require(blocked.noises.empty() && blocked.agents[0].loadout.decoys == 3, "Un lanzamiento sin espacio válido no consume señuelos ni genera ruido ficticio");
+    Require(blocked.noises.empty() && blocked.decoys.empty() && blocked.agents[0].loadout.decoys == 3, "Un lanzamiento sin espacio válido no consume señuelos ni genera ruido ficticio");
     Require(blocked.agents[0].actionPose == ActionPose::None, "Un lanzamiento rechazado no simula una animación de éxito");
     auto &clipped = Fixture(simulation);
     clipped.obstacles.push_back({{{250.f, 450.f}, {20.f, 100.f}}, CoverKind::High, true, "Pared"});
     const auto expected = DistractionGeometry::TraceDecoy(clipped, clipped.agents[0].position, {1.f, 0.f}, command.decoyDistance);
     simulation.Step(0.1f, {{1, command}});
+    Require(clipped.noises.empty() && clipped.decoys.size() == 1 && clipped.decoys[0].blocked && clipped.decoys[0].to == expected.to, "El vuelo no conserva el destino limitado por el obstáculo");
+    Land(simulation);
     Require(clipped.noises.size() == 1 && clipped.noises[0].position == expected.to && expected.blocked, "El host no lanza un señuelo a través de un obstáculo");
+    auto &muffled = Fixture(simulation);
+    Guard near; near.id = 8; near.position = {620.f, 500.f}; near.facing = {1.f, 0.f};
+    Guard far = near; far.id = 9; far.position = {700.f, 500.f};
+    muffled.guards = {near, far}; muffled.obstacles.push_back({{{550.f, 450.f}, {20.f, 100.f}}, CoverKind::High, true, "Muro acústico"});
+    simulation.Step(0.1f, {{1, command}}); Land(simulation);
+    Require(DistractionConfig::DecoyHearingDistance == 420.f && 200.f < DistractionConfig::DecoyHearingDistance * AudioConfig::WallHearingFactor && 280.f > DistractionConfig::DecoyHearingDistance * AudioConfig::WallHearingFactor, "El fixture de audición no separa correctamente los dos alcances amortiguados");
+    Require(muffled.guards[0].state == GuardState::Investigate && muffled.guards[0].lastKnown == sf::Vector2f{420.f, 500.f} && muffled.guards[1].state == GuardState::Patrol, "El señuelo ignora el amortiguamiento de paredes o no atrae dentro de su alcance legítimo");
   }
 
   void ContextualWallKnock() {
     Simulation simulation;
     auto &world = Fixture(simulation);
-    ActionCommand knock; knock.knock = true; knock.aimX = 1.f;
+    ActionCommand knock; knock.cqc = true; knock.cqcHeld = true; knock.aimX = 1.f;
     simulation.Step(0.1f, {{1, knock}});
-    Require(world.noises.empty(), "Q no inventa una pared en un espacio vacío");
+    Require(world.noises.empty(), "F no inventa una pared en un espacio vacío");
     Require(world.agents[0].actionPose == ActionPose::None, "Un golpe rechazado no genera fotograma de acción");
     world.obstacles.push_back({{{128.f, 480.f}, {20.f, 40.f}}, CoverKind::High, true, "Pared"});
-    knock.aimX = -1.f;
-    simulation.Step(0.1f, {{1, knock}});
-    Require(world.noises.empty(), "Golpear requiere mirar hacia la cara de la pared");
+    simulation.Step(0.1f, {});
+    Advance(simulation, 8);
+    const auto previousNoiseEvents = std::ranges::count_if(world.events, [](const MissionEvent &event) { return event.kind == EventKind::Noise; });
+    ActionCommand legacy; legacy.knock = true; legacy.aimX = 1.f; simulation.Step(0.1f, {{1, legacy}});
+    Require(std::ranges::count_if(world.events, [](const MissionEvent &event) { return event.kind == EventKind::Noise; }) == previousNoiseEvents, "El comando antiguo golpea una pared sin entrar en cobertura");
+    Fixture(simulation); world.obstacles.push_back({{{128.f, 480.f}, {20.f, 40.f}}, CoverKind::High, true, "Pared"});
+    ActionCommand cover; cover.coverToggle = true; simulation.Step(0.1f, {{1, cover}});
+    Require(world.agents[0].cover.active, "La pared de prueba no permite una cobertura válida");
     knock.aimX = 1.f; world.agents[0].stance = Stance::Prone;
     simulation.Step(0.1f, {{1, knock}});
     Require(world.noises.empty(), "Una postura tumbada incompatible no ejecuta el golpe");
     world.agents[0].stance = Stance::Standing; knock.interact = true;
+    simulation.Step(0.1f, {});
+    if (!world.agents[0].cover.active) simulation.Step(0.1f, {{1, cover}});
     simulation.Step(0.1f, {{1, knock}});
     Require(world.noises.empty(), "El golpe no interrumpe una interacción incompatible");
     knock.interact = false;
-    Guard guard; guard.id = 10; guard.position = {300.f, 500.f}; guard.facing = {1.f, 0.f}; world.guards.push_back(guard);
+    simulation.Step(0.1f, {});
+    Guard guard; guard.id = 10; guard.position = {200.f, 500.f}; guard.facing = {1.f, 0.f}; world.guards.push_back(guard);
     simulation.Step(0.1f, {{1, knock}});
-    Require(world.noises.size() == 1 && world.noises[0].position == sf::Vector2f{128.f, 500.f} && world.noises[0].radius == DistractionConfig::KnockHearingDistance, "El golpe genera ruido en la superficie real de la pared");
+    Require(world.noises.size() == 1 && world.noises[0].position == sf::Vector2f{128.f, 500.f} && world.noises[0].radius == DistractionConfig::KnockHearingDistance && world.noises[0].kind == SoundKind::Knock, "El golpe genera ruido en la superficie real de la pared");
     Require(world.agents[0].actionPose == ActionPose::KnockWall && world.agents[0].actionPoseTime > 0.f, "Un golpe validado conserva un fotograma de acción replicable");
     Require(world.guards[0].state == GuardState::Investigate && world.guards[0].lastKnown == world.noises[0].position && !world.alarm, "El guardia investiga el origen acústico sin conocer al agente");
     for (const auto kind : {HideoutKind::TrashBin, HideoutKind::UnderTable, HideoutKind::None}) {
@@ -99,9 +131,33 @@ namespace {
       object.hideoutKind = kind;
       object.position = {128.f + WorldGeometry::ObjectFootprint(object).size.x * 0.5f, 500.f};
       excluded.objects.push_back(object);
+      simulation.Step(0.1f, {{1, cover}});
       simulation.Step(0.1f, {{1, knock}});
       Require(excluded.noises.empty() && excluded.agents[0].actionPose == ActionPose::None, "Contenedores, mesas y puertas sin permiso de pared no generan golpe ni ruido");
     }
+  }
+
+  void DoorClosedDuringFlight() {
+    Simulation simulation; auto &world = Fixture(simulation);
+    Interactable door{91, ObjectKind::Door, {275.f, 500.f}, "Puerta móvil"}; door.open = true;
+    world.objects.push_back(door);
+    ActionCommand launch; launch.throwDecoy = true; launch.aimX = 1.f; launch.decoyDistance = 320.f;
+    simulation.Step(0.1f, {{1, launch}});
+    Require(world.decoys.size() == 1 && !world.decoys[0].blocked && world.noises.empty(), "La puerta abierta impide iniciar un vuelo silencioso");
+    world.objects[0].open = false;
+    Land(simulation);
+    const auto edge = WorldGeometry::ObjectFootprint(world.objects[0]).position.x;
+    Require(world.decoys.empty() && world.noises.size() == 1 && world.noises[0].position.x < edge && world.noises[0].position.x > edge - 10.f,
+      "Cerrar una puerta durante el vuelo deja pasar el disco o produce un impacto lejos de la colisión real");
+    Advance(simulation, 12);
+    Require(std::ranges::count_if(world.events, [](const MissionEvent &event) { return event.kind == EventKind::Noise; }) == 1,
+      "La colisión dinámica repite el ruido después de retirar el disco");
+    Fixture(simulation);
+    world.decoys.assign(DistractionConfig::MaximumFlyingDecoys, {{100.f, 100.f}, {420.f, 100.f}, 0.f, 1.f, DistractionConfig::DecoyArcHeight, 1, false});
+    const int stock = world.agents[0].loadout.decoys;
+    simulation.Step(0.1f, {{1, launch}});
+    Require(world.decoys.size() == DistractionConfig::MaximumFlyingDecoys && world.agents[0].loadout.decoys == stock && world.noises.empty(),
+      "El límite de discos simultáneos consume inventario al rechazar el lanzamiento");
   }
 
   void ApproximateFootstepsAndPrivacy() {
@@ -134,6 +190,7 @@ int main() {
     SharedTrajectory();
     AuthoritativeDecoyAndHearing();
     ContextualWallKnock();
+    DoorClosedDuringFlight();
     ApproximateFootstepsAndPrivacy();
     std::cout << "PASS distracciones: " << checks << " comprobaciones de trayectoria, golpes, audición y pasos privados\n";
     return 0;

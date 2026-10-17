@@ -30,9 +30,24 @@ namespace {
     simulation.Step(0.1f, {{1, command}});
   }
   void Solve(Simulation &simulation) {
+    const auto initial = simulation.GetState().agents[0].puzzle;
+    if (initial.family == PuzzleFamily::Levers) {
+      ActionCommand cancel; cancel.puzzleTarget = initial.target; cancel.puzzleInput = 0; simulation.Step(0.1f, {{1, cancel}});
+      for (const auto index : initial.sequence) {
+        const auto &objects = simulation.GetState().objects;
+        const auto node = std::ranges::find_if(objects, [&initial, index](const Interactable &object) { return object.puzzle.parentDevice == initial.target && object.puzzle.nodeIndex == index; });
+        if (node == objects.end()) throw std::runtime_error("Falta una palanca física del circuito de prácticas");
+        Interact(simulation, node->position - sf::Vector2f{30.f, 0.f});
+      }
+      return;
+    }
     for (unsigned int stage = 0; stage < DevicesConfig::PuzzleMaximumStages && simulation.GetState().agents[0].puzzle.target != 0; ++stage) {
       const auto puzzle = simulation.GetState().agents[0].puzzle;
-      ActionCommand command; command.puzzleTarget = puzzle.target; command.puzzleInput = static_cast<int>((puzzle.clueA + puzzle.clueB) % 4u + 1u);
+      ActionCommand command; command.puzzleTarget = puzzle.target;
+      if (puzzle.family == PuzzleFamily::Arrows) command.puzzleInput = puzzle.sequence.at(puzzle.stage);
+      else if (puzzle.family == PuzzleFamily::Wires) for (unsigned int source = 1; source <= 4; ++source) if (!(puzzle.connectedSources & (1u << (source - 1)))) {
+        command.puzzleInput = WireInput(source, MatchingWirePort(puzzle, source)); break;
+      }
       simulation.Step(0.1f, {{1, command}});
     }
   }
@@ -54,7 +69,7 @@ namespace {
     Require(world.guards.size() == TrainingConfig::DummyCount && std::ranges::all_of(world.guards, [](const Guard &guard) { return guard.trainingDummy; }),
       "La sala contiene guardias enemigos o no incluye sus objetivos de prácticas");
     for (const auto kind : {ObjectKind::Operations, ObjectKind::Armory, ObjectKind::Intelligence, ObjectKind::Deployment, ObjectKind::Camera,
-         ObjectKind::Explosive, ObjectKind::Door, ObjectKind::Computer, ObjectKind::CameraPanel, ObjectKind::TrainingReset})
+         ObjectKind::Explosive, ObjectKind::Door, ObjectKind::Computer, ObjectKind::CameraPanel, ObjectKind::CoopSwitch, ObjectKind::PuzzleNode, ObjectKind::TrainingReset})
       Require(std::ranges::any_of(world.objects, [kind](const Interactable &object) { return object.kind == kind; }), "La sala ha eliminado una estación o un dispositivo utilizable");
     for (const auto kind : {HideoutKind::Closet, HideoutKind::TrashBin, HideoutKind::UnderTable})
       Require(std::ranges::any_of(world.objects, [kind](const Interactable &object) { return object.hideoutKind == kind; }), "Falta un tipo de escondite en el campo de prácticas");
@@ -119,6 +134,11 @@ namespace {
     Interact(simulation, {1640.f, 650.f}); Solve(simulation);
     Require(Object(world, 104).completed && world.secondary == 0 && world.objectives == 0 && world.message.find("PRÁCTICA COMPLETADA") != std::string::npos,
       "El computador no revela su práctica o contamina la puntuación de misión");
+    const auto relay = std::ranges::find_if(world.objects, [](const Interactable &object) { return object.kind == ObjectKind::CoopSwitch; });
+    Require(relay != world.objects.end(), "La sala no incluye el ejercicio de coordinación");
+    Interact(simulation, relay->position - sf::Vector2f{40.f, 0.f});
+    ActionCommand hold; hold.puzzleTarget = relay->id; hold.puzzleHeld = true; Advance(simulation, hold, 2.1f);
+    Require(relay->completed && world.secondary == 0 && world.objectives == 0, "La sincronización de prácticas no funciona en solitario o contamina objetivos");
     auto &trap = Object(world, 102); trap.trap.fuse = 0.1f;
     world.agents[0].position = {1220.f, 650.f}; world.guards[0].position = {1235.f, 650.f};
     simulation.Step(0.1f, {});
@@ -132,6 +152,9 @@ namespace {
       "La consola no rearma trampas, cámaras y puzles para repetir indefinidamente");
     Require(!Object(world, 103).open && Object(world, 103).locked && world.guards[0].trainingHits == 0 && world.guards[0].health == TrainingConfig::DummyMaximumHealth,
       "Rearmar no restablece la cerradura o la presentación de daño de los muñecos");
+    Require(relay->active && !relay->completed && relay->puzzle.coordinationProgress == 0.f && Object(world, 104).puzzle.sequenceProgress == 0 &&
+      std::ranges::none_of(world.objects, [](const Interactable &object) { return object.kind == ObjectKind::PuzzleNode && object.open; }),
+      "Rearmar no permite repetir la coordinación o el circuito de palancas");
     Object(world, 103).open = true; Object(world, 103).locked = false; world.guards[0].position = Object(world, 103).position;
     Interact(simulation, TrainingConfig::ResetPosition - sf::Vector2f{40.f, 0.f});
     Require(Object(world, 103).open && !Object(world, 103).locked && !WorldGeometry::PositionBlocked(world, world.guards[0].position, GameplayConfig::AgentRadius),

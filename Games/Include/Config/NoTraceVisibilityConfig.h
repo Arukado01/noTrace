@@ -6,7 +6,7 @@ namespace NoTrace::VisibilityConfig {
   inline constexpr float ReferenceStandingRange = 400.f;
   inline constexpr float ReferenceCrouchedRange = 330.f;
   inline constexpr float ReferenceProneRange = 260.f;
-  inline constexpr float PlayerRangeScale = 0.875f;
+  inline constexpr float PlayerRangeScale = 0.5f;
   inline constexpr float StandingRange = ReferenceStandingRange * PlayerRangeScale;
   inline constexpr float CrouchedRange = ReferenceCrouchedRange * PlayerRangeScale;
   inline constexpr float ProneRange = ReferenceProneRange * PlayerRangeScale;

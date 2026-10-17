@@ -1,4 +1,5 @@
 #include "NoTraceSimulation.h"
+#include "Config/NoTraceDevicesConfig.h"
 #include "Config/NoTraceSecurityConfig.h"
 #include "NoTraceWorldGeometry.h"
 #include <algorithm>
@@ -67,20 +68,28 @@ namespace {
     simulation.Step(0.1f, {});
     const float expected = 0.4f + 0.1f / GameplayConfig::ConfirmationTime;
     Require(std::abs(world.agents[0].detectionProgress - expected) < 0.0001f && !world.agents[0].detectionConfirmed, "El progreso usa el máximo real de observadores sin sumar detecciones duplicadas");
-    Interactable camera{90, ObjectKind::Camera, {300.f, 280.f}, "Cámara"}; camera.facing = {-1.f, 0.f}; camera.progress = 0.6f; camera.observedAgent = 1;
+    Interactable camera{90, ObjectKind::Camera, {300.f, 280.f}, "Cámara"}; camera.facing = {-1.f, 0.f}; camera.progress = camera.camera.confirmationTime - 0.2f; camera.observedAgent = 1;
     world.objects.push_back(camera);
     simulation.Step(0.1f, {});
-    Require(std::abs(world.agents[0].detectionProgress - 0.7f / GameplayConfig::ConfirmationTime) < 0.0001f, "Las cámaras aportan progreso gradual autoritativo al mismo indicador");
+    const float cameraProgress = (camera.camera.confirmationTime - 0.1f) / camera.camera.confirmationTime;
+    Require(std::abs(world.agents[0].detectionProgress - cameraProgress) < 0.0001f && !world.agents[0].detectionConfirmed && !world.alarm, "Las cámaras aportan progreso gradual autoritativo sin confirmar antes de su umbral propio");
     Advance(simulation, 0.3f);
     Require(world.agents[0].detectionProgress == 1.f && world.agents[0].detectionConfirmed && world.alarm && world.securityActive, "La confirmación del observador real activa alarma y respuesta de seguridad");
     const auto confirmed = std::ranges::count_if(world.events, [](const MissionEvent &event) { return event.kind == EventKind::ConfirmedDetection && event.target == 1090; });
+    Require(confirmed == 1, "La cámara registra exactamente una confirmación al alcanzar el umbral");
     Advance(simulation, 0.3f);
     Require(std::ranges::count_if(world.events, [](const MissionEvent &event) { return event.kind == EventKind::ConfirmedDetection && event.target == 1090; }) == confirmed, "Una cámara ya confirmada no repite el evento de detección cada tick");
     const auto clue = world.guards[0].lastKnown;
     world.agents[0].hidden = true; world.agents[0].position = {50.f, 700.f};
     simulation.Step(0.1f, {});
-    Require(world.agents[0].detectionProgress == 0.f && !world.agents[0].detectionConfirmed, "La percepción sin línea de visión no conserva un indicador ficticio");
+    Require(world.agents[0].detectionProgress == 1.f && world.agents[0].detectionConfirmed && world.objects[0].camera.indicatorProgress == 1.f, "La confirmación observada persiste brevemente tras perder la línea de visión");
     Require(world.guards[0].lastKnown == clue && world.guards[0].state == GuardState::Search, "La búsqueda conserva únicamente la posición observada antes de ocultarse el agente");
+    const float indicatorDuration = std::max(GameplayConfig::ConfirmedIndicatorDuration, DevicesConfig::CameraConfirmedIndicatorDuration);
+    Advance(simulation, indicatorDuration + 0.2f);
+    Require(world.agents[0].detectionProgress == 0.f && !world.agents[0].detectionConfirmed && world.objects[0].camera.indicatorProgress == 0.f, "Los indicadores confirmados caducan si ningún observador vuelve a ver al agente");
+    Require(world.alarm && world.securityActive, "Caducar el indicador visual no cancela antes de tiempo la respuesta de seguridad");
+    Advance(simulation, SecurityConfig::PatrolRecoveryDelay + 0.2f);
+    Require(!world.alarm && !world.securityActive, "La alarma termina al cumplirse el periodo sin nuevos contactos observados");
   }
 
   void EnemyDamageProducesCollapse() {
@@ -88,7 +97,8 @@ namespace {
     auto &world = Fixture(simulation, true); Observer(world, 1, 1.f);
     world.guards[0].attackCooldown = 0.f; world.guards[0].state = GuardState::Alert;
     world.agents[0].health = GameplayConfig::GuardShotDamage;
-    simulation.Step(0.1f, {});
+    ActionCommand aim; aim.aiming = true;
+    simulation.Step(0.1f, {{1, aim}});
     Require(world.agents[0].health == 0.f && world.agents[0].alive && world.agents[0].incapacitated, "El disparo enemigo que agota la salud produce un desmayo real sin una eliminación definitiva");
     Require(world.phase == GamePhase::Mission && world.agents[0].detectionProgress == 0.f, "El compañero operativo mantiene la misión y el agente caído deja de mostrar progreso de detección");
     std::string error;
@@ -99,6 +109,7 @@ namespace {
     const auto ammo = world.guards[0].ammo;
     Advance(simulation, 2.5f);
     Require(world.guards[0].ammo == ammo && std::ranges::count_if(world.events, [](const MissionEvent &event) { return event.kind == EventKind::GuardShot; }) == shots, "El guardia no consume más balas ni sigue disparando al agente desmayado");
+    Require(world.agents[0].incapacitated && !world.agents[0].aiming && !world.agents[0].detectionConfirmed && world.agents[0].detectionProgress == 0.f && world.agents[0].confirmedIndicatorRemaining == 0.f && world.agents[0].detectionIndicatorRemaining == 0.f, "Los ticks cooperativos reactivan el apuntado o la confirmación visual del agente inconsciente");
 
     auto &solo = Fixture(simulation); Observer(solo, 1, 1.f);
     solo.agents[0].health = GameplayConfig::GuardShotDamage; solo.guards[0].attackCooldown = 0.f; solo.guards[0].state = GuardState::Alert;
@@ -133,7 +144,7 @@ namespace {
     Require(blocked.reinforcementWaves == 1 && Reinforcements(blocked) == 1, "El anfitrión reintenta el acceso cuando vuelve a quedar libre");
 
     auto &visible = Fixture(simulation); Observer(visible, 1, 1.f);
-    visible.securityEntries = {{{450.f, 300.f}, {480.f, 300.f}}};
+    visible.securityEntries = {{{390.f, 300.f}, {420.f, 300.f}}};
     Advance(simulation, SecurityConfig::InitialArrivalDelay + 1.f);
     Require(visible.reinforcementWaves == 0 && Reinforcements(visible) == 0, "Un acceso observado por el agente no materializa enemigos a la vista aunque esté a distancia suficiente");
     visible.agents[0].hidden = true; visible.agents[0].facing = {-1.f, 0.f};

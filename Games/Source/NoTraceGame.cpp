@@ -59,13 +59,14 @@ namespace NoTrace {
     };
     health_ = indicator(16.f, {148, 44, 59});
     stamina_ = indicator(56.f, {37, 103, 97});
+    suppressor_ = indicator(87.f, {84, 99, 111}); suppressor_->setSize({220.f, 22.f}); suppressor_->setTextSize(13);
     auto footer = tgui::Panel::create({"100%", 150.f});
     footer->setPosition({0.f, 750.f}); footer->getRenderer()->setBackgroundColor({5, 12, 20, 235});
     footer->getRenderer()->setBorders(0); root_->add(footer);
     hint_ = label("", 30.f, 758.f, 1530.f, 22);
     message_ = label("", 30.f, 798.f, 1530.f, 18);
     label("WASD mover / arrastrarse tumbado · Mayús correr · C agacharse · Z tumbarse · E interactuar / mantener para cuerpo", 30.f, 832.f, 1530.f, 16);
-    label("1/2 arma · B recargar · F toque: golpe / mantener: agarre trasero · V empujar · R cubrir · Alt asomar · G señuelo · Q pared · rueda zoom", 30.f, 863.f, 1550.f, 16);
+    label("Izq disparar · Der apuntar · R recargar · Alt cubrir · F CQC/pared · Q armas · G disco · H silenciador · Espacio zambullida · Ctrl rodada", 30.f, 863.f, 1550.f, 16);
     private_ = tgui::Label::create(); private_->setPosition({34.f, 140.f}); private_->setSize({620.f, 115.f});
     private_->setTextSize(19); private_->getRenderer()->setTextColor({239, 203, 117});
     private_->setIgnoreMouseEvents(true); private_->setVisible(false); root_->add(private_);
@@ -98,13 +99,18 @@ namespace NoTrace {
       sf::Keyboard::Scan::A, sf::Keyboard::Scan::D, sf::Keyboard::Scan::W, sf::Keyboard::Scan::S,
       sf::Keyboard::Scan::LShift, sf::Keyboard::Scan::C, sf::Keyboard::Scan::Z,
       sf::Keyboard::Scan::E, sf::Keyboard::Scan::F, sf::Keyboard::Scan::Unknown, sf::Keyboard::Scan::Unknown,
-      sf::Keyboard::Scan::G, sf::Keyboard::Scan::Q, sf::Keyboard::Scan::Unknown, sf::Keyboard::Scan::T,
-      sf::Keyboard::Scan::Tab, sf::Keyboard::Scan::F2, sf::Keyboard::Scan::R, sf::Keyboard::Scan::LAlt, sf::Keyboard::Scan::V,
-      sf::Keyboard::Scan::B, sf::Keyboard::Scan::Num1, sf::Keyboard::Scan::Num2
+      sf::Keyboard::Scan::G, sf::Keyboard::Scan::Unknown, sf::Keyboard::Scan::Unknown, sf::Keyboard::Scan::T,
+      sf::Keyboard::Scan::Tab, sf::Keyboard::Scan::F2, sf::Keyboard::Scan::LAlt, sf::Keyboard::Scan::Unknown, sf::Keyboard::Scan::V,
+      sf::Keyboard::Scan::R, sf::Keyboard::Scan::Num1, sf::Keyboard::Scan::Num2,
+      sf::Keyboard::Scan::Unknown, sf::Keyboard::Scan::Unknown, sf::Keyboard::Scan::H, sf::Keyboard::Scan::Q
     };
     for (int action = 0; action < Count; ++action) if (keys[action] != sf::Keyboard::Scan::Unknown) ctx.input.Bind(action, Input::Keyboard{keys[action]});
     ctx.input.Bind(Lethal, Input::Mouse{sf::Mouse::Button::Left});
     ctx.input.Bind(NonLethal, Input::Mouse{sf::Mouse::Button::Right});
+    const std::array<sf::Keyboard::Scan, 5> movementKeys{sf::Keyboard::Scan::Space, sf::Keyboard::Scan::LControl, sf::Keyboard::Scan::X, sf::Keyboard::Scan::J, sf::Keyboard::Scan::K};
+    const int diveKey = std::clamp(ctx.save.Get("NoTrace:DiveKey", 0), 0, 4), rollKey = std::clamp(ctx.save.Get("NoTrace:RollKey", 1), 0, 4);
+    ctx.input.Bind(Dive, Input::Keyboard{movementKeys[diveKey]});
+    ctx.input.Bind(Roll, Input::Keyboard{movementKeys[rollKey == diveKey ? (rollKey + 1) % 5 : rollKey]});
     ctx.input.Bind(Left, Input::Keyboard{sf::Keyboard::Scan::Left});
     ctx.input.Bind(Right, Input::Keyboard{sf::Keyboard::Scan::Right});
     ctx.input.Bind(Up, Input::Keyboard{sf::Keyboard::Scan::Up});
@@ -134,7 +140,7 @@ namespace NoTrace {
   void Game::Update() {
     if (!paused_ && page_ == Page::Puzzle && session_.IsConnected()) {
       ActionCommand command;
-      if (const auto *agent = LocalAgent()) { command.puzzleInput = pendingPuzzleInput_; command.puzzleTarget = agent->puzzle.target; }
+      if (const auto *agent = LocalAgent()) { command.puzzleInput = pendingPuzzleInput_; command.puzzleTarget = agent->puzzle.target; command.puzzleHeld = pendingPuzzleHeld_; }
       pendingPuzzleInput_ = -1; session_.Submit(command); return;
     }
     if (paused_ || page_ != Page::None || !session_.IsConnected()) {
@@ -142,6 +148,7 @@ namespace NoTrace {
       session_.Submit({}); held_.fill(false); return;
     }
     if (Pressed(Lobby, true) && session_.GetWorld().phase == GamePhase::Base) { Open(Page::Deployment); return; }
+    if (Pressed(WeaponMenu, true)) { Open(Page::Weapons); return; }
     if (Pressed(Orders, true)) showOrders_ = !showOrders_;
     const auto *agent = LocalAgent();
     if (!agent) return;
@@ -160,8 +167,11 @@ namespace NoTrace {
     if (aimLength > 1.f) aim /= aimLength; else aim = agent->facing;
     command.aimX = aim.x; command.aimY = aim.y;
     command.aimSlope = aimSolution.slope;
-    command.coverToggle = Pressed(WallCover, true);
-    if (agent->cover.active && Pressed(Peek)) {
+    command.coverToggle = ctx.input.JustPressed(WallCover);
+    command.aiming = ctx.input.Held(NonLethal);
+    command.dive = ctx.input.JustPressed(Dive); command.roll = ctx.input.JustPressed(Roll);
+    command.toggleSuppressor = ctx.input.JustPressed(Suppressor);
+    if (agent->cover.active && command.aiming) {
       const sf::Vector2f tangent{-agent->cover.normal.y, agent->cover.normal.x};
       const float side = direction.dot(tangent);
       command.peekLeft = side > 0.1f; command.peekRight = side < -0.1f;
@@ -177,7 +187,8 @@ namespace NoTrace {
     command.tool = Pressed(Tool, true);
     command.reloadWeapon = Pressed(Reload, true);
     command.weaponChoice = Pressed(SelectPistol, true) ? 0 : Pressed(SelectNonLethal, true) ? 1 : -1;
-    const bool lethal = Pressed(Lethal, true), nonLethal = Pressed(NonLethal, true);
+    if (pendingWeaponChoice_ >= 0) { command.weaponChoice = pendingWeaponChoice_; pendingWeaponChoice_ = -1; }
+    const bool lethal = ctx.input.JustPressed(Lethal), nonLethal = ctx.input.JustPressed(NonLethal);
     const bool decoyHeld = Pressed(Decoy);
     const bool wasPreparing = preparingDecoy_;
     if (!decoyHeld && cancelledDecoy_) cancelledDecoy_ = false;
@@ -197,7 +208,7 @@ namespace NoTrace {
       worldRenderer_.SetDecoyPreview(preparingDecoy_, throwDirection, command.decoyDistance);
     } else worldRenderer_.SetDecoyPreview(false, {}, 0.f);
     command.prepareDecoy = preparingDecoy_;
-    if (!decoyContext && cursor.y > 116.f && cursor.y < 750.f) { command.fireSelected = lethal; command.fireNonLethal = nonLethal; }
+    if (!decoyContext && cursor.y > 116.f && cursor.y < 750.f) { command.fireSelected = lethal; }
     if (command.interact && world.phase == GamePhase::Base) {
       for (const auto &object : world.objects) {
         if (!WorldGeometry::Properties(object).interactive) continue;
@@ -241,6 +252,7 @@ namespace NoTrace {
         if (page_ != Page::Puzzle) Open(Page::Puzzle);
         else if (puzzleStageRendered_ != agent->puzzle.stage || puzzleTargetRendered_ != agent->puzzle.target) { panel_->removeAllWidgets(); BuildPuzzle(); }
       } else if (page_ == Page::Puzzle) ClosePanel();
+      if (page_ == Page::Puzzle && puzzleProgress_ && agent) puzzleProgress_->setValue(static_cast<unsigned int>(std::clamp(agent->puzzle.coordinationProgress / DevicesConfig::CoordinationHoldDuration, 0.f, 1.f) * 100.f));
     }
     if (page_ == Page::Options && observedDisplay_ != ctx.window.GetDisplaySettings()) SyncDisplayOptions();
     RefreshHud();
@@ -251,6 +263,7 @@ namespace NoTrace {
   }
 
   void Game::OnEvent(const sf::Event &event) {
+    if (event.is<sf::Event::FocusLost>()) { pendingPuzzleHeld_ = false; session_.Submit({}); }
     if (const auto *key = event.getIf<sf::Event::KeyPressed>()) {
       if (key->scancode == sf::Keyboard::Scan::Escape) { NavigateBack(); return; }
       if (page_ == Page::Options) for (const auto &widget : panel_->getWidgets()) {
@@ -276,13 +289,15 @@ namespace NoTrace {
       preparingDecoy_ = false; cancelledDecoy_ = true;
       worldRenderer_.SetDecoyPreview(false, {}, 0.f); session_.Submit({}); return;
     }
-    if (page_ == Page::Options) Open(Page::Pause);
+    if (page_ == Page::Controls) Open(Page::Options);
+    else if (page_ == Page::Options) Open(Page::Pause);
     else if (page_ == Page::Connection) ctx.scenes.ChangeScene(MENU_SCENE);
     else if (page_ == Page::None && session_.IsConnected() && session_.GetWorld().phase != GamePhase::Results) Open(Page::Pause);
     else if (page_ != Page::Results) ClosePanel();
   }
 
   void Game::Open(Page page) {
+    pendingPuzzleHeld_ = false;
     cqcBlocked_ = true;
     if (preparingDecoy_) cancelledDecoy_ = true;
     preparingDecoy_ = false; worldRenderer_.SetDecoyPreview(false, {}, 0.f);
@@ -292,6 +307,8 @@ namespace NoTrace {
     else if (page == Page::Results) BuildResults();
     else if (page == Page::Pause) BuildPause();
     else if (page == Page::Options) BuildOptions();
+    else if (page == Page::Weapons) BuildWeapons();
+    else if (page == Page::Controls) BuildControls();
     else if (page == Page::Puzzle) BuildPuzzle();
     else BuildStation(page);
     lobby_->setEnabled(false);
@@ -300,6 +317,7 @@ namespace NoTrace {
   }
 
   void Game::ClosePanel() {
+    pendingPuzzleHeld_ = false;
     page_ = Page::None; panel_->setVisible(false); panel_->setFocused(false);
     lobby_->setEnabled(true);
     for (int action = 0; action < Count; ++action) held_[action] = ctx.input.Pressed(action);
@@ -426,7 +444,8 @@ namespace NoTrace {
       cursorLabel->setText("Cursor / mando: " + std::to_string(static_cast<int>(value)));
     });
     panel_->add(cursor);
-    status_ = Label("Aplica y confirma los cambios de pantalla.", {30.f, 377.f}, {714.f, 60.f}, 18);
+    status_ = Label("Aplica y confirma los cambios de pantalla.", {30.f, 370.f}, {714.f, 32.f}, 17);
+    auto controls = Button("CONFIGURAR ZAMBULLIDA Y RODADA", 408.f, [this] { Open(Page::Controls); }); controls->setSize({714.f, 34.f}); controls->setTextSize(17);
     Button("APLICAR PANTALLA", 450.f, [this] {
       const auto &modes = ctx.window.GetAvailableResolutions(); const int index = resolutionBox_->getSelectedItemIndex();
       if (index < 0 || static_cast<std::size_t>(index) >= modes.size()) { status_->setText("Selecciona una resolución compatible."); return; }
@@ -467,9 +486,13 @@ namespace NoTrace {
     const auto &world = session_.GetWorld();
     const auto &contract = GetContract(world.contract);
     title_->setText(world.phase == GamePhase::Base ? "NO TRACE  //  BASE CIO" : "NO TRACE  //  " + contract.name);
-    mission_->setText(world.phase == GamePhase::Base ? "ENTRENAMIENTO SEGURO: sin enemigos · prácticas al este · B recargar · 1/2 cambiar arma · F2 despliegue" : std::format("OBJETIVOS {}/{}  ·  SECUNDARIOS {}  ·  {:.0f} s  ·  {}  ·  SEMILLA {}", world.objectives, contract.requiredObjectives, world.secondary, std::max(0.f, contract.timeLimit - world.elapsed), world.alarm ? "ALARMA" : "SIN ALARMA", world.seed));
+    mission_->setText(world.phase == GamePhase::Base ? "ENTRENAMIENTO SEGURO: sin enemigos · prácticas al este · R recargar · 1/2 cambiar arma · F2 despliegue" : std::format("OBJETIVOS {}/{}  ·  SECUNDARIOS {}  ·  {:.0f} s  ·  {}  ·  SEMILLA {}", world.objectives, contract.requiredObjectives, world.secondary, std::max(0.f, contract.timeLimit - world.elapsed), world.alarm ? "ALARMA" : "SIN ALARMA", world.seed));
     if (const auto *agent = LocalAgent()) {
       health_->setVisible(true); stamina_->setVisible(true);
+      const bool pistol = agent->selectedWeapon == WeaponKind::Pistol; const float durability = pistol ? agent->pistolSuppressor : agent->nonLethalSuppressor;
+      const bool attached = pistol ? agent->pistolSuppressorEquipped : agent->nonLethalSuppressorEquipped;
+      suppressor_->setVisible(true); suppressor_->setValue(static_cast<unsigned int>(std::clamp(durability, 0.f, 100.f)));
+      suppressor_->setText(durability <= 0.f ? "SILENCIADOR ROTO" : attached ? "SILENCIADOR " + std::to_string(suppressor_->getValue()) + "%" : "SILENCIADOR DESMONTADO");
       health_->setValue(static_cast<unsigned int>(std::lround(std::clamp(agent->health / GameplayConfig::MaxHealth, 0.f, 1.f) * 100.f)));
       stamina_->setValue(static_cast<unsigned int>(std::lround(std::clamp(agent->stamina / GameplayConfig::MaxStamina, 0.f, 1.f) * 100.f)));
       health_->setText("VIDA " + std::to_string(health_->getValue()) + "%");
@@ -533,22 +556,6 @@ namespace NoTrace {
     LOG_INFO("NO TRACE: contrato {}, rango {}, puntos {}, éxito {}", static_cast<int>(world.contract), RankName(found->second.rank), found->second.score, found->second.success);
   }
 
-  void Game::BuildPuzzle() {
-    const auto *agent = LocalAgent(); if (!agent || !agent->puzzle.target) return;
-    const auto &p = agent->puzzle;
-    puzzleStageRendered_ = p.stage; puzzleTargetRendered_ = p.target;
-    Label("CIRCUITO CIO / DISPOSITIVO", {30.f, 20.f}, {714.f, 45.f}, 28);
-    Label(std::format("Etapa {} de {}", p.stage + 1, p.length), {30.f, 82.f}, {714.f, 40.f}, 24);
-    Label("Suma las señales. Divide entre cuatro y elige el resto + 1.\nLa operación continúa durante el desafío; ESC cancela.", {30.f, 136.f}, {714.f, 90.f}, 20);
-    Label(std::format("SEÑALES   {}  +  {}", p.clueA, p.clueB), {30.f, 240.f}, {714.f, 60.f}, 34);
-    for (int choice = 1; choice <= 4; ++choice) {
-      auto button = Button(std::to_string(choice), 330.f, [this, choice] { pendingPuzzleInput_ = choice; });
-      button->setPosition({30.f + (choice - 1) * 183.f, 330.f}); button->setSize({165.f, 58.f});
-    }
-    Button("CANCELAR SIN RESOLVER", 460.f, [this] { pendingPuzzleInput_ = 0; });
-    if (auto &widgets = panel_->getWidgets(); !widgets.empty()) for (const auto &widget : widgets) if (auto button = std::dynamic_pointer_cast<tgui::Button>(widget)) { button->setFocused(true); break; }
-  }
-
   void Game::PlayCue(const std::string &file, float volume, float pan) {
     if (auto *buffer = ctx.resources.FetchSound(file)) {
       if (voices_.size() >= AudioConfig::MaximumVoices) voices_.erase(voices_.begin());
@@ -559,6 +566,7 @@ namespace NoTrace {
   }
 
   void Game::OnPause(bool paused) {
+    if (paused) pendingPuzzleHeld_ = false;
     paused_ = paused; session_.Submit({}); root_->setEnabled(!paused);
     if (paused) { preparingDecoy_ = false; cancelledDecoy_ = true; worldRenderer_.SetDecoyPreview(false, {}, 0.f); }
     if (paused) cqcBlocked_ = true;

@@ -104,6 +104,9 @@ namespace {
     Load(simulation, snapshot);
     ActionCommand decoy; decoy.throwDecoy = true; decoy.aimX = 1.f;
     simulation.Step(0.1f, {{1, decoy}});
+    Require(simulation.GetState().decoys.size() == 1 && simulation.GetState().noises.empty() && simulation.GetState().guards[0].state != GuardState::Investigate, "El señuelo en vuelo permanece silencioso hasta el impacto");
+    for (int frame = 0; frame < 30 && !simulation.GetState().decoys.empty(); ++frame) simulation.Step(0.1f, {});
+    Require(simulation.GetState().decoys.empty(), "El señuelo debe aterrizar dentro de su duración máxima de vuelo");
     Require(simulation.GetState().guards[0].state == GuardState::Investigate, "El ruido debe provocar investigación");
     Require((simulation.GetState().guards[0].lastKnown - sf::Vector2f{150.f + DistractionConfig::MaximumDecoyDistance, 500.f}).length() < 0.01f, "El guardia debe investigar el señuelo, no conocer al agente");
     Require(!simulation.GetState().alarm, "Un ruido sin visión no activa alarma de agente");
@@ -140,11 +143,14 @@ namespace {
 
     snapshot = EmptyMission(simulation, {200.f, 200.f});
     Load(simulation, snapshot);
-    ActionCommand knock; knock.knock = true;
+    ActionCommand knock; knock.cqc = true; knock.cqcHeld = true;
     simulation.Step(0.1f, {{1, knock}});
     Require(simulation.GetState().noises.empty(), "No debe golpear una pared inexistente");
     snapshot["obstacles"].push_back({{"position", {220.f, 150.f}}, {"size", {20.f, 100.f}}, {"cover", 2}, {"solid", true}, {"name", "Pared"}});
     Load(simulation, snapshot);
+    ActionCommand cover; cover.coverToggle = true;
+    simulation.Step(0.1f, {{1, cover}});
+    Require(simulation.GetState().agents[0].cover.active, "El golpe contextual requiere adherirse primero a una pared real");
     simulation.Step(0.1f, {{1, knock}});
     Require(!simulation.GetState().noises.empty(), "Golpear una pared cercana debe producir un ruido real");
 
@@ -411,7 +417,10 @@ namespace {
     snapshot = simulation.SnapshotFor(1); snapshot["guards"] = nlohmann::json::array();
     for (auto &object : snapshot["objects"]) if (object["kind"] == static_cast<int>(ObjectKind::Camera)) object["active"] = false;
     snapshot["agents"][0]["position"] = {840.f, 360.f};
-    Load(simulation, snapshot); simulation.Step(0.1f, {{1, interact}}); Advance(simulation, {}, 30);
+    Load(simulation, snapshot); simulation.Step(0.1f, {{1, interact}});
+    Require(simulation.GetState().agents[0].puzzle.family == PuzzleFamily::Coordination, "El repetidor debe abrir controles de coordinación autoritativos");
+    ActionCommand hold; hold.puzzleTarget = simulation.GetState().agents[0].puzzle.target; hold.puzzleHeld = true;
+    Advance(simulation, hold, 21);
     Require(simulation.GetState().objectives == 1, "El repetidor cooperativo debe poder resolverse en individual");
     Require(std::ranges::any_of(simulation.GetState().objects, [](const Interactable &object) { return object.kind == ObjectKind::CoopSwitch && object.completed; }), "El sabotaje debe modificar el objeto");
   }
@@ -444,7 +453,8 @@ namespace {
     ActionCommand interact; interact.interact = true;
     simulation.Step(0.1f, {{1, interact}});
     simulation.DisconnectPlayer(2);
-    Advance(simulation, {}, 30);
+    ActionCommand hold; hold.puzzleTarget = simulation.GetState().agents[0].puzzle.target; hold.puzzleHeld = true;
+    Advance(simulation, hold, 21);
     Require(simulation.GetState().objectives == 1, "La desconexión no debe bloquear el objeto cooperativo");
 
     simulation.ResetBase({{1, "Uno"}, {2, "Dos"}}); simulation.SetContract(ContractId::DoubleCross); simulation.Deploy(0);
@@ -616,9 +626,9 @@ namespace {
       if (toward.length() < GameplayConfig::InteractionDistance * 0.5f &&
           (kind != ObjectKind::CoopSwitch || (agent.position - target->position).length() < GameplayConfig::InteractionDistance - 1.f) &&
           (toward.length() < 0.01f || simulation.CanSee(agent.position, toward.normalized(), interactionPoint, GameplayConfig::InteractionDistance))) {
-        command.interact = true;
+        if (agent.puzzle.target == target->id && agent.puzzle.family == PuzzleFamily::Coordination) { command.puzzleTarget = target->id; command.puzzleHeld = true; }
+        else command.interact = true;
         simulation.Step(dt, {{1, command}});
-        if (kind == ObjectKind::CoopSwitch) Advance(simulation, {}, 40);
         if (target->completed || simulation.GetState().agents.front().extracted || simulation.GetState().phase == GamePhase::Results) return;
         continue;
       }

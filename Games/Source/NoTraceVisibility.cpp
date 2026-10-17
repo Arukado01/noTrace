@@ -74,7 +74,7 @@ namespace NoTrace::Visibility {
   }
 
   bool IsVisible(const WorldState &world, const Agent &observer, sf::Vector2f point, Stance targetStance) {
-    if (!IsTactical(world)) return true;
+    if (world.phase != GamePhase::Mission) return true;
     if (world.visibility.observer == observer.id) return GridVisible(world.visibility, point);
     return IsGeometricallyVisible(world, observer, point, targetStance);
   }
@@ -125,7 +125,7 @@ namespace NoTrace::Visibility {
   }
 
   bool NoiseAudible(const WorldState &world, const Agent &observer, const NoiseEvent &noise) {
-    return SoundAudible(world, observer, {0, SoundKind::Impact, noise.position, noise.radius, noise.remaining, noise.actor});
+    return SoundAudible(world, observer, {0, noise.kind, noise.position, noise.radius, noise.remaining, noise.actor});
   }
 
   VisibilityGrid BuildGrid(const WorldState &world, const Agent &observer) {
@@ -139,7 +139,7 @@ namespace NoTrace::Visibility {
     grid.cells.resize(count, 0);
     for (unsigned int row = 0; row < grid.rows; ++row) for (unsigned int column = 0; column < grid.columns; ++column) {
       const sf::Vector2f point{std::min(world.size.x - 0.01f, (column + 0.5f) * grid.cellSize), std::min(world.size.y - 0.01f, (row + 0.5f) * grid.cellSize)};
-      grid.cells[static_cast<std::size_t>(row) * grid.columns + column] = !IsTactical(world) || IsGeometricallyVisible(world, observer, point, Stance::Prone);
+      grid.cells[static_cast<std::size_t>(row) * grid.columns + column] = world.phase != GamePhase::Mission || IsGeometricallyVisible(world, observer, point, Stance::Prone);
     }
     const auto column = static_cast<unsigned int>(std::max(0.f, observer.position.x) / grid.cellSize);
     const auto row = static_cast<unsigned int>(std::max(0.f, observer.position.y) / grid.cellSize);

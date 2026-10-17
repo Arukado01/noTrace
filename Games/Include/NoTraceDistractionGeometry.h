@@ -49,6 +49,16 @@ namespace NoTrace::DistractionGeometry {
     return result;
   }
 
+  inline sf::Vector2f DecoyPosition(const DecoyProjectile &disc) {
+    const float t = disc.duration > 0.f ? std::clamp(disc.elapsed / disc.duration, 0.f, 1.f) : 1.f;
+    return disc.from + (disc.to - disc.from) * t;
+  }
+
+  inline float DecoyHeight(const DecoyProjectile &disc) {
+    const float t = disc.duration > 0.f ? std::clamp(disc.elapsed / disc.duration, 0.f, 1.f) : 1.f;
+    return 4.f * disc.height * t * (1.f - t);
+  }
+
   inline sf::Vector2f QuantizeFootstep(sf::Vector2f position) {
     const float cell = DistractionConfig::FootstepQuantization;
     return {(std::floor(position.x / cell) + 0.5f) * cell, (std::floor(position.y / cell) + 0.5f) * cell};

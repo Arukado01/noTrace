@@ -45,6 +45,7 @@ namespace NoTrace::WorldGeometry {
     case ObjectKind::Extraction:
     case ObjectKind::Camera:
     case ObjectKind::Explosive:
+    case ObjectKind::PuzzleNode:
       properties.solid = false; properties.blocksVision = false; properties.cover = CoverKind::None; break;
     default: break;
     }

@@ -63,14 +63,14 @@ namespace {
     const std::array<float, 3> references{{VisibilityConfig::ReferenceStandingRange, VisibilityConfig::ReferenceCrouchedRange, VisibilityConfig::ReferenceProneRange}};
     for (std::size_t index = 0; index < ranges.size(); ++index) {
       observer.stance = static_cast<Stance>(index);
-      Require(ranges[index] == references[index] * VisibilityConfig::PlayerRangeScale && ranges[index] < references[index], "El alcance no conserva una reducción moderada configurable de su referencia");
+      Require(ranges[index] == references[index] * VisibilityConfig::PlayerRangeScale && ranges[index] <= references[index] * 0.6f, "El alcance no conserva una reducción considerable configurable de su referencia");
       Require(Visibility::IsGeometricallyVisible(world, observer, observer.position + sf::Vector2f{ranges[index] - 1.f, 0.f}), "La reducción visual impide observar dentro del alcance de la postura");
       Require(!Visibility::IsGeometricallyVisible(world, observer, observer.position + sf::Vector2f{ranges[index] + 1.f, 0.f}), "La simulación sigue revelando entidades fuera del nuevo alcance");
       Require(!Visibility::IsGeometricallyVisible(world, observer, observer.position - sf::Vector2f{80.f, 0.f}), "La reducción del alcance elimina el campo de visión orientado");
       const auto grid = Visibility::BuildGrid(world, observer);
       Require(grid.visualRadii[0] > ranges[index] - 0.5f && grid.visualRadii[0] <= ranges[index], "La frontera continua dibuja un alcance distinto del autoritativo");
     }
-    Require(ranges[0] > ranges[1] && ranges[1] > ranges[2] && ranges[2] > 200.f, "La reducción deja de distinguir posturas o impide la exploración táctica");
+    Require(ranges[0] > ranges[1] && ranges[1] > ranges[2] && ranges[2] > VisibilityConfig::CloseRange, "La reducción deja de distinguir posturas o elimina la exploración fuera del campo cercano");
   }
   void PrivateSnapshots() {
     Simulation simulation;
