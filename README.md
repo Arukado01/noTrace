@@ -19,13 +19,13 @@ En LAN todos deben marcarse preparados antes de desplegar. Cambiar el contrato o
 
 ## Entrenamiento seguro
 
-La base y sala de espera es un escenario recorrible de **1900 × 1060**: las estaciones de preparación están al oeste y el campo de prácticas al este. Puedes moverte, usar posturas, coberturas y escondites, probar las armas y CQC, lanzar señuelos, generar ruido y resolver los dispositivos. La niebla y los obstáculos conservan sus reglas. No aparecen guardias enemigos, patrullas ni refuerzos en esta zona.
+La base y sala de espera es un escenario recorrible de **1900 × 1060**: las estaciones de preparación están al oeste y el campo de prácticas al este. El mapa completo permanece visible, sin niebla de guerra. Puedes moverte, usar posturas, coberturas y escondites, probar las armas y CQC, lanzar señuelos, generar ruido y resolver los dispositivos. Los obstáculos conservan sus colisiones. No aparecen guardias enemigos, patrullas ni refuerzos en esta zona.
 
 El campo tiene **tres dianas** con aspecto propio, indicador de salud y contador de impactos. Reciben disparos, golpes, agarres, sometimientos, explosiones y empujones; su salud visible se detiene en **1** y nunca mueren, quedan inconscientes ni desaparecen por daño. Mantén **E** para practicar su arrastre aun estando activas; suelta para dejarlas. Las dianas no se guardan dentro de contenedores.
 
-Los jugadores también permanecen vivos y operativos ante disparos de compañeros, explosiones y sometimientos. El anfitrión aplica esta protección al resolver el daño y las rutas de incapacitación. Las cámaras muestran su progreso de detección, pero durante las prácticas no activan una alarma de misión ni solicitan guardias.
+Los jugadores también permanecen vivos y operativos ante disparos de compañeros, explosiones y sometimientos. La salud se recupera automáticamente a **30 puntos por segundo**, hasta el máximo. El anfitrión aplica la recuperación y la protección al resolver el daño y las rutas de incapacitación, también en LAN. Las cámaras muestran su progreso de detección, pero durante las prácticas no activan una alarma de misión ni solicitan guardias.
 
-Puedes practicar con una cámara, su panel, un explosivo, una cerradura, un computador, un armario, un contenedor y una mesa. El explosivo de prácticas tiene **8 segundos** de cuenta. Acércate a la consola **REARMAR PRUEBAS** situada al inicio del campo y pulsa E para restaurar dispositivos, cámaras y dianas y repetir los ejercicios. Los escondites ocupados conservan sus agentes; una puerta ocupada permanece abierta al rearmar.
+Puedes practicar con una cámara, su panel, un explosivo, una cerradura, un computador con palancas distribuidas, un relé de coordinación, un armario, un contenedor y una mesa. El explosivo de prácticas tiene **8 segundos** de cuenta. Acércate a la consola **REARMAR PRUEBAS** situada al inicio del campo y pulsa E para restaurar dispositivos, cámaras, silenciadores y dianas y repetir los ejercicios. Los escondites ocupados conservan sus agentes; una puerta ocupada permanece abierta al rearmar.
 
 En entrenamiento se reponen munición, señuelos y herramientas. El total de cada tipo de munición vuelve a **12**, pero sus cargadores de cuatro cartuchos se vacían y exigen una recarga real. El equipo elegido en armería se guarda por separado: practicar con armas no añade munición a una misión preparada sin ellas. Al desplegar regresan los guardias, el daño normal, las alarmas y las condiciones del contrato.
 
@@ -41,41 +41,50 @@ El archivo secundario y el repetidor pueden añadir recompensas u órdenes priva
 
 ## Sigilo y entorno
 
-Caminar, correr, agacharse y tumbarse cambian la velocidad, el ruido y la distancia a la que pueden verte. Pulsa **Z** para tumbarte: al introducir una dirección te arrastras automáticamente; al soltarla permaneces tumbado. Pulsa Z otra vez para levantarte. Los muebles sólidos bloquean el movimiento según su huella en el suelo. La cobertura baja protege a quien está agachado o tumbado; la alta interrumpe la visión. **R** permite adherirse a una cobertura alta y deslizarse por ella; mantén **Alt + dirección lateral** cerca de un extremo para asomarte y suelta para volver.
+Caminar, correr, agacharse y tumbarse cambian la velocidad, el ruido y la distancia a la que pueden verte. Pulsa **Z** para tumbarte: al introducir una dirección te arrastras automáticamente; al soltarla permaneces tumbado. Pulsa Z otra vez para levantarte. Los muebles sólidos bloquean el movimiento según su huella en el suelo. La cobertura baja protege a quien está agachado o tumbado; la alta interrumpe la visión. **Alt** permite adherirse a una cobertura alta y deslizarse por ella. Cerca de un extremo, mantén **clic derecho + dirección lateral** para asomarte; al soltar, vuelves a la cobertura.
 
-La niebla de guerra tiene una transición continua de opacidad que respeta paredes y aberturas, independiente de los tiles del suelo. Oculta enemigos, objetos e indicadores fuera de tu campo de visión o detrás de una superficie opaca. No guarda memoria de zonas exploradas. El alcance visual del agente se ha reducido un 12,5 % respecto a la referencia anterior, conservando las diferencias entre posturas y la orientación real; el zoom solo cambia la presentación. Los personajes utilizan sprites 2D de pixel art con fotogramas de movimiento.
+En misión, la niebla de guerra tiene una transición continua de opacidad que respeta paredes y aberturas, independiente de los tiles del suelo. Oculta enemigos, objetos e indicadores fuera de tu campo de visión o detrás de una superficie opaca. No guarda memoria de zonas exploradas. El alcance visual está configurado al **50 % de la referencia**: 200 unidades de pie, 165 agachado y 130 tumbado, conservando la orientación y la oclusión reales. El zoom tiene límites más cercanos y solo cambia la presentación. Los personajes utilizan sprites 2D de pixel art en ocho direcciones, con ciclos de locomoción, cambios de postura, combate, recarga y maniobras tácticas. El apuntado, el disparo y la recarga conservan la postura de pie, agachada o tumbada. Los uniformes distinguen al equipo y a los guardias.
 
 La niebla permite ver las ondas de los ruidos que tú produces, aunque su origen quede fuera de tu visión. Otros agentes reciben las señales que pueden oír según la distancia y los obstáculos. Las señales ajenas ocultas indican una ubicación aproximada y desaparecen; no identifican a los enemigos que las escucharon ni revelan sus cuerpos. Los pasos de una patrulla cercana también pueden producir pistas breves y aproximadas en el suelo.
 
 Los guardias distinguen patrulla, sospecha, investigación, alerta y búsqueda. Sus conos de observación, los obstáculos y tu postura afectan a la detección. Un ruido los atrae a su origen; no les revela automáticamente dónde estás. Después de perderte buscan en la última posición que pudieron observar. Si no consiguen avanzar, recalculan su ruta, prueban un punto próximo y pueden abandonar temporalmente un destino inaccesible, sin saltar a través de las esquinas.
 
-El ojo táctico del HUD se ilumina por segmentos según el progreso real de detección y cambia al confirmarse. Sobre los guardias que puedes ver aparece el ojo progresivo y, cuando corresponde, una exclamación: sus estados de sospecha, persecución e inconsciencia conservan indicadores distintos. Los iconos no revelan guardias ocultos. Una alarma confirmada solicita refuerzos por accesos definidos: hasta tres oleadas de dos guardias y seis refuerzos activos. Tras 14 segundos sin nuevas pistas recuperan la patrulla; después de otros 12 segundos los refuerzos se retiran hacia sus salidas. No aparecen encima de un agente ni desaparecen mientras son visibles. Relevo silencioso conserva su derrota inmediata por alarma.
+El ojo táctico del HUD se ilumina por segmentos según el progreso real de detección y cambia al confirmarse. Sobre los guardias y cámaras que puedes ver aparece el ojo progresivo y, cuando corresponde, una exclamación: sospecha, detección confirmada, persecución y búsqueda conservan estados distintos. La sospecha permanece al menos **1,5 segundos** desde el último contacto; la confirmación, **5 segundos**, y se renuevan mientras existe percepción válida. Los iconos no revelan entidades ocultas ni permanecen indefinidamente tras perder el contacto. Una alarma confirmada solicita refuerzos por accesos definidos: hasta tres oleadas de dos guardias y seis refuerzos activos. Tras 14 segundos sin nuevas pistas recuperan la patrulla; después de otros 12 segundos los refuerzos se retiran hacia sus salidas. No aparecen encima de un agente ni desaparecen mientras son visibles. Relevo silencioso conserva su derrota inmediata por alarma.
 
-Mantén **G** para preparar un señuelo: la guía muestra su recorrido y destino, hasta 340 unidades, limitado por obstáculos y bordes. Suelta G para lanzarlo; clic derecho o Escape cancela. Pulsa **Q** mirando hacia una pared cercana para golpearla y atraer a los guardias que puedan oírla. El repetidor necesita agentes próximos: en cooperación se opera más rápido; también puede completarse individualmente.
+Mantén **G** para preparar un disco señuelo: la guía muestra su recorrido y destino, hasta 340 unidades, limitado por obstáculos y bordes. Suelta G para lanzarlo; clic derecho o Escape cancela la preparación. El disco recorre una trayectoria física durante el vuelo y genera el ruido de distracción al aterrizar. Pulsa **F** mientras estás adherido a una pared con Alt para golpearla: el ruido nace en el punto de contacto y atrae a quienes puedan oírlo. En ese contexto, F da prioridad al golpe de pared.
 
 Los botes de basura y armarios compatibles admiten un único ocupante: agente o cuerpo neutralizado. **E** entra y sale por un acceso libre; dentro no puedes moverte ni disparar. El armario solo se utiliza por su puerta frontal; dentro, **T** abre o cierra la abertura y permite observar un cono estrecho. Las mesas señaladas permiten ocultarte tumbado, mirar en la dirección del cursor y no almacenan cuerpos. Al salir de debajo de una mesa, el agente utiliza su dirección actual de visión; si ese lado está bloqueado, permanece oculto. Un guardia que confirmó tu presencia y vio la entrada puede acercarse y levantar la mesa durante una inspección de 1,5 segundos. Una patrulla que no vio la entrada no conoce automáticamente tu escondite; tampoco descubre un cuerpo almacenado simplemente por pasar junto al contenedor.
 
 ## Cámaras, trampas y puzles
 
-Las cámaras barren entre límites angulares, hacen una pausa en los extremos y detectan según su orientación real, distancia, campo visual, postura del agente y obstáculos. El ojo avanza mientras permaneces expuesto; en una misión, confirmar la detección activa la alarma y la respuesta de seguridad. **T**, con una herramienta disponible junto a una cámara, la avería durante el resto de la operación. Un panel de control resuelto mediante puzle desactiva su grupo de cámaras durante **45 segundos**; después vuelven a vigilar. La central de seguridad también admite sabotaje con herramienta.
+Las cámaras barren entre límites angulares, hacen una pausa en los extremos y detectan según su orientación real, distancia, campo visual, postura del agente y obstáculos. Cuando adquieren un objetivo, lo siguen físicamente y lo conservan mientras puedan verlo, aunque otro agente pase más cerca. Al perderlo buscan durante **3 segundos** en la última posición observada. Confirman la detección en **0,4 segundos**, frente a los **0,85** de un guardia; en misión, esto activa la alarma y la respuesta de seguridad. El ojo conserva los temporizadores de sospecha y confirmación, y se apaga al desactivar la cámara. **T**, con una herramienta disponible junto a una cámara, la avería durante el resto de la operación. Un panel de control resuelto mediante puzle desactiva su grupo de cámaras durante **45 segundos**; después vuelven a vigilar. La central de seguridad también admite sabotaje con herramienta.
 
 Los explosivos ocultos emiten un tic audible al aproximarte. La presencia del sonido depende de la distancia y las paredes; el dispositivo no aparece revelado desde cualquier lugar del escenario. Al entrar en su radio de activación comienza una cuenta de **5 segundos en misión**, u **8 segundos en entrenamiento**. La explosión causa daño según distancia y obstáculos y produce ruido; en misión también activa la respuesta de seguridad. Aléjate o desactiva el dispositivo antes de que termine la cuenta.
 
-Pulsa **E** cerca de un explosivo, un computador, una cerradura protegida o un panel de cámaras para abrir su puzle. Cada etapa muestra dos señales: súmalas, calcula el resto de dividir entre cuatro y selecciona **resto + 1** entre los botones de la interfaz. Por ejemplo, 3 + 4 da resto 3, así que la respuesta es 4. El número de etapas depende del dispositivo, la misión y su dificultad.
+Pulsa **E** cerca de un dispositivo para consultar o iniciar su intervención. Hay cuatro familias reutilizables:
 
-Completar todas las etapas desactiva el explosivo, desbloquea y abre la puerta, descifra el computador o desactiva el grupo de cámaras. El computador aporta un objetivo secundario e información propia del contrato: rutas, ubicaciones de objetivos o datos de vigilancia. Una respuesta incorrecta en un explosivo provoca su detonación; en los demás dispositivos bloquea temporalmente otro intento y produce ruido. **Escape** o «Cancelar sin resolver» cierra la interfaz sin conceder el éxito. La operación continúa durante el puzle, incluso en solitario: las patrullas y los temporizadores siguen activos.
+- **Flechas:** reproduce la secuencia de direcciones mostrada por el circuito. Las cerraduras se abren al completar el orden correcto.
+- **Cables:** elige un origen y un puerto del mismo color y letra. Cada extremo se utiliza una vez y se respetan las reglas de cruces del dispositivo. Resolver el panel modifica su grupo real de cámaras; resolver el explosivo aísla su detonador.
+- **Coordinación:** dos agentes mantienen sus controles simultáneamente durante **2 segundos**. Soltar, cancelar o perder una condición necesaria reinicia el progreso. Si hay un único jugador conectado, el relé auxiliar permite completar la prueba individualmente; un compañero incapacitado no reduce el requisito de la partida cooperativa.
+- **Palancas distribuidas:** el computador muestra un orden de cuatro palancas cercanas. Cierra el panel, desplázate y acciona cada palanca con E. Sus estados cambian en el escenario y la secuencia correcta permite extraer la inteligencia del computador.
+
+El computador aporta un objetivo secundario e información propia del contrato: rutas, ubicaciones de objetivos o datos de vigilancia. Una respuesta incorrecta en un explosivo provoca su detonación; en los demás dispositivos genera un aviso sonoro local, reinicia el circuito y bloquea el reintento durante **3 segundos**. **Escape** o «Cancelar sin resolver» cierra la interfaz sin conceder el éxito. El anfitrión valida las entradas, la distancia y los usuarios. La operación continúa durante el puzle, incluso en solitario: las patrullas y los temporizadores siguen activos.
 
 ## CQC y armas
 
 Pulsa **F brevemente** cerca de un guardia para golpear: las pulsaciones sucesivas alternan puñetazo y patada, con preparación, un único impacto, reacción del objetivo y recuperación. El alcance, la orientación y los obstáculos se comprueban al impactar. Los golpes acumulan aturdimiento sin causar daño letal; mantener F o la repetición automática del teclado no encadenan golpes.
 
-Acércate **por detrás**, mirando en la misma dirección que el objetivo, y mantén **F** para agarrarlo. Debe estar a distancia válida, con la espalda accesible y sin alerta confirmada. La pareja conserva su posición física y el guardia deja de disparar. Suelta brevemente y vuelve a pulsar F tres veces para completar las fases de asfixia hasta dejarlo inconsciente. Mantener la tecla no completa el proceso. Soltarla durante más de **0,9 segundos** libera al objetivo; el daño y las acciones incompatibles también interrumpen la sujeción.
+Acércate a un objetivo válido, orienta al agente hacia él y mantén **F** para agarrarlo. Dentro del alcance CQC, el agente puede aproximarse físicamente a su espalda si existe un recorrido libre; las paredes, la separación y el tiempo de aproximación pueden interrumpir el intento. El agarre solo se establece con una posición posterior válida. La pareja conserva su posición física y el guardia deja de disparar. Suelta brevemente y vuelve a pulsar F tres veces para completar las fases de asfixia hasta dejarlo inconsciente. Mantener la tecla no completa el proceso. Soltarla durante más de **0,9 segundos** libera al objetivo; el daño y las acciones incompatibles también interrumpen la sujeción.
 
 También puedes agarrar por detrás a un compañero y someterlo con los mismos controles. En misión queda incapacitado, vivo y sin perder salud; puede ser reanimado y no cuenta como eliminación ni como CQC enemigo para la puntuación. En entrenamiento sigue operativo gracias a la protección de la sala. No puedes golpear accidentalmente a un aliado mediante las pulsaciones breves. **V** empuja a un guardia, una diana de entrenamiento o un compañero con un desplazamiento corto, colisiones y enfriamiento, sin causar daño letal.
 
 Apunta con el cursor táctico a cabeza, torso o extremidades: un impacto letal en la cabeza de un guardia elimina inmediatamente y uno no letal deja inconsciente. Los impactos en otras zonas acumulan daño o aturdimiento. Cada disparo consume munición y queda registrado aunque no impacte; las superficies sólidas detienen su trayectoria según su altura.
 
-**1** selecciona la pistola y **2** el arma no letal. El **clic izquierdo** dispara el arma seleccionada; el **clic derecho** mantiene el acceso directo al disparo no letal. Cada arma tiene un cargador de **cuatro cartuchos**. Pulsa **B** para recargar: la maniobra tarda **1,2 segundos** y bloquea el disparo hasta finalizar. El HUD muestra cargador y munición total disponible, que incluye los cartuchos cargados. Cambiar de arma, recibir daño o iniciar una acción incompatible cancela la recarga. En misión el total es finito; el campo de entrenamiento permite repetir indefinidamente.
+**Q** abre el selector táctico de armas y equipo; también puedes usar **1** para la pistola y **2** para el arma no letal. Mantén **clic derecho** para apuntar y suéltalo para volver al movimiento normal; el **clic izquierdo** dispara el arma seleccionada. Cada arma tiene un cargador de **cuatro cartuchos**. Pulsa **R** para recargar: tarda **1,2 segundos** y bloquea el disparo hasta finalizar. El HUD muestra cargador y munición total disponible, que incluye los cartuchos cargados. Cambiar de arma, recibir daño o iniciar una acción incompatible cancela la recarga. En misión el total es finito; el campo de entrenamiento permite repetir indefinidamente.
+
+Cada arma conserva un silenciador con durabilidad propia. **H** lo monta o desmonta; los disparos con él instalado reducen su estado hasta romperlo. El arma sigue funcionando al agotarlo, pero los disparos siguientes producen más ruido y se oyen a mayor distancia. El selector y el HUD muestran su estado. Cambiar de arma o recargar conserva el desgaste; rearmar las prácticas o desplegar una nueva operación restaura el equipo.
+
+Mientras ya corres de pie, pulsa **Espacio** para ejecutar una zambullida hacia delante y terminar tumbado. Agachado, pulsa **Ctrl izquierdo** para rodar en la dirección de movimiento o de visión y terminar agachado. Ambas maniobras consumen resistencia, generan ruido y tienen recuperación y enfriamiento. Las colisiones detienen el desplazamiento. No se combinan con disparos, recarga, CQC, arrastre, cobertura, escondites ni puzles. Sus teclas pueden cambiarse desde **Opciones → Configurar zambullida y rodada**, eligiendo dos asignaciones distintas.
 
 Los guardias que te detectan pueden disparar cuando tienen línea de visión y atacar cuerpo a cuerpo a corta distancia. Estar tumbado evita el daño directo de sus balas; sus ataques cuerpo a cuerpo siguen siendo peligrosos. Su munición es finita; al agotarla intentan acercarse para atacar. Los iconos distinguen sospecha, detección confirmada, combate e inconsciencia cuando puedes ver al guardia. Correr y ejecutar CQC consumen resistencia. Los ataques de los guardias que agotan tu salud o resistencia te dejan inconsciente y dejan de atacarte. En solitario, o si todo el equipo queda fuera de combate, aparece la derrota de la operación. Con otro compañero operativo, la sesión continúa y permite reanimación o recuperación temporal. La fuerza letal de otro agente puede eliminarte en Doble filo; incapacitar no satisface la orden de traición de eliminar al equipo.
 
@@ -104,26 +113,29 @@ Maestro exige completar los objetivos obligatorios, extraerse y terminar sin arm
 | Arrastrarse tumbado | Moverse tras tumbarse con Z |
 | Interactuar / extraerse / reanimar | E |
 | Golpear con puñetazo y patada alternados | Pulsar brevemente F |
-| Agarrar por detrás a un guardia, diana o compañero | Mantener F |
+| Aproximarse y agarrar por detrás a un guardia, diana o compañero | Mantener F |
 | Asfixiar durante el agarre | Soltar brevemente y volver a pulsar F tres veces |
 | Empujar guardia o compañero | V |
-| Apuntar | Cursor táctico |
+| Apuntar con el arma | Mantener clic derecho y orientar el cursor |
 | Acercar / alejar la vista | Rueda del ratón |
 | Seleccionar pistola / arma no letal | 1 / 2 |
+| Abrir selector táctico de armas y equipo | Q |
 | Disparar el arma seleccionada | Clic izquierdo |
-| Disparo no letal directo | Clic derecho |
-| Recargar el arma seleccionada | B |
+| Recargar el arma seleccionada | R |
+| Montar / desmontar silenciador | H |
 | Preparar / lanzar señuelo | Mantener / soltar G |
 | Cancelar preparación del señuelo | Clic derecho o Escape |
-| Golpear pared cercana | Q |
+| Golpear pared en cobertura | F contextual |
 | Arrastrar / soltar cuerpo o diana de prácticas | Mantener / soltar E |
 | Entrar / salir de un escondite o almacenar cuerpo | E contextual |
-| Adherirse / salir de cobertura alta | R |
+| Adherirse / salir de cobertura alta | Alt |
 | Abrir / cerrar la puerta desde dentro del armario | T |
-| Asomarse desde un extremo de cobertura | Alt + dirección lateral |
+| Asomarse desde un extremo de cobertura | Mantener clic derecho + dirección lateral |
+| Zambullirse mientras corres de pie | Espacio, configurable |
+| Rodar estando agachado | Ctrl izquierdo, configurable |
 | Herramienta contextual | T |
 | Abrir puzle de dispositivo | E contextual |
-| Responder al puzle | Botones 1–4 de la interfaz |
+| Operar un puzle | Flechas, pares de cables o control mantenido en la interfaz; E en las palancas físicas |
 | Cancelar puzle sin resolver | Escape o botón de cancelación |
 | Rearmar dispositivos y dianas de entrenamiento | E junto a REARMAR PRUEBAS |
 | Mostrar orden privada | Tab |
@@ -137,9 +149,9 @@ En una partida individual la pausa detiene la simulación. En LAN el mundo conti
 
 ## Pantalla y sonido
 
-El menú conserva el logotipo, el icono y el cursor propios. La portada estática muestra dos agentes y utiliza una paleta de 16 colores. «Opciones» permite seleccionar resoluciones reales, ventana o pantalla completa, volumen y velocidad del cursor con mando. Los cambios de pantalla requieren confirmación; si no los conservas se revierte la configuración anterior. Los ajustes se guardan localmente.
+El menú conserva el logotipo, el icono y el cursor propios. La portada estática muestra dos agentes y utiliza una paleta de 16 colores. «Opciones» permite seleccionar resoluciones reales, ventana o pantalla completa, volumen, velocidad del cursor con mando y teclas de zambullida y rodada. Los cambios de pantalla requieren confirmación; si no los conservas se revierte la configuración anterior. Los ajustes se guardan localmente.
 
-Los efectos utilizan **26 archivos WAV originales**: pistola, rifle, disparo discreto, impactos, CQC, caídas, pasos en suelo duro o blando, golpes en paredes, temporizador y explosión, cerraduras, circuitos, cámaras, alarmas, refuerzos, armarios, escondites, arrastre y señuelos. Los disparos utilizan transitorios y ruido de percusión, sin el barrido tonal anterior. La señal de recarga acompaña tanto el reequipamiento en armería como la recarga manual con B. Los efectos se activan por eventos reales y se atenúan según distancia y obstáculos.
+Los efectos utilizan **26 archivos WAV originales**: pistola, rifle, disparo discreto, impactos, CQC, caídas, pasos en suelo duro o blando, golpes en paredes, temporizador y explosión, cerraduras, circuitos, cámaras, alarmas, refuerzos, armarios, escondites, arrastre y señuelos. Los disparos utilizan transitorios y ruido de percusión, sin el barrido tonal anterior. La señal de recarga acompaña tanto el reequipamiento en armería como la recarga manual con R. Los efectos se activan por eventos reales y se atenúan según distancia y obstáculos.
 
 ## Jugar por LAN
 
@@ -149,7 +161,7 @@ Los efectos utilizan **26 archivos WAV originales**: pistola, rifle, disparo dis
 4. Permite el tráfico del juego en la red privada cuando Windows lo solicite.
 5. Prepara el equipo, marca cada agente como preparado y despliega desde el anfitrión.
 
-El protocolo de esta versión es **5**: el anfitrión resuelve vigilancia, explosivos, puzles, armas, CQC, protección de entrenamiento, navegación y alarmas, y cada cliente recibe los resultados y las señales que puede percibir. Usa la misma versión en todos los equipos. La implementación tiene pruebas automáticas de transporte y sesión; los resultados de cada entrega se documentan localmente. **La validación en dos computadores físicos sigue pendiente**: las pruebas locales entre procesos no la sustituyen.
+El protocolo de esta versión es **6**: el anfitrión resuelve vigilancia, explosivos, puzles, armas, silenciadores, CQC, maniobras, protección y recuperación de entrenamiento, navegación y alarmas. Cada cliente recibe los resultados y las señales que puede percibir, conservando la privacidad de órdenes y desafíos ajenos. Usa la misma versión en todos los equipos. La implementación tiene pruebas automáticas de transporte y sesión; los resultados de cada entrega se documentan localmente. **La validación en dos computadores físicos sigue pendiente**: las pruebas locales entre procesos no la sustituyen.
 
 ## Ejecutar
 
@@ -161,3 +173,5 @@ cmd /c .vscode\build.bat --parallel 2
 ```
 
 El motor conserva Bounce y Clicker para desarrollo mediante `--scene Bounce` y `--scene Clicker`; no aparecen como opciones del menú de NO TRACE. La documentación técnica y los registros de pruebas se conservan localmente en `docs/`.
+
+La prueba `NoTraceGameGui` genera una secuencia visual en `build/gui-test-sandbox/captures/world-clips-*.png`: ocho direcciones, fases de cada acción y tres niveles de zoom. Incluye locomoción, cambios de postura, armas de pie/agachado/tumbado, CQC, cobertura, escondites, zambullida y rodada. Puede regenerarse con `ctest --test-dir build -R NoTraceGameGui --output-on-failure`; utiliza una copia del contenido y verifica que el guardado original conserve su contenido.
