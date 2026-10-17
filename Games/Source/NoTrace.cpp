@@ -62,6 +62,7 @@ namespace NoTrace {
     void PrepareScreen(EngineContext &ctx, const tgui::Group::Ptr &root) {
       ctx.renderer.ResetView();
       ctx.renderer.SetPostProcessingEnabled(false);
+      ctx.renderer.SetTextureSmoothing(false);
       ctx.cursor.SetVisible(true);
       ctx.cursor.SetHovered(false);
       root->setEnabled(true);
@@ -296,6 +297,7 @@ namespace NoTrace {
   void Menu::OnCleanup() {
     ctx.cursor.SetHovered(false);
     ctx.renderer.SetPostProcessingEnabled(true);
+    ctx.renderer.SetTextureSmoothing(true);
     ctx.gui.Remove(root_);
   }
 
@@ -340,6 +342,7 @@ namespace NoTrace {
   void Reception::OnCleanup() {
     ctx.cursor.SetHovered(false);
     ctx.renderer.SetPostProcessingEnabled(true);
+    ctx.renderer.SetTextureSmoothing(true);
     ctx.gui.Remove(root_);
   }
 }

@@ -15,12 +15,12 @@ namespace NoTrace {
   inline constexpr float MAX_CURSOR_SPEED = 1600.f;
   inline constexpr float CURSOR_SPEED_STEP = 50.f;
   inline constexpr float PAGE_FADE_DURATION = 0.24f;
-  inline constexpr float BACKGROUND_ZOOM = 1.04f;
+  inline constexpr float BACKGROUND_ZOOM = 1.f;
   inline constexpr unsigned int HEADING_TEXT_SIZE = 27;
   inline constexpr unsigned int BODY_TEXT_SIZE = 20;
   inline constexpr unsigned int SMALL_TEXT_SIZE = 15;
   inline constexpr unsigned int BUTTON_TEXT_SIZE = 28;
-  inline constexpr std::string_view BACKGROUND_TEXTURE = "NoTrace/Backgrounds/MenuBackground.png";
+  inline constexpr std::string_view BACKGROUND_TEXTURE = "NoTrace/Backgrounds/MenuCoopPixel.png";
   inline constexpr std::string_view LOGO_TEXTURE = "NoTrace/Branding/Logo.png";
   inline constexpr std::string_view EMBLEM_TEXTURE = "NoTrace/Branding/WindowIcon.png";
   inline const tgui::Color BACKGROUND_COLOR{4, 9, 15};

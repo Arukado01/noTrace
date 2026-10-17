@@ -8,7 +8,7 @@ NO TRACE es un proyecto de infiltración táctica en pixel art con cámara axono
 
 ## Presentación disponible
 
-Al abrir el proyecto aparece el logotipo de NO TRACE sobre un fondo estático de una instalación nocturna con un agente armado. «Nueva operación» lleva a la recepción de CIO, desde donde se puede volver al menú. «Opciones» permite elegir una resolución compatible, alternar ventana y pantalla completa, ajustar volumen y velocidad del cursor con mando, y restaurar los valores predeterminados. «Salir» cierra el juego.
+Al abrir el proyecto aparece el logotipo de NO TRACE sobre una portada estática en pixel art, con dos agentes que se coordinan frente a una instalación nocturna. «Nueva operación» lleva a la recepción de CIO, desde donde se puede volver al menú. «Opciones» permite elegir una resolución compatible, alternar ventana y pantalla completa, ajustar volumen y velocidad del cursor con mando, y restaurar los valores predeterminados. «Salir» cierra el juego.
 
 Se puede usar el cursor táctico o recorrer los controles con Tab y activarlos con Enter o Espacio. En Opciones, las flechas ajustan el deslizador enfocado. F11 y Alt + Enter alternan el modo de pantalla. Los cambios de pantalla se confirman antes de guardarse; si no se conservan a tiempo, se restaura el modo anterior. Escape abre la pausa o revierte un cambio de pantalla pendiente; M regresa al menú desde las escenas disponibles.
 

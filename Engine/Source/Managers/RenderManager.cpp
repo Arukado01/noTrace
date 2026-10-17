@@ -40,6 +40,10 @@ void RenderManager::SetPostProcessingEnabled(bool enabled) {
   postProcessingEnabled_ = enabled;
 }
 
+void RenderManager::SetTextureSmoothing(bool enabled) {
+  target_.setSmooth(enabled);
+}
+
 void RenderManager::BeginDrawing() {
   target_.clear();
   Draw(background_);
