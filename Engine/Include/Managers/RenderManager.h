@@ -6,6 +6,8 @@
 
 #include "Graphics/Effect.h"
 
+namespace EngineTests { struct GuiAccess; }
+
 class RenderManager {
 private:
   sf::RenderTexture target_;
@@ -27,6 +29,7 @@ public:
 
 private:
   friend class Engine;
+  friend struct EngineTests::GuiAccess;
 
   void BeginDrawing();
   const sf::Texture &FinishDrawing();

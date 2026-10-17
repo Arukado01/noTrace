@@ -8,6 +8,8 @@
 #include <functional>
 #include <memory>
 
+namespace EngineTests { struct GuiAccess; }
+
 namespace NoTrace {
   class Game : public Scene {
   public:
@@ -20,6 +22,7 @@ namespace NoTrace {
     void OnCleanup() override;
 
   private:
+    friend struct EngineTests::GuiAccess;
     enum Action { Left, Right, Up, Down, Run, Crouch, Prone, Crawl, Interact, Cqc, Lethal, NonLethal, Decoy, Knock, Drag, Tool, Orders, Lobby, Count };
     enum class Page { Connection, Operations, Armory, Intelligence, Deployment, Results, None };
     Session session_;

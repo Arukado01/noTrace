@@ -4,6 +4,8 @@
 #include <optional>
 #include <vector>
 
+namespace EngineTests { struct GuiAccess; }
+
 class GuiManager {
 private:
   sf::RenderWindow &window_;
@@ -23,6 +25,7 @@ public:
 
 private:
   friend class Engine;
+  friend struct EngineTests::GuiAccess;
   void ProcessEvent(const sf::Event &);
   void Render();
   void RebindWindow();

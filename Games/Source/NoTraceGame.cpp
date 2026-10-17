@@ -229,12 +229,13 @@ namespace NoTrace {
       Label("Cada agente prepara su equipo. Munición y dispositivos son finitos.", {30.f, 78.f}, {714.f, 68.f}, 19);
       for (std::size_t index = 0; index < PreparationConfig::Presets.size(); ++index) {
         const auto loadout = PreparationConfig::Presets[index];
-        Button(std::format("{} · {} letales / {} no letales / {} señuelos / {} herramientas", PreparationConfig::Names[index], loadout.lethalAmmo, loadout.nonLethalAmmo, loadout.decoys, loadout.tools),
-               160.f + static_cast<float>(index) * 75.f, [this, loadout] { session_.SetLoadout(loadout); ClosePanel(); });
+        auto preset = Button(std::format("{}\n{} letales / {} no letales / {} señuelos / {} herramientas", PreparationConfig::Names[index], loadout.lethalAmmo, loadout.nonLethalAmmo, loadout.decoys, loadout.tools),
+                             160.f + static_cast<float>(index) * 75.f, [this, loadout] { session_.SetLoadout(loadout); ClosePanel(); });
+        preset->setTextSize(18); preset->setSize({714.f, 64.f});
       }
     } else if (page == Page::Intelligence) {
       Label("CENTRO DE INTELIGENCIA", {30.f, 20.f}, {714.f, 45.f}, 28);
-      Label(contract.name + "\n\n" + contract.briefing + "\n\nLos conos muestran el campo de observación. La sospecha debe llenarse para confirmar una detección. El ruido atrae a su origen; no revela automáticamente al agente.\n\nCobertura baja: agáchate. Cobertura alta: rompe la línea de visión. Escondites: E entra o esconde un cuerpo arrastrado.\n\nCQC: cuatro pulsaciones Q separadas (agarre, derribo, inmovilización, incapacitación). B arrastra; E reanima a un compañero.\n\nRepetidor: E para iniciar; otro agente cercano acelera su operación. En solitario también es accesible.\n\nTab muestra únicamente tu orden privada. Las órdenes de los demás permanecen ocultas.", {30.f, 82.f}, {714.f, 425.f}, 18);
+      Label(contract.name + "\n\n" + contract.briefing + "\n\nLos conos muestran el campo de observación. La sospecha debe llenarse para confirmar una detección. El ruido atrae a su origen; no revela automáticamente al agente.\n\nCobertura baja: agáchate. Cobertura alta: rompe la línea de visión. Escondites: E entra o esconde un cuerpo arrastrado.\n\nCQC: cuatro pulsaciones Q separadas (agarre, derribo, inmovilización, incapacitación). B arrastra; E reanima a un compañero.\n\nRepetidor: E para iniciar; otro agente cercano acelera su operación. En solitario también es accesible.\n\nTab muestra únicamente tu orden privada. Las órdenes de los demás permanecen ocultas.", {30.f, 82.f}, {714.f, 450.f}, 18);
     } else {
       Label("DESPLIEGUE / SALA LAN", {30.f, 20.f}, {714.f, 45.f}, 28);
       status_ = Label("", {30.f, 79.f}, {714.f, 65.f}, 18);
