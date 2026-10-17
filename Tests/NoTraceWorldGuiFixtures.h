@@ -8,6 +8,7 @@
 #include "Core/EngineContext.h"
 #include <SFML/Graphics/Image.hpp>
 #include <array>
+#include <functional>
 #include <filesystem>
 #include <fstream>
 #include <nlohmann/json.hpp>
@@ -30,14 +31,16 @@ namespace EngineTests {
       }
       return frames;
     };
-    const auto bitmapFrames = readBitmapFrames("SoldiersAtlas"), proneBitmapFrames = readBitmapFrames("ProneAtlas");
+    const auto bitmapFrames = readBitmapFrames("SoldiersAtlas"), proneBitmapFrames = readBitmapFrames("ProneAtlas"), operativeBitmapFrames = readBitmapFrames("OperativeAtlas");
+    if (operativeBitmapFrames.size() != SpriteConfig::FrameCount) throw std::runtime_error("Los fixtures y el atlas operativo no tienen la misma cantidad de celdas");
     const auto bitmapMuzzle = [&](WorldRenderer::SpriteFrame selected, sf::Vector2f position, sf::Vector2f facing, Stance stance, sf::Vector2f camera, float zoom) {
-      const auto &frame = (selected.prone ? proneBitmapFrames : bitmapFrames).at(selected.index);
+      const auto &frame = (selected.operative ? operativeBitmapFrames : selected.prone ? proneBitmapFrames : bitmapFrames).at(selected.index);
       if (frame.muzzle.x < 0.f) throw std::runtime_error("La pose disparando no tiene una boca real visible en el PNG");
-      const auto bounds = WorldRenderer::SpriteBounds(facing, stance, false);
-      const sf::Vector2f sourcePoint{selected.mirror ? frame.rectangle.size.x - frame.muzzle.x : frame.muzzle.x, frame.muzzle.y};
-      const auto local = bounds.position + sourcePoint.componentWiseDiv(sf::Vector2f(frame.rectangle.size)).componentWiseMul(bounds.size);
-      return WorldRenderer::ProjectGround(position, camera, context.window.GetLogicalSize(), zoom) + local * zoom;
+      const auto size = context.window.GetLogicalSize();
+      const auto feet = WorldRenderer::ProjectGround(position, camera, size);
+      const auto placement = WorldRenderer::PlaceSprite(feet, facing, stance, false, selected, frame.rectangle.size);
+      const auto center = WorldRenderer::ProjectGround(camera, camera, size);
+      return center + (placement.Map(frame.muzzle) - center) * zoom;
     };
     const auto requireBitmapFlash = [&](const sf::Image &body, const sf::Image &absent, const sf::Image &firing, sf::Vector2f muzzle, const std::string &scenario) {
       const auto center = muzzle.componentWiseDiv(context.window.GetLogicalSize()).componentWiseMul(sf::Vector2f(body.getSize()));
@@ -93,6 +96,13 @@ namespace EngineTests {
         if (zoomIndex != 1) renderer.AdjustZoom(zoomIndex == 0 ? -100.f : 100.f);
         const auto file = output / ("world-" + std::string(names[scenario]) + "-" + zoomNames[zoomIndex] + ".png");
         const auto pixels = capture(renderer, world, file);
+        world.agents[0].hidden = true;
+        const auto absent = capture(renderer, world, output / (file.stem().string() + "-absent.png"));
+        const auto obstacles = world.obstacles; world.obstacles.clear(); world.agents[0].hidden = false;
+        const auto unobstructed = capture(renderer, world, output / (file.stem().string() + "-unobstructed.png"));
+        world.agents[0].hidden = true;
+        const auto unobstructedAbsent = capture(renderer, world, output / (file.stem().string() + "-unobstructed-absent.png"));
+        world.obstacles = obstacles; world.agents[0].hidden = false;
         const auto logicalSize = context.window.GetLogicalSize();
         const auto focus = WorldRenderer::ProjectGround(positions[scenario], positions[scenario], logicalSize, renderer.GetZoom());
         const auto guardTorso = WorldRenderer::ProjectGround(front.position, positions[scenario], logicalSize, renderer.GetZoom()) - sf::Vector2f{0.f, PresentationConfig::ShotHeight * renderer.GetZoom()};
@@ -100,18 +110,28 @@ namespace EngineTests {
         const auto guardHit = CombatGeometry::IntersectActor(positions[scenario], CombatGeometry::Unit(guardAim.ground - positions[scenario]),
             WorldRenderer::WeaponHeight(world.agents[0].stance), guardAim.slope, GameplayConfig::WeaponRange, front.position, front.facing, Stance::Standing);
         if (!guardHit) throw std::runtime_error("El clic en el torso capturado no atraviesa un volumen válido del guardia");
-        const auto torso = focus + sf::Vector2f{4.f, -22.f} * renderer.GetZoom();
-        const auto pixel = torso.componentWiseDiv(logicalSize).componentWiseMul(sf::Vector2f(pixels.getSize()));
-        const sf::Vector2u sample{static_cast<unsigned int>(std::floor(pixel.x)), static_cast<unsigned int>(std::floor(pixel.y))};
-        const auto actual = pixels.getPixel(sample);
-        if ((scenario == 0 && actual != PresentationConfig::WallTop) || (scenario != 0 && actual == PresentationConfig::WallTop)) throw std::runtime_error("La captura no muestra la oclusión esperada del torso: " + file.string());
-        const auto head = (focus + sf::Vector2f{4.f, -38.f} * renderer.GetZoom()).componentWiseDiv(logicalSize).componentWiseMul(sf::Vector2f(pixels.getSize()));
-        const sf::Vector2u headSample{static_cast<unsigned int>(std::floor(head.x)), static_cast<unsigned int>(std::floor(head.y))};
-        if (pixels.getPixel(headSample) == PresentationConfig::WallTop) throw std::runtime_error("La cabeza no permanece parcialmente visible al rodear la caja: " + file.string());
+        const auto silhouette = [&](sf::Vector2f offset, sf::Vector2f halfSize) {
+          const auto scale = sf::Vector2f(pixels.getSize()).componentWiseDiv(logicalSize);
+          const auto center = (focus + offset * renderer.GetZoom()).componentWiseMul(scale);
+          const auto half = (halfSize * renderer.GetZoom()).componentWiseMul(scale);
+          std::array<unsigned int, 2> counts{};
+          for (int y = static_cast<int>(std::floor(center.y - half.y)); y <= static_cast<int>(std::ceil(center.y + half.y)); ++y)
+            for (int x = static_cast<int>(std::floor(center.x - half.x)); x <= static_cast<int>(std::ceil(center.x + half.x)); ++x) {
+              if (x < 0 || y < 0 || x >= static_cast<int>(pixels.getSize().x) || y >= static_cast<int>(pixels.getSize().y)) continue;
+              const sf::Vector2u point{static_cast<unsigned int>(x), static_cast<unsigned int>(y)};
+              if (unobstructed.getPixel(point) == unobstructedAbsent.getPixel(point)) continue;
+              ++counts[0]; if (pixels.getPixel(point) != absent.getPixel(point)) ++counts[1];
+            }
+          return counts;
+        };
+        // La franja abdominal queda bajo la tapa; el pecho superior puede sobresalir junto a la cabeza.
+        const auto torso = silhouette({0.f, -18.f}, {8.f, 4.f});
+        const auto head = silhouette({0.f, -PresentationConfig::ActorHeight * 0.8f}, {12.f, 8.f});
+        if (!torso[0] || (scenario == 0 ? torso[1] != 0 : torso[1] == 0)) throw std::runtime_error("La comparación de silueta real no muestra la oclusión esperada del torso: " + file.string());
+        if (!head[0] || !head[1]) throw std::runtime_error("La cabeza del bitmap no permanece parcialmente visible al rodear la caja: " + file.string());
         metadata.push_back({{"file", file.filename().string()}, {"zoom", renderer.GetZoom()},
             {"agent", {positions[scenario].x, positions[scenario].y}}, {"drawOrder", order},
-            {"torsoSample", {sample.x, sample.y}}, {"torsoColor", {actual.r, actual.g, actual.b}},
-            {"torsoOccluded", scenario == 0}, {"headSample", {headSample.x, headSample.y}}, {"headVisible", true},
+            {"torsoReferencePixels", torso[0]}, {"torsoVisiblePixels", torso[1]}, {"torsoOccluded", scenario == 0}, {"headReferencePixels", head[0]}, {"headVisiblePixels", head[1]},
             {"guardTorsoCursor", {guardTorso.x, guardTorso.y}}, {"guardAimGround", {guardAim.ground.x, guardAim.ground.y}}, {"aimSlope", guardAim.slope}});
       }
     }
@@ -122,6 +142,7 @@ namespace EngineTests {
       auto &shooter = world.agents[0];
       shooter.position = {350.f, 470.f};
       shooter.stance = shotStances[index];
+      shooter.actionPose = ActionPose::Shoot; shooter.actionPoseTime = GameplayConfig::AttackAnimationDuration * 0.75f;
       const bool blocked = index == 3;
       world.guards[1].position = blocked ? sf::Vector2f{350.f, 350.f} : sf::Vector2f{475.f, 450.f};
       world.guards[1].state = blocked ? GuardState::Patrol : GuardState::Incapacitated;
@@ -141,7 +162,7 @@ namespace EngineTests {
       shooter.hidden = false; world.shots = shot;
       const auto pixels = capture(renderer, world, file);
       const auto logicalSize = context.window.GetLogicalSize();
-      const auto selected = WorldRenderer::SelectSprite(shooter.facing, shooter.stance, shooter.animationTime, shooter.moving, shooter.running, false, false);
+      const auto selected = WorldRenderer::SelectActorSprite(shooter);
       const auto muzzle = bitmapMuzzle(selected, shooter.position, shooter.facing, shooter.stance, shooter.position, renderer.GetZoom());
       const auto pixel = muzzle.componentWiseDiv(logicalSize).componentWiseMul(sf::Vector2f(pixels.getSize()));
       const sf::Vector2u sample{static_cast<unsigned int>(std::floor(pixel.x)), static_cast<unsigned int>(std::floor(pixel.y))};
@@ -150,6 +171,7 @@ namespace EngineTests {
           {"sourceHeight", WorldRenderer::WeaponHeight(shooter.stance)}, {"impactHeight", WorldRenderer::ShotImpactHeight(world.shots[0], world)},
           {"muzzleSample", {sample.x, sample.y}}, {"atlasFrame", selected.index}, {"muzzleFromBitmap", true}, {"blocked", blocked}});
     }
+    world.agents[0].actionPose = ActionPose::None; world.agents[0].actionPoseTime = 0.f;
     WorldState fogWorld;
     fogWorld.phase = GamePhase::Mission; fogWorld.size = {700.f, 600.f};
     Agent observer;
@@ -157,9 +179,9 @@ namespace EngineTests {
     fogWorld.agents.push_back(observer);
     fogWorld.obstacles = {{{{290.f, 100.f}, {20.f, 400.f}}, CoverKind::High, true, "Muro opaco"}};
     Guard hidden;
-    hidden.id = 1; hidden.position = {450.f, 300.f}; hidden.state = GuardState::Alert; hidden.detectedTime = 0.5f;
+    hidden.id = 1; hidden.position = {350.f, 300.f}; hidden.state = GuardState::Alert; hidden.detectedTime = 0.5f;
     fogWorld.guards.push_back(hidden);
-    terminal.position = {460.f, 320.f}; fogWorld.objects.push_back(terminal);
+    terminal.position = {360.f, 320.f}; fogWorld.objects.push_back(terminal);
     fogWorld.noises.push_back({hidden.position, 100.f, GameplayConfig::NoiseDuration, 0, hidden.id});
     fogWorld.shots = {{hidden.position, hidden.position + sf::Vector2f{20.f, 0.f}, GameplayConfig::ShotTraceDuration, true, 0, hidden.id}};
     const auto hiddenPixels = capture(renderer, fogWorld, output / "world-fog-hidden.png");
@@ -214,7 +236,7 @@ namespace EngineTests {
     observer.position = {450.f, 450.f}; observer.hidden = true;
     sprites.agents.push_back(observer);
     const std::array<const char *, 3> stanceNames{{"standing", "crouched", "prone"}};
-    for (std::size_t posture = 0; posture < stanceNames.size(); ++posture) for (int frame = 0; frame < (posture == 0 ? 4 : 2); ++frame) {
+    for (std::size_t posture = 0; posture < stanceNames.size(); ++posture) for (int frame = 0; frame < 4; ++frame) {
       sprites.agents.resize(1);
       for (int direction = 0; direction < 8; ++direction) {
         Agent actor;
@@ -227,7 +249,12 @@ namespace EngineTests {
         sprites.agents.push_back(actor);
       }
       const auto file = "world-sprites-" + std::string(stanceNames[posture]) + "-" + std::to_string(frame) + ".png";
-      const auto body = capture(renderer, sprites, output / file);
+      capture(renderer, sprites, output / file);
+      for (std::size_t actorIndex = 1; actorIndex < sprites.agents.size(); ++actorIndex) {
+        auto &actor = sprites.agents[actorIndex]; actor.moving = false;
+        actor.actionPose = ActionPose::Shoot; actor.actionPoseTime = GameplayConfig::AttackAnimationDuration * (0.98f - static_cast<float>(frame) * 0.25f);
+      }
+      const auto body = capture(renderer, sprites, output / ("world-sprites-shoot-weapon-" + std::string(stanceNames[posture]) + "-" + std::to_string(frame) + ".png"));
       const auto actors = sprites.agents;
       sprites.agents.resize(1);
       const auto absent = capture(renderer, sprites, output / ("world-sprites-absent-" + std::string(stanceNames[posture]) + "-" + std::to_string(frame) + ".png"));
@@ -242,12 +269,12 @@ namespace EngineTests {
       const auto firing = capture(renderer, sprites, output / ("world-sprites-flash-" + std::string(stanceNames[posture]) + "-" + std::to_string(frame) + ".png"));
       for (std::size_t actorIndex = 1; actorIndex < sprites.agents.size(); ++actorIndex) {
         const auto &actor = sprites.agents[actorIndex];
-        const auto selected = WorldRenderer::SelectSprite(actor.facing, actor.stance, actor.animationTime, true, false, false, false);
+        const auto selected = WorldRenderer::SelectActorSprite(actor);
         const auto muzzle = bitmapMuzzle(selected, actor.position, actor.facing, actor.stance, sprites.agents[0].position, renderer.GetZoom());
         requireBitmapFlash(body, absent, firing, muzzle, file + " dirección=" + std::to_string(actorIndex - 1));
       }
       sprites.shots.clear();
-      metadata.push_back({{"file", file}, {"directions", 8}, {"designedAnimationFrame", frame}});
+      metadata.push_back({{"file", file}, {"directions", 8}, {"designedAnimationFrame", frame}, {"flashUsesSeparateShootPose", true}});
     }
     sprites.agents.resize(1);
     for (int movingFrame = -1; movingFrame < 4; ++movingFrame) {
@@ -262,6 +289,10 @@ namespace EngineTests {
         sprites.guards.push_back(actor);
       }
       const auto stem = "world-guard-sockets-" + std::to_string(movingFrame + 1);
+      capture(renderer, sprites, output / ("world-guard-locomotion-" + std::to_string(movingFrame + 1) + ".png"));
+      for (auto &actor : sprites.guards) {
+        actor.meleeAttack = false; actor.attackTime = GameplayConfig::AttackAnimationDuration * (0.98f - static_cast<float>((movingFrame + 1) % 4) * 0.25f);
+      }
       const auto body = capture(renderer, sprites, output / (stem + "-weapon.png"));
       const auto guards = sprites.guards; sprites.guards.clear();
       const auto absent = capture(renderer, sprites, output / (stem + "-absent.png"));
@@ -274,15 +305,16 @@ namespace EngineTests {
       }
       const auto firing = capture(renderer, sprites, output / (stem + "-flash.png"));
       for (const auto &actor : sprites.guards) {
-        const auto selected = WorldRenderer::SelectSprite(actor.facing, Stance::Standing, sprites.elapsed + actor.id * 0.25f, movingFrame >= 0, false, false, false, false, false, true);
+        const auto selected = WorldRenderer::SelectGuardSprite(actor, sprites);
         const auto muzzle = bitmapMuzzle(selected, actor.position, actor.facing, Stance::Standing, sprites.agents[0].position, renderer.GetZoom());
         requireBitmapFlash(body, absent, firing, muzzle, stem + " dirección=" + std::to_string(actor.id - 1));
       }
       sprites.shots.clear(); sprites.guards.clear();
-      metadata.push_back({{"file", stem + "-flash.png"}, {"guardDirections", 8}, {"locomotionFrame", movingFrame}});
+      metadata.push_back({{"file", stem + "-flash.png"}, {"guardDirections", 8}, {"shootingFrame", (movingFrame + 1) % 4}, {"flashUsesSeparateShootPose", true}});
     }
     Agent hiddenShooter;
     hiddenShooter.id = 2; hiddenShooter.hidden = true; hiddenShooter.position = {520.f, 400.f};
+    hiddenShooter.actionPose = ActionPose::Shoot; hiddenShooter.actionPoseTime = GameplayConfig::AttackAnimationDuration;
     sprites.agents.push_back(hiddenShooter);
     const auto hiddenSourceBaseline = capture(renderer, sprites, output / "world-socket-hidden-baseline.png");
     ShotTrace hiddenShot;
@@ -521,28 +553,26 @@ namespace EngineTests {
     for (const bool kick : {false, true}) {
       const float duration = kick ? CqcConfig::KickCooldown : CqcConfig::PunchCooldown;
       const float windup = kick ? CqcConfig::KickWindup : CqcConfig::PunchWindup;
-      const std::array<float, 3> times{{duration, duration - windup - 0.01f, 0.05f}};
-      const std::array<const char *, 3> phases{{"windup", "impact", "recovery"}};
+      const std::array<float, 4> times{{duration, duration - windup - 0.01f, duration * 0.35f, 0.05f}};
+      const std::array<const char *, 4> phases{{"windup", "impact", "follow-through", "recovery"}};
       sf::Image preceding;
+      std::set<std::size_t> selectedFrames;
       for (std::size_t phase = 0; phase < times.size(); ++phase) {
         auto &actor = tactical.agents[0]; actor.cqcAttackTime = times[phase]; actor.cqcNextKick = !kick; actor.cqcStrikePending = phase == 0;
-        actor.actionPose = phase == 2 ? ActionPose::Recover : kick ? ActionPose::Kick : ActionPose::Punch; actor.actionPoseTime = times[phase];
+        actor.actionPose = phase == 3 ? ActionPose::Recover : kick ? ActionPose::Kick : ActionPose::Punch; actor.actionPoseTime = times[phase];
         tactical.guards[0].staggerRemaining = phase == 1 ? CqcConfig::PunchStagger : 0.f;
         const auto file = "world-cqc-" + std::string(kick ? "kick-" : "punch-") + phases[phase] + ".png";
         const auto pixels = capture(renderer, tactical, output / file);
+        const auto selected = WorldRenderer::SelectActorSprite(actor);
+        if (!selected.operative || !selectedFrames.insert(selected.index).second) throw std::runtime_error("Las cuatro fases CQC reutilizan la misma celda del bitmap operativo");
         if (phase > 0 && identical(preceding, pixels)) throw std::runtime_error("Las fases de golpe CQC no cambian extremidad ni reacción del objetivo");
-        if (!kick && phase == 1) {
-          const auto feet = WorldRenderer::ProjectGround(actor.position, actor.position, context.window.GetLogicalSize(), renderer.GetZoom());
-          const auto scale = sf::Vector2f(pixels.getSize()).componentWiseDiv(context.window.GetLogicalSize());
-          unsigned int extendedFist = 0;
-          for (int y = -70; y < 5; ++y) for (int x = 18; x < 90; ++x) {
-            const auto point = (feet + sf::Vector2f{static_cast<float>(x), static_cast<float>(y)}).componentWiseMul(scale);
-            if (pixels.getPixel(sf::Vector2u(point)) == PresentationConfig::Skin) ++extendedFist;
-          }
-          if (extendedFist < 6) throw std::runtime_error("El sprite del objetivo oculta por completo el puño extendido durante el impacto");
+        if (phase == 1) {
+          auto resting = tactical.guards[0]; resting.staggerRemaining = 0.f;
+          if (WorldRenderer::SelectGuardSprite(resting, tactical).index == WorldRenderer::SelectGuardSprite(tactical.guards[0], tactical).index)
+            throw std::runtime_error("El impacto no selecciona la reacción real del bitmap del objetivo");
         }
         preceding = pixels;
-        metadata.push_back({{"file", file}, {"action", kick ? "kick" : "punch"}, {"phase", phases[phase]}, {"remaining", times[phase]}, {"distinctPhases", true}});
+        metadata.push_back({{"file", file}, {"action", kick ? "kick" : "punch"}, {"phase", phases[phase]}, {"remaining", times[phase]}, {"atlasFrame", selected.index}, {"distinctBitmapPhases", true}});
       }
     }
     tactical.agents[0] = fighter; tactical.agents[0].cqcHoldingGuard = opponent.id;
@@ -683,18 +713,133 @@ namespace EngineTests {
     Guard hiddenDummy; hiddenDummy.id = 90; hiddenDummy.position = {490.f, 300.f}; hiddenDummy.trainingDummy = true;
     hiddenDummy.trainingFeedback = 1.f; hiddenDummy.health = 17.f; trainingPrivacy.guards = {hiddenDummy};
     camera.position = {490.f, 340.f}; camera.facing = {-1.f, 0.f}; trainingPrivacy.objects = {camera};
-    const auto trainingHidden = capture(renderer, trainingPrivacy, output / "world-training-fog-hidden-target.png");
+    const auto trainingHidden = capture(renderer, trainingPrivacy, output / "world-training-visible-through-wall.png");
     trainingPrivacy.guards.clear(); trainingPrivacy.objects.clear();
-    const auto trainingRedacted = capture(renderer, trainingPrivacy, output / "world-training-fog-redacted.png");
-    if (!identical(trainingHidden, trainingRedacted)) throw std::runtime_error("La sala de espera revela dianas, cámaras o barras de vida detrás de la pared");
+    const auto trainingRedacted = capture(renderer, trainingPrivacy, output / "world-training-visible-redacted.png");
+    if (identical(trainingHidden, trainingRedacted)) throw std::runtime_error("La sala de espera mantiene ocultación de misiones en lugar de mostrar la arena sin niebla");
+    Agent hiddenTrainee = fighter; hiddenTrainee.id = 2; hiddenTrainee.hidden = true; hiddenTrainee.position = hiddenDummy.position;
+    trainingPrivacy.agents.push_back(hiddenTrainee);
+    const auto hiddenTraineePixels = capture(renderer, trainingPrivacy, output / "world-training-concealed-agent.png");
+    if (!identical(trainingRedacted, hiddenTraineePixels)) throw std::runtime_error("Eliminar la niebla de prácticas revela un agente que sigue escondido");
+    trainingPrivacy.agents.pop_back();
     trainingPrivacy.obstacles.clear(); opponent.position = {390.f, 300.f}; opponent.health = CombatConfig::MaxGuardHealth;
     opponent.trainingDummy = false; opponent.trainingFeedback = 1.f; opponent.trainingHits = 4; opponent.state = GuardState::Patrol; trainingPrivacy.guards = {opponent};
     const auto healthyEnemy = capture(renderer, trainingPrivacy, output / "world-training-real-guard-full-no-bar.png");
     trainingPrivacy.guards[0].health = 17.f;
     const auto damagedEnemy = capture(renderer, trainingPrivacy, output / "world-training-real-guard-damaged-no-bar.png");
     if (!identical(healthyEnemy, damagedEnemy)) throw std::runtime_error("La barra exclusiva de dianas se dibuja sobre un guardia real");
-    metadata.push_back({{"file", "world-training-fog-hidden-target.png"}, {"trainingUsesFog", true}, {"identicalToRedacted", true}});
+    metadata.push_back({{"file", "world-training-visible-through-wall.png"}, {"trainingUsesFog", false}, {"identicalToRedacted", false}, {"concealedAgentRemainsHidden", true}});
     metadata.push_back({{"file", "world-training-real-guard-damaged-no-bar.png"}, {"guardHealthDoesNotChangeImage", true}, {"dummyBarNotAppliedToEnemies", true}});
+    struct ClipFixture { const char *name; std::function<void(Agent &, float)> configure; std::size_t frames = 4; };
+    const auto locomotion = [](SpriteConfig::Clip clip, Stance stance, bool moving, bool running = false) {
+      return [clip, stance, moving, running](Agent &actor, float phase) {
+        const auto &animation = SpriteConfig::Animations.at(static_cast<std::size_t>(clip));
+        actor.stance = stance; actor.moving = moving; actor.running = running;
+        actor.animationTime = phase * static_cast<float>(animation.count) / animation.fps;
+      };
+    };
+    const auto action = [](ActionPose pose, Stance stance = Stance::Standing) {
+      return [pose, stance](Agent &actor, float phase) {
+        actor.stance = stance; actor.actionPose = pose;
+        const bool transition = pose == ActionPose::CoverEnter || pose == ActionPose::HideExit;
+        actor.actionPoseTime = (transition ? GameplayConfig::StanceTransitionDuration : GameplayConfig::AttackAnimationDuration) * (1.f - phase);
+      };
+    };
+    const auto reload = [](Stance stance) { return [stance](Agent &actor, float phase) { actor.stance = stance; actor.reloadRemaining = WeaponConfig::ReloadDuration * (1.f - phase); }; };
+    const auto aim = [](Stance stance) { return [stance](Agent &actor, float phase) { actor.stance = stance; actor.aiming = true; actor.animationTime = phase; }; };
+    const std::vector<ClipFixture> clips{
+      {"idle", locomotion(SpriteConfig::Clip::Idle, Stance::Standing, false)},
+      {"walk", locomotion(SpriteConfig::Clip::Walk, Stance::Standing, true)},
+      {"run", locomotion(SpriteConfig::Clip::Run, Stance::Standing, true, true)},
+      {"crouch-walk", locomotion(SpriteConfig::Clip::CrouchWalk, Stance::Crouched, true)},
+      {"crouch-run", locomotion(SpriteConfig::Clip::CrouchRun, Stance::Crouched, true, true)},
+      {"crawl", locomotion(SpriteConfig::Clip::Crawl, Stance::Prone, true)},
+      {"crouch-idle", locomotion(SpriteConfig::Clip::CrouchIdle, Stance::Crouched, false), 1},
+      {"prone-idle", locomotion(SpriteConfig::Clip::ProneIdle, Stance::Prone, false), 1},
+      {"crouch-down", [](Agent &actor, float phase) { actor.stance = Stance::Crouched; actor.transitionFrom = Stance::Standing; actor.transitionTime = GameplayConfig::StanceTransitionDuration * (1.f - phase); }, 2},
+      {"crouch-up", [](Agent &actor, float phase) { actor.transitionFrom = Stance::Crouched; actor.transitionTime = GameplayConfig::StanceTransitionDuration * (1.f - phase); }, 2},
+      {"aim-standing", aim(Stance::Standing)}, {"aim-crouched", aim(Stance::Crouched)}, {"aim-prone", aim(Stance::Prone)},
+      {"shoot-standing", action(ActionPose::Shoot)}, {"shoot-crouched", action(ActionPose::Shoot, Stance::Crouched)}, {"shoot-prone", action(ActionPose::Shoot, Stance::Prone)},
+      {"reload-standing", reload(Stance::Standing)}, {"reload-crouched", reload(Stance::Crouched)}, {"reload-prone", reload(Stance::Prone)},
+      {"punch", [](Agent &actor, float phase) { actor.cqcNextKick = true; actor.cqcAttackTime = CqcConfig::PunchCooldown * (1.f - phase); }},
+      {"kick", [](Agent &actor, float phase) { actor.cqcNextKick = false; actor.cqcAttackTime = CqcConfig::KickCooldown * (1.f - phase); }},
+      {"dive", [](Agent &actor, float phase) {
+        actor.maneuver.kind = ManeuverKind::Dive; actor.maneuver.time = ManeuverConfig::Duration(ManeuverKind::Dive) * phase;
+        const float time = actor.maneuver.time;
+        actor.maneuver.phase = time < ManeuverConfig::DiveStart ? ManeuverPhase::Start : time < ManeuverConfig::DiveStart + ManeuverConfig::DiveTravel ? ManeuverPhase::Travel :
+            time < ManeuverConfig::DiveStart + ManeuverConfig::DiveTravel + ManeuverConfig::DiveLand ? ManeuverPhase::Land : ManeuverPhase::Recover;
+        actor.stance = actor.maneuver.phase == ManeuverPhase::Start ? Stance::Standing : Stance::Prone;
+      }},
+      {"roll", [](Agent &actor, float phase) {
+        actor.stance = Stance::Crouched; actor.maneuver.kind = ManeuverKind::Roll; actor.maneuver.time = ManeuverConfig::Duration(ManeuverKind::Roll) * phase;
+        const float time = actor.maneuver.time;
+        actor.maneuver.phase = time < ManeuverConfig::RollStart ? ManeuverPhase::Start : time < ManeuverConfig::RollStart + ManeuverConfig::RollTravel ? ManeuverPhase::Travel : ManeuverPhase::Recover;
+      }},
+      {"lie-down", [](Agent &actor, float phase) { actor.stance = Stance::Prone; actor.transitionFrom = Stance::Standing; actor.transitionTime = GameplayConfig::StanceTransitionDuration * (1.f - phase); }},
+      {"stand-up", [](Agent &actor, float phase) { actor.transitionFrom = Stance::Prone; actor.transitionTime = GameplayConfig::StanceTransitionDuration * (1.f - phase); }},
+      {"throw", action(ActionPose::ThrowDecoy)}, {"cover-enter", action(ActionPose::CoverEnter)}, {"hide-exit", action(ActionPose::HideExit)},
+      {"interact", [](Agent &actor, float phase) {
+        const auto &animation = SpriteConfig::Animations.at(static_cast<std::size_t>(SpriteConfig::Clip::Interact));
+        actor.puzzle.target = 90; actor.puzzle.kind = PuzzleKind::Door; actor.puzzle.family = PuzzleFamily::Arrows; actor.puzzle.length = 3; actor.puzzle.sequence = {1, 2, 3};
+        actor.actionPose = ActionPose::Interact; actor.actionPoseTime = GameplayConfig::StanceTransitionDuration;
+        actor.animationTime = phase * static_cast<float>(animation.count) / animation.fps;
+      }},
+      {"fall", [](Agent &actor, float phase) { actor.incapacitated = true; actor.actionPose = ActionPose::Fall; actor.actionPoseTime = GameplayConfig::AttackAnimationDuration * (1.f - phase); }}
+    };
+    const std::array<float, 4> clipPhases{{0.01f, 0.31f, 0.65f, 0.94f}};
+    const auto facingFor = [](unsigned int direction) {
+      const float angle = static_cast<float>(direction) * std::numbers::pi_v<float> * 0.25f;
+      const float horizontal = std::sin(angle) / PresentationConfig::GroundProjection.x, vertical = std::cos(angle) / PresentationConfig::GroundProjection.y;
+      return CombatGeometry::Unit({horizontal + vertical, vertical - horizontal});
+    };
+    WorldState matrix; matrix.phase = GamePhase::Base; matrix.size = {2000.f, 2000.f};
+    Agent matrixObserver; matrixObserver.id = 1; matrixObserver.position = {1000.f, 1000.f}; matrixObserver.hidden = true;
+    for (const auto &clip : clips) for (std::size_t zoomIndex = 0; zoomIndex < zoomNames.size(); ++zoomIndex) {
+      renderer.ResetZoom(); if (zoomIndex != 1) renderer.AdjustZoom(zoomIndex == 0 ? -100.f : 100.f);
+      std::array<std::set<std::size_t>, 8> framesByDirection;
+      sf::Image precedingPhase;
+      for (std::size_t phaseIndex = 0; phaseIndex < clip.frames; ++phaseIndex) {
+        const float phase = clip.frames == 4 ? clipPhases[phaseIndex] : clip.frames == 1 ? 0.f : phaseIndex == 0 ? 0.01f : 0.94f;
+        matrix.agents = {matrixObserver};
+        nlohmann::json selected = nlohmann::json::array();
+        for (unsigned int direction = 0; direction < 8; ++direction) {
+          Agent actor; actor.id = direction + 2; actor.facing = facingFor(direction);
+          const auto logical = context.window.GetLogicalSize();
+          const sf::Vector2f feet{logical.x * (0.15f + static_cast<float>(direction % 4) * 0.2f), logical.y * (0.4f + static_cast<float>(direction / 4) * 0.33f)};
+          actor.position = WorldRenderer::UnprojectGround(feet, matrixObserver.position, logical, renderer.GetZoom());
+          clip.configure(actor, phase); actor.maneuver.direction = actor.facing;
+          const auto frame = WorldRenderer::SelectActorSprite(actor);
+          if (!frame.operative || frame.index >= operativeBitmapFrames.size() || WorldRenderer::SpriteDirection(actor.facing) != direction)
+            throw std::runtime_error("La matriz de ocho direcciones no selecciona una celda operativa válida");
+          framesByDirection[direction].insert(frame.index);
+          selected.push_back({{"direction", direction}, {"frame", frame.index}, {"stance", static_cast<int>(actor.stance)}, {"ground", {actor.position.x, actor.position.y}}});
+          matrix.agents.push_back(actor);
+        }
+        const auto name = "world-clips-" + std::string(clip.name) + "-" + zoomNames[zoomIndex] + "-phase-" + std::to_string(phaseIndex) + ".png";
+        const auto pixels = capture(renderer, matrix, output / name);
+        if (phaseIndex > 0 && identical(precedingPhase, pixels)) throw std::runtime_error("La matriz conserva el mismo bitmap en dos fases de " + std::string(clip.name));
+        precedingPhase = pixels;
+        metadata.push_back({{"file", name}, {"clip", clip.name}, {"directions", 8}, {"phase", phase}, {"expectedDistinctFrames", clip.frames}, {"zoom", renderer.GetZoom()},
+            {"nativeSpriteScale", PresentationConfig::ActorHeight / SpriteConfig::StandingPixels}, {"renderedSpriteScale", renderer.GetZoom() * PresentationConfig::ActorHeight / SpriteConfig::StandingPixels}, {"selectedFrames", selected}});
+      }
+      for (const auto &frames : framesByDirection) if (frames.size() != clip.frames) throw std::runtime_error("Una dirección no recorre las celdas PNG previstas de " + std::string(clip.name));
+    }
+    renderer.ResetZoom();
+    for (unsigned int direction = 0; direction < 8; ++direction) for (std::size_t phaseIndex = 0; phaseIndex < clipPhases.size(); ++phaseIndex) {
+      WorldState entering; entering.phase = GamePhase::Base; entering.size = {900.f, 800.f};
+      Interactable closet; closet.id = 71; closet.kind = ObjectKind::Hideout; closet.hideoutKind = HideoutKind::Closet; closet.position = {450.f, 400.f}; closet.facing = {1.f, 0.f};
+      Agent actor; actor.id = 1; actor.position = closet.position; actor.facing = facingFor(direction); actor.hidden = true; actor.hideoutId = closet.id;
+      actor.hideoutExit = WorldGeometry::HideoutFrontPosition(closet, GameplayConfig::AgentRadius); actor.actionPose = ActionPose::HideEnter;
+      actor.actionPoseTime = GameplayConfig::StanceTransitionDuration * (1.f - clipPhases[phaseIndex]); closet.occupantAgent = actor.id; closet.occupied = true;
+      entering.agents = {actor}; entering.objects = {closet};
+      const auto name = "world-clips-hide-enter-direction-" + std::to_string(direction) + "-phase-" + std::to_string(phaseIndex) + ".png";
+      const auto pixels = capture(renderer, entering, output / name);
+      entering.agents[0].actionPoseTime = 0.f;
+      const auto absent = capture(renderer, entering, output / ("world-clips-hide-enter-concealed-" + std::to_string(direction) + "-" + std::to_string(phaseIndex) + ".png"));
+      if (identical(pixels, absent)) throw std::runtime_error("La entrada real del agente local se oculta antes de terminar la transición del armario");
+      metadata.push_back({{"file", name}, {"clip", "hide-enter"}, {"direction", direction}, {"phase", clipPhases[phaseIndex]}, {"localHiddenTransitionVisible", true}, {"zoom", renderer.GetZoom()}});
+    }
+    renderer.ResetZoom();
     std::ofstream(output / "world-fixtures.json") << metadata.dump(2);
     return metadata;
   }

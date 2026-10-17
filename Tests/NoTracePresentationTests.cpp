@@ -18,6 +18,135 @@ namespace {
   bool Near(sf::Vector2f first, sf::Vector2f second, float tolerance) {
     return std::abs(first.x - second.x) <= tolerance && std::abs(first.y - second.y) <= tolerance;
   }
+  void OperativeAnimationBindings() {
+    using namespace NoTrace;
+    std::set<std::size_t> orientations;
+    for (std::size_t direction = 0; direction < SpriteConfig::Directions; ++direction) {
+      const float angle = direction * std::numbers::pi_v<float> * 0.25f;
+      const sf::Vector2f facing{std::sin(angle) / PresentationConfig::GroundProjection.x + std::cos(angle) / PresentationConfig::GroundProjection.y,
+          -std::sin(angle) / PresentationConfig::GroundProjection.x + std::cos(angle) / PresentationConfig::GroundProjection.y};
+      const auto idle = WorldRenderer::ClipFrame(SpriteConfig::Clip::Idle, facing, 0.f);
+      orientations.insert(idle.index);
+      for (std::size_t clip = 0; clip < SpriteConfig::Animations.size(); ++clip) {
+        const auto &animation = SpriteConfig::Animations[clip];
+        std::set<std::size_t> frames;
+        Require(animation.count > 0 && animation.first + animation.count <= SpriteConfig::Columns && animation.fps > 0.f,
+          "Un ciclo de animación cruza filas o carece de duración");
+        for (std::size_t frame = 0; frame < animation.count; ++frame) {
+          const auto selected = WorldRenderer::ClipFrame(static_cast<SpriteConfig::Clip>(clip), facing, 0.f,
+            (static_cast<float>(frame) + 0.25f) / animation.count);
+          Require(selected.operative && !selected.mirror && selected.index < SpriteConfig::FrameCount &&
+            selected.index / SpriteConfig::Columns % SpriteConfig::Directions == direction,
+            "Un ciclo cambia de dirección, usa espejo o sale del atlas integrado");
+          frames.insert(selected.index);
+          const auto placement = WorldRenderer::PlaceSprite({800.f, 482.f}, facing, Stance::Standing, false, selected,
+            {static_cast<int>(SpriteConfig::CellSize), static_cast<int>(SpriteConfig::CellSize)});
+          Require(Near(placement.Map({SpriteConfig::FeetX, SpriteConfig::FeetY}), {800.f, 482.f}, 0.001f) && placement.scale.x == placement.scale.y && placement.scale.x > 0.f,
+            "Una pose desplaza su ancla de suelo, refleja el cuerpo o deforma su proporción");
+        }
+        Require(frames.size() == animation.count, "La tabla repite un único fotograma para fases distintas");
+      }
+      Agent actor; actor.facing = facing; actor.animationTime = 1234.f;
+      actor.moving = true; actor.running = true; actor.reloadRemaining = WeaponConfig::ReloadDuration;
+      const auto reload = WorldRenderer::SelectActorSprite(actor);
+      Require(reload.index == WorldRenderer::ClipFrame(SpriteConfig::Clip::Reload, facing, 0.f, 0.f).index,
+        "El movimiento reemplaza una recarga todavía activa");
+      actor.cqcHoldingGuard = 9;
+      Require(WorldRenderer::SelectActorSprite(actor).index / SpriteConfig::FamilyFrames ==
+        SpriteConfig::Animations[static_cast<std::size_t>(SpriteConfig::Clip::Grab)].family, "La recarga reemplaza al agarre autoritativo");
+      actor.actionPose = ActionPose::Choke; actor.actionPoseTime = GameplayConfig::AttackAnimationDuration;
+      const auto choke = WorldRenderer::SelectActorSprite(actor);
+      actor.actionPoseTime *= 0.2f;
+      Require(choke.index != WorldRenderer::SelectActorSprite(actor).index,
+        "La pulsación de asfixia depende del reloj global y no recorre su propio ciclo");
+      actor = Agent{}; actor.facing = facing; actor.incapacitated = true; actor.actionPose = ActionPose::Fall;
+      actor.actionPoseTime = GameplayConfig::AttackAnimationDuration;
+      const auto fall = WorldRenderer::SelectActorSprite(actor);
+      actor.actionPoseTime = 0.f;
+      Require(fall.index != WorldRenderer::SelectActorSprite(actor).index && fall.index == WorldRenderer::ClipFrame(SpriteConfig::Clip::Fall, facing, 0.f, 0.f).index,
+        "El desmayo omite los fotogramas de caída o no llega al cuerpo inmóvil");
+      for (const bool rising : {false, true}) {
+        actor = Agent{}; actor.facing = facing;
+        actor.stance = rising ? Stance::Standing : Stance::Crouched;
+        actor.transitionFrom = rising ? Stance::Crouched : Stance::Standing;
+        actor.transitionTime = GameplayConfig::StanceTransitionDuration * 0.9f;
+        const auto first = WorldRenderer::SelectActorSprite(actor);
+        actor.transitionTime = GameplayConfig::StanceTransitionDuration * 0.1f;
+        Require(first.index != WorldRenderer::SelectActorSprite(actor).index, "Agacharse o incorporarse cambia de postura sin recorrer poses de transición");
+      }
+      actor = Agent{}; actor.facing = facing; actor.stance = Stance::Crouched;
+      actor.maneuver.kind = ManeuverKind::Roll; actor.maneuver.phase = ManeuverPhase::Travel; actor.maneuver.direction = CombatGeometry::Unit(facing);
+      std::set<std::size_t> rollFrames;
+      for (const float fraction : {0.05f, 0.45f, 0.85f}) {
+        actor.maneuver.time = ManeuverConfig::RollStart + ManeuverConfig::RollTravel * fraction;
+        rollFrames.insert(WorldRenderer::SelectActorSprite(actor).index);
+      }
+      Require(rollFrames.size() >= 2, "La rodada mantiene una pose fija durante todo el giro corporal");
+      std::set<std::size_t> weaponPostures;
+      for (const auto stance : {Stance::Standing, Stance::Crouched, Stance::Prone}) {
+        actor = Agent{}; actor.facing = facing; actor.stance = stance; actor.reloadRemaining = WeaponConfig::ReloadDuration;
+        const auto first = WorldRenderer::SelectActorSprite(actor);
+        actor.reloadRemaining *= 0.4f;
+        Require(first.index != WorldRenderer::SelectActorSprite(actor).index, "La recarga conserva una imagen estática en una postura");
+        weaponPostures.insert(first.index / SpriteConfig::FamilyFrames);
+        actor.reloadRemaining = 0.f; actor.aiming = true;
+        Require(WorldRenderer::SelectActorSprite(actor).index / SpriteConfig::FamilyFrames == first.index / SpriteConfig::FamilyFrames,
+          "Apuntar sustituye la postura de arma por reposo o por un cuerpo vertical");
+        actor.cover.active = true;
+        Require(WorldRenderer::SelectActorSprite(actor).index == WorldRenderer::ClipFrame(SpriteConfig::Clip::Aim, facing, actor.animationTime).index % SpriteConfig::FamilyFrames + first.index / SpriteConfig::FamilyFrames * SpriteConfig::FamilyFrames,
+          "Apuntar en cobertura oculta el arma y separa el láser de su cañón");
+        actor.cover.active = false;
+        for (const auto pose : {ActionPose::Shoot, ActionPose::ThrowDecoy}) {
+          actor.actionPose = pose; actor.actionPoseTime = GameplayConfig::AttackAnimationDuration;
+          Require(WorldRenderer::SelectActorSprite(actor).index / SpriteConfig::FamilyFrames == first.index / SpriteConfig::FamilyFrames,
+            "Disparar o lanzar un disco abandona la postura física del agente");
+        }
+      }
+      Require(weaponPostures.size() == 3, "Recargar agachado o tumbado muestra un personaje de pie");
+      actor = Agent{}; actor.facing = facing; actor.puzzle.target = 8;
+      actor.actionPose = ActionPose::Interact; actor.actionPoseTime = GameplayConfig::StanceTransitionDuration;
+      actor.animationTime = 0.f;
+      const auto interaction = WorldRenderer::SelectActorSprite(actor);
+      actor.animationTime = 0.4f;
+      Require(interaction.index != WorldRenderer::SelectActorSprite(actor).index,
+        "La interacción mantenida del puzle reinicia su reloj y congela la animación");
+      Guard guard; WorldState world; world.elapsed = 1234.f; guard.facing = facing;
+      for (const bool melee : {false, true}) {
+        guard.meleeAttack = melee; guard.attackTime = GameplayConfig::AttackAnimationDuration;
+        const auto first = WorldRenderer::SelectGuardSprite(guard, world);
+        guard.attackTime *= 0.4f;
+        Require(first.index != WorldRenderer::SelectGuardSprite(guard, world).index,
+          "El ataque del guardia depende del tiempo total de misión en lugar de su fase de impacto");
+      }
+    }
+    Require(orientations.size() == SpriteConfig::Directions, "El nuevo personaje repite orientaciones en lugar de disponer de ocho direcciones propias");
+  }
+  void AimingLaserUsesPhysicalSurfaces() {
+    using namespace NoTrace;
+    WorldState world; world.phase = GamePhase::Mission; world.size = {700.f, 600.f};
+    Agent agent; agent.id = 1; agent.position = {100.f, 300.f}; agent.facing = {1.f, 0.f};
+    world.obstacles.push_back({{{250.f, 250.f}, {20.f, 100.f}}, CoverKind::High, true, "Muro del láser"});
+    Require(Near(WorldRenderer::LaserFor(world, agent).to, {250.f, 300.f}, 0.01f), "El láser atraviesa un muro alto");
+    world.obstacles[0].cover = CoverKind::Low; agent.aimSlope = 0.02f;
+    const auto standing = WorldRenderer::LaserFor(world, agent);
+    agent.stance = Stance::Prone;
+    const auto prone = WorldRenderer::LaserFor(world, agent);
+    Require(standing.to.x > 270.f && Near(prone.to, {250.f, 300.f}, 0.01f), "El láser no distingue la altura del arma de pie y tumbada frente a cobertura baja");
+    world.obstacles.clear(); agent.stance = Stance::Standing; agent.aimSlope = 0.f;
+    Interactable door{9, ObjectKind::Door, {300.f, 300.f}, "Puerta del láser"}; world.objects.push_back(door);
+    Require(WorldRenderer::LaserFor(world, agent).to.x < door.position.x, "El láser atraviesa una puerta cerrada");
+    world.objects[0].open = true;
+    const auto open = WorldRenderer::LaserFor(world, agent);
+    Require(open.to.x > door.position.x + 20.f, "Abrir una puerta conserva el bloqueo del láser");
+    Guard hidden; hidden.id = 77; hidden.position = {180.f, 300.f}; hidden.bodyHidden = true; world.guards.push_back(hidden);
+    const auto privateRay = WorldRenderer::LaserFor(world, agent);
+    Require(privateRay.to == open.to && privateRay.targetId == 0 && privateRay.targetKind == ShotTarget::None,
+      "El láser selecciona o revela una entidad privada en su trayectoria");
+    agent.aimSlope = -0.2f;
+    const auto floor = WorldRenderer::LaserFor(world, agent);
+    Require(floor.toHeight == 0.f && std::abs((floor.to - agent.position).length() - WorldRenderer::WeaponHeight(agent.stance) / 0.2f) < 0.01f,
+      "El láser continúa debajo del suelo al apuntar hacia abajo");
+  }
 }
 
 int main() {
@@ -53,7 +182,7 @@ int main() {
         Require(Near(cursor, represented, 1.001f), "El destino del cursor no coincide con su representación lógica");
       }
     }
-    const std::array<float, 5> zooms{{1.f, 1.25f, 1.6f, 2.5f, 3.5f}};
+    const std::array<float, 5> zooms{{NoTrace::PresentationConfig::MinimumZoom, NoTrace::PresentationConfig::DefaultZoom, 2.f, 2.5f, NoTrace::PresentationConfig::MaximumZoom}};
     for (const auto logicalSize : sizes) for (const float zoom : zooms) {
       const auto focus = WorldRenderer::ProjectGround(camera, camera, logicalSize, zoom);
       Require(Near(focus, WorldRenderer::ProjectGround(camera, camera, logicalSize), 0.001f), "El zoom desplaza al agente respecto al foco lógico");
@@ -190,23 +319,36 @@ int main() {
       while (sockets >> point.x >> point.y) {
         Require(socketIndex < rectangles.size(), "Sobran bocas de arma respecto a los fotogramas del PNG");
         const auto &rect = rectangles[socketIndex++];
-        if (point.x == -1.f && point.y == -1.f) continue;
+        const auto family = (socketIndex - 1) / NoTrace::SpriteConfig::FamilyFrames;
+        const bool weaponFrame = std::string(imageFile) == "OperativeAtlas.png" &&
+          (family == 3 || family == 5 || family == 6) && (socketIndex - 1) % columns < 8;
+        if (point.x == -1.f && point.y == -1.f) {
+          Require(!weaponFrame, "Una pose de apuntado o disparo carece de boca de arma en su postura y dirección");
+          continue;
+        }
         Require(std::isfinite(point.x) && std::isfinite(point.y) && point.x >= 0.f && point.y >= 0.f && point.x < rect.size.x && point.y < rect.size.y,
             "Una boca del arma queda fuera de los píxeles de su fotograma");
         const auto pixel = rect.position + sf::Vector2i(point);
-        Require(image.getPixel(sf::Vector2u(pixel)).a >= 220, "El socket no toca un píxel opaco del cañón del PNG");
+        const auto alpha = image.getPixel(sf::Vector2u(pixel)).a;
+        const auto socketContext = std::string("El socket no toca un píxel opaco del cañón: ") + imageFile + " frame=" + std::to_string(socketIndex - 1) + " alfa=" + std::to_string(alpha);
+        Require(alpha >= 220, socketContext.c_str());
         bool boundary = false;
         for (int dy = -4; dy <= 4; ++dy) for (int dx = -4; dx <= 4; ++dx) {
           const auto neighbor = pixel + sf::Vector2i{dx, dy};
           if (neighbor.x < rect.position.x || neighbor.y < rect.position.y || neighbor.x >= rect.position.x + rect.size.x || neighbor.y >= rect.position.y + rect.size.y ||
               image.getPixel(sf::Vector2u(neighbor)).a < 50) boundary = true;
         }
-        Require(boundary, "El socket está dentro del cuerpo del soldado y no en el extremo del arma");
+        // El cañón frontal se proyecta sobre el torso; las otras vistas terminan junto al borde de la silueta.
+        const bool frontalWeapon = std::string(imageFile) == "OperativeAtlas.png" && (socketIndex - 1) / columns % NoTrace::SpriteConfig::Directions == 0;
+        Require(boundary || frontalWeapon, "El socket está dentro del cuerpo del soldado y no en el extremo del arma");
       }
       Require(sockets.eof() && socketIndex == rectangles.size(), "Faltan bocas o indicadores de arma oculta en la tabla de fotogramas");
     };
     inspectAtlas("SoldiersAtlas.png", "SoldiersAtlas.frames", NoTrace::PresentationConfig::ActorAtlasRows, NoTrace::PresentationConfig::ActorAtlasColumns);
     inspectAtlas("ProneAtlas.png", "ProneAtlas.frames", NoTrace::PresentationConfig::ProneAtlasRows, NoTrace::PresentationConfig::ProneAtlasColumns);
+    inspectAtlas("OperativeAtlas.png", "OperativeAtlas.frames", NoTrace::SpriteConfig::FrameCount / NoTrace::SpriteConfig::Columns, NoTrace::SpriteConfig::Columns);
+    OperativeAnimationBindings();
+    AimingLaserUsesPhysicalSurfaces();
     std::set<std::pair<std::size_t, bool>> directions;
     for (int direction = 0; direction < 8; ++direction) {
       const float angle = direction * 0.78539816339f;
@@ -241,6 +383,12 @@ int main() {
     Require(WorldRenderer::IndicatorFor(guard) == WorldRenderer::GuardIndicator::Unconscious, "La inconsciencia no sigue el estado real");
     guard.bodyHidden = true;
     Require(WorldRenderer::IndicatorFor(guard) == WorldRenderer::GuardIndicator::None, "Un cuerpo oculto revela su icono");
+    guard.bodyHidden = false; guard.state = NoTrace::GuardState::Search;
+    Require(WorldRenderer::IndicatorFor(guard) == WorldRenderer::GuardIndicator::Searching, "La búsqueda pierde su indicador al romper el contacto visual");
+    guard.state = NoTrace::GuardState::Patrol; guard.suspicionRemaining = 0.4f; guard.indicatorProgress = 0.5f;
+    Require(WorldRenderer::IndicatorFor(guard) == WorldRenderer::GuardIndicator::Suspicion && WorldRenderer::GuardDetectionFor(guard).segments > 0,
+      "La sospecha reciente desaparece antes de terminar su tiempo de presentación");
+    guard.suspicionRemaining = 0.f; guard.indicatorProgress = 0.f;
     NoTrace::WorldState fogWorld;
     fogWorld.phase = NoTrace::GamePhase::Mission; fogWorld.size = {700.f, 600.f};
     fogWorld.agents.push_back(observer); fogWorld.agents[0].position = {200.f, 300.f};
@@ -295,12 +443,12 @@ int main() {
     }
     Require(opacityLevels.size() > 25, "La niebla continúa usando dos opacidades o saltos asociados a tiles");
     const float viewEdge = 107.f * std::numbers::pi_v<float> / 180.f;
-    const auto sideTransition = viewer.position + sf::Vector2f{std::cos(viewEdge), std::sin(viewEdge)} * 250.f;
+    const auto sideTransition = viewer.position + sf::Vector2f{std::cos(viewEdge), std::sin(viewEdge)} * (NoTrace::VisibilityConfig::StandingRange * 0.65f);
     Require(WorldRenderer::FogOpacity(openFog, sideTransition) > 0.1f && WorldRenderer::FogOpacity(openFog, sideTransition) < 1.f,
         "La niebla suaviza la distancia pero conserva un corte duro en los lados del campo de visión");
     auto alteredCells = openFog;
     std::fill(alteredCells.cells.begin(), alteredCells.cells.end(), 0);
-    Require(WorldRenderer::FogOpacity(alteredCells, {880.f, 500.f}) == WorldRenderer::FogOpacity(openFog, {880.f, 500.f}),
+    Require(WorldRenderer::FogOpacity(alteredCells, {680.f, 500.f}) == WorldRenderer::FogOpacity(openFog, {680.f, 500.f}),
         "El dibujo continuo vuelve a recortarse por la cuadrícula de simulación");
     for (int index = 1; index < 70; ++index) {
       const float angle = index * 0.01f;
@@ -320,7 +468,7 @@ int main() {
     const auto closedFog = NoTrace::Visibility::BuildGrid(softFog, viewer);
     softFog.objects[0].open = true;
     const auto openedFog = NoTrace::Visibility::BuildGrid(softFog, viewer);
-    Require(WorldRenderer::FogOpacity(closedFog, {700.f, 500.f}) == 1.f && WorldRenderer::FogOpacity(openedFog, {700.f, 500.f}) == 0.f,
+    Require(WorldRenderer::FogOpacity(closedFog, {650.f, 500.f}) == 1.f && WorldRenderer::FogOpacity(openedFog, {650.f, 500.f}) == 0.f,
         "La frontera continua no distingue puerta cerrada y abierta");
     softFog.objects.clear(); softFog.obstacles.clear();
     viewer.position += sf::Vector2f{13.f, 7.f}; softFog.agents[0] = viewer;
@@ -335,6 +483,9 @@ int main() {
     const auto warningEye = WorldRenderer::DetectionFor(viewer);
     viewer.detectionConfirmed = true;
     const auto confirmedEye = WorldRenderer::DetectionFor(viewer);
+    viewer.detectionConfirmed = false; viewer.confirmedIndicatorRemaining = 0.4f;
+    Require(WorldRenderer::DetectionFor(viewer).confirmed, "El indicador rojo ignora el tiempo mínimo de confirmación");
+    viewer.confirmedIndicatorRemaining = 0.f;
     Require(quietEye.segments == 0 && partialEye.segments == NoTrace::PresentationConfig::DetectionEyeSegments / 2 && warningEye.segments > partialEye.segments,
         "El ojo no sigue el progreso gradual autoritativo");
     Require(partialEye.color.r == NoTrace::PresentationConfig::Amber.r && warningEye.color.r == NoTrace::PresentationConfig::Red.r && confirmedEye.confirmed && confirmedEye.segments == NoTrace::PresentationConfig::DetectionEyeSegments,
@@ -383,7 +534,7 @@ int main() {
     guard.trainingDummy = false;
     Require(!WorldRenderer::DummyHealthVisible(guard, training, &training.agents[0]), "La nueva barra de entrenamiento se aplica también a un guardia real");
     guard.trainingDummy = true; training.obstacles = {{{{390.f, 250.f}, {20.f, 100.f}}, NoTrace::CoverKind::High, true, "Pared del entrenamiento"}};
-    Require(!WorldRenderer::DummyHealthVisible(guard, training, &training.agents[0]), "El indicador de vida de la diana revela un objetivo tras la pared");
+    Require(WorldRenderer::DummyHealthVisible(guard, training, &training.agents[0]), "El mapa de entrenamiento oculta la diana que acaba de recibir un impacto");
     training.phase = NoTrace::GamePhase::Mission; training.obstacles.clear();
     Require(!NoTrace::IsTraining(training) && !WorldRenderer::DummyHealthVisible(guard, training, &training.agents[0]), "Las barras de entrenamiento se conservan al comenzar una operación real");
     viewer.detectionConfirmed = false; viewer.detectionProgress = std::numeric_limits<float>::quiet_NaN();

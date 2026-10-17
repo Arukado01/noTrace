@@ -3,6 +3,9 @@
 #include "Types/NoTraceGameplayTypes.h"
 #include "Config/NoTracePresentationConfig.h"
 #include "Config/NoTraceCqcConfig.h"
+#include "Config/NoTraceSpriteConfig.h"
+#include "Config/NoTraceManeuverConfig.h"
+#include "Config/NoTraceWeaponConfig.h"
 #include "NoTraceCombatGeometry.h"
 #include "NoTraceVisibility.h"
 #include "NoTraceWorldGeometry.h"
@@ -21,8 +24,8 @@ namespace NoTrace {
   class WorldRenderer {
   public:
     using AimSolution = CombatGeometry::AimSolution;
-    enum class GuardIndicator { None, Suspicion, Confirmed, Combat, Unconscious };
-    struct SpriteFrame { std::size_t index = 0; bool prone = false; bool mirror = false; };
+    enum class GuardIndicator { None, Suspicion, Confirmed, Combat, Unconscious, Searching };
+    struct SpriteFrame { std::size_t index = 0; bool prone = false; bool mirror = false; bool operative = false; };
     struct DetectionVisual { unsigned int segments = 0; sf::Color color; bool confirmed = false; };
     struct CqcVisual { float extension = 0.f; float phase = 0.f; bool kick = false; bool gripping = false; };
     struct SpritePlacement {
@@ -34,10 +37,13 @@ namespace NoTrace {
     const sf::Font *font_;
     sf::Texture *actorAtlas_;
     sf::Texture *proneAtlas_;
+    sf::Texture *operativeAtlas_;
     std::vector<sf::IntRect> actorFrames_;
     std::vector<sf::IntRect> proneFrames_;
     std::vector<sf::Vector2f> actorMuzzles_;
     std::vector<sf::Vector2f> proneMuzzles_;
+    std::vector<sf::IntRect> operativeFrames_;
+    std::vector<sf::Vector2f> operativeMuzzles_;
     float zoom_ = PresentationConfig::DefaultZoom;
     bool decoyPreviewActive_ = false;
     sf::Vector2f decoyPreviewDirection_;
@@ -78,7 +84,10 @@ namespace NoTrace {
     void Noise(const NoiseEvent &noise, sf::Vector2f camera) const;
     void Combat(const WorldState &world, sf::Vector2f camera, const Agent *observer) const;
     void GuardIcon(const Guard &guard, sf::Vector2f camera) const;
+    void CameraIcon(const Interactable &object, sf::Vector2f camera) const;
     void DecoyPreview(const WorldState &world, sf::Vector2f camera, const Agent *observer) const;
+    void DecoyArt(const DecoyProjectile &disc, sf::Vector2f camera) const;
+    void AimLaser(const WorldState &world, sf::Vector2f camera, const Agent *observer) const;
     void Footsteps(const WorldState &world, sf::Vector2f camera, const Agent *observer) const;
     void Minimap(const WorldState &world, PlayerId localPlayer, const VisibilityGrid &visibility) const;
     void DetectionEye(const WorldState &world, const Agent *observer) const;
@@ -117,10 +126,10 @@ namespace NoTrace {
       const auto focus = LogicalCenter(logicalSize);
       const auto point = SnapToPixels(focus + sf::Vector2f{(delta.x - delta.y) * PresentationConfig::GroundProjection.x,
                                                          (delta.x + delta.y) * PresentationConfig::GroundProjection.y});
-      return focus + (point - focus) * ClampZoom(zoom);
+      return focus + (point - focus) * (std::isfinite(zoom) && zoom > 0.f ? zoom : 1.f);
     }
     static sf::Vector2f UnprojectGround(sf::Vector2f logical, sf::Vector2f camera, sf::Vector2f logicalSize, float zoom = 1.f) {
-      const auto delta = (logical - LogicalCenter(logicalSize)) / ClampZoom(zoom);
+      const auto delta = (logical - LogicalCenter(logicalSize)) / (std::isfinite(zoom) && zoom > 0.f ? zoom : 1.f);
       const float horizontal = delta.x / PresentationConfig::GroundProjection.x;
       const float vertical = delta.y / PresentationConfig::GroundProjection.y;
       return camera + sf::Vector2f{(horizontal + vertical) * 0.5f, (vertical - horizontal) * 0.5f};
@@ -130,6 +139,96 @@ namespace NoTrace {
     }
     static float WeaponHeight(Stance stance) {
       return CombatGeometry::WeaponHeight(stance);
+    }
+    static std::size_t SpriteDirection(sf::Vector2f facing) {
+      const sf::Vector2f screen{(facing.x - facing.y) * PresentationConfig::GroundProjection.x, (facing.x + facing.y) * PresentationConfig::GroundProjection.y};
+      const int sector = static_cast<int>(std::lround(std::atan2(screen.x, screen.y) / (std::numbers::pi_v<float> * 0.25f)));
+      return static_cast<std::size_t>((sector + 8) % 8);
+    }
+    static SpriteFrame ClipFrame(SpriteConfig::Clip clip, sf::Vector2f facing, float seconds, std::optional<float> progress = std::nullopt) {
+      const auto &animation = SpriteConfig::Animations.at(static_cast<std::size_t>(clip));
+      const auto elapsed = static_cast<std::size_t>(std::max(0.f, std::isfinite(seconds) ? seconds : 0.f) * animation.fps);
+      auto frame = progress ? std::min(animation.count - 1, static_cast<std::size_t>(std::clamp(*progress, 0.f, 1.f) * animation.count)) :
+          animation.loop ? elapsed % animation.count : std::min(elapsed, animation.count - 1);
+      if (animation.reverse) frame = animation.count - 1 - frame;
+      return {animation.family * SpriteConfig::FamilyFrames + SpriteDirection(facing) * SpriteConfig::Columns + animation.first + frame, false, false, true};
+    }
+    static SpriteFrame SelectActorSprite(const Agent &agent, bool throwingPreview = false) {
+      using SpriteConfig::Clip;
+      const auto select = [&](Clip clip, std::optional<float> progress = std::nullopt) {
+        auto frame = ClipFrame(clip, agent.facing, agent.animationTime, progress);
+        if (agent.stance != Stance::Standing && (clip == Clip::Aim || clip == Clip::Shoot || clip == Clip::Reload || clip == Clip::Throw))
+          frame.index = (agent.stance == Stance::Crouched ? 5 : 6) * SpriteConfig::FamilyFrames + frame.index % SpriteConfig::FamilyFrames;
+        return frame;
+      };
+      if ((!agent.alive || agent.incapacitated) && agent.actionPose == ActionPose::Fall && agent.actionPoseTime > 0.f)
+        return select(Clip::Fall, 1.f - agent.actionPoseTime / GameplayConfig::AttackAnimationDuration);
+      if (!agent.alive || agent.incapacitated) return select(Clip::Unconscious);
+      if (agent.maneuver.kind != ManeuverKind::None) {
+        const auto clip = agent.maneuver.kind == ManeuverKind::Dive ? Clip::Dive : Clip::Roll;
+        const float travel = agent.maneuver.kind == ManeuverKind::Dive ? ManeuverConfig::DiveTravel : ManeuverConfig::RollTravel;
+        const float start = agent.maneuver.kind == ManeuverKind::Dive ? ManeuverConfig::DiveStart : ManeuverConfig::RollStart;
+        const auto phase = agent.maneuver.phase == ManeuverPhase::Start ? 0.f : agent.maneuver.phase == ManeuverPhase::Travel ?
+            0.25f + 0.49f * std::clamp((agent.maneuver.time - start) / travel, 0.f, 1.f) : agent.maneuver.phase == ManeuverPhase::Land ? 0.5f : 0.75f;
+        return ClipFrame(clip, agent.maneuver.direction, agent.maneuver.time, phase);
+      }
+      if (agent.cqcHoldingGuard || agent.cqcHoldingAgent) return agent.actionPose == ActionPose::Choke && agent.actionPoseTime > 0.f ?
+          select(Clip::Choke, 1.f - agent.actionPoseTime / GameplayConfig::AttackAnimationDuration) : select(Clip::Grab);
+      if (agent.cqcHeldBy) return select(Clip::Damage, 0.f);
+      if (agent.cqcAttackTime > 0.f) {
+        const bool kick = !agent.cqcNextKick;
+        const float duration = kick ? CqcConfig::KickCooldown : CqcConfig::PunchCooldown;
+        const float windup = kick ? CqcConfig::KickWindup : CqcConfig::PunchWindup;
+        const float elapsed = std::max(0.f, duration - agent.cqcAttackTime);
+        const float phase = elapsed < windup ? 0.f : elapsed < windup + (duration - windup) * 0.4f ? 0.25f : elapsed < duration * 0.85f ? 0.5f : 0.75f;
+        return select(kick ? Clip::Kick : Clip::Punch, phase);
+      }
+      if (agent.reloadRemaining > 0.f) return select(Clip::Reload, 1.f - agent.reloadRemaining / WeaponConfig::ReloadDuration);
+      if (agent.actionPoseTime > 0.f) {
+        const float duration = agent.actionPose == ActionPose::HideEnter || agent.actionPose == ActionPose::HideExit || agent.actionPose == ActionPose::CoverEnter ? GameplayConfig::StanceTransitionDuration : GameplayConfig::AttackAnimationDuration;
+        const float phase = 1.f - agent.actionPoseTime / duration;
+        switch (agent.actionPose) {
+        case ActionPose::ThrowDecoy: return select(Clip::Throw, phase);
+        case ActionPose::KnockWall: return select(Clip::WallBang, phase);
+        case ActionPose::Push: return select(Clip::Push, phase);
+        case ActionPose::Punch: return select(Clip::Punch, phase);
+        case ActionPose::Kick: return select(Clip::Kick, phase);
+        case ActionPose::Shoot: return select(Clip::Shoot, phase);
+        case ActionPose::TakeDamage: return select(Clip::Damage, phase);
+        case ActionPose::Fall: return select(Clip::Fall, phase);
+        case ActionPose::Interact: return agent.puzzle.target != 0 ? select(Clip::Interact) : select(Clip::Interact, 1.f - agent.actionPoseTime / GameplayConfig::StanceTransitionDuration);
+        case ActionPose::HideEnter: return select(Clip::HideEnter, phase);
+        case ActionPose::HideExit: return select(Clip::HideExit, phase);
+        case ActionPose::CoverEnter: return select(Clip::CoverEnter, phase);
+        default: break;
+        }
+      }
+      if (agent.transitionTime > 0.f && (agent.transitionFrom == Stance::Prone || agent.stance == Stance::Prone))
+        return select(agent.stance == Stance::Prone ? Clip::LieDown : Clip::StandUp, 1.f - agent.transitionTime / GameplayConfig::StanceTransitionDuration);
+      if (agent.transitionTime > 0.f && agent.transitionFrom != agent.stance)
+        return select(agent.stance == Stance::Crouched ? Clip::CrouchEnter : Clip::CrouchExit, 1.f - agent.transitionTime / GameplayConfig::StanceTransitionDuration);
+      if (throwingPreview) return select(Clip::Throw, 0.25f);
+      if (agent.aiming) return select(Clip::Aim);
+      if (agent.cover.active) return select(agent.moving ? Clip::CoverMove : Clip::CoverIdle);
+      if (agent.stance == Stance::Prone) return select(agent.moving ? Clip::Crawl : Clip::ProneIdle);
+      if (agent.stance == Stance::Crouched) return select(agent.moving ? agent.running ? Clip::CrouchRun : Clip::CrouchWalk : Clip::CrouchIdle);
+      return select(agent.moving ? agent.running ? Clip::Run : Clip::Walk : Clip::Idle);
+    }
+    static SpriteFrame SelectGuardSprite(const Guard &guard, const WorldState &world) {
+      using SpriteConfig::Clip;
+      const auto select = [&](Clip clip, std::optional<float> phase = std::nullopt) { return ClipFrame(clip, guard.facing, world.elapsed + guard.id * 0.25f, phase); };
+      const bool falling = guard.state == GuardState::Incapacitated && guard.incapacityRemaining > GameplayConfig::GuardIncapacityDuration - PresentationConfig::CqcFallDuration;
+      if (falling) return select(Clip::Fall, (GameplayConfig::GuardIncapacityDuration - guard.incapacityRemaining) / PresentationConfig::CqcFallDuration);
+      if (guard.state == GuardState::Dead && guard.attackTime > 0.f) return select(Clip::Fall, 1.f - guard.attackTime / GameplayConfig::AttackAnimationDuration);
+      if (guard.state == GuardState::Dead || guard.state == GuardState::Incapacitated || (guard.heldBy == 0 &&
+          (guard.cqcState == CqcState::KnockedDown || guard.cqcState == CqcState::Restrained))) return select(Clip::Unconscious);
+      if (guard.heldBy) return select(Clip::Damage, 0.f);
+      if (guard.staggerRemaining > 0.f) return select(Clip::Damage, std::clamp(1.f - guard.staggerRemaining / CqcConfig::PunchStagger, 0.f, 1.f));
+      if (guard.attackTime > 0.f) return select(guard.meleeAttack ? Clip::Punch : Clip::Shoot, 1.f - guard.attackTime / GameplayConfig::AttackAnimationDuration);
+      const auto destination = guard.state == GuardState::Patrol && !guard.patrol.empty() ? guard.patrol[guard.waypoint % guard.patrol.size()] : guard.lastKnown;
+      const bool moving = world.visibility.authoritative ? guard.stepTime > 0.f :
+          (destination - guard.position).lengthSquared() > GameplayConfig::InvestigationStopDistance * GameplayConfig::InvestigationStopDistance;
+      return select(moving ? guard.state == GuardState::Alert ? Clip::Run : Clip::Walk : Clip::Idle);
     }
     static SpriteFrame SelectSprite(sf::Vector2f facing, Stance stance, float animation, bool moving, bool running, bool down, bool grappling,
         bool braced = false, bool peeking = false, bool guard = false, bool action = false) {
@@ -172,6 +271,10 @@ namespace NoTrace {
       return {{left, top}, {std::max(1.f, right - left), std::max(1.f, bottom - top)}};
     }
     static SpritePlacement PlaceSprite(sf::Vector2f feet, sf::Vector2f facing, Stance stance, bool down, SpriteFrame frame, sf::Vector2i size) {
+      if (frame.operative) {
+        const float scale = PresentationConfig::ActorHeight / SpriteConfig::StandingPixels;
+        return {SnapToPixels(feet), {SpriteConfig::FeetX, SpriteConfig::FeetY}, {scale, scale}};
+      }
       const auto bounds = SpriteBounds(facing, stance, down);
       const sf::Vector2f scale{bounds.size.x / size.x, bounds.size.y / size.y};
       const sf::Vector2f origin{-bounds.position.x / scale.x, -bounds.position.y / scale.y};
@@ -199,7 +302,8 @@ namespace NoTrace {
       if (guard.state == GuardState::Incapacitated) return GuardIndicator::Unconscious;
       if (guard.detectedTime > 0.f) return GuardIndicator::Confirmed;
       if (guard.state == GuardState::Alert) return GuardIndicator::Combat;
-      if (guard.state == GuardState::Suspicion || guard.state == GuardState::Investigate || guard.state == GuardState::Search) return GuardIndicator::Suspicion;
+      if (guard.state == GuardState::Search) return GuardIndicator::Searching;
+      if (guard.suspicionRemaining > 0.f || guard.state == GuardState::Suspicion || guard.state == GuardState::Investigate) return GuardIndicator::Suspicion;
       return GuardIndicator::None;
     }
     static bool VisibleCell(const VisibilityGrid &grid, sf::Vector2f point) {
@@ -244,14 +348,14 @@ namespace NoTrace {
     }
     static DetectionVisual DetectionFor(const Agent &agent) {
       const float progress = std::isfinite(agent.detectionProgress) ? std::clamp(agent.detectionProgress, 0.f, 1.f) : 0.f;
-      const bool confirmed = agent.detectionConfirmed;
+      const bool confirmed = agent.detectionConfirmed || agent.confirmedIndicatorRemaining > 0.f;
       auto color = confirmed || progress >= PresentationConfig::DetectionWarningThreshold ? PresentationConfig::Red : PresentationConfig::Amber;
       color.a = static_cast<std::uint8_t>(96.f + progress * 159.f);
       return {confirmed ? PresentationConfig::DetectionEyeSegments : static_cast<unsigned int>(std::ceil(progress * PresentationConfig::DetectionEyeSegments)), color, confirmed};
     }
     static DetectionVisual GuardDetectionFor(const Guard &guard) {
       Agent observed;
-      observed.detectionProgress = guard.suspicion;
+      observed.detectionProgress = std::max(guard.suspicion, guard.indicatorProgress);
       observed.detectionConfirmed = guard.detectedTime > 0.f || guard.state == GuardState::Alert;
       return DetectionFor(observed);
     }
@@ -303,6 +407,26 @@ namespace NoTrace {
       for (const auto &obstacle : world.obstacles) if (WorldGeometry::BlocksMovement(obstacle) && overlaps(obstacle.bounds, WorldGeometry::ObstacleHeight(obstacle))) return false;
       for (const auto &object : world.objects) if (WorldGeometry::BlocksMovement(object) && overlaps(WorldGeometry::ObjectFootprint(object), WorldGeometry::ObjectHeight(object))) return false;
       return true;
+    }
+    static ShotTrace LaserFor(const WorldState &world, const Agent &agent) {
+      const auto direction = CombatGeometry::Unit(agent.facing);
+      const float height = WeaponHeight(agent.stance), slope = std::clamp(agent.aimSlope, -CombatConfig::MaximumAimSlope, CombatConfig::MaximumAimSlope);
+      float range = GameplayConfig::WeaponRange;
+      if (direction.x > 0.f) range = std::min(range, (world.size.x - agent.position.x) / direction.x);
+      if (direction.x < 0.f) range = std::min(range, -agent.position.x / direction.x);
+      if (direction.y > 0.f) range = std::min(range, (world.size.y - agent.position.y) / direction.y);
+      if (direction.y < 0.f) range = std::min(range, -agent.position.y / direction.y);
+      if (slope < 0.f) range = std::min(range, height / -slope);
+      float closest = std::max(0.f, range);
+      const auto clip = [&](sf::FloatRect bounds, float top) {
+        const CombatGeometry::HitVolume volume{bounds.position + bounds.size * 0.5f, {1.f, 0.f}, bounds.size * 0.5f, 0.f, top, HitZone::None};
+        if (const auto hit = CombatGeometry::IntersectVolume(agent.position, direction, height, slope, closest, volume)) closest = std::min(closest, *hit);
+      };
+      for (const auto &obstacle : world.obstacles) if (WorldGeometry::BlocksMovement(obstacle)) clip(obstacle.bounds, WorldGeometry::ObstacleHeight(obstacle));
+      for (const auto &object : world.objects) if (WorldGeometry::BlocksMovement(object)) clip(WorldGeometry::ObjectFootprint(object), WorldGeometry::ObjectHeight(object));
+      ShotTrace trace; trace.from = agent.position; trace.to = agent.position + direction * closest;
+      trace.fromHeight = height; trace.toHeight = std::max(0.f, height + slope * closest); trace.actor = agent.id;
+      return trace;
     }
     static AimSolution ResolveAim(sf::Vector2f logical, const WorldState &world, PlayerId localPlayer, sf::Vector2f logicalSize, float zoom) {
       zoom = ClampZoom(zoom);

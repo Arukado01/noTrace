@@ -26,7 +26,7 @@ namespace NoTrace::PresentationConfig {
   inline constexpr sf::Vector2f CameraFocusRatio{0.5f, 0.535f};
   inline constexpr float PixelSize = 2.f;
   inline constexpr float DefaultZoom = 1.6f;
-  inline constexpr float MinimumZoom = 1.f;
+  inline constexpr float MinimumZoom = 1.4f;
   inline constexpr float MaximumZoom = 3.5f;
   inline constexpr float ZoomFactorPerStep = 1.125f;
   inline constexpr float FloorTileSize = 48.f;
@@ -68,6 +68,8 @@ namespace NoTrace::PresentationConfig {
   inline constexpr sf::Vector2f DummyHealthBarSize{72.f, 8.f};
   inline constexpr float DecoyGuideStep = 12.f;
   inline constexpr float DecoyMarkerSize = 8.f;
+  inline constexpr float DecoyDiscRadius = 5.f;
+  inline constexpr float AimReticleSize = 5.f;
   inline constexpr float FootstepMarkLength = 7.f;
   inline constexpr sf::Vector2f MinimapPosition{1320.f, 140.f};
   inline constexpr sf::Vector2f MinimapSize{240.f, 190.f};

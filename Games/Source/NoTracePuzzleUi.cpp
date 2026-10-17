@@ -64,10 +64,7 @@ namespace NoTrace {
       for (const auto node : puzzle.sequence) { if (!sequence.empty()) sequence += "  >  "; sequence += static_cast<char>('A' + node - 1); }
       Label(sequence, {30.f, 190.f}, {714.f, 55.f}, 32);
       Label(std::format("Progreso: {} / {}. Cierra el panel y pulsa E en las palancas.\nSigue el orden indicado. Un error reinicia el circuito.", puzzle.stage, puzzle.length), {30.f, 255.f}, {714.f, 92.f}, 18);
-      std::string locations;
-      for (const auto &node : session_.GetWorld().objects) if (node.puzzle.parentDevice == puzzle.target)
-        locations += std::format("{}: ({:.0f}, {:.0f})   ", static_cast<char>('A' + node.puzzle.nodeIndex - 1), node.position.x, node.position.y);
-      Label(locations, {30.f, 360.f}, {714.f, 65.f}, 18);
+      Label("Busca las palancas A, B, C y D junto al computador.\nSus letras aparecen cuando puedes verlas.", {30.f, 360.f}, {714.f, 65.f}, 18);
     }
     Button(puzzle.family == PuzzleFamily::Levers ? "VOLVER A LAS PALANCAS" : "CANCELAR SIN RESOLVER", 480.f, [this] { pendingPuzzleHeld_ = false; pendingPuzzleInput_ = 0; });
   }
