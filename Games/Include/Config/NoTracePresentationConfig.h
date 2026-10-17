@@ -57,6 +57,15 @@ namespace NoTrace::PresentationConfig {
   inline constexpr sf::Vector2f DetectionHudCenter{1260.f, 164.f};
   inline constexpr unsigned int DetectionEyeSegments = 16;
   inline constexpr float DetectionWarningThreshold = 0.8f;
+  inline constexpr float GuardEyeScale = 0.5f;
+  inline constexpr float CqcArmReach = 24.f;
+  inline constexpr float CqcKickReach = 34.f;
+  inline constexpr float CqcRecoil = 4.f;
+  inline constexpr float CqcGripSway = 2.f;
+  inline constexpr float CqcFallDuration = 0.35f;
+  inline constexpr float NoiseMarkerMaximumRadius = 90.f;
+  inline constexpr float DummyHeight = ActorHeight;
+  inline constexpr sf::Vector2f DummyHealthBarSize{72.f, 8.f};
   inline constexpr float DecoyGuideStep = 12.f;
   inline constexpr float DecoyMarkerSize = 8.f;
   inline constexpr float FootstepMarkLength = 7.f;
@@ -85,5 +94,8 @@ namespace NoTrace::PresentationConfig {
   inline const sf::Color Violet{168, 130, 214};
   inline const sf::Color Outline{9, 15, 23};
   inline const sf::Color Skin{184, 149, 119};
+  inline const sf::Color DummyWood{130, 91, 56};
+  inline const sf::Color DummyCloth{170, 151, 107};
+  inline const sf::Color DummyTarget{222, 214, 187};
   inline const std::array<sf::Color, 4> AgentUniforms{{{46, 92, 111}, {75, 101, 76}, {101, 80, 113}, {116, 97, 65}}};
 }

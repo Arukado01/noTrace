@@ -10,6 +10,7 @@
 #include <SFML/Graphics/Image.hpp>
 #include <SFML/System/Sleep.hpp>
 #include <TGUI/Text.hpp>
+#include <algorithm>
 #include <cmath>
 #include <filesystem>
 #include <fstream>
@@ -72,9 +73,17 @@ namespace EngineTests {
       Require(world.phase == GamePhase::Mission && world.seed == seed && !world.agents[0].incapacitated && game.page_ == Game::Page::None, "Reintentar no restablece la operación tras el desmayo");
     }
     static void VerifyAudioRestart(Game &game) {
-      game.lastAudioEvent_ = 100;
+      const auto previous = game.lastSound_;
+      ActionCommand fire; fire.fireLethal = true; fire.aimX = 1.f;
+      game.session_.Submit(fire); Step(game);
+      const auto &sounds = game.session_.GetWorld().sounds;
+      Require(std::ranges::any_of(sounds, [previous](const SoundEvent &sound) { return sound.sequence > previous && sound.kind == SoundKind::Pistol; }),
+        "El disparo posterior al reinicio no genera una señal de audio nueva");
+      Require(!sounds.empty() && game.lastSound_ == sounds.back().sequence && game.lastSound_ > previous && !game.voices_.empty(),
+        "Reiniciar la misión impide reproducir las nuevas señales de audio de la simulación");
+      const auto played = game.lastSound_;
       game.UpdateBackground();
-      Require(game.lastAudioEvent_ == 0, "Reiniciar una misión sin cambiar de fase conserva la secuencia de audio anterior");
+      Require(game.lastSound_ == played, "Actualizar la GUI vuelve a consumir la señal de audio ya reproducida");
     }
     static void VerifyPauseLifecycle(Game &game, EngineContext &context) {
       Escape(game); Require(game.page_ == Game::Page::Pause, "No se abrió la pausa antes de perder foco");
@@ -193,7 +202,7 @@ namespace EngineTests {
       sf::Event::KeyPressed right; right.scancode = sf::Keyboard::Scan::D; context.input.CaptureEvent(right);
       game.Update(); Step(game);
       Require(agent.cover.peekSide == PeekSide::Left && agent.position.y < anchorY, "Alt + dirección asoma al extremo opuesto de la pared");
-      context.input.Clear(); game.held_.fill(false); world = saved;
+      context.input.Clear(); game.BindInputs(); game.held_.fill(false); world = saved;
     }
     static tgui::Button::Ptr FindButton(Game &game, const std::string &text) {
       for (const auto &widget : game.panel_->getWidgets()) {
@@ -238,8 +247,75 @@ namespace EngineTests {
       context.gui.SyncPresentation(gConfig.windowSize, {{0.f, 0.f}, {1.f, 1.f}});
     }
     static void Step(Game &game, float dt = 1.f / GameplayConfig::SimulationHz) {
-      game.session_.Tick(dt, game.paused_ || game.page_ != Game::Page::None);
+      game.session_.Tick(dt, game.paused_ || (game.page_ != Game::Page::None && game.page_ != Game::Page::Puzzle));
       game.UpdateBackground();
+    }
+    static nlohmann::json VerifyPuzzleGui(Game &game, EngineContext &context, sf::RenderWindow &window, const std::filesystem::path &output) {
+      context.input.Clear(); game.BindInputs(); game.held_.fill(false);
+      auto &world = const_cast<WorldState &>(game.session_.GetWorld());
+      const auto saved = world;
+      const auto savedSound = game.lastSound_;
+      nlohmann::json metrics = nlohmann::json::array();
+      world.objects.clear(); world.obstacles.clear(); world.guards.clear(); world.securityEntries.clear(); world.noises.clear(); world.shots.clear(); world.events.clear(); world.sounds.clear();
+      auto &agent = world.agents[0]; agent.position = {200.f, 300.f}; agent.facing = {1.f, 0.f}; agent.health = GameplayConfig::MaxHealth; agent.stamina = GameplayConfig::MaxStamina;
+      agent.actionCooldown = 0.f; agent.stance = Stance::Standing; agent.cover = {}; agent.puzzle = {}; agent.hidden = false; agent.hideoutId = 0; agent.draggingGuard = -1;
+      const auto capture = [&](const std::string &name) {
+        Capture(game, context, window, output / (name + ".png"));
+        for (const auto &entry : MeasureText(game, name)) metrics.push_back(entry);
+      };
+      Interactable door{90, ObjectKind::Door, {240.f, 300.f}, "Cerradura de prueba"};
+      door.footprint = {24.f, 24.f}; door.locked = true; door.puzzle.kind = PuzzleKind::Door; door.puzzle.difficulty = 3; world.objects.push_back(door);
+      Interact(game, context);
+      Require(game.page_ == Game::Page::Puzzle && agent.puzzle.target == 90, "E no abre la interfaz contextual del puzle autoritativo");
+      for (int choice = 1; choice <= 4; ++choice) Require(HasButton(game, std::to_string(choice)), "La interfaz no conserva las cuatro opciones del circuito");
+      Require(HasButton(game, "CANCELAR SIN RESOLVER"), "El circuito no ofrece una cancelación explícita");
+      capture("12-puzzle-door");
+      const auto elapsed = world.elapsed;
+      Step(game, 0.2f);
+      Require(world.elapsed > elapsed && world.objects[0].locked, "La interfaz de puzle congela el mundo o abre la puerta sin resolverla");
+      const auto answer = [&] { return std::to_string((agent.puzzle.clueA + agent.puzzle.clueB) % 4u + 1u); };
+      Click(game, context, window, answer()); game.Update(); Step(game);
+      Require(agent.puzzle.stage == 1 && world.objects[0].locked && game.puzzleStageRendered_ == 1, "El clic de respuesta no actualiza la etapa real y su representación");
+      game.Update(); Step(game);
+      Require(agent.puzzle.stage == 1, "Un clic de circuito avanza varias etapas sin una nueva elección");
+      Escape(game); game.Update(); Step(game);
+      Require(game.page_ == Game::Page::None && agent.puzzle.target == 0 && world.objects[0].user == 0 && world.objects[0].locked && !world.objects[0].open,
+        "ESC desbloquea una cerradura o deja abierto su puzle");
+      Interact(game, context);
+      for (unsigned int stage = 0; stage < 3; ++stage) { Click(game, context, window, answer()); game.Update(); Step(game); }
+      Require(!world.objects[0].locked && world.objects[0].open && game.page_ == Game::Page::None, "Resolver mediante botones no abre la puerta real ni cierra el circuito");
+
+      world.objects.clear();
+      Interactable computer{91, ObjectKind::Computer, {240.f, 300.f}, "Computador contextual"};
+      computer.footprint = {24.f, 24.f}; computer.puzzle.kind = PuzzleKind::Computer; computer.puzzle.difficulty = 2;
+      computer.puzzle.intelligence = "INTELIGENCIA: acceso norte y cámaras del grupo 1."; world.objects.push_back(computer);
+      const auto secondary = world.secondary;
+      Interact(game, context); capture("13-puzzle-computer");
+      for (unsigned int stage = 0; stage < 2; ++stage) { Click(game, context, window, answer()); game.Update(); Step(game); }
+      Require(world.objects[0].completed && world.secondary == secondary + 1 && game.message_->getText().toStdString().find("INTELIGENCIA: acceso norte") != std::string::npos,
+        "Descifrar el computador no presenta inteligencia real ni su objetivo secundario");
+      capture("14-computer-intelligence");
+
+      world.objects.clear();
+      Interactable trap{92, ObjectKind::Explosive, {240.f, 300.f}, "Temporizador contextual"}; trap.footprint = {16.f, 12.f};
+      trap.solid = SpatialOverride::Disabled; trap.blocksVision = SpatialOverride::Disabled; trap.puzzle.kind = PuzzleKind::Explosive; trap.trap.fuse = 0.6f;
+      world.objects.push_back(trap);
+      Interact(game, context);
+      Require(game.page_ == Game::Page::Puzzle && world.objects[0].trap.remaining > 0.f, "El explosivo no abre un circuito con temporizador real");
+      const auto fuse = world.objects[0].trap.remaining;
+      Step(game, 0.2f);
+      Require(world.objects[0].trap.remaining < fuse && game.page_ == Game::Page::Puzzle, "Abrir el circuito detiene indebidamente la mecha");
+      capture("15-puzzle-timer");
+      Escape(game); game.Update(); Step(game);
+      Require(game.page_ == Game::Page::None && world.objects[0].trap.state == TrapState::Detected && world.objects[0].active,
+        "Cancelar un temporizador se interpreta como un desarme satisfactorio");
+      for (int frame = 0; frame < 7 && world.objects[0].trap.state != TrapState::Detonated; ++frame) Step(game, 0.1f);
+      Require(world.objects[0].trap.state == TrapState::Detonated && agent.health < GameplayConfig::MaxHealth && world.alarm,
+        "La mecha cancelada no conserva sus consecuencias reales");
+      capture("16-trap-explosion");
+      game.ClosePanel(); context.input.Clear(); game.BindInputs(); game.held_.fill(false); game.pendingPuzzleInput_ = -1; game.session_.Submit({});
+      world = saved; game.lastSound_ = savedSound; game.UpdateBackground();
+      return metrics;
     }
     static void Close(Game &game) { game.ClosePanel(); }
     static void RequirePage(Game &game, const std::string &page) {
@@ -512,6 +588,7 @@ namespace {
     Access::VerifyFireInput(game, context);
     Access::VerifyAutomaticCrawl(game, context);
     Access::VerifyTacticalControls(game, context);
+    for (const auto &entry : Access::VerifyPuzzleGui(game, context, window, output)) metrics.push_back(entry);
     Access::Escape(game);
     Access::Require(Access::HasButton(game, "REINICIAR") && Access::HasButton(game, "VOLVER A LA BASE"), "La misión individual no ofrece las acciones de pausa correspondientes");
     capture("09-mission-pause");

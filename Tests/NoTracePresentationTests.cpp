@@ -263,6 +263,12 @@ int main() {
     zeroDoorWorld.objects[0].open = true;
     Require(NoTrace::Visibility::HasLineOfSight(zeroDoorWorld, {200.f, 300.f}, {450.f, 300.f}), "La puerta con id cero sigue bloqueando visión tras abrirse");
     Require(WorldRenderer::FootprintVisible(fogWorld, fogWorld.agents[0], fogWorld.obstacles[0].bounds), "La pared visible desaparece junto con el suelo que oculta");
+    const auto wallFootprint = fogWorld.obstacles[0].bounds;
+    auto clientTerrain = fogWorld; clientTerrain.visibility = NoTrace::Visibility::BuildGrid(fogWorld, fogWorld.agents[0]); clientTerrain.visibility.authoritative = true;
+    Require(WorldRenderer::FootprintVisible(clientTerrain, clientTerrain.agents[0], wallFootprint),
+        "El cliente elimina una pared visible porque el centro de su celda cae dentro de la superficie sólida");
+    Require(!WorldRenderer::FootprintVisible(clientTerrain, clientTerrain.agents[0], {{450.f, 260.f}, {20.f, 70.f}}),
+        "La prueba exacta de superficies revela otra huella completamente oculta tras la pared");
     const auto invisibleHead = WorldRenderer::ProjectGround(guard.position, fogWorld.agents[0].position, size, 1.6f) - sf::Vector2f{0.f, 40.f * 1.6f};
     Require(WorldRenderer::ResolveAim(invisibleHead, fogWorld, 1, size, 1.6f).slope == 0.f, "La puntería revela o selecciona un enemigo detrás de la pared");
     fogWorld.visibility = visibility;
@@ -279,10 +285,10 @@ int main() {
     Require(openFog.visualRadii.size() == NoTrace::VisibilityConfig::VisualRayCount && openFog.visualOrigin == viewer.position,
         "La frontera continua no usa rayos propios del observador");
     const float openLimit = WorldRenderer::FogBoundaryRadius(openFog, 0.f);
-    Require(openLimit > 399.f && openLimit <= NoTrace::VisibilityConfig::StandingRange, "La niebla reduce o amplía el alcance real en una habitación abierta");
+    Require(openLimit > NoTrace::VisibilityConfig::StandingRange - 1.f && openLimit <= NoTrace::VisibilityConfig::StandingRange, "La niebla reduce o amplía el alcance real en una habitación abierta");
     float previousOpacity = -1.f;
     std::set<int> opacityLevels;
-    for (int distance = 360; distance <= 405; ++distance) {
+    for (int distance = static_cast<int>(NoTrace::VisibilityConfig::StandingRange - NoTrace::PresentationConfig::FogFeatherWidth - 5.f); distance <= static_cast<int>(NoTrace::VisibilityConfig::StandingRange + 5.f); ++distance) {
       const float opacity = WorldRenderer::FogOpacity(openFog, viewer.position + sf::Vector2f{static_cast<float>(distance), 0.f});
       Require(std::isfinite(opacity) && opacity >= previousOpacity && opacity >= 0.f && opacity <= 1.f, "La transición radial de niebla no es gradual y monótona");
       previousOpacity = opacity; opacityLevels.insert(static_cast<int>(std::round(opacity * 255.f)));
@@ -333,6 +339,53 @@ int main() {
         "El ojo no sigue el progreso gradual autoritativo");
     Require(partialEye.color.r == NoTrace::PresentationConfig::Amber.r && warningEye.color.r == NoTrace::PresentationConfig::Red.r && confirmedEye.confirmed && confirmedEye.segments == NoTrace::PresentationConfig::DetectionEyeSegments,
         "El ojo no distingue sospecha, advertencia y confirmación");
+    guard.state = NoTrace::GuardState::Suspicion; guard.suspicion = 0.5f; guard.detectedTime = 0.f;
+    const auto guardHalf = WorldRenderer::GuardDetectionFor(guard);
+    Require(guardHalf.segments == partialEye.segments && guardHalf.color == partialEye.color && !guardHalf.confirmed,
+        "El ojo sobre el guardia usa un progreso o colores distintos del indicador del jugador");
+    guard.state = NoTrace::GuardState::Alert;
+    Require(WorldRenderer::GuardDetectionFor(guard).confirmed && WorldRenderer::GuardDetectionFor(guard).segments == NoTrace::PresentationConfig::DetectionEyeSegments,
+        "La persecución confirmada conserva un ojo de sospecha incompleto");
+    NoTrace::Agent fighter;
+    fighter.cqcNextKick = true; fighter.cqcAttackTime = NoTrace::CqcConfig::PunchCooldown;
+    const auto windup = WorldRenderer::CqcPoseFor(fighter);
+    fighter.cqcAttackTime -= NoTrace::CqcConfig::PunchWindup + 0.001f;
+    const auto impact = WorldRenderer::CqcPoseFor(fighter);
+    fighter.cqcAttackTime = 0.05f;
+    const auto recovering = WorldRenderer::CqcPoseFor(fighter);
+    Require(windup.extension < 0.f && impact.extension > 0.9f && recovering.extension >= 0.f && recovering.extension < impact.extension && !impact.kick,
+        "El puñetazo no distingue preparación, extensión de impacto y recuperación");
+    fighter.cqcNextKick = false; fighter.cqcAttackTime = NoTrace::CqcConfig::KickCooldown - NoTrace::CqcConfig::KickWindup - 0.001f;
+    Require(WorldRenderer::CqcPoseFor(fighter).kick && WorldRenderer::CqcPoseFor(fighter).extension > 0.9f, "La patada reutiliza la pose de brazo o no alcanza su fase de impacto");
+    fighter.cqcAttackTime = 0.f; fighter.cqcHoldingAgent = 2; fighter.actionPose = NoTrace::ActionPose::Choke; fighter.actionPoseTime = NoTrace::GameplayConfig::AttackAnimationDuration * 0.5f;
+    Require(WorldRenderer::CqcPoseFor(fighter).gripping && WorldRenderer::CqcPoseFor(fighter).extension > 0.95f,
+        "El agarre amistoso no comparte la animación progresiva de asfixia");
+    NoTrace::WorldState striking;
+    NoTrace::Agent striker; striker.position = {300.f, 300.f}; striker.facing = {1.f, 0.f};
+    Require(WorldRenderer::CqcOverlayClear(striking, striker, {330.f, 300.f}), "Una extremidad CQC en espacio abierto no puede solaparse con el objetivo visible");
+    striking.obstacles = {{{{314.f, 260.f}, {8.f, 80.f}}, NoTrace::CoverKind::High, true, "Muro entre combatientes"}};
+    Require(!WorldRenderer::CqcOverlayClear(striking, striker, {330.f, 300.f}), "El pase final de CQC permite dibujar brazos a través de una pared");
+    striking.obstacles = {{{{300.f, 335.f}, {80.f, 12.f}}, NoTrace::CoverKind::High, true, "Muro en primer plano"}};
+    Require(NoTrace::WorldGeometry::ClearMovementSegment(striking, striker.position, {330.f, 300.f}, NoTrace::GameplayConfig::AgentRadius) &&
+        !WorldRenderer::CqcOverlayClear(striking, striker, {330.f, 300.f}), "El pase final muestra la extremidad por encima de un muro que ocluye a ambos actores");
+    NoTrace::WorldState training;
+    training.phase = NoTrace::GamePhase::Base; training.mode = NoTrace::SimulationMode::Training;
+    viewer.position = {300.f, 300.f}; viewer.facing = {1.f, 0.f}; viewer.detectionProgress = 0.f; viewer.detectionConfirmed = false;
+    training.agents = {viewer}; guard = {}; guard.id = 88; guard.trainingDummy = true; guard.position = {345.f, 300.f};
+    Require(NoTrace::IsTraining(training) && NoTrace::IsTactical(training) && WorldRenderer::DummyHealthVisible(guard, training, &training.agents[0]),
+        "La sala de entrenamiento no activa percepción táctica o no muestra vida de la diana al acercarse");
+    Require(WorldRenderer::IndicatorFor(guard) == WorldRenderer::GuardIndicator::None && NoTrace::PresentationConfig::DummyHeight == NoTrace::CombatConfig::StandingHeight,
+        "La diana reutiliza un icono enemigo o una altura visual que impide acertar a su volumen real");
+    guard.position = {450.f, 300.f};
+    Require(!WorldRenderer::DummyHealthVisible(guard, training, &training.agents[0]), "La diana lejana conserva una barra flotante sin interacción ni impacto");
+    guard.trainingFeedback = 1.f;
+    Require(WorldRenderer::DummyHealthVisible(guard, training, &training.agents[0]), "Impactar una diana visible no activa su indicador de vida");
+    guard.trainingDummy = false;
+    Require(!WorldRenderer::DummyHealthVisible(guard, training, &training.agents[0]), "La nueva barra de entrenamiento se aplica también a un guardia real");
+    guard.trainingDummy = true; training.obstacles = {{{{390.f, 250.f}, {20.f, 100.f}}, NoTrace::CoverKind::High, true, "Pared del entrenamiento"}};
+    Require(!WorldRenderer::DummyHealthVisible(guard, training, &training.agents[0]), "El indicador de vida de la diana revela un objetivo tras la pared");
+    training.phase = NoTrace::GamePhase::Mission; training.obstacles.clear();
+    Require(!NoTrace::IsTraining(training) && !WorldRenderer::DummyHealthVisible(guard, training, &training.agents[0]), "Las barras de entrenamiento se conservan al comenzar una operación real");
     viewer.detectionConfirmed = false; viewer.detectionProgress = std::numeric_limits<float>::quiet_NaN();
     Require(WorldRenderer::DetectionFor(viewer).segments == 0, "Una intensidad inválida llena el indicador de vigilancia");
     std::cout << "PASS presentación: " << checks << " comprobaciones de ejes, profundidad, zoom, cámara, cursor y cuantización sin ventana\n";

@@ -26,8 +26,8 @@ namespace NoTrace {
 
   private:
     friend struct EngineTests::GuiAccess;
-    enum Action { Left, Right, Up, Down, Run, Crouch, Prone, Interact, Cqc, Lethal, NonLethal, Decoy, Knock, Drag, Tool, Orders, Lobby, WallCover, Peek, Shove, Count };
-    enum class Page { Connection, Operations, Armory, Intelligence, Deployment, Results, Pause, Options, None };
+    enum Action { Left, Right, Up, Down, Run, Crouch, Prone, Interact, Cqc, Lethal, NonLethal, Decoy, Knock, Drag, Tool, Orders, Lobby, WallCover, Peek, Shove, Reload, SelectPistol, SelectNonLethal, Count };
+    enum class Page { Connection, Operations, Armory, Intelligence, Deployment, Results, Pause, Options, Puzzle, None };
     Session session_;
     WorldRenderer worldRenderer_;
     tgui::Group::Ptr root_;
@@ -57,8 +57,11 @@ namespace NoTrace {
     bool preparingDecoy_ = false;
     bool cancelledDecoy_ = false;
     bool cqcBlocked_ = false;
-    std::uint64_t lastAudioEvent_ = 0;
-    std::unique_ptr<sf::Sound> cue_;
+    std::vector<std::unique_ptr<sf::Sound>> voices_;
+    std::uint64_t lastSound_ = 0;
+    int pendingPuzzleInput_ = -1;
+    unsigned int puzzleStageRendered_ = 0;
+    std::uint32_t puzzleTargetRendered_ = 0;
 
     void BindInputs();
     void Open(Page page);
@@ -66,13 +69,14 @@ namespace NoTrace {
     void BuildConnection();
     void BuildStation(Page page);
     void BuildResults();
+    void BuildPuzzle();
     void BuildPause();
     void BuildOptions();
     void SyncDisplayOptions();
     void NavigateBack();
     void RefreshHud();
     void PersistResults();
-    void PlayCue(const std::string &file);
+    void PlayCue(const std::string &file, float volume = 32.f, float pan = 0.f);
     const Agent *LocalAgent() const;
     bool Pressed(Action action, bool edge = false);
     tgui::Button::Ptr Button(const std::string &text, float y, std::function<void()> callback);

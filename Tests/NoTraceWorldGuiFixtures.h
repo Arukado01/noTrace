@@ -4,6 +4,7 @@
 #include "NoTraceDistractionGeometry.h"
 #include "NoTraceSimulation.h"
 #include "Config/NoTraceGameplayConfig.h"
+#include "Config/NoTraceAudioConfig.h"
 #include "Core/EngineContext.h"
 #include <SFML/Graphics/Image.hpp>
 #include <array>
@@ -303,7 +304,7 @@ namespace EngineTests {
     Simulation hostAnimation;
     hostAnimation.ResetBase();
     auto &animationWorld = const_cast<WorldState &>(hostAnimation.GetState());
-    animationWorld.phase = GamePhase::Mission; animationWorld.size = {700.f, 600.f}; animationWorld.objects.clear(); animationWorld.obstacles.clear();
+    animationWorld.phase = GamePhase::Mission; animationWorld.mode = SimulationMode::Operation; animationWorld.size = {700.f, 600.f}; animationWorld.objects.clear(); animationWorld.obstacles.clear();
     animationWorld.agents[0].position = {200.f, 300.f}; animationWorld.agents[0].facing = {1.f, 0.f};
     Guard walkingGuard;
     walkingGuard.id = 1; walkingGuard.position = {320.f, 300.f}; walkingGuard.facing = {1.f, 0.f};
@@ -421,7 +422,7 @@ namespace EngineTests {
         const auto pixels = capture(renderer, continuousFog, file);
         if (scenario == 0) {
           std::set<std::uint32_t> transitionColors;
-          for (int distance = 367; distance < 400; ++distance) {
+          for (int distance = static_cast<int>(VisibilityConfig::StandingRange - PresentationConfig::FogFeatherWidth + 1.f); distance < static_cast<int>(VisibilityConfig::StandingRange); ++distance) {
             const auto point = WorldRenderer::ProjectGround(fogAgent.position + sf::Vector2f{static_cast<float>(distance), 0.f}, fogAgent.position, context.window.GetLogicalSize(), renderer.GetZoom());
             const auto pixel = point.componentWiseDiv(context.window.GetLogicalSize()).componentWiseMul(sf::Vector2f(pixels.getSize()));
             transitionColors.insert(pixels.getPixel(sf::Vector2u(pixel)).toInteger());
@@ -510,6 +511,190 @@ namespace EngineTests {
     if (identical(closetClosed, closetOpen)) throw std::runtime_error("Abrir el armario no modifica su abertura ni su visión exterior limitada");
     metadata.push_back({{"file", "world-table-view-forward.png"}, {"orientationChangesFog", true}, {"hiddenSilhouetteOmitted", true}});
     metadata.push_back({{"file", "world-closet-view-open.png"}, {"closedAndOpenDiffer", true}, {"limitedAperture", partialHideout.objects[0].hideoutAperture}});
+    renderer.ResetZoom();
+    WorldState tactical;
+    tactical.phase = GamePhase::Base; tactical.size = {900.f, 800.f}; tactical.elapsed = 1.f;
+    Agent fighter; fighter.id = 1; fighter.position = {430.f, 430.f}; fighter.facing = {1.f, 0.f}; fighter.name = "CQC";
+    tactical.agents = {fighter};
+    Guard opponent; opponent.id = 9; opponent.position = {460.f, 430.f}; opponent.facing = {1.f, 0.f}; opponent.lastKnown = opponent.position;
+    tactical.guards = {opponent};
+    for (const bool kick : {false, true}) {
+      const float duration = kick ? CqcConfig::KickCooldown : CqcConfig::PunchCooldown;
+      const float windup = kick ? CqcConfig::KickWindup : CqcConfig::PunchWindup;
+      const std::array<float, 3> times{{duration, duration - windup - 0.01f, 0.05f}};
+      const std::array<const char *, 3> phases{{"windup", "impact", "recovery"}};
+      sf::Image preceding;
+      for (std::size_t phase = 0; phase < times.size(); ++phase) {
+        auto &actor = tactical.agents[0]; actor.cqcAttackTime = times[phase]; actor.cqcNextKick = !kick; actor.cqcStrikePending = phase == 0;
+        actor.actionPose = phase == 2 ? ActionPose::Recover : kick ? ActionPose::Kick : ActionPose::Punch; actor.actionPoseTime = times[phase];
+        tactical.guards[0].staggerRemaining = phase == 1 ? CqcConfig::PunchStagger : 0.f;
+        const auto file = "world-cqc-" + std::string(kick ? "kick-" : "punch-") + phases[phase] + ".png";
+        const auto pixels = capture(renderer, tactical, output / file);
+        if (phase > 0 && identical(preceding, pixels)) throw std::runtime_error("Las fases de golpe CQC no cambian extremidad ni reacción del objetivo");
+        if (!kick && phase == 1) {
+          const auto feet = WorldRenderer::ProjectGround(actor.position, actor.position, context.window.GetLogicalSize(), renderer.GetZoom());
+          const auto scale = sf::Vector2f(pixels.getSize()).componentWiseDiv(context.window.GetLogicalSize());
+          unsigned int extendedFist = 0;
+          for (int y = -70; y < 5; ++y) for (int x = 18; x < 90; ++x) {
+            const auto point = (feet + sf::Vector2f{static_cast<float>(x), static_cast<float>(y)}).componentWiseMul(scale);
+            if (pixels.getPixel(sf::Vector2u(point)) == PresentationConfig::Skin) ++extendedFist;
+          }
+          if (extendedFist < 6) throw std::runtime_error("El sprite del objetivo oculta por completo el puño extendido durante el impacto");
+        }
+        preceding = pixels;
+        metadata.push_back({{"file", file}, {"action", kick ? "kick" : "punch"}, {"phase", phases[phase]}, {"remaining", times[phase]}, {"distinctPhases", true}});
+      }
+    }
+    tactical.agents[0] = fighter; tactical.agents[0].cqcHoldingGuard = opponent.id;
+    tactical.guards[0].staggerRemaining = 0.f; tactical.guards[0].heldBy = fighter.id;
+    sf::Image precedingGrip;
+    for (unsigned int stage = 0; stage < CqcConfig::RequiredPulses; ++stage) {
+      tactical.agents[0].cqcProgress = stage; tactical.agents[0].actionPose = stage == 0 ? ActionPose::Grab : ActionPose::Choke;
+      tactical.agents[0].actionPoseTime = GameplayConfig::AttackAnimationDuration * (stage == 1 ? 0.5f : 0.2f);
+      tactical.guards[0].cqcState = stage == 0 ? CqcState::Grabbed : stage == 1 ? CqcState::KnockedDown : CqcState::Restrained;
+      const auto file = "world-cqc-grip-" + std::to_string(stage) + ".png"; const auto pixels = capture(renderer, tactical, output / file);
+      if (stage > 0 && identical(precedingGrip, pixels)) throw std::runtime_error("El agarre resuelve la asfixia al primer toque o pierde sus fases");
+      precedingGrip = pixels;
+      metadata.push_back({{"file", file}, {"gripStage", stage}, {"targetRemainsInFront", true}, {"physicalPositionUnchanged", tactical.guards[0].position == opponent.position}});
+    }
+    tactical.agents[0] = fighter; tactical.guards[0] = opponent; tactical.guards[0].state = GuardState::Incapacitated;
+    tactical.guards[0].incapacityRemaining = GameplayConfig::GuardIncapacityDuration - 0.08f;
+    const auto falling = capture(renderer, tactical, output / "world-cqc-falling.png");
+    tactical.guards[0].incapacityRemaining = GameplayConfig::GuardIncapacityDuration - PresentationConfig::CqcFallDuration;
+    const auto fallen = capture(renderer, tactical, output / "world-cqc-unconscious.png");
+    if (identical(falling, fallen)) throw std::runtime_error("La pérdida de consciencia omite la transición final de caída");
+    metadata.push_back({{"file", "world-cqc-unconscious.png"}, {"fallTransition", true}, {"unconsciousIndicator", true}});
+    tactical.guards.clear(); Agent partner = fighter; partner.id = 2; partner.position = opponent.position; partner.cqcHeldBy = fighter.id;
+    tactical.agents.push_back(partner); tactical.agents[0].cqcHoldingAgent = partner.id; tactical.agents[0].actionPose = ActionPose::Grab;
+    const auto friendlyGrab = capture(renderer, tactical, output / "world-cqc-ally-grab.png");
+    tactical.agents[0].actionPose = ActionPose::Choke; tactical.agents[0].actionPoseTime = GameplayConfig::AttackAnimationDuration * 0.5f; tactical.agents[0].cqcProgress = 1;
+    const auto friendlyChoke = capture(renderer, tactical, output / "world-cqc-ally-choke.png");
+    if (identical(friendlyGrab, friendlyChoke)) throw std::runtime_error("El agarre de un aliado no anima su fase de sometimiento");
+    metadata.push_back({{"file", "world-cqc-ally-choke.png"}, {"friendlyGripSharesAnimation", true}});
+    WorldState occludedStrike;
+    occludedStrike.phase = GamePhase::Mission; occludedStrike.size = {900.f, 800.f};
+    auto strikingAgent = fighter; strikingAgent.position = {350.f, 300.f}; strikingAgent.cqcNextKick = true; strikingAgent.cqcStrikePending = false;
+    strikingAgent.cqcAttackTime = CqcConfig::PunchCooldown - CqcConfig::PunchWindup - 0.01f; strikingAgent.actionPose = ActionPose::Punch; strikingAgent.actionPoseTime = strikingAgent.cqcAttackTime;
+    occludedStrike.agents = {strikingAgent}; occludedStrike.obstacles = {wall({370.f, 100.f}, {20.f, 400.f})};
+    auto occludedTarget = opponent; occludedTarget.position = {400.f, 300.f}; occludedStrike.guards = {occludedTarget};
+    const auto concealedStrike = capture(renderer, occludedStrike, output / "world-cqc-wall-hidden-target.png");
+    occludedStrike.guards.clear();
+    const auto redactedStrike = capture(renderer, occludedStrike, output / "world-cqc-wall-redacted.png");
+    if (!identical(concealedStrike, redactedStrike)) throw std::runtime_error("El pase final de CQC revela un objetivo oculto al otro lado de una pared");
+    metadata.push_back({{"file", "world-cqc-wall-hidden-target.png"}, {"identicalToRedacted", true}, {"foregroundOcclusionPreserved", true}});
+    WorldState acoustic;
+    acoustic.phase = GamePhase::Mission; acoustic.size = {900.f, 800.f};
+    observer.position = {350.f, 300.f}; observer.facing = {1.f, 0.f}; acoustic.agents = {observer};
+    acoustic.obstacles = {wall({390.f, 100.f}, {20.f, 400.f})}; hidden.position = {463.f, 311.f}; acoustic.guards = {hidden};
+    const auto silentFog = capture(renderer, acoustic, output / "world-noise-fog-silent.png");
+    acoustic.noises = {{{463.f, 311.f}, 180.f, GameplayConfig::NoiseDuration * 0.8f, observer.id, 0}};
+    const auto ownNoise = capture(renderer, acoustic, output / "world-noise-own-through-fog.png");
+    if (identical(silentFog, ownNoise)) throw std::runtime_error("La niebla oculta el ruido propio originado detrás de la pared");
+    acoustic.guards.clear();
+    const auto anonymousNoise = capture(renderer, acoustic, output / "world-noise-own-redacted.png");
+    if (!identical(ownNoise, anonymousNoise)) throw std::runtime_error("El ruido percibido revela la entidad o el icono del enemigo oculto");
+    acoustic.noises[0].actor = 2; acoustic.noises[0].radius = 300.f;
+    const auto hostNoise = capture(renderer, acoustic, output / "world-noise-foreign-host.png");
+    acoustic.visibility = Visibility::BuildGrid(acoustic, acoustic.agents[0]); acoustic.visibility.authoritative = true;
+    acoustic.noises[0].actor = 0; acoustic.noises[0].position = {448.f, 288.f};
+    const auto clientNoise = capture(renderer, acoustic, output / "world-noise-foreign-client.png");
+    if (!identical(hostNoise, clientNoise)) throw std::runtime_error("La señal auditiva ajena usa una ubicación distinta entre anfitrión y cliente");
+    metadata.push_back({{"file", "world-noise-own-through-fog.png"}, {"audibleOverFog", true}, {"hiddenEnemyOmitted", true}});
+    metadata.push_back({{"file", "world-noise-foreign-client.png"}, {"approximatePosition", {448.f, 288.f}}, {"hostClientIdentical", true}, {"sourceIdentityAbsent", true}});
+    tactical.agents = {fighter}; tactical.guards = {opponent}; tactical.guards[0].position = {460.f, 400.f}; tactical.guards[0].state = GuardState::Suspicion;
+    sf::Image precedingIndicator;
+    for (const auto progress : {0.25f, 0.5f, 0.9f, 1.f}) {
+      tactical.guards[0].suspicion = progress; tactical.guards[0].detectedTime = progress == 1.f ? 0.5f : 0.f;
+      tactical.guards[0].state = progress == 1.f ? GuardState::Alert : GuardState::Suspicion;
+      const auto file = "world-guard-eye-" + std::to_string(static_cast<int>(progress * 100.f)) + ".png";
+      const auto pixels = capture(renderer, tactical, output / file);
+      if (progress > 0.25f && identical(precedingIndicator, pixels)) throw std::runtime_error("El ojo del guardia conserva un icono estático durante la detección");
+      precedingIndicator = pixels;
+      metadata.push_back({{"file", file}, {"guardSuspicion", progress}, {"segments", WorldRenderer::GuardDetectionFor(tactical.guards[0]).segments}, {"confirmedExclamation", progress == 1.f}});
+    }
+    sf::Vector2f iconExtent;
+    for (const float steps : {-100.f, 100.f}) {
+      renderer.ResetZoom(); renderer.AdjustZoom(steps);
+      const auto file = steps < 0.f ? "world-guard-eye-zoom-min.png" : "world-guard-eye-zoom-max.png";
+      const auto pixels = capture(renderer, tactical, output / file);
+      const auto scale = sf::Vector2f(pixels.getSize()).componentWiseDiv(context.window.GetLogicalSize());
+      const auto center = WorldRenderer::ProjectGround(tactical.guards[0].position, fighter.position, context.window.GetLogicalSize(), renderer.GetZoom()) -
+          sf::Vector2f{0.f, PresentationConfig::ActorHeight * renderer.GetZoom() + PresentationConfig::IconOffset};
+      sf::Vector2f minimum{10000.f, 10000.f}, maximum{-10000.f, -10000.f};
+      for (int y = -18; y <= 18; ++y) for (int x = -20; x <= 30; ++x) {
+        const auto point = (center + sf::Vector2f{static_cast<float>(x), static_cast<float>(y)}).componentWiseMul(scale);
+        const auto color = pixels.getPixel(sf::Vector2u(point));
+        if (color != PresentationConfig::Red && color != PresentationConfig::Cyan) continue;
+        minimum.x = std::min(minimum.x, static_cast<float>(x)); minimum.y = std::min(minimum.y, static_cast<float>(y));
+        maximum.x = std::max(maximum.x, static_cast<float>(x)); maximum.y = std::max(maximum.y, static_cast<float>(y));
+      }
+      const auto extent = maximum - minimum;
+      if (extent.x <= 0.f || extent.y <= 0.f) throw std::runtime_error("El ojo y la exclamación desaparecen al cambiar de zoom");
+      if (steps > 0.f && ((extent - iconExtent).length() > 4.f)) throw std::runtime_error("El ojo sobre el guardia aumenta de tamaño con el mundo y pierde legibilidad");
+      iconExtent = extent;
+      metadata.push_back({{"file", file}, {"fixedLogicalIconScale", PresentationConfig::GuardEyeScale}, {"capturedExtent", {extent.x, extent.y}}, {"zoom", renderer.GetZoom()}});
+    }
+    renderer.ResetZoom(); tactical.guards.clear();
+    Interactable camera; camera.id = 80; camera.kind = ObjectKind::Camera; camera.position = {480.f, 360.f}; camera.name = "CÁMARA";
+    camera.facing = {1.f, 0.f}; tactical.objects = {camera}; const auto sweepEast = capture(renderer, tactical, output / "world-camera-sweep-east.png");
+    tactical.objects[0].facing = {0.f, 1.f}; const auto sweepSouth = capture(renderer, tactical, output / "world-camera-sweep-south.png");
+    if (identical(sweepEast, sweepSouth)) throw std::runtime_error("El barrido real no cambia el cañón ni el cono perceptivo de la cámara");
+    tactical.objects[0].camera.state = CameraState::Disabled; capture(renderer, tactical, output / "world-camera-disabled.png");
+    metadata.push_back({{"file", "world-camera-sweep-south.png"}, {"perceptionFacingChangesCone", true}, {"range", camera.camera.range}, {"cosHalfAngle", camera.camera.cosHalfAngle}});
+    Interactable explosive; explosive.id = 81; explosive.kind = ObjectKind::Explosive; explosive.position = {490.f, 430.f}; explosive.name = "EXPLOSIVO";
+    tactical.objects = {explosive}; const auto armedHidden = capture(renderer, tactical, output / "world-trap-armed-hidden.png");
+    tactical.objects.clear(); const auto withoutTrap = capture(renderer, tactical, output / "world-trap-redacted.png");
+    if (!identical(armedHidden, withoutTrap)) throw std::runtime_error("El explosivo armado revela su cuerpo o marcador antes de detectarse");
+    explosive.trap.state = TrapState::Detected; tactical.objects = {explosive}; capture(renderer, tactical, output / "world-trap-detected.png");
+    tactical.objects[0].trap.state = TrapState::Disarmed; capture(renderer, tactical, output / "world-trap-disarmed.png");
+    tactical.objects[0].trap.state = TrapState::Detonated; tactical.objects[0].trap.effectRemaining = DevicesConfig::ExplosionEffectDuration * 0.8f;
+    tactical.obstacles = {wall({530.f, 320.f}, {20.f, 240.f})};
+    const auto blast = capture(renderer, tactical, output / "world-trap-explosion.png");
+    tactical.objects[0].trap.effectRemaining = 0.f; const auto afterBlast = capture(renderer, tactical, output / "world-trap-after-explosion.png");
+    if (identical(blast, afterBlast)) throw std::runtime_error("La detonación no presenta un efecto temporal distinto de la trampa consumida");
+    metadata.push_back({{"file", "world-trap-armed-hidden.png"}, {"identicalToRedacted", true}});
+    metadata.push_back({{"file", "world-trap-explosion.png"}, {"temporaryBlast", true}, {"solidWallsClipEffect", true}});
+    Simulation trainingSimulation; trainingSimulation.ResetBase();
+    auto trainingWorld = trainingSimulation.GetState();
+    if (!IsTraining(trainingWorld) || trainingWorld.objects.empty() || trainingWorld.guards.empty() ||
+        !std::ranges::all_of(trainingWorld.guards, [](const Guard &guard) { return guard.trainingDummy; })) throw std::runtime_error("La sala de espera no conserva una arena real con dispositivos y dianas sin enemigos");
+    renderer.ResetZoom();
+    capture(renderer, trainingWorld, output / "world-training-cio-stations.png");
+    const auto trainingTarget = std::ranges::find_if(trainingWorld.guards, [](const Guard &guard) { return guard.trainingDummy; });
+    const auto targetIndex = static_cast<std::size_t>(trainingTarget - trainingWorld.guards.begin());
+    auto &trainingAgent = trainingWorld.agents[0];
+    trainingAgent.position = trainingTarget->position - sf::Vector2f{45.f, 0.f}; trainingAgent.facing = {1.f, 0.f};
+    trainingWorld.visibility = {}; trainingWorld.guards[targetIndex].health = CombatConfig::MaxGuardHealth; trainingWorld.guards[targetIndex].trainingFeedback = 0.f;
+    const auto pristineDummy = capture(renderer, trainingWorld, output / "world-training-arena-dummy-full.png");
+    trainingWorld.guards[targetIndex].health = 37.f; trainingWorld.guards[targetIndex].trainingHits = 4;
+    trainingWorld.guards[targetIndex].trainingFeedback = 1.f; trainingWorld.guards[targetIndex].staggerRemaining = CqcConfig::PunchStagger;
+    const auto damagedDummy = capture(renderer, trainingWorld, output / "world-training-dummy-damaged.png");
+    if (identical(pristineDummy, damagedDummy)) throw std::runtime_error("La diana no muestra daño, reacción o barra de vida al recibir impactos");
+    trainingAgent.cqcHoldingGuard = trainingTarget->id; trainingAgent.actionPose = ActionPose::Choke;
+    trainingAgent.actionPoseTime = GameplayConfig::AttackAnimationDuration * 0.5f; trainingAgent.cqcProgress = 1;
+    trainingWorld.guards[targetIndex].heldBy = trainingAgent.id; trainingWorld.guards[targetIndex].cqcState = CqcState::KnockedDown;
+    capture(renderer, trainingWorld, output / "world-training-dummy-choke.png");
+    metadata.push_back({{"file", "world-training-arena-dummy-full.png"}, {"actualLobbyLayout", true}, {"worldSize", {trainingWorld.size.x, trainingWorld.size.y}}, {"enemyGuards", 0}, {"healthBarOnlyDummy", true}});
+    metadata.push_back({{"file", "world-training-dummy-damaged.png"}, {"health", 37}, {"hits", 4}, {"distinctFromPristine", true}, {"distinctWoodAndFabricModel", true}});
+    WorldState trainingPrivacy;
+    trainingPrivacy.phase = GamePhase::Base; trainingPrivacy.mode = SimulationMode::Training; trainingPrivacy.size = {900.f, 800.f};
+    fighter.position = {350.f, 300.f}; fighter.facing = {1.f, 0.f}; trainingPrivacy.agents = {fighter};
+    trainingPrivacy.obstacles = {wall({390.f, 100.f}, {20.f, 400.f})};
+    Guard hiddenDummy; hiddenDummy.id = 90; hiddenDummy.position = {490.f, 300.f}; hiddenDummy.trainingDummy = true;
+    hiddenDummy.trainingFeedback = 1.f; hiddenDummy.health = 17.f; trainingPrivacy.guards = {hiddenDummy};
+    camera.position = {490.f, 340.f}; camera.facing = {-1.f, 0.f}; trainingPrivacy.objects = {camera};
+    const auto trainingHidden = capture(renderer, trainingPrivacy, output / "world-training-fog-hidden-target.png");
+    trainingPrivacy.guards.clear(); trainingPrivacy.objects.clear();
+    const auto trainingRedacted = capture(renderer, trainingPrivacy, output / "world-training-fog-redacted.png");
+    if (!identical(trainingHidden, trainingRedacted)) throw std::runtime_error("La sala de espera revela dianas, cámaras o barras de vida detrás de la pared");
+    trainingPrivacy.obstacles.clear(); opponent.position = {390.f, 300.f}; opponent.health = CombatConfig::MaxGuardHealth;
+    opponent.trainingDummy = false; opponent.trainingFeedback = 1.f; opponent.trainingHits = 4; opponent.state = GuardState::Patrol; trainingPrivacy.guards = {opponent};
+    const auto healthyEnemy = capture(renderer, trainingPrivacy, output / "world-training-real-guard-full-no-bar.png");
+    trainingPrivacy.guards[0].health = 17.f;
+    const auto damagedEnemy = capture(renderer, trainingPrivacy, output / "world-training-real-guard-damaged-no-bar.png");
+    if (!identical(healthyEnemy, damagedEnemy)) throw std::runtime_error("La barra exclusiva de dianas se dibuja sobre un guardia real");
+    metadata.push_back({{"file", "world-training-fog-hidden-target.png"}, {"trainingUsesFog", true}, {"identicalToRedacted", true}});
+    metadata.push_back({{"file", "world-training-real-guard-damaged-no-bar.png"}, {"guardHealthDoesNotChangeImage", true}, {"dummyBarNotAppliedToEnemies", true}});
     std::ofstream(output / "world-fixtures.json") << metadata.dump(2);
     return metadata;
   }

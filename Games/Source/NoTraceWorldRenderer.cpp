@@ -1,6 +1,7 @@
 #include "NoTraceWorldRenderer.h"
 
 #include "Config/NoTraceGameplayConfig.h"
+#include "Config/NoTraceAudioConfig.h"
 #include "Config/NoTracePresentationConfig.h"
 #include "Core/EngineContext.h"
 #include "NoTraceDistractionGeometry.h"
@@ -57,17 +58,18 @@ namespace NoTrace {
               static_cast<std::uint8_t>(std::clamp(color.b * factor, 0.f, 255.f)), color.a};
     }
 
-    sf::Vector2f RayEnd(sf::Vector2f origin, sf::Vector2f delta, const WorldState &world) {
+    sf::Vector2f RayEnd(sf::Vector2f origin, sf::Vector2f delta, const WorldState &world, bool solid = false, std::uint32_t ignoredObject = 0) {
       float nearest = 1.f;
       const auto clip = [&](sf::FloatRect bounds) {
         float entry = 0.f;
         if (WorldGeometry::SegmentRect(origin, origin + delta, bounds, &entry)) nearest = std::min(nearest, std::max(0.f, entry));
       };
       for (const auto &obstacle : world.obstacles) {
-        if (WorldGeometry::BlocksVision(obstacle, Stance::Standing)) clip(obstacle.bounds);
+        if (solid ? WorldGeometry::BlocksMovement(obstacle) : WorldGeometry::BlocksVision(obstacle, Stance::Standing)) clip(obstacle.bounds);
       }
       for (const auto &object : world.objects) {
-        if (WorldGeometry::BlocksVision(object, Stance::Standing)) clip(WorldGeometry::ObjectFootprint(object));
+        if (ignoredObject != 0 && object.id == ignoredObject) continue;
+        if (solid ? WorldGeometry::BlocksMovement(object) : WorldGeometry::BlocksVision(object, Stance::Standing)) clip(WorldGeometry::ObjectFootprint(object));
       }
       return origin + delta * nearest;
     }
@@ -235,7 +237,7 @@ namespace NoTrace {
     using namespace PresentationConfig;
     sf::VertexArray tiles(sf::PrimitiveType::Triangles);
     sf::VertexArray grid(sf::PrimitiveType::Lines);
-    const bool fog = world.phase == GamePhase::Mission;
+    const bool fog = IsTactical(world);
     const float tile = FloorTileSize;
     const int columns = static_cast<int>(std::ceil(world.size.x / tile));
     const int rows = static_cast<int>(std::ceil(world.size.y / tile));
@@ -266,12 +268,12 @@ namespace NoTrace {
     }
     if (world.phase == GamePhase::Base) {
       const auto center = GroundToScreen(world.size * 0.5f, camera);
-      Label("C I O   /   SECTOR 07", center - sf::Vector2f{0.f, 28.f}, {83, 108, 122});
+      Label(IsTraining(world) ? "C I O   /   ENTRENAMIENTO" : "C I O   /   SECTOR 07", center - sf::Vector2f{0.f, 28.f}, {83, 108, 122});
     }
   }
 
   void WorldRenderer::Fog(const WorldState &world, sf::Vector2f camera, const VisibilityGrid &visibility) const {
-    if (world.phase != GamePhase::Mission) return;
+    if (!IsTactical(world)) return;
     const auto focus = LogicalCenter(ctx_.window.GetLogicalSize());
     ctx_.renderer.Draw(FogMask(world, visibility, [&](sf::Vector2f point) {
       const auto delta = point - camera;
@@ -348,12 +350,20 @@ namespace NoTrace {
       Box({object.position + sf::Vector2f{-12.f, 26.f}, {24.f, 6.f}}, 66.f, camera, WallTop, WallLeft, WallRight);
       if (!object.open) Box({object.position - sf::Vector2f{10.f, 24.f}, {20.f, 48.f}}, 58.f, camera, WallTop, WallLeft, WallRight);
       PixelRect(feet + sf::Vector2f{-5.f, -52.f}, {10.f, 4.f}, tactical ? (object.open ? Green : Amber) : WallTop);
+      if (object.locked) {
+        PixelLine(feet + sf::Vector2f{6.f, -27.f}, feet + sf::Vector2f{6.f, -34.f}, Amber, 3.f);
+        PixelLine(feet + sf::Vector2f{6.f, -34.f}, feet + sf::Vector2f{12.f, -34.f}, Amber, 3.f);
+        PixelRect(feet + sf::Vector2f{3.f, -27.f}, {12.f, 10.f}, Amber);
+        PixelRect(feet + sf::Vector2f{8.f, -25.f}, {2.f, 5.f}, Outline);
+      }
       break;
     case ObjectKind::Camera: {
       PixelLine(feet, feet - sf::Vector2f{0.f, 46.f}, WallTop, 4.f);
       PixelRect(feet - sf::Vector2f{10.f, 50.f}, {20.f, 10.f}, Light);
       const sf::Vector2f direction{(object.facing.x - object.facing.y) * 14.f, (object.facing.x + object.facing.y) * 7.f};
-      PixelLine(feet - sf::Vector2f{0.f, 44.f}, feet - sf::Vector2f{0.f, 44.f} + direction, tactical ? (object.active ? Red : Outline) : WallTop, 4.f);
+      const bool operating = object.active && object.camera.state == CameraState::Operating;
+      PixelLine(feet - sf::Vector2f{0.f, 44.f}, feet - sf::Vector2f{0.f, 44.f} + direction, tactical ? (operating ? Red : Outline) : WallTop, 4.f);
+      if (!operating) PixelLine(feet + sf::Vector2f{-10.f, -51.f}, feet + sf::Vector2f{10.f, -39.f}, object.camera.state == CameraState::Broken ? Red : Amber, 3.f);
       break;
     }
     case ObjectKind::Hideout: {
@@ -417,17 +427,47 @@ namespace NoTrace {
       }
       break;
     case ObjectKind::AlarmPanel:
+    case ObjectKind::CameraPanel:
       cabinet(42.f);
       PixelRect(feet + sf::Vector2f{-9.f, -48.f}, {18.f, 12.f}, tactical ? (object.active ? Red : Green) : Light);
       PixelRect(feet + sf::Vector2f{-5.f, -28.f}, {10.f, 8.f}, Outline);
+      if (object.kind == ObjectKind::CameraPanel) {
+        PixelRect(feet + sf::Vector2f{-6.f, -45.f}, {8.f, 6.f}, Cyan);
+        PixelLine(feet + sf::Vector2f{2.f, -42.f}, feet + sf::Vector2f{7.f, -45.f}, Cyan);
+      }
       break;
     case ObjectKind::Terminal:
     case ObjectKind::Secondary:
+    case ObjectKind::Computer:
       cabinet(30.f);
       PixelRect(feet + sf::Vector2f{-18.f, -50.f}, {36.f, 24.f}, Outline);
       PixelRect(feet + sf::Vector2f{-14.f, -46.f}, {28.f, 16.f}, Shade(accent, 0.55f));
       PixelRect(feet + sf::Vector2f{-10.f, -40.f}, {16.f, 2.f}, accent);
       PixelRect(feet + sf::Vector2f{-10.f, -34.f}, {10.f, 2.f}, accent);
+      if (object.kind == ObjectKind::Computer && object.puzzle.state != PuzzleState::Solved) {
+        PixelRect(feet + sf::Vector2f{3.f, -44.f}, {6.f, 10.f}, Amber);
+        PixelLine(feet + sf::Vector2f{1.f, -44.f}, feet + sf::Vector2f{11.f, -44.f}, Amber);
+      }
+      break;
+    case ObjectKind::Explosive:
+      if (object.trap.state == TrapState::Armed) return;
+      if (object.trap.state == TrapState::Detonated) {
+        Polygon({feet + sf::Vector2f{-16.f, 0.f}, feet + sf::Vector2f{0.f, -8.f}, feet + sf::Vector2f{16.f, 0.f}, feet + sf::Vector2f{0.f, 8.f}}, Outline);
+        break;
+      }
+      Box(ObjectFootprint(object), 6.f, camera, WallTop, WallLeft, WallRight);
+      PixelLine(feet + sf::Vector2f{-9.f, -8.f}, feet + sf::Vector2f{7.f, -3.f}, object.trap.state == TrapState::Disarmed ? Green : Red);
+      PixelRect(feet + sf::Vector2f{3.f, -10.f}, {6.f, 4.f}, object.trap.state == TrapState::Disarmed ? Green : Amber);
+      accent = object.trap.state == TrapState::Disarmed ? Green : Red;
+      break;
+    case ObjectKind::TrainingReset:
+      cabinet(26.f);
+      PixelRect(feet + sf::Vector2f{-17.f, -42.f}, {34.f, 22.f}, Outline);
+      PixelLine(feet + sf::Vector2f{-9.f, -35.f}, feet + sf::Vector2f{8.f, -35.f}, Green, 3.f);
+      PixelLine(feet + sf::Vector2f{8.f, -35.f}, feet + sf::Vector2f{8.f, -27.f}, Green, 3.f);
+      PixelLine(feet + sf::Vector2f{8.f, -27.f}, feet + sf::Vector2f{-9.f, -27.f}, Green, 3.f);
+      Polygon({feet + sf::Vector2f{-12.f, -31.f}, feet + sf::Vector2f{-5.f, -37.f}, feet + sf::Vector2f{-5.f, -25.f}}, Green);
+      accent = Green;
       break;
     }
     if (tactical && (nearby || object.kind == ObjectKind::Deployment || object.kind == ObjectKind::Extraction)) {
@@ -437,19 +477,22 @@ namespace NoTrace {
   }
 
   WorldRenderer::SpriteFrame WorldRenderer::AgentFrame(const Agent &agent, const WorldState &world, bool local) const {
-    const bool grappling = std::any_of(world.guards.begin(), world.guards.end(), [&agent](const Guard &guard) { return guard.heldBy == agent.id; });
+    const bool grappling = agent.cqcHoldingGuard != 0 || agent.cqcHoldingAgent != 0 || agent.cqcHeldBy != 0 ||
+        std::any_of(world.guards.begin(), world.guards.end(), [&agent](const Guard &guard) { return guard.heldBy == agent.id; });
     return SelectSprite(agent.facing, agent.stance, agent.animationTime, agent.moving, agent.running, !agent.alive || agent.incapacitated,
         grappling, agent.cover.active, agent.cover.peekSide != PeekSide::None, false, agent.actionPoseTime > 0.f || (local && decoyPreviewActive_));
   }
 
   WorldRenderer::SpriteFrame WorldRenderer::GuardFrame(const Guard &guard, const WorldState &world) const {
-    const bool down = guard.state == GuardState::Dead || guard.state == GuardState::Incapacitated || guard.cqcState == CqcState::KnockedDown || guard.cqcState == CqcState::Restrained;
+    const bool falling = guard.state == GuardState::Incapacitated && guard.incapacityRemaining > GameplayConfig::GuardIncapacityDuration - PresentationConfig::CqcFallDuration * 0.5f;
+    const bool down = guard.state == GuardState::Dead || (guard.state == GuardState::Incapacitated && !falling) ||
+        (guard.heldBy == 0 && (guard.cqcState == CqcState::KnockedDown || guard.cqcState == CqcState::Restrained));
     const auto destination = guard.state == GuardState::Patrol && !guard.patrol.empty() ? guard.patrol[guard.waypoint % guard.patrol.size()] : guard.lastKnown;
     const bool observedMovement = world.visibility.authoritative ? guard.stepTime > 0.f :
         (destination - guard.position).lengthSquared() > GameplayConfig::InvestigationStopDistance * GameplayConfig::InvestigationStopDistance;
     const bool moving = !down && guard.cqcState == CqcState::None && observedMovement;
     return SelectSprite(guard.facing, Stance::Standing, world.elapsed + guard.id * 0.25f, moving, guard.state == GuardState::Alert, down,
-        guard.cqcState == CqcState::Grabbed || (guard.meleeAttack && guard.attackTime > 0.f), false, false, true);
+        falling || guard.heldBy != 0 || guard.cqcState == CqcState::Grabbed || guard.staggerRemaining > 0.f || (guard.meleeAttack && guard.attackTime > 0.f), false, false, true);
   }
 
   std::optional<sf::Vector2f> WorldRenderer::SourceMuzzle(const WorldState &world, const ShotTrace &shot, sf::Vector2f camera, const Agent *observer) const {
@@ -463,13 +506,13 @@ namespace NoTrace {
     if (shot.actor != 0) {
       const auto agent = std::find_if(world.agents.begin(), world.agents.end(), [&shot](const Agent &candidate) { return candidate.id == shot.actor; });
       if (agent == world.agents.end() || agent->hidden || agent->extracted || !agent->connected || !agent->alive || agent->incapacitated) return std::nullopt;
-      if (world.phase == GamePhase::Mission && observer && agent->id != observer->id && !Visibility::IsVisible(world, *observer, agent->position, agent->stance)) return std::nullopt;
+      if (IsTactical(world) && observer && agent->id != observer->id && !Visibility::IsVisible(world, *observer, agent->position, agent->stance)) return std::nullopt;
       return muzzle(agent->position, agent->facing, agent->stance, AgentFrame(*agent, world, observer && agent->id == observer->id));
     }
     const auto guard = std::find_if(world.guards.begin(), world.guards.end(), [&shot](const Guard &candidate) { return shot.guardId != 0 && candidate.id == shot.guardId; });
     if (guard == world.guards.end() || guard->bodyHidden || guard->storedIn != 0 || guard->state == GuardState::Dead || guard->state == GuardState::Incapacitated ||
         guard->cqcState == CqcState::KnockedDown || guard->cqcState == CqcState::Restrained) return std::nullopt;
-    if (world.phase == GamePhase::Mission && observer && !Visibility::GuardVisible(world, *observer, *guard)) return std::nullopt;
+    if (IsTactical(world) && observer && !Visibility::GuardVisible(world, *observer, *guard)) return std::nullopt;
     return muzzle(guard->position, guard->facing, Stance::Standing, GuardFrame(*guard, world));
   }
 
@@ -490,10 +533,14 @@ namespace NoTrace {
     if (down) sprite.setColor({180, 180, 180});
     ctx_.renderer.Draw(sprite);
   }
-  void WorldRenderer::AgentArt(const Agent &agent, const WorldState &world, sf::Vector2f camera, bool local) const {
+  void WorldRenderer::AgentArt(const Agent &agent, const WorldState &world, sf::Vector2f camera, bool local, bool deferCqc) const {
     using namespace PresentationConfig;
     if (agent.extracted || agent.hidden) return;
-    const auto feet = GroundToScreen(agent.position, camera);
+    auto feet = GroundToScreen(agent.position, camera);
+    if (agent.cqcHeldBy != 0) {
+      const auto holder = std::ranges::find_if(world.agents, [&](const Agent &other) { return other.id == agent.cqcHeldBy; });
+      if (holder != world.agents.end()) feet += sf::Vector2f{0.f, CqcGripSway * holder->cqcProgress};
+    }
     auto uniform = AgentUniforms[(agent.id - 1) % AgentUniforms.size()];
     if (!agent.connected || agent.hidden) uniform = Shade(uniform, 0.55f);
     if (local && agent.alive) {
@@ -501,6 +548,7 @@ namespace NoTrace {
       PixelLine(feet + sf::Vector2f{8.f, 12.f}, feet + sf::Vector2f{18.f, 8.f}, Green);
     }
     Humanoid(feet, agent.facing, agent.stance, uniform, AgentFrame(agent, world, local), !agent.alive || agent.incapacitated);
+    if (!deferCqc && agent.alive && !agent.incapacitated) CqcArt(agent, world, camera, feet, uniform);
     if (!agent.alive || agent.incapacitated) PixelRect(feet + sf::Vector2f{-2.f, -6.f}, {6.f, 4.f}, agent.alive ? Amber : Red);
     if (local || agent.hidden || !agent.connected) {
       Label(!agent.connected ? "SIN CONEXIÓN" : (agent.hidden ? "OCULTO" : agent.name), feet - sf::Vector2f{0.f, 72.f}, local ? Green : Light);
@@ -511,9 +559,22 @@ namespace NoTrace {
   void WorldRenderer::GuardArt(const Guard &guard, const WorldState &world, sf::Vector2f camera) const {
     using namespace PresentationConfig;
     if (guard.bodyHidden || guard.storedIn != 0) return;
-    const auto feet = GroundToScreen(guard.position, camera);
+    if (guard.trainingDummy) { DummyArt(guard, world, camera); return; }
+    auto feet = GroundToScreen(guard.position, camera);
     const bool body = guard.state == GuardState::Dead || guard.state == GuardState::Incapacitated;
-    const bool down = body || guard.cqcState == CqcState::KnockedDown || guard.cqcState == CqcState::Restrained;
+    const float fall = std::clamp((GameplayConfig::GuardIncapacityDuration - guard.incapacityRemaining) / CqcFallDuration, 0.f, 1.f);
+    const bool falling = guard.state == GuardState::Incapacitated && fall < 0.5f;
+    const bool down = (body && !falling) || (guard.heldBy == 0 && (guard.cqcState == CqcState::KnockedDown || guard.cqcState == CqcState::Restrained));
+    const sf::Vector2f forward{(guard.facing.x - guard.facing.y) * GroundProjection.x, (guard.facing.x + guard.facing.y) * GroundProjection.y};
+    if (!down && guard.staggerRemaining > 0.f) {
+      const float reaction = std::sin(std::clamp(guard.staggerRemaining / CqcConfig::KickStagger, 0.f, 1.f) * std::numbers::pi_v<float>);
+      feet -= forward * (CqcRecoil * reaction);
+    }
+    if (guard.heldBy != 0) {
+      const auto holder = std::ranges::find_if(world.agents, [&](const Agent &agent) { return agent.id == guard.heldBy; });
+      if (holder != world.agents.end()) feet += sf::Vector2f{0.f, CqcGripSway * holder->cqcProgress};
+    }
+    if (falling) feet += forward * (CqcRecoil * fall * 2.f) + sf::Vector2f{0.f, ActorHeight * fall * 0.25f};
     Humanoid(feet, guard.facing, Stance::Standing, {126, 99, 77}, GuardFrame(guard, world), down, true);
     if (guard.meleeAttack && guard.attackTime > 0.f && !down) {
       const auto target = GroundToScreen(guard.position + guard.facing * GameplayConfig::GuardAttackDistance, camera) - sf::Vector2f{0.f, ShotHeight};
@@ -523,50 +584,140 @@ namespace NoTrace {
     if (body) PixelRect(feet + sf::Vector2f{-2.f, -6.f}, {6.f, 4.f}, guard.state == GuardState::Dead ? Red : Amber);
   }
 
+  void WorldRenderer::DummyArt(const Guard &dummy, const WorldState &world, sf::Vector2f camera) const {
+    using namespace PresentationConfig;
+    const auto base = GroundToScreen(dummy.position, camera);
+    sf::Vector2f sway;
+    if (dummy.staggerRemaining > 0.f) {
+      const float reaction = std::sin(std::clamp(dummy.staggerRemaining / CqcConfig::KickStagger, 0.f, 1.f) * std::numbers::pi_v<float>);
+      sway = {(dummy.facing.x - dummy.facing.y) * CqcRecoil * reaction, CqcRecoil * reaction};
+    }
+    if (dummy.heldBy != 0) {
+      const auto holder = std::ranges::find_if(world.agents, [&](const Agent &agent) { return agent.id == dummy.heldBy; });
+      if (holder != world.agents.end()) sway.y += CqcGripSway * holder->cqcProgress;
+    }
+    const auto feet = base + sway;
+    const float verticalScale = DummyHeight / 76.f;
+    const auto at = [&](float x, float y) { return feet + sf::Vector2f{x, y * verticalScale}; };
+    Box({dummy.position - sf::Vector2f{12.f, 12.f}, {24.f, 24.f}}, 5.f, camera, WallTop, WallLeft, WallRight);
+    PixelLine(base - sf::Vector2f{0.f, 5.f}, at(0.f, -68.f), Shade(DummyWood, 0.65f), 7.f);
+    PixelLine(at(-28.f, -42.f), at(28.f, -42.f), DummyWood, 8.f);
+    Polygon({at(-14.f, -58.f), at(14.f, -58.f), at(18.f, -40.f), at(11.f, -17.f), at(-11.f, -17.f), at(-18.f, -40.f)}, DummyCloth);
+    PixelLine(at(-12.f, -57.f), at(12.f, -57.f), DummyTarget, 3.f);
+    PixelRect(at(-10.f, -76.f), {20.f, 16.f * verticalScale}, DummyWood);
+    PixelRect(at(-7.f, -73.f), {14.f, 10.f * verticalScale}, DummyCloth);
+    const auto target = at(0.f, -38.f);
+    for (const float radius : {13.f, 8.f}) {
+      PixelLine(target + sf::Vector2f{-radius, 0.f}, target + sf::Vector2f{0.f, -radius}, DummyTarget);
+      PixelLine(target + sf::Vector2f{0.f, -radius}, target + sf::Vector2f{radius, 0.f}, DummyTarget);
+      PixelLine(target + sf::Vector2f{radius, 0.f}, target + sf::Vector2f{0.f, radius}, DummyTarget);
+      PixelLine(target + sf::Vector2f{0.f, radius}, target + sf::Vector2f{-radius, 0.f}, DummyTarget);
+    }
+    PixelLine(target - sf::Vector2f{4.f, 0.f}, target + sf::Vector2f{4.f, 0.f}, Outline);
+    PixelLine(target - sf::Vector2f{0.f, 4.f}, target + sf::Vector2f{0.f, 4.f}, Outline);
+    if (dummy.trainingFeedback > 0.f) {
+      auto impact = Amber; impact.a = static_cast<std::uint8_t>(std::clamp(dummy.trainingFeedback, 0.f, 1.f) * 220.f);
+      PixelLine(target + sf::Vector2f{-17.f, -7.f}, target + sf::Vector2f{-12.f, -3.f}, impact);
+      PixelLine(target + sf::Vector2f{12.f, 3.f}, target + sf::Vector2f{17.f, 7.f}, impact);
+    }
+  }
+
+  void WorldRenderer::DummyStatus(const Guard &dummy, const WorldState &world, sf::Vector2f camera, const Agent *observer) const {
+    if (!DummyHealthVisible(dummy, world, observer)) return;
+    using namespace PresentationConfig;
+    const auto center = ProjectGround(dummy.position, camera, ctx_.window.GetLogicalSize(), zoom_) - sf::Vector2f{0.f, DummyHeight * zoom_ + IconOffset};
+    const auto origin = center - sf::Vector2f{DummyHealthBarSize.x * 0.5f, 0.f};
+    PixelRect(origin - sf::Vector2f{3.f, 3.f}, DummyHealthBarSize + sf::Vector2f{6.f, 6.f}, Outline);
+    PixelRect(origin, DummyHealthBarSize, WallLeft);
+    const float fraction = std::clamp(dummy.health / CombatConfig::MaxGuardHealth, 1.f / CombatConfig::MaxGuardHealth, 1.f);
+    PixelRect(origin, {DummyHealthBarSize.x * fraction, DummyHealthBarSize.y}, fraction > 0.3f ? Green : Amber);
+    Label("DIANA " + std::to_string(static_cast<int>(std::max(1.f, dummy.health))) + " / " + std::to_string(dummy.trainingHits) + " IMPACTOS",
+        center - sf::Vector2f{0.f, 22.f}, DummyTarget, MinimapTextSize);
+  }
+
+  void WorldRenderer::CqcArt(const Agent &agent, const WorldState &world, sf::Vector2f camera, sf::Vector2f feet, sf::Color uniform) const {
+    using namespace PresentationConfig;
+    const auto visual = CqcPoseFor(agent);
+    if (!visual.gripping && agent.cqcAttackTime <= 0.f) return;
+    sf::Vector2f forward{(agent.facing.x - agent.facing.y) * GroundProjection.x, (agent.facing.x + agent.facing.y) * GroundProjection.y};
+    if (forward.lengthSquared() <= 0.f) return;
+    forward /= forward.length();
+    const sf::Vector2f side{-forward.y, forward.x};
+    if (visual.gripping) {
+      sf::Vector2f neck = feet + forward * CqcArmReach - sf::Vector2f{0.f, ActorHeight * 0.78f};
+      for (const auto &guard : world.guards) if (guard.id == agent.cqcHoldingGuard) neck = GroundToScreen(guard.position, camera) - sf::Vector2f{0.f, ActorHeight * 0.78f - CqcGripSway * agent.cqcProgress};
+      for (const auto &other : world.agents) if (other.id == agent.cqcHoldingAgent) neck = GroundToScreen(other.position, camera) - sf::Vector2f{0.f, ActorHeight * 0.78f};
+      const auto shoulder = feet - sf::Vector2f{0.f, ActorHeight * 0.7f};
+      const auto squeeze = side * (CqcGripSway * visual.extension);
+      PixelLine(shoulder - side * 5.f, neck - side * 5.f + squeeze, uniform, 6.f);
+      PixelLine(neck - side * 5.f + squeeze, neck + side * 5.f - squeeze, Skin, 4.f);
+      PixelLine(shoulder + side * 5.f, neck + side * 5.f - squeeze, Shade(uniform, 0.75f), 5.f);
+      return;
+    }
+    const float height = visual.kick ? ActorHeight * 0.38f : ActorHeight * 0.66f;
+    const auto joint = feet - sf::Vector2f{0.f, height};
+    const float reach = visual.kick ? CqcKickReach : CqcArmReach;
+    const auto tip = joint + forward * (reach * visual.extension) - sf::Vector2f{0.f, visual.kick ? std::max(0.f, visual.extension) * 5.f : 0.f};
+    const auto bend = (joint + tip) * 0.5f + side * (visual.kick ? 4.f : -5.f);
+    PixelLine(joint, bend, Shade(uniform, visual.kick ? 0.6f : 0.85f), visual.kick ? 7.f : 6.f);
+    PixelLine(bend, tip, visual.kick ? Outline : uniform, visual.kick ? 6.f : 5.f);
+    PixelRect(tip - sf::Vector2f{3.f, 3.f}, {visual.kick ? 9.f : 6.f, 6.f}, visual.kick ? Outline : Skin);
+    if (!agent.cqcStrikePending && visual.phase < 0.6f) {
+      PixelLine(tip - side * 6.f, tip + side * 6.f, Amber, 2.f);
+      PixelLine(tip - forward * 4.f, tip + forward * 4.f, Light, 2.f);
+    }
+  }
+
+  void WorldRenderer::ExplosionArt(const Interactable &object, const WorldState &world, sf::Vector2f camera) const {
+    if (object.kind != ObjectKind::Explosive || object.trap.state != TrapState::Detonated || object.trap.effectRemaining <= 0.f) return;
+    const float life = std::clamp(object.trap.effectRemaining / DevicesConfig::ExplosionEffectDuration, 0.f, 1.f);
+    const float radius = object.trap.blastRadius * (1.f - life * 0.7f);
+    sf::VertexArray burst(sf::PrimitiveType::Triangles);
+    const auto center = GroundToScreen(object.position, camera) - sf::Vector2f{0.f, 4.f};
+    for (int ray = 0; ray < PresentationConfig::NoiseCircleSegments; ++ray) {
+      const auto endpoint = [&](int index) {
+        const float angle = 2.f * std::numbers::pi_v<float> * index / PresentationConfig::NoiseCircleSegments;
+        return GroundToScreen(RayEnd(object.position, sf::Vector2f{std::cos(angle), std::sin(angle)} * radius, world, true, object.id), camera);
+      };
+      auto edge = PresentationConfig::Red; edge.a = static_cast<std::uint8_t>(life * 80.f);
+      auto core = PresentationConfig::Amber; core.a = static_cast<std::uint8_t>(life * 220.f);
+      burst.append({center, core}); burst.append({endpoint(ray), edge}); burst.append({endpoint(ray + 1), edge});
+    }
+    ctx_.renderer.Draw(burst);
+    PixelRect(center - sf::Vector2f{4.f * life, 12.f * life}, {8.f * life, 16.f * life}, PresentationConfig::Light);
+  }
+
   void WorldRenderer::GuardIcon(const Guard &guard, sf::Vector2f camera) const {
     using namespace PresentationConfig;
     const auto indicator = IndicatorFor(guard);
     if (indicator == GuardIndicator::None) return;
     const float height = guard.state == GuardState::Incapacitated ? CombatConfig::ProneHeight : ActorHeight;
-    const auto center = GroundToScreen(guard.position, camera) - sf::Vector2f{0.f, height + IconOffset};
-    PixelRect(center - sf::Vector2f{IconHalfSize + 2.f, IconHalfSize + 2.f}, {IconHalfSize * 2.f + 4.f, IconHalfSize * 2.f + 4.f}, Outline);
+    const auto center = ProjectGround(guard.position, camera, ctx_.window.GetLogicalSize(), zoom_) - sf::Vector2f{0.f, height * zoom_ + IconOffset};
     const auto at = [&](float x, float y) { return center + sf::Vector2f{x, y}; };
-    switch (indicator) {
-    case GuardIndicator::Suspicion:
-      PixelLine(at(0.f, -8.f), at(8.f, 0.f), Amber); PixelLine(at(8.f, 0.f), at(0.f, 8.f), Amber);
-      PixelLine(at(0.f, 8.f), at(-8.f, 0.f), Amber); PixelLine(at(-8.f, 0.f), at(0.f, -8.f), Amber);
-      PixelRect(at(-2.f, -2.f), {4.f, 4.f}, Amber);
-      break;
-    case GuardIndicator::Confirmed:
-      for (const float side : {-1.f, 1.f}) {
-        PixelLine(at(side * 8.f, -8.f), at(side * 8.f, 8.f), Cyan);
-        PixelLine(at(side * 8.f, -8.f), at(side * 4.f, -8.f), Cyan);
-        PixelLine(at(side * 8.f, 8.f), at(side * 4.f, 8.f), Cyan);
-      }
-      PixelRect(at(-3.f, -3.f), {6.f, 6.f}, Light);
-      break;
-    case GuardIndicator::Combat:
-      PixelLine(at(-7.f, 6.f), at(0.f, -6.f), Red, 4.f); PixelLine(at(0.f, -6.f), at(7.f, 6.f), Red, 4.f);
-      PixelLine(at(-5.f, 7.f), at(5.f, 7.f), Amber);
-      break;
-    case GuardIndicator::Unconscious:
+    if (indicator == GuardIndicator::Unconscious) {
+      PixelRect(center - sf::Vector2f{IconHalfSize + 2.f, IconHalfSize + 2.f}, {IconHalfSize * 2.f + 4.f, IconHalfSize * 2.f + 4.f}, Outline);
       PixelLine(at(-7.f, -3.f), at(-2.f, 1.f), Violet); PixelLine(at(-2.f, 1.f), at(4.f, -3.f), Violet);
       PixelRect(at(-6.f, 5.f), {6.f, 2.f}, Violet); PixelRect(at(3.f, 5.f), {4.f, 2.f}, Violet);
-      break;
-    default: break;
+      return;
+    }
+    EyeGlyph(center, GuardDetectionFor(guard), GuardEyeScale, false);
+    if (indicator == GuardIndicator::Confirmed || indicator == GuardIndicator::Combat) {
+      PixelRect(at(17.f, -12.f), {9.f, 24.f}, Outline);
+      PixelRect(at(20.f, -9.f), {3.f, 11.f}, indicator == GuardIndicator::Confirmed ? Cyan : Red);
+      PixelRect(at(20.f, 6.f), {3.f, 3.f}, Red);
     }
   }
 
   void WorldRenderer::Vision(const Guard &guard, const WorldState &world, sf::Vector2f camera) const {
-    if (guard.bodyHidden || guard.storedIn != 0 || guard.state == GuardState::Dead || guard.state == GuardState::Incapacitated || guard.cqcState != CqcState::None) return;
+    if (guard.trainingDummy || guard.bodyHidden || guard.storedIn != 0 || guard.state == GuardState::Dead || guard.state == GuardState::Incapacitated || guard.cqcState != CqcState::None) return;
     auto color = guard.state == GuardState::Alert ? PresentationConfig::Red : PresentationConfig::Amber;
     color.a = guard.state == GuardState::Alert ? 34 : 20;
     FieldOfView(guard.position, guard.facing, GameplayConfig::VisionDistance * (world.alarm ? GameplayConfig::AlarmVisionMultiplier : 1.f), color, world, camera);
   }
 
-  void WorldRenderer::FieldOfView(sf::Vector2f position, sf::Vector2f facing, float range, sf::Color color, const WorldState &world, sf::Vector2f camera) const {
+  void WorldRenderer::FieldOfView(sf::Vector2f position, sf::Vector2f facing, float range, sf::Color color, const WorldState &world, sf::Vector2f camera, float cosHalfAngle) const {
     const float angle = std::atan2(facing.y, facing.x);
-    const float halfAngle = std::acos(GameplayConfig::VisionCosHalfAngle);
+    const float halfAngle = std::acos(std::clamp(cosHalfAngle, -1.f, 1.f));
     const auto origin = GroundToScreen(position, camera);
     sf::VertexArray cone(sf::PrimitiveType::Triangles);
     sf::Vector2f previous;
@@ -585,7 +736,7 @@ namespace NoTrace {
   void WorldRenderer::Noise(const NoiseEvent &noise, sf::Vector2f camera) const {
     auto color = PresentationConfig::Amber;
     color.a = static_cast<std::uint8_t>(std::clamp(noise.remaining / GameplayConfig::NoiseDuration, 0.f, 1.f) * 150.f);
-    const float radius = noise.radius * (1.f - std::clamp(noise.remaining / GameplayConfig::NoiseDuration, 0.f, 1.f) * 0.35f);
+    const float radius = std::min(noise.radius, PresentationConfig::NoiseMarkerMaximumRadius) * (1.f - std::clamp(noise.remaining / GameplayConfig::NoiseDuration, 0.f, 1.f) * 0.35f);
     sf::VertexArray ring(sf::PrimitiveType::Lines);
     for (int step = 0; step < PresentationConfig::NoiseCircleSegments; ++step) {
       for (int endpoint = 0; endpoint <= 1; ++endpoint) {
@@ -594,6 +745,9 @@ namespace NoTrace {
       }
     }
     ctx_.renderer.Draw(ring);
+    const auto origin = GroundToScreen(noise.position, camera);
+    PixelLine(origin - sf::Vector2f{5.f, 0.f}, origin + sf::Vector2f{5.f, 0.f}, color);
+    PixelLine(origin - sf::Vector2f{0.f, 3.f}, origin + sf::Vector2f{0.f, 3.f}, color);
   }
 
   void WorldRenderer::Combat(const WorldState &world, sf::Vector2f camera, const Agent *observer) const {
@@ -607,7 +761,7 @@ namespace NoTrace {
       const auto end = GroundToScreen(shot.to, camera) - sf::Vector2f{0.f, shot.toHeight};
       auto color = shot.lethal ? Amber : Cyan;
       color.a = static_cast<std::uint8_t>(std::clamp(shot.remaining / GameplayConfig::ShotTraceDuration, 0.f, 1.f) * 230.f);
-      const auto visible = [&](sf::Vector2f point) { return world.phase != GamePhase::Mission || (observer && Visibility::IsVisible(world, *observer, point)); };
+      const auto visible = [&](sf::Vector2f point) { return !IsTactical(world) || (observer && Visibility::IsVisible(world, *observer, point)); };
       const int pieces = std::max(1, static_cast<int>(std::ceil(direction.length() / FogEffectStep)));
       for (int piece = 0; piece < pieces; ++piece) {
         const float first = static_cast<float>(piece) / pieces, last = static_cast<float>(piece + 1) / pieces;
@@ -677,9 +831,9 @@ namespace NoTrace {
     const auto map = [&](sf::Vector2f position) { return origin + position.componentWiseMul(scale); };
     PixelRect(MinimapPosition - sf::Vector2f{2.f, 2.f}, MinimapSize + sf::Vector2f{4.f, 4.f}, WallLeft);
     PixelRect(MinimapPosition, MinimapSize, {7, 14, 23, 240});
-    Label(world.phase == GamePhase::Base ? "PLANO / BASE CIO" : "PLANO / OPERACIÓN", MinimapPosition + sf::Vector2f{120.f, 4.f}, Light, MinimapTextSize);
+    Label(IsTraining(world) ? "PLANO / ENTRENAMIENTO" : world.phase == GamePhase::Base ? "PLANO / BASE CIO" : "PLANO / OPERACIÓN", MinimapPosition + sf::Vector2f{120.f, 4.f}, Light, MinimapTextSize);
     const auto player = std::find_if(world.agents.begin(), world.agents.end(), [localPlayer](const Agent &agent) { return agent.id == localPlayer; });
-    const bool fog = world.phase == GamePhase::Mission;
+    const bool fog = IsTactical(world);
     const auto visible = [&](sf::Vector2f point) { return !fog || (player != world.agents.end() && Visibility::IsVisible(world, *player, point)); };
     PixelRect(origin, MinimapGroundSize, {22, 33, 42});
     if (fog) ctx_.renderer.Draw(FogMask(world, visibility, map));
@@ -690,16 +844,18 @@ namespace NoTrace {
     }
     const auto markerColor = [](ObjectKind kind) {
       switch (kind) {
-      case ObjectKind::Terminal: case ObjectKind::Operations: return Cyan;
+      case ObjectKind::Terminal: case ObjectKind::Operations: case ObjectKind::Computer: return Cyan;
       case ObjectKind::Secondary: case ObjectKind::Armory: return Amber;
       case ObjectKind::CoopSwitch: case ObjectKind::Intelligence: return Violet;
       case ObjectKind::Extraction: case ObjectKind::Deployment: return Green;
-      case ObjectKind::Camera: case ObjectKind::AlarmPanel: return Red;
+      case ObjectKind::Camera: case ObjectKind::AlarmPanel: case ObjectKind::CameraPanel: case ObjectKind::Explosive: return Red;
+      case ObjectKind::TrainingReset: return Green;
       default: return Light;
       }
     };
     for (const auto &object : world.objects) {
       if (WorldGeometry::Properties(object).decorative) continue;
+      if (object.kind == ObjectKind::Explosive && object.trap.state == TrapState::Armed) continue;
       if (fog && (player == world.agents.end() || !Visibility::ObjectVisible(world, *player, object))) continue;
       const auto point = map(object.position);
       PixelRect(point - sf::Vector2f{4.f, 4.f}, {8.f, 8.f}, Outline);
@@ -707,7 +863,7 @@ namespace NoTrace {
     }
     for (const auto &guard : world.guards) {
       if (guard.bodyHidden || guard.storedIn != 0 || (fog && (player == world.agents.end() || !Visibility::GuardVisible(world, *player, guard)))) continue;
-      PixelRect(map(guard.position) - sf::Vector2f{2.f, 2.f}, {4.f, 4.f}, guard.state == GuardState::Incapacitated ? Amber : guard.state == GuardState::Dead ? WallTop : Red);
+      PixelRect(map(guard.position) - sf::Vector2f{2.f, 2.f}, {4.f, 4.f}, guard.trainingDummy ? DummyTarget : guard.state == GuardState::Incapacitated ? Amber : guard.state == GuardState::Dead ? WallTop : Red);
     }
     for (const auto &agent : world.agents) {
       if (!agent.connected || agent.extracted) continue;
@@ -724,7 +880,7 @@ namespace NoTrace {
     }
     const bool base = world.phase == GamePhase::Base;
     const std::array colors{Cyan, Amber, Violet, Green};
-    const std::array<std::string, 4> names = base ? std::array<std::string, 4>{"OPERACIONES", "ARMERÍA", "INTELIGENCIA", "DESPLIEGUE"}
+    const std::array<std::string, 4> names = IsTraining(world) ? std::array<std::string, 4>{"MUÑECOS", "DISPOSITIVOS", "ESCONDITES", "REINICIAR"} : base ? std::array<std::string, 4>{"OPERACIONES", "ARMERÍA", "INTELIGENCIA", "DESPLIEGUE"}
                                                : std::array<std::string, 4>{"PRINCIPAL", "SECUNDARIO", "REPETIDOR", "EXTRACCIÓN"};
     for (std::size_t index = 0; index < names.size(); ++index) {
       const auto position = MinimapPosition + sf::Vector2f{12.f + static_cast<float>(index % 2) * 118.f, 151.f + static_cast<float>(index / 2) * 19.f};
@@ -734,25 +890,31 @@ namespace NoTrace {
   }
 
   void WorldRenderer::DetectionEye(const WorldState &world, const Agent *observer) const {
-    if (world.phase != GamePhase::Mission || !observer || !observer->alive || observer->incapacitated || observer->extracted) return;
+    if (!IsTactical(world) || !observer || !observer->alive || observer->incapacitated || observer->extracted) return;
     const auto visual = DetectionFor(*observer);
     const auto center = PresentationConfig::DetectionHudCenter;
     Polygon({center + sf::Vector2f{-34.f, -26.f}, center + sf::Vector2f{34.f, -26.f}, center + sf::Vector2f{38.f, -22.f},
         center + sf::Vector2f{38.f, 22.f}, center + sf::Vector2f{34.f, 26.f}, center + sf::Vector2f{-34.f, 26.f},
         center + sf::Vector2f{-38.f, 22.f}, center + sf::Vector2f{-38.f, -22.f}}, PresentationConfig::Outline);
+    EyeGlyph(center, visual, 1.f, true);
+  }
+
+  void WorldRenderer::EyeGlyph(sf::Vector2f center, DetectionVisual visual, float scale, bool brackets) const {
+    if (!brackets) PixelRect(center - sf::Vector2f{32.f, 24.f} * scale, sf::Vector2f{64.f, 48.f} * scale, PresentationConfig::Outline);
+    const auto at = [center, scale](sf::Vector2f offset) { return center + offset * scale; };
     const std::array<sf::Vector2f, PresentationConfig::DetectionEyeSegments> contour{{{-24.f, 0.f}, {-20.f, -6.f}, {-14.f, -10.f}, {-8.f, -14.f},
         {0.f, -16.f}, {8.f, -14.f}, {14.f, -10.f}, {20.f, -6.f}, {24.f, 0.f}, {20.f, 6.f}, {14.f, 10.f}, {8.f, 14.f},
         {0.f, 16.f}, {-8.f, 14.f}, {-14.f, 10.f}, {-20.f, 6.f}}};
     for (std::size_t segment = 0; segment < contour.size(); ++segment) {
       const auto color = segment < visual.segments ? visual.color : sf::Color{69, 86, 98, 100};
-      PixelLine(center + contour[segment], center + contour[(segment + 1) % contour.size()], color, 2.f);
+      PixelLine(at(contour[segment]), at(contour[(segment + 1) % contour.size()]), color, 2.f);
     }
     const auto iris = visual.segments > 0 ? visual.color : sf::Color{69, 86, 98, 100};
-    PixelRect(center - sf::Vector2f{6.f, 8.f}, {12.f, 16.f}, iris);
-    PixelRect(center - sf::Vector2f{8.f, 4.f}, {16.f, 8.f}, iris);
-    PixelRect(center - sf::Vector2f{2.f, 6.f}, {4.f, 12.f}, visual.confirmed ? PresentationConfig::Light : PresentationConfig::Outline);
-    if (visual.confirmed) for (const float side : {-1.f, 1.f}) {
-      const auto corner = center + sf::Vector2f{side * 32.f, -20.f};
+    PixelRect(at({-6.f, -8.f}), sf::Vector2f{12.f, 16.f} * scale, iris);
+    PixelRect(at({-8.f, -4.f}), sf::Vector2f{16.f, 8.f} * scale, iris);
+    PixelRect(at({-2.f, -6.f}), sf::Vector2f{4.f, 12.f} * scale, visual.confirmed ? PresentationConfig::Light : PresentationConfig::Outline);
+    if (brackets && visual.confirmed) for (const float side : {-1.f, 1.f}) {
+      const auto corner = at({side * 32.f, -20.f});
       PixelLine(corner, corner - sf::Vector2f{side * 8.f, 0.f}, PresentationConfig::Red, 2.f);
       PixelLine(corner, corner + sf::Vector2f{0.f, 10.f}, PresentationConfig::Red, 2.f);
       PixelLine(corner + sf::Vector2f{0.f, 40.f}, corner + sf::Vector2f{-side * 8.f, 40.f}, PresentationConfig::Red, 2.f);
@@ -767,9 +929,9 @@ namespace NoTrace {
     const auto camera = CameraGround(world, localPlayer);
     const auto player = std::find_if(world.agents.begin(), world.agents.end(), [localPlayer](const Agent &agent) { return agent.id == localPlayer; });
     const Agent *observer = player == world.agents.end() ? nullptr : &*player;
-    const bool fog = world.phase == GamePhase::Mission;
+    const bool fog = IsTactical(world);
     const auto visible = [&](sf::Vector2f point, Stance stance = Stance::Standing) { return !fog || (observer && Visibility::IsVisible(world, *observer, point, stance)); };
-    const auto objectVisible = [&](const Interactable &object) { return !fog || (observer && Visibility::ObjectVisible(world, *observer, object)); };
+    const auto objectVisible = [&](const Interactable &object) { return (object.kind != ObjectKind::Explosive || object.trap.state != TrapState::Armed) && (!fog || (observer && Visibility::ObjectVisible(world, *observer, object))); };
     const auto guardVisible = [&](const Guard &guard) { return !guard.bodyHidden && guard.storedIn == 0 && (!fog || (observer && Visibility::GuardVisible(world, *observer, guard))); };
     const auto obstacleVisible = [&](const Obstacle &obstacle) { return !fog || (observer && FootprintVisible(world, *observer, obstacle.bounds)); };
     const auto visibility = observer ? Visibility::BuildGrid(world, *observer) : VisibilityGrid{};
@@ -777,11 +939,11 @@ namespace NoTrace {
     for (const auto &obstacle : world.obstacles) if (obstacle.cover == CoverKind::Hide && obstacleVisible(obstacle)) ObstacleArt(obstacle, camera);
     for (const auto &guard : world.guards) if (guardVisible(guard)) Vision(guard, world, camera);
     for (const auto &object : world.objects) {
-      if (object.kind == ObjectKind::Camera && object.active && !WorldGeometry::Properties(object).decorative && objectVisible(object)) {
-        FieldOfView(object.position, object.facing, GameplayConfig::CameraDistance, {221, 67, 77, 26}, world, camera);
+      if (object.kind == ObjectKind::Camera && object.active && object.camera.state == CameraState::Operating && !WorldGeometry::Properties(object).decorative && objectVisible(object)) {
+        FieldOfView(object.position, object.facing, object.camera.range, {221, 67, 77, 26}, world, camera, object.camera.cosHalfAngle);
       }
+      if (objectVisible(object)) ExplosionArt(object, world, camera);
     }
-    for (const auto &noise : world.noises) if (visible(noise.position)) Noise(noise, camera);
     Fog(world, camera, visibility);
     Footsteps(world, camera, observer);
     DecoyPreview(world, camera, observer);
@@ -806,19 +968,53 @@ namespace NoTrace {
       if (agent.hidden || agent.extracted) continue;
       if (agent.id == localPlayer || visible(agent.position, agent.stance)) add(3, index, {agent.position, {0.f, 0.f}});
     }
+    const auto deferCqc = [&](const Agent &agent) {
+      if (!agent.alive || agent.incapacitated || agent.hidden || agent.extracted) return false;
+      const auto pose = CqcPoseFor(agent);
+      if (!pose.gripping && agent.cqcAttackTime <= 0.f) return false;
+      const float reach = pose.gripping ? GameplayConfig::CqcDistance * GameplayConfig::CqcMaximumStretch : pose.kick ? CqcConfig::KickReach : CqcConfig::PunchReach;
+      const auto eligible = [&](sf::Vector2f position) {
+        const auto offset = position - agent.position;
+        return offset.length() > 0.f && offset.length() <= reach && agent.facing.dot(offset) >= CqcConfig::FacingCosine * offset.length() * agent.facing.length() &&
+            CqcOverlayClear(world, agent, position);
+      };
+      for (const auto &guard : world.guards) if (guardVisible(guard) && (!pose.gripping || (guard.id == agent.cqcHoldingGuard && guard.heldBy == agent.id)) && eligible(guard.position)) return true;
+      if (agent.cqcHoldingAgent != 0) for (const auto &other : world.agents) if (other.id == agent.cqcHoldingAgent && other.cqcHeldBy == agent.id && !other.hidden &&
+          visible(other.position, other.stance) && eligible(other.position)) return true;
+      return false;
+    };
+    std::vector<std::size_t> cqcOverlays;
     for (const auto index : GroundDrawOrder(footprints)) {
       const auto &item = items[index];
       switch (item.kind) {
       case 0: ObstacleArt(world.obstacles[item.index], camera); break;
-      case 1: ObjectArt(world.objects[item.index], camera, world.phase == GamePhase::Base ||
+      case 1: ObjectArt(world.objects[item.index], camera, (world.phase == GamePhase::Base && !IsTraining(world)) ||
                         (world.objects[item.index].position - camera).lengthSquared() < GameplayConfig::InteractionDistance * GameplayConfig::InteractionDistance * 4.f); break;
       case 2: GuardArt(world.guards[item.index], world, camera); break;
-      case 3: AgentArt(world.agents[item.index], world, camera, world.agents[item.index].id == localPlayer); break;
+      case 3: {
+        const bool deferred = deferCqc(world.agents[item.index]);
+        AgentArt(world.agents[item.index], world, camera, world.agents[item.index].id == localPlayer, deferred);
+        if (deferred) cqcOverlays.push_back(item.index);
+        break;
+      }
       }
     }
-    for (const auto &guard : world.guards) if (guardVisible(guard)) GuardIcon(guard, camera);
+    for (const auto index : cqcOverlays) {
+      const auto &agent = world.agents[index];
+      CqcArt(agent, world, camera, GroundToScreen(agent.position, camera), PresentationConfig::AgentUniforms[(agent.id - 1) % PresentationConfig::AgentUniforms.size()]);
+    }
     Combat(world, camera, observer);
+    for (const auto &noise : world.noises) if (observer && Visibility::NoiseAudible(world, *observer, noise)) {
+      auto perceived = noise;
+      if (noise.actor != observer->id && !visible(noise.position)) {
+        const float cell = AudioConfig::PositionQuantization;
+        perceived.position = {std::floor(noise.position.x / cell) * cell, std::floor(noise.position.y / cell) * cell};
+      }
+      Noise(perceived, camera);
+    }
     ctx_.renderer.ResetView();
+    for (const auto &guard : world.guards) if (guardVisible(guard)) GuardIcon(guard, camera);
+    for (const auto &guard : world.guards) if (guardVisible(guard)) DummyStatus(guard, world, camera, observer);
     Minimap(world, localPlayer, visibility);
     if (hudVisible) DetectionEye(world, observer);
   }

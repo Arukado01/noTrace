@@ -2,6 +2,7 @@
 
 #include "Types/NoTraceGameplayTypes.h"
 #include "Config/NoTracePresentationConfig.h"
+#include "Config/NoTraceCqcConfig.h"
 #include "NoTraceCombatGeometry.h"
 #include "NoTraceVisibility.h"
 #include "NoTraceWorldGeometry.h"
@@ -23,6 +24,7 @@ namespace NoTrace {
     enum class GuardIndicator { None, Suspicion, Confirmed, Combat, Unconscious };
     struct SpriteFrame { std::size_t index = 0; bool prone = false; bool mirror = false; };
     struct DetectionVisual { unsigned int segments = 0; sf::Color color; bool confirmed = false; };
+    struct CqcVisual { float extension = 0.f; float phase = 0.f; bool kick = false; bool gripping = false; };
     struct SpritePlacement {
       sf::Vector2f position, origin, scale;
       sf::Vector2f Map(sf::Vector2f point) const { return position + (point - origin).componentWiseMul(scale); }
@@ -65,10 +67,14 @@ namespace NoTrace {
     SpriteFrame GuardFrame(const Guard &guard, const WorldState &world) const;
     std::optional<sf::Vector2f> SourceMuzzle(const WorldState &world, const ShotTrace &shot, sf::Vector2f camera, const Agent *observer) const;
     void Humanoid(sf::Vector2f feet, sf::Vector2f facing, Stance stance, sf::Color uniform, SpriteFrame frame, bool down, bool guard = false) const;
-    void AgentArt(const Agent &agent, const WorldState &world, sf::Vector2f camera, bool local) const;
+    void AgentArt(const Agent &agent, const WorldState &world, sf::Vector2f camera, bool local, bool deferCqc = false) const;
     void GuardArt(const Guard &guard, const WorldState &world, sf::Vector2f camera) const;
+    void DummyArt(const Guard &dummy, const WorldState &world, sf::Vector2f camera) const;
+    void DummyStatus(const Guard &dummy, const WorldState &world, sf::Vector2f camera, const Agent *observer) const;
+    void CqcArt(const Agent &agent, const WorldState &world, sf::Vector2f camera, sf::Vector2f feet, sf::Color uniform) const;
+    void ExplosionArt(const Interactable &object, const WorldState &world, sf::Vector2f camera) const;
     void Vision(const Guard &guard, const WorldState &world, sf::Vector2f camera) const;
-    void FieldOfView(sf::Vector2f position, sf::Vector2f facing, float range, sf::Color color, const WorldState &world, sf::Vector2f camera) const;
+    void FieldOfView(sf::Vector2f position, sf::Vector2f facing, float range, sf::Color color, const WorldState &world, sf::Vector2f camera, float cosHalfAngle = GameplayConfig::VisionCosHalfAngle) const;
     void Noise(const NoiseEvent &noise, sf::Vector2f camera) const;
     void Combat(const WorldState &world, sf::Vector2f camera, const Agent *observer) const;
     void GuardIcon(const Guard &guard, sf::Vector2f camera) const;
@@ -76,6 +82,7 @@ namespace NoTrace {
     void Footsteps(const WorldState &world, sf::Vector2f camera, const Agent *observer) const;
     void Minimap(const WorldState &world, PlayerId localPlayer, const VisibilityGrid &visibility) const;
     void DetectionEye(const WorldState &world, const Agent *observer) const;
+    void EyeGlyph(sf::Vector2f center, DetectionVisual visual, float scale, bool brackets) const;
 
   public:
     explicit WorldRenderer(EngineContext &context);
@@ -188,7 +195,7 @@ namespace NoTrace {
     }
     static float ShotImpactHeight(const ShotTrace &shot, const WorldState &) { return shot.toHeight; }
     static GuardIndicator IndicatorFor(const Guard &guard) {
-      if (guard.bodyHidden || guard.storedIn != 0 || guard.state == GuardState::Dead) return GuardIndicator::None;
+      if (guard.trainingDummy || guard.bodyHidden || guard.storedIn != 0 || guard.state == GuardState::Dead) return GuardIndicator::None;
       if (guard.state == GuardState::Incapacitated) return GuardIndicator::Unconscious;
       if (guard.detectedTime > 0.f) return GuardIndicator::Confirmed;
       if (guard.state == GuardState::Alert) return GuardIndicator::Combat;
@@ -242,15 +249,60 @@ namespace NoTrace {
       color.a = static_cast<std::uint8_t>(96.f + progress * 159.f);
       return {confirmed ? PresentationConfig::DetectionEyeSegments : static_cast<unsigned int>(std::ceil(progress * PresentationConfig::DetectionEyeSegments)), color, confirmed};
     }
+    static DetectionVisual GuardDetectionFor(const Guard &guard) {
+      Agent observed;
+      observed.detectionProgress = guard.suspicion;
+      observed.detectionConfirmed = guard.detectedTime > 0.f || guard.state == GuardState::Alert;
+      return DetectionFor(observed);
+    }
+    static CqcVisual CqcPoseFor(const Agent &agent) {
+      if (agent.cqcHoldingGuard != 0 || agent.cqcHoldingAgent != 0) {
+        const float phase = std::clamp(1.f - agent.actionPoseTime / GameplayConfig::AttackAnimationDuration, 0.f, 1.f);
+        return {agent.actionPose == ActionPose::Choke ? 0.7f + 0.3f * std::sin(phase * std::numbers::pi_v<float>) : 0.65f, phase, false, true};
+      }
+      if (agent.cqcAttackTime <= 0.f) return {};
+      const bool kick = !agent.cqcNextKick;
+      const float duration = kick ? CqcConfig::KickCooldown : CqcConfig::PunchCooldown;
+      const float windup = kick ? CqcConfig::KickWindup : CqcConfig::PunchWindup;
+      const float elapsed = std::clamp(duration - agent.cqcAttackTime, 0.f, duration);
+      const float extension = elapsed < windup ? -0.25f * (1.f - elapsed / windup) : std::max(0.f, 1.f - (elapsed - windup) / (duration - windup));
+      return {extension, elapsed / duration, kick, false};
+    }
     static bool FootprintVisible(const WorldState &world, const Agent &observer, sf::FloatRect footprint) {
-      if (world.phase != GamePhase::Mission) return true;
+      if (!IsTactical(world)) return true;
       const auto end = footprint.position + footprint.size;
       const sf::Vector2f closest{std::clamp(observer.position.x, footprint.position.x, end.x), std::clamp(observer.position.y, footprint.position.y, end.y)};
-      if (Visibility::IsVisible(world, observer, closest)) return true;
+      // Los bordes sólidos requieren rayos exactos; el centro de su celda puede caer dentro del muro.
+      if (Visibility::IsGeometricallyVisible(world, observer, closest)) return true;
       for (const auto point : {footprint.position, sf::Vector2f{end.x, footprint.position.y}, end, sf::Vector2f{footprint.position.x, end.y}}) {
-        if (Visibility::IsVisible(world, observer, point)) return true;
+        if (Visibility::IsGeometricallyVisible(world, observer, point)) return true;
       }
       return false;
+    }
+    static bool DummyHealthVisible(const Guard &dummy, const WorldState &world, const Agent *observer) {
+      return IsTraining(world) && dummy.trainingDummy && observer && !dummy.bodyHidden && dummy.storedIn == 0 &&
+          Visibility::GuardVisible(world, *observer, dummy) && (dummy.trainingFeedback > 0.f ||
+          (dummy.position - observer->position).length() <= GameplayConfig::InteractionDistance);
+    }
+    static bool CqcOverlayClear(const WorldState &world, const Agent &agent, sf::Vector2f target) {
+      if (!WorldGeometry::ClearMovementSegment(world, agent.position, target, GameplayConfig::AgentRadius)) return false;
+      const auto end = ProjectGround(target, agent.position, {});
+      const sf::FloatRect action{{std::min(0.f, end.x) - PresentationConfig::ActorHalfWidth, std::min(0.f, end.y) - PresentationConfig::ActorHeight},
+          {std::abs(end.x) + PresentationConfig::ActorHalfWidth * 2.f, std::abs(end.y) + PresentationConfig::ActorHeight + PresentationConfig::PixelSize}};
+      const auto overlaps = [&](sf::FloatRect bounds, float height) {
+        sf::Vector2f minimum{100000.f, 100000.f}, maximum{-100000.f, -100000.f};
+        const auto last = bounds.position + bounds.size;
+        for (const auto corner : {bounds.position, last, sf::Vector2f{last.x, bounds.position.y}, sf::Vector2f{bounds.position.x, last.y}}) {
+          const auto point = ProjectGround(corner, agent.position, {});
+          minimum.x = std::min(minimum.x, point.x); minimum.y = std::min(minimum.y, point.y - height);
+          maximum.x = std::max(maximum.x, point.x); maximum.y = std::max(maximum.y, point.y);
+        }
+        return minimum.x < action.position.x + action.size.x && maximum.x > action.position.x &&
+            minimum.y < action.position.y + action.size.y && maximum.y > action.position.y;
+      };
+      for (const auto &obstacle : world.obstacles) if (WorldGeometry::BlocksMovement(obstacle) && overlaps(obstacle.bounds, WorldGeometry::ObstacleHeight(obstacle))) return false;
+      for (const auto &object : world.objects) if (WorldGeometry::BlocksMovement(object) && overlaps(WorldGeometry::ObjectFootprint(object), WorldGeometry::ObjectHeight(object))) return false;
+      return true;
     }
     static AimSolution ResolveAim(sf::Vector2f logical, const WorldState &world, PlayerId localPlayer, sf::Vector2f logicalSize, float zoom) {
       zoom = ClampZoom(zoom);
@@ -279,7 +331,7 @@ namespace NoTrace {
       for (const auto &guard : world.guards) {
         if (guard.bodyHidden || guard.storedIn != 0 || guard.state == GuardState::Dead || guard.state == GuardState::Incapacitated) continue;
         if (local != world.agents.end() && !Visibility::GuardVisible(world, *local, guard)) continue;
-        const bool down = guard.cqcState == CqcState::KnockedDown || guard.cqcState == CqcState::Restrained;
+        const bool down = !guard.trainingDummy && guard.heldBy == 0 && (guard.cqcState == CqcState::KnockedDown || guard.cqcState == CqcState::Restrained);
         consider(guard.position, guard.facing, Stance::Standing, down);
       }
       for (const auto &agent : world.agents) {
