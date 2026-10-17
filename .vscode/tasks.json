@@ -3,32 +3,29 @@
     "tasks": [
         {
             "label": "Build AwesomeEngine (Debug)",
-            "type": "shell",
-            "command": "cmake",
+            "type": "process",
+            "command": "cmd",
             "args": [
-                "--build",
-                "${workspaceFolder}/Build",
-                "--config",
-                "Debug",
-                "-j"
+                "/c",
+                "${workspaceFolder}\\.vscode\\build.bat"
             ],
-            "group": "build",
-            "problemMatcher": ["$cmake-build"]
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": ["$msCompile"]
         },
         {
             "label": "Rebuild AwesomeEngine (Debug)",
-            "type": "shell",
-            "command": "cmake",
+            "type": "process",
+            "command": "cmd",
             "args": [
-                "--build",
-                "${workspaceFolder}/Build",
-                "--config",
-                "Debug",
-                "--clean-first",
-                "-j"
+                "/c",
+                "${workspaceFolder}\\.vscode\\build.bat",
+                "--clean-first"
             ],
             "group": "build",
-            "problemMatcher": ["$cmake-build"]
+            "problemMatcher": ["$msCompile"]
         }
     ]
 }
