@@ -139,7 +139,8 @@ namespace {
     Node node;
     Require(node.session.Join(ip, port, "Proceso cliente"), "No se inició cliente entre procesos");
     node.Until([&] {
-      return node.session.IsConnected() && node.session.GetWorld().agents.size() == 2 &&
+      return node.session.IsConnected() && node.session.GetLobbyPlayers().size() == 2 &&
+             std::ranges::any_of(node.session.GetWorld().agents, [&](const Agent &agent) { return agent.id == node.session.GetLocalPlayerId(); }) &&
              node.session.GetWorld().contract == ContractId::DoubleCross;
     });
     Require(node.session.GetLocalPlayerId() == 2, "No se recibió la identidad asignada");

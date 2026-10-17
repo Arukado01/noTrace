@@ -7,6 +7,8 @@
 
 namespace NoTrace {
   void Simulation::ResetSecurity() {
+    world_.sounds.clear();
+    for (auto &agent : world_.agents) { CancelPuzzle(agent); agent.friendlyIncapacitated = false; }
     securityContactAge_ = 0.f;
     reinforcementTimer_ = 0.f;
     securityLastKnown_ = {};
@@ -65,6 +67,7 @@ namespace NoTrace {
       guard.reinforcementExit = entry.position;
       guard.patrol = {entry.rally, entry.position};
       world_.guards.push_back(std::move(guard));
+      EmitSound(SoundKind::Reinforcement, entry.position, DevicesConfig::ExplosionNoiseRadius);
       ++spawned;
     }
     if (spawned == 0) return false;

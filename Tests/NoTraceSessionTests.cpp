@@ -9,6 +9,7 @@
 #include <SFML/System/Sleep.hpp>
 #include <SFML/System/Time.hpp>
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <functional>
 #include <iostream>
@@ -40,6 +41,9 @@ namespace {
     Require(found != world.agents.end(), "No se encontró al agente esperado");
     return *found;
   }
+  bool HasAgent(const WorldState &world, PlayerId id) {
+    return std::ranges::any_of(world.agents, [id](const Agent &agent) { return agent.id == id; });
+  }
 
   float Distance(sf::Vector2f first, sf::Vector2f second) {
     return std::hypot(first.x - second.x, first.y - second.y);
@@ -56,7 +60,7 @@ namespace {
     Pair() {
       Require(host.Host("Anfitrión", 0), "No se pudo crear sesión en puerto efímero");
       Require(client.Join("127.0.0.1", hostNetwork.GetPort(), "Operador"), "No se pudo iniciar cliente loopback");
-      Until([&] { return client.IsConnected() && client.GetWorld().agents.size() == 2 && host.GetLobbyPlayers().size() == 2; },
+      Until([&] { return client.IsConnected() && HasAgent(client.GetWorld(), client.GetLocalPlayerId()) && client.GetLobbyPlayers().size() == 2 && host.GetLobbyPlayers().size() == 2; },
             [&] { Tick(); });
       Require(host.GetLocalPlayerId() == 1 && client.GetLocalPlayerId() == 2, "El anfitrión no asignó las identidades esperadas");
     }
@@ -76,9 +80,10 @@ namespace {
     void Deploy() {
       host.SetReady(true);
       client.SetReady(true);
-      Until([&] { return host.CanDeploy(); }, [&] { Tick(); });
+      const auto tick = [&] { Tick(); Require(client.IsConnected(), client.GetStatus().c_str()); };
+      Until([&] { return host.CanDeploy(); }, tick);
       host.Deploy();
-      Until([&] { return client.GetWorld().phase == GamePhase::Mission; }, [&] { Tick(); });
+      Until([&] { return client.GetWorld().phase == GamePhase::Mission; }, tick);
     }
   };
 
@@ -92,6 +97,7 @@ namespace {
     bool rejected = false;
     bool disconnected = false;
     std::uint32_t version = GameplayConfig::ProtocolVersion;
+    Json snapshot;
 
     explicit RawPeer(bool deployFirst = false, std::uint32_t protocol = GameplayConfig::ProtocolVersion) : version(protocol) {
       Require(host.Host("Anfitrión", 0), "No se pudo crear anfitrión para protocolo");
@@ -119,6 +125,7 @@ namespace {
             rejected = true;
           } else if (message.at("type") == "snapshot") {
             epoch = message.at("epoch").get<std::uint32_t>();
+            snapshot = message.at("world");
           }
         } else if (event.type == NetworkEventType::Disconnected || event.type == NetworkEventType::Error) {
           disconnected = true;
@@ -138,6 +145,12 @@ namespace {
                          {"move", {x, y}}, {"aim", {0, 0}}, {"slope", 0.f}, {"decoyDistance", 340.f}, {"flags", flags}, {"player", 1},
                          {"objectives", 99}, {"score", 999999}, {"guards", Json::array()}};
       Require(clientNetwork.Send(NetworkConfig::HostId, message.dump()), "No se pudo enviar mando de protocolo");
+    }
+
+    void PuzzleCommand(const Json &choice, const Json &target) {
+      const Json message{{"type", "command"}, {"seq", 1}, {"epoch", epoch}, {"move", {0, 0}}, {"aim", {1, 0}},
+        {"slope", 0.f}, {"decoyDistance", 100.f}, {"flags", 0}, {"puzzleInput", choice}, {"puzzleTarget", target}};
+      Require(clientNetwork.Send(NetworkConfig::HostId, message.dump()), "No se pudo enviar mando de puzle");
     }
   };
 
@@ -181,8 +194,10 @@ namespace {
             "El cliente cambió contrato o inició una misión");
     pair.host.SetContract(ContractId::DoubleCross);
     pair.client.SetLoadout({GameplayConfig::MaximumAmmo, GameplayConfig::MaximumAmmo, GameplayConfig::MaximumDecoys, GameplayConfig::MaximumTools});
-    Until([&] { return FindAgent(pair.host.GetWorld(), 2).loadout.lethalAmmo == GameplayConfig::MaximumAmmo; }, [&] { pair.Tick(); });
+    currentCase = "LobbyAndAuthority/equipo confirmado";
+    Until([&] { return FindAgent(pair.host.GetWorld(), 2).operationLoadout.lethalAmmo == GameplayConfig::MaximumAmmo; }, [&] { pair.Tick(); Require(pair.client.IsConnected(), pair.client.GetStatus().c_str()); });
     Require(!pair.host.CanDeploy(), "El cambio de contrato/equipo no invalidó preparación");
+    currentCase = "LobbyAndAuthority/despliegue";
     pair.Deploy();
     Require(pair.host.GetWorld().contract == ContractId::DoubleCross && pair.client.GetWorld().contract == ContractId::DoubleCross,
             "Contrato no replicado");
@@ -190,7 +205,8 @@ namespace {
     pair.Advance(4);
     Require(pair.host.GetWorld().phase == GamePhase::Mission, "El cliente devolvió la misión a la base");
     pair.host.ReturnToBase();
-    Until([&] { return pair.client.GetWorld().phase == GamePhase::Base; }, [&] { pair.Tick(); });
+    currentCase = "LobbyAndAuthority/regreso a la base";
+    Until([&] { return pair.client.GetWorld().phase == GamePhase::Base; }, [&] { pair.Tick(); Require(pair.client.IsConnected(), pair.client.GetStatus().c_str()); });
   }
 
   void PrivateSnapshotAndClientDoesNotSimulate() {
@@ -265,7 +281,7 @@ namespace {
     Require(!FindAgent(pair.host.GetWorld(), 2).connected, "El agente desconectado sigue activo en misión");
     pair.host.ReturnToBase();
     Require(pair.client.Join("127.0.0.1", pair.hostNetwork.GetPort(), "Reincorporado"), "No se pudo reintentar conexión");
-    Until([&] { return pair.client.IsConnected() && pair.host.GetLobbyPlayers().size() == 2 && pair.client.GetWorld().agents.size() == 2; },
+    Until([&] { return pair.client.IsConnected() && pair.host.GetLobbyPlayers().size() == 2 && pair.client.GetLobbyPlayers().size() == 2 && HasAgent(pair.client.GetWorld(), pair.client.GetLocalPlayerId()); },
           [&] { pair.Tick(); });
     Require(FindAgent(pair.host.GetWorld(), 2).connected && FindAgent(pair.host.GetWorld(), 2).name == "Reincorporado",
             "La identidad desconectada no se reemplazó al reincorporarse");
@@ -354,7 +370,7 @@ namespace {
     Require(pair.host.GetWorld().seed == seed && pair.host.GetWorld().contract == contract && pair.host.GetWorld().elapsed == 0.f && pair.host.GetWorld().events.empty(), "El reinicio no conservó semilla/contrato o dejó registro de la misión anterior");
     Require(FindAgent(pair.host.GetWorld(), 1).loadout.lethalAmmo == original.lethalAmmo && FindAgent(pair.host.GetWorld(), 2).privateOrder == order, "El reinicio no restauró el equipo preparado o cambió órdenes determinísticas");
     Until([&] { return pair.client.GetWorld().events.empty() && pair.client.GetWorld().elapsed < 0.15f && FindAgent(pair.client.GetWorld(), 1).loadout.lethalAmmo == original.lethalAmmo; }, [&] { pair.Tick(); });
-    Require(pair.client.IsConnected() && pair.client.GetWorld().agents.size() == 2 && pair.client.GetWorld().seed == seed, "El reinicio perdió participantes o no se propagó al cliente");
+    Require(pair.client.IsConnected() && pair.client.GetLobbyPlayers().size() == 2 && HasAgent(pair.client.GetWorld(), pair.client.GetLocalPlayerId()) && pair.client.GetWorld().seed == seed, "El reinicio perdió participantes o no se propagó al cliente");
   }
 
   void RejectMidMissionAndVersion() {
@@ -520,6 +536,139 @@ namespace {
     Until([&] { return std::ranges::any_of(pair.client.GetWorld().agents, [&](const Agent &agent) { return agent.id == 1 && Distance(agent.position, world.agents[0].position) < 0.01f; }); }, [&] { pair.Tick(); });
   }
 
+  void PuzzleOwnershipAndDoorsOnTheWire() {
+    Pair pair; pair.Deploy();
+    auto &world = const_cast<WorldState &>(pair.host.GetWorld());
+    world.guards.clear(); world.objects.clear(); world.obstacles.clear(); world.securityEntries.clear(); world.noises.clear(); world.events.clear(); world.sounds.clear();
+    world.agents[0].position = {230.f, 200.f}; world.agents[0].facing = {1.f, 0.f};
+    world.agents[1].position = {150.f, 280.f}; world.agents[1].facing = {1.f, 0.f};
+    world.objects.reserve(4);
+    for (unsigned int index = 0; index < 2; ++index) {
+      Interactable door{80u + index, ObjectKind::Door, {index == 0 ? 270.f : 190.f, 200.f + 80.f * index}, "Cerradura LAN"};
+      door.footprint = {24.f, 24.f}; door.locked = true; door.puzzle.kind = PuzzleKind::Door; door.puzzle.difficulty = 3;
+      world.objects.push_back(door);
+    }
+    ActionCommand interact; interact.interact = true; interact.aimX = 1.f;
+    pair.host.Submit(interact); pair.host.Submit({});
+    Until([&] { return FindAgent(world, 1).puzzle.target == 80; }, [&] { pair.Tick(); });
+    pair.client.Submit(interact); pair.client.Submit({});
+    Until([&] { return FindAgent(pair.client.GetWorld(), 2).puzzle.target == 81; }, [&] { pair.Tick(); });
+    Require(FindAgent(world, 1).puzzle.target == 80 && FindAgent(pair.client.GetWorld(), 1).puzzle.target == 0,
+      "La réplica transmite al cliente el desafío privado que está resolviendo otro agente");
+    Require(FindAgent(pair.client.GetWorld(), 1).privateOrder == PrivateOrder::None &&
+      FindAgent(pair.client.GetWorld(), 2).privateOrder == FindAgent(world, 2).privateOrder, "Los nuevos estados de dispositivos alteran la privacidad de las órdenes");
+    ActionCommand choice; choice.puzzleTarget = 80; choice.puzzleInput = 1;
+    pair.client.Submit(choice); pair.Advance(12);
+    Require(FindAgent(world, 1).puzzle.stage == 0 && FindAgent(world, 2).puzzle.stage == 0 && world.objects[0].locked && world.objects[1].locked,
+      "Un comando del cliente resolvió una cerradura perteneciente a otro agente");
+    choice.puzzleTarget = 81; choice.puzzleInput = 0; pair.client.Submit(choice); pair.client.Submit({});
+    Until([&] { return FindAgent(world, 2).puzzle.target == 0 && FindAgent(pair.client.GetWorld(), 2).puzzle.target == 0; }, [&] { pair.Tick(); });
+    Require(world.objects[1].locked && !world.objects[1].open && world.objects[1].user == 0, "Cancelar por LAN abre la puerta o deja la cerradura ocupada");
+    pair.client.Submit(interact); pair.client.Submit({});
+    Until([&] { return FindAgent(pair.client.GetWorld(), 2).puzzle.target == 81; }, [&] { pair.Tick(); });
+    for (unsigned int stage = 0; stage < 3; ++stage) {
+      Until([&] { return FindAgent(pair.client.GetWorld(), 2).puzzle.stage == stage; }, [&] { pair.Tick(); });
+      const auto &puzzle = FindAgent(pair.client.GetWorld(), 2).puzzle;
+      choice.puzzleTarget = puzzle.target; choice.puzzleInput = static_cast<int>((puzzle.clueA + puzzle.clueB) % 4u + 1u);
+      pair.client.Submit(choice); pair.client.Submit({});
+      if (stage < 2) {
+        Until([&] { return FindAgent(world, 2).puzzle.stage == stage + 1; }, [&] { pair.Tick(); });
+        pair.Advance(10);
+        Require(FindAgent(world, 2).puzzle.stage == stage + 1 && world.objects[1].locked, "Una sola pulsación de puzle se repite automáticamente en la simulación LAN");
+      } else Until([&] { return !world.objects[1].locked && FindAgent(pair.client.GetWorld(), 2).puzzle.target == 0; }, [&] { pair.Tick(); });
+    }
+    Require(world.objects[1].open && std::ranges::any_of(pair.client.GetWorld().objects, [](const Interactable &o) { return o.id == 81 && o.open && !o.locked && o.puzzle.state == PuzzleState::Solved; }),
+      "El éxito de la cerradura no replica su paso y estado reales");
+  }
+
+  void CameraTrapAndIntelligenceOnTheWire() {
+    Pair pair; pair.Deploy();
+    auto &world = const_cast<WorldState &>(pair.host.GetWorld());
+    world.guards.clear(); world.objects.clear(); world.obstacles.clear(); world.securityEntries.clear(); world.noises.clear(); world.events.clear(); world.sounds.clear();
+    world.agents[0].position = {800.f, 650.f}; world.agents[1].position = {200.f, 300.f}; world.agents[1].facing = {1.f, 0.f};
+    world.objects.reserve(4);
+    Interactable computer{91, ObjectKind::Computer, {240.f, 300.f}, "Computador LAN"};
+    computer.footprint = {24.f, 24.f}; computer.puzzle.kind = PuzzleKind::Computer; computer.puzzle.difficulty = 2;
+    computer.puzzle.intelligence = "INTELIGENCIA LAN: grupo de vigilancia 7."; world.objects.push_back(computer);
+    Until([&] { return !pair.client.GetWorld().objects.empty() && pair.client.GetWorld().objects[0].id == 91; }, [&] { pair.Tick(true); });
+    Require(pair.client.GetWorld().objects[0].puzzle.intelligence.empty(), "El snapshot revela inteligencia sin descifrar el computador");
+    ActionCommand interact; interact.interact = true; interact.aimX = 1.f; pair.client.Submit(interact); pair.client.Submit({});
+    Until([&] { return FindAgent(pair.client.GetWorld(), 2).puzzle.target == 91; }, [&] { pair.Tick(true); });
+    for (unsigned int stage = 0; stage < 2; ++stage) {
+      Until([&] { return FindAgent(pair.client.GetWorld(), 2).puzzle.stage == stage; }, [&] { pair.Tick(true); });
+      const auto puzzle = FindAgent(pair.client.GetWorld(), 2).puzzle;
+      ActionCommand choice; choice.puzzleTarget = 91; choice.puzzleInput = static_cast<int>((puzzle.clueA + puzzle.clueB) % 4u + 1u);
+      pair.client.Submit(choice); pair.client.Submit({});
+      Until([&] { return stage == 1 ? world.objects[0].completed : FindAgent(world, 2).puzzle.stage == 1; }, [&] { pair.Tick(true); });
+    }
+    Until([&] { return pair.client.GetWorld().secondary == 1 && !pair.client.GetWorld().objects[0].puzzle.intelligence.empty(); }, [&] { pair.Tick(true); });
+    Require(pair.client.GetWorld().objects[0].puzzle.intelligence == computer.puzzle.intelligence, "La inteligencia descifrada no se transmite tras el éxito real");
+    world.objects.clear();
+    Interactable camera{92, ObjectKind::Camera, {400.f, 300.f}, "Cámara LAN"};
+    camera.facing = {-1.f, 0.f}; camera.camera.sweeping = true; camera.camera.baseAngle = 3.14159265f; camera.camera.minAngle = -0.1f; camera.camera.maxAngle = 0.1f; camera.camera.speed = 0.15f;
+    world.objects.push_back(camera);
+    Until([&] { return FindAgent(pair.client.GetWorld(), 2).detectionProgress > 0.f; }, [&] { pair.Tick(true); });
+    Require(!world.alarm && world.objects[0].progress > 0.f, "La cámara remota confirma la detección sin una fase progresiva");
+    Until([&] { return pair.client.GetWorld().alarm && FindAgent(pair.client.GetWorld(), 2).detectionConfirmed; }, [&] { pair.Tick(true); });
+    Require(world.alarm && world.securityActive && !pair.client.GetWorld().objects.empty() && pair.client.GetWorld().objects[0].camera.sweepAngle != 0.f,
+      "El movimiento, la detección y la alarma de cámara no proceden del estado anfitrión");
+    world.objects.clear(); world.alarm = false;
+    Interactable trap{93, ObjectKind::Explosive, {240.f, 300.f}, "Trampa LAN"}; trap.footprint = {16.f, 12.f};
+    trap.solid = SpatialOverride::Disabled; trap.blocksVision = SpatialOverride::Disabled; trap.puzzle.kind = PuzzleKind::Explosive; trap.puzzle.difficulty = 2; trap.trap.fuse = 0.25f;
+    world.objects.push_back(trap);
+    Until([&] { return std::ranges::any_of(pair.client.GetWorld().objects, [](const Interactable &o) { return o.id == 93 && o.trap.remaining > 0.f; }); }, [&] { pair.Tick(true); });
+    Require(std::ranges::any_of(pair.client.GetWorld().sounds, [](const SoundEvent &sound) { return sound.kind == SoundKind::TrapTick; }), "La trampa audible no transmite su evento de reloj al participante cercano");
+    Until([&] { return FindAgent(pair.client.GetWorld(), 2).health < GameplayConfig::MaxHealth; }, [&] { pair.Tick(true); });
+    Require(world.objects[0].trap.state == TrapState::Detonated && FindAgent(world, 2).health == FindAgent(pair.client.GetWorld(), 2).health,
+      "La detonación y el daño de trampa no se resuelven de forma autoritativa");
+  }
+
+  void RejectInvalidPuzzleCommands() {
+    const std::array<std::pair<Json, Json>, 5> invalid{{{5, 91}, {-2, 91}, {1.5, 91}, {1, -1}, {1, 1000001}}};
+    for (const auto &[choice, target] : invalid) {
+      RawPeer peer; peer.PuzzleCommand(choice, target);
+      Until([&] { return peer.rejected || peer.disconnected; }, [&] { peer.Tick(); });
+    }
+  }
+
+  void TrainingAndMissionRulesOnTheWire() {
+    Pair pair;
+    auto &world = const_cast<WorldState &>(pair.host.GetWorld());
+    Require(IsTraining(world) && IsTraining(pair.client.GetWorld()), "El cliente no recibe el modo seguro de entrenamiento de su anfitrión");
+    world.objects.clear(); world.obstacles.clear(); world.securityEntries.clear();
+    world.agents[0].position = {200.f, 300.f}; world.agents[1].position = {250.f, 300.f}; world.agents[1].facing = {1.f, 0.f};
+    for (std::size_t index = 0; index < world.guards.size(); ++index) world.guards[index].position = {350.f + 500.f * index, 300.f};
+    ActionCommand fire; fire.fireLethal = true; fire.aimX = -1.f;
+    fire.aimSlope = (CombatConfig::StandingHeight - CombatConfig::HeadHeight * 0.5f - CombatConfig::StandingWeaponHeight) / 50.f;
+    pair.client.Submit(fire); pair.client.Submit({});
+    Until([&] { return FindAgent(world, 1).health < GameplayConfig::MaxHealth; }, [&] { pair.Tick(true); });
+    Require(FindAgent(world, 1).alive && !FindAgent(world, 1).incapacitated && FindAgent(world, 1).health >= 1.f,
+      "Un disparo remoto mata o incapacita al anfitrión en la sala segura");
+    pair.Advance(80, true);
+    fire.aimX = 1.f; fire.aimSlope = (CombatConfig::StandingHeight - CombatConfig::HeadHeight * 0.5f - CombatConfig::StandingWeaponHeight) / 100.f;
+    pair.client.Submit(fire); pair.client.Submit({});
+    Until([&] { return world.guards[0].trainingHits > 0 && std::ranges::any_of(pair.client.GetWorld().guards, [](const Guard &guard) { return guard.trainingDummy && guard.trainingHits > 0; }); }, [&] { pair.Tick(true); });
+    Require(world.guards[0].trainingDummy && world.guards[0].health >= 1.f && world.guards[0].state != GuardState::Dead && world.guards[0].state != GuardState::Incapacitated,
+      "El impacto remoto convierte el muñeco en un enemigo muerto o incapacitado");
+    Interactable trap{400, ObjectKind::Explosive, {260.f, 300.f}, "Prueba LAN segura"};
+    trap.footprint = {16.f, 12.f}; trap.solid = SpatialOverride::Disabled; trap.blocksVision = SpatialOverride::Disabled;
+    trap.puzzle.kind = PuzzleKind::Explosive; trap.trap.fuse = 0.2f; world.objects.push_back(trap);
+    Until([&] { return world.objects[0].trap.state == TrapState::Detonated && FindAgent(pair.client.GetWorld(), 2).health < GameplayConfig::MaxHealth; }, [&] { pair.Tick(true); });
+    Require(FindAgent(world, 2).alive && !FindAgent(world, 2).incapacitated && FindAgent(pair.client.GetWorld(), 2).alive && !FindAgent(pair.client.GetWorld(), 2).incapacitated,
+      "La explosión de entrenamiento produce estados de muerte o desmayo distintos entre anfitrión y cliente");
+    Require(!world.alarm && !world.securityActive && world.reinforcementWaves == 0 && std::ranges::all_of(world.guards, [](const Guard &guard) { return guard.trainingDummy; }),
+      "Una prueba LAN genera guardias, refuerzos o alarmas enemigos en la sala");
+    pair.host.SetContract(ContractId::DoubleCross); pair.Deploy();
+    Require(world.mode == SimulationMode::Operation && pair.client.GetWorld().mode == SimulationMode::Operation &&
+      std::ranges::none_of(world.guards, [](const Guard &guard) { return guard.trainingDummy; }), "El despliegue LAN conserva el modo o los muñecos protegidos de la sala");
+    world.objects.clear(); world.obstacles.clear(); world.guards.clear(); world.securityEntries.clear();
+    world.agents[0].position = {200.f, 300.f}; world.agents[1].position = {250.f, 300.f};
+    fire.aimX = -1.f; fire.aimSlope = (CombatConfig::StandingHeight - CombatConfig::HeadHeight * 0.5f - CombatConfig::StandingWeaponHeight) / 50.f;
+    pair.client.Submit(fire); pair.client.Submit({});
+    Until([&] { return !FindAgent(world, 1).alive; }, [&] { pair.Tick(true); });
+    Require(!FindAgent(world, 1).alive && world.mode == SimulationMode::Operation, "La protección amistosa de la sala contamina el daño letal de una misión LAN");
+  }
+
   void RejectInvalidCommandAndFlood() {
     RawPeer invalid;
     const std::string malformed = "{\"type\":\"command\",\"seq\":1,\"epoch\":" + std::to_string(invalid.epoch) +
@@ -551,6 +700,10 @@ int main() {
     run("AuthoritativeDecoyGuideOnTheWire", AuthoritativeDecoyGuideOnTheWire);
     run("HiddenFootstepsOnTheWire", HiddenFootstepsOnTheWire);
     run("CqcAndPushOnTheWire", CqcAndPushOnTheWire);
+    run("PuzzleOwnershipAndDoorsOnTheWire", PuzzleOwnershipAndDoorsOnTheWire);
+    run("CameraTrapAndIntelligenceOnTheWire", CameraTrapAndIntelligenceOnTheWire);
+    run("RejectInvalidPuzzleCommands", RejectInvalidPuzzleCommands);
+    run("TrainingAndMissionRulesOnTheWire", TrainingAndMissionRulesOnTheWire);
     run("RejectInvalidCommandAndFlood", RejectInvalidCommandAndFlood);
     std::cout << "PASS sesión: sala, autoridad, privacidad, mandos, pausa, desconexión y loopback de dos participantes\n";
     return 0;

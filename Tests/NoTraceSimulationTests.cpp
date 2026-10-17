@@ -3,6 +3,7 @@
 #include "NoTraceCombatGeometry.h"
 #include "NoTraceDistractionGeometry.h"
 #include "NoTraceWorldGeometry.h"
+#include "NoTraceVisibility.h"
 #include <cmath>
 #include <iostream>
 #include <queue>
@@ -50,7 +51,8 @@ namespace {
   void MovementAndBase() {
     Simulation simulation;
     simulation.ResetBase();
-    Require(simulation.GetState().objects.size() == 4, "La base necesita cuatro estaciones");
+    for (const auto kind : {ObjectKind::Operations, ObjectKind::Armory, ObjectKind::Intelligence, ObjectKind::Deployment})
+      Require(std::ranges::count_if(simulation.GetState().objects, [kind](const Interactable &object) { return object.kind == kind; }) == 1, "La sala de entrenamiento debe conservar cada estación CIO");
     Require(simulation.AddPlayer(2, "Segundo"), "Debe admitir otro agente en base");
     Require(!simulation.AddPlayer(2, "Duplicado"), "Debe rechazar identificadores duplicados");
     simulation.DisconnectPlayer(2);
@@ -161,9 +163,17 @@ namespace {
     snapshot["obstacles"].push_back({{"position", {190.f, 180.f}}, {"size", {20.f, 60.f}}, {"cover", 2}, {"solid", true}, {"name", "Muro entre guardia y ruido"}});
     snapshot["noises"].push_back({{"position", {250.f, 200.f}}, {"radius", 300.f}, {"remaining", 0.6f}, {"actor", 1}});
     Load(simulation, snapshot);
+    const auto wallBounds = simulation.GetState().obstacles[0].bounds;
+    const sf::Vector2f clearCorner{180.f, 170.f};
+    Require(WorldGeometry::Expanded(wallBounds, GameplayConfig::AgentRadius).contains(clearCorner) &&
+        !WorldGeometry::CircleOverlaps(clearCorner, GameplayConfig::AgentRadius, wallBounds), "La esquina libre no distingue la huella circular de su AABB conservadora");
     for (int frame = 0; frame < 40; ++frame) {
+      const auto previous = simulation.GetState().guards[0].position;
       simulation.Step(0.1f, {});
-      Require(!sf::FloatRect{{178.f, 168.f}, {44.f, 84.f}}.contains(simulation.GetState().guards[0].position), "La navegación no debe atravesar el muro");
+      const auto &world = simulation.GetState(); const auto position = world.guards[0].position;
+      Require(!WorldGeometry::PositionBlocked(world, position, GameplayConfig::AgentRadius), "La navegación no debe penetrar el muro con su huella circular");
+      Require(WorldGeometry::ClearMovementSegment(world, previous, position, GameplayConfig::AgentRadius), "El desplazamiento de navegación atraviesa el muro entre dos posiciones libres");
+      Require((position - previous).length() <= GameplayConfig::GuardAlertSpeed * 0.1f + SpatialConfig::CollisionSkin, "La navegación teletransporta al guardia para evitar la colisión del muro");
     }
     Require((simulation.GetState().guards[0].position - sf::Vector2f{250.f, 200.f}).length() < 20.f, "El guardia debe rodear el muro para investigar el ruido");
   }
@@ -392,7 +402,10 @@ namespace {
     Load(simulation, snapshot); simulation.Step(0.1f, {{1, interact}});
     Require(simulation.GetState().phase == GamePhase::Results && simulation.GetState().results.at(1).success, "El bucle objetivo y extracción debe producir resultados");
     simulation.ReturnToBase();
-    Require(simulation.GetState().phase == GamePhase::Base && simulation.GetState().objects.size() == 4, "Debe poder regresar a preparación");
+    Require(IsTraining(simulation.GetState()), "Debe poder regresar a preparación en la sala segura");
+    for (const auto kind : {ObjectKind::Operations, ObjectKind::Armory, ObjectKind::Intelligence, ObjectKind::Deployment})
+      Require(std::ranges::count_if(simulation.GetState().objects, [kind](const Interactable &object) { return object.kind == kind; }) == 1,
+        "Regresar a preparación debe conservar cada estación CIO junto al campo de entrenamiento");
 
     simulation.SetContract(ContractId::SilentRelay); simulation.Deploy(2);
     snapshot = simulation.SnapshotFor(1); snapshot["guards"] = nlohmann::json::array();
@@ -527,9 +540,20 @@ namespace {
       WorldGeometry::ForEachSolid(world, [&](const sf::FloatRect &bounds) { occupied |= WorldGeometry::CircleOverlaps(point, GameplayConfig::AgentRadius + 0.5f, bounds); });
       if (occupied) return true;
       for (const auto &object : world.objects) {
-        if (object.kind == ObjectKind::Camera && object.active) {
-          Agent candidate; candidate.position = point; candidate.stance = stealth ? Stance::Prone : Stance::Crouched;
-          if (simulation.CanSee(object.position, object.facing, candidate, GameplayConfig::CameraDistance + 25.f)) return true;
+        if (object.kind == ObjectKind::Explosive && object.active && object.trap.state != TrapState::Disarmed && object.trap.state != TrapState::Detonated &&
+            (point - object.position).length() <= object.trap.triggerRadius + 25.f && Visibility::HasLineOfSight(world, object.position, point, Stance::Standing, object.id)) return true;
+        if (object.kind == ObjectKind::Camera && object.active && object.camera.state == CameraState::Operating) {
+          const auto delta = point - object.position;
+          const float distance = delta.length();
+          const auto stance = stealth ? Stance::Prone : Stance::Crouched;
+          const float posture = stealth ? GameplayConfig::ProneVisionFactor : GameplayConfig::CrouchedVisionFactor;
+          if (distance > object.camera.range * posture + 25.f || !Visibility::HasLineOfSight(world, object.position, point, stance, object.id)) continue;
+          if (distance <= GameplayConfig::CloseVisionDistance) return true;
+          if (object.camera.sweeping) {
+            const float angle = std::remainder(std::atan2(delta.y, delta.x) - object.camera.baseAngle, 6.2831853f);
+            const float nearest = std::clamp(angle, object.camera.minAngle, object.camera.maxAngle);
+            if (std::cos(angle - nearest) >= object.camera.cosHalfAngle) return true;
+          } else if (object.facing.dot(delta) >= object.camera.cosHalfAngle * distance * object.facing.length()) return true;
         }
       }
       if (stealth) for (const auto &guard : world.guards) if (guard.state != GuardState::Dead && guard.state != GuardState::Incapacitated) {
@@ -576,11 +600,15 @@ namespace {
     constexpr float dt = 1.f / 30.f;
     for (int frame = 0; frame < 9000; ++frame) {
       const auto &state = simulation.GetState();
-      if (state.phase != GamePhase::Mission) throw std::runtime_error("Operación terminada hacia " + std::to_string(static_cast<int>(kind)) + " en " + std::to_string(state.agents.front().position.x) + "," + std::to_string(state.agents.front().position.y) + " t=" + std::to_string(state.elapsed) + ": " + state.message);
+      if (state.phase != GamePhase::Mission) throw std::runtime_error("Operación terminada hacia " + std::to_string(static_cast<int>(kind)) + " seed=" + std::to_string(state.seed) + " contrato=" + std::to_string(static_cast<int>(state.contract)) + " en " + std::to_string(state.agents.front().position.x) + "," + std::to_string(state.agents.front().position.y) + " t=" + std::to_string(state.elapsed) + ": " + state.message);
       const auto &agent = state.agents.front();
       ActionCommand command;
       if (stealth && agent.stance != Stance::Prone) command.prone = true;
       if (!stealth && agent.stance != Stance::Crouched) command.crouch = true;
+      if (!stealth) {
+        command.weaponChoice = 1;
+        command.reloadWeapon = agent.nonLethalMagazine == 0 && agent.loadout.nonLethalAmmo > 0 && agent.reloadRemaining <= 0.f;
+      }
       command.crawl = stealth;
       const auto closest = WorldGeometry::ClosestPoint(agent.position, WorldGeometry::ObjectFootprint(*target));
       const auto toward = closest - agent.position;
@@ -626,7 +654,10 @@ namespace {
           for (const auto &object : state.objects) if (WorldGeometry::BlocksMovement(object)) clip(WorldGeometry::ObjectFootprint(object), WorldGeometry::ObjectHeight(object));
           if (!blocked) { nearest = &guard; distance = offset.length(); }
         }
-        if (nearest) { command.fireNonLethal = true; AimHead(command, aimingAgent, nearest->position, nearest->facing); }
+        if (nearest) {
+          command.fireNonLethal = agent.nonLethalMagazine > 0 && agent.reloadRemaining <= 0.f && !command.reloadWeapon;
+          AimHead(command, aimingAgent, nearest->position, nearest->facing);
+        }
       } else if (agent.loadout.decoys > 0 && agent.actionCooldown <= 0.f) {
         for (const auto &guard : state.guards) if ((guard.state == GuardState::Patrol || guard.state == GuardState::Suspicion) && (guard.position - agent.position).length() < 210.f) {
           const auto towardGuard = guard.position - agent.position;

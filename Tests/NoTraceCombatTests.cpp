@@ -1,6 +1,7 @@
 #include "NoTraceCombatGeometry.h"
 #include "NoTraceSimulation.h"
 #include "NoTraceWorldGeometry.h"
+#include "Config/NoTraceWeaponConfig.h"
 #include <algorithm>
 #include <cmath>
 #include <iostream>
@@ -19,7 +20,8 @@ namespace {
     if (cooperative) simulation.SetContract(ContractId::DoubleCross);
     simulation.Deploy(0);
     auto &world = const_cast<WorldState &>(simulation.GetState());
-    world.obstacles.clear(); world.objects.clear(); world.guards.clear(); world.noises.clear(); world.shots.clear();
+    world.phase = GamePhase::Mission; world.mode = SimulationMode::Operation;
+    world.obstacles.clear(); world.objects.clear(); world.guards.clear(); world.noises.clear(); world.shots.clear(); world.securityEntries.clear();
     world.agents[0].position = {200.f, 300.f}; world.agents[0].facing = {1.f, 0.f};
     world.agents[0].loadout = {12, 12, 0, 0};
     if (cooperative) world.agents[1].position = {230.f, 300.f};
@@ -27,6 +29,8 @@ namespace {
   }
   Guard &HeldGuard(WorldState &world) {
     Guard guard; guard.id = 11; guard.position = {230.f, 300.f}; guard.facing = {-1.f, 0.f};
+    // Las pruebas de zonas aíslan el daño recibido; los contraataques tienen sus propios escenarios.
+    guard.attackCooldown = 60.f;
     guard.cqcState = CqcState::Grabbed; guard.heldBy = 1;
     world.guards.push_back(guard);
     return world.guards.back();
@@ -47,6 +51,16 @@ namespace {
     return Aim(actor.position, actor.stance, volume->center, (volume->bottom + volume->top) * 0.5f, lethal);
   }
   void Shot(Simulation &simulation, HitZone zone, bool lethal) {
+    const auto &actor = simulation.GetState().agents[0];
+    if ((lethal ? actor.lethalMagazine : actor.nonLethalMagazine) == 0 && (lethal ? actor.loadout.lethalAmmo : actor.loadout.nonLethalAmmo) > 0) {
+      const int total = lethal ? actor.loadout.lethalAmmo : actor.loadout.nonLethalAmmo;
+      ActionCommand reload; reload.reloadWeapon = true; reload.weaponChoice = lethal ? 0 : 1;
+      simulation.Step(1.f / 60.f, {{1, reload}});
+      const int frames = static_cast<int>(std::ceil(WeaponConfig::ReloadDuration * 60.f)) + 1;
+      for (int frame = 0; frame < frames; ++frame) simulation.Step(1.f / 60.f, {});
+      const auto &ready = simulation.GetState().agents[0];
+      Require(ready.reloadRemaining == 0.f && (lethal ? ready.lethalMagazine : ready.nonLethalMagazine) > 0 && (lethal ? ready.loadout.lethalAmmo : ready.loadout.nonLethalAmmo) == total, "Recargar entre impactos debe respetar tiempo y total de munición");
+    }
     const auto &world = simulation.GetState();
     const auto &guard = world.guards.front();
     simulation.Step(1.f / 60.f, {{1, AtZone(world.agents[0], guard.position, guard.facing, Stance::Standing, zone, lethal)}});

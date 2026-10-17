@@ -9,6 +9,7 @@ namespace NoTrace {
     const auto object = std::ranges::find_if(world_.objects, [&agent](const Interactable &entry) { return entry.id == agent.hideoutId && entry.occupantAgent == agent.id; });
     if (object == world_.objects.end() || WorldGeometry::HideoutType(*object) != HideoutKind::Closet) return;
     object->open = !object->open;
+    EmitSound(SoundKind::Cabinet, object->position, GameplayConfig::WalkingNoiseRadius, agent.id);
     world_.message = object->open ? "Puerta entreabierta: visión limitada por la abertura frontal." : "Puerta cerrada: el armario no permite observar el exterior.";
   }
 

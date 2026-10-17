@@ -1,5 +1,6 @@
 #include "NoTraceSimulation.h"
 #include "NoTraceWorldGeometry.h"
+#include "NoTraceVisibility.h"
 #include "Config/NoTraceCqcConfig.h"
 #include <algorithm>
 #include <iostream>
@@ -13,15 +14,115 @@ namespace {
     simulation.ResetBase(partner ? std::vector<PlayerProfile>{{1,"Uno"},{2,"Dos"}} : std::vector<PlayerProfile>{{1,"Uno"}});
     simulation.Deploy(31);
     auto &world = const_cast<WorldState &>(simulation.GetState());
-    world.guards.clear(); world.objects.clear(); world.obstacles.clear(); world.noises.clear(); world.shots.clear(); world.events.clear();
+    world.guards.clear(); world.objects.clear(); world.obstacles.clear(); world.noises.clear(); world.shots.clear(); world.events.clear(); world.securityEntries.clear();
     world.agents[0].position = {200.f, 300.f}; world.agents[0].facing = {1.f, 0.f};
     for (auto &agent : world.agents) agent.privateOrder = PrivateOrder::None;
     if (partner) { world.agents[1].position = {228.f, 300.f}; world.agents[1].facing = {1.f, 0.f}; }
-    else { Guard guard; guard.id = 9; guard.position = {228.f, 300.f}; guard.facing = {1.f, 0.f}; guard.patrol = {guard.position}; world.guards.push_back(guard); }
+    else { Guard guard; guard.id = 9; guard.position = {228.f, 300.f}; guard.facing = {1.f, 0.f}; guard.patrol = {guard.position}; guard.attackCooldown = 60.f; world.guards.push_back(guard); }
     return world;
   }
   void Advance(Simulation &simulation, ActionCommand command, int count) { for (int frame = 0; frame < count; ++frame) simulation.Step(0.1f, {{1, command}}); }
   ActionCommand Held() { ActionCommand command; command.cqcHeld = true; command.aimX = 1.f; return command; }
+  int CqcEvents(const WorldState &world) { return static_cast<int>(std::ranges::count_if(world.events, [](const MissionEvent &event) { return event.kind == EventKind::Cqc; })); }
+  void ShortPress(Simulation &simulation) {
+    auto command = Held(); command.cqc = true;
+    simulation.Step(0.1f, {{1, command}});
+    simulation.Step(0.1f, {});
+  }
+  void PunchKickAndRecovery() {
+    Simulation simulation, replica; auto &world = Fixture(simulation);
+    world.guards[0].facing = {-1.f, 0.f};
+    auto press = Held(); press.cqc = true;
+    simulation.Step(0.1f, {{1, press}});
+    Require(world.agents[0].cqcPressPending && world.agents[0].actionPose != ActionPose::Punch && CqcEvents(world) == 0, "La preparación de un agarre ya golpea antes de conocer la duración de F");
+    simulation.Step(0.1f, {});
+    Require(world.agents[0].actionPose == ActionPose::Punch && world.agents[0].cqcStrikePending && world.guards[0].stun == 0.f, "El F corto no inicia un puñetazo con preparación real");
+    std::string error;
+    Require(replica.LoadSnapshot(simulation.SnapshotFor(1, true), error) && replica.GetState().agents[0].cqcStrikePending, "La fase anterior al impacto no se sincroniza");
+    simulation.Step(0.1f, {});
+    Require(CqcEvents(world) == 0, "El puñetazo aplica el impacto antes de su fase configurada");
+    simulation.Step(0.1f, {});
+    Require(CqcEvents(world) == 1 && world.guards[0].stun > 0.f && world.guards[0].staggerRemaining > 0.f, "El impacto del puñetazo no aplica una única reacción no letal");
+    Advance(simulation, press, 5);
+    Require(CqcEvents(world) == 1 && world.agents[0].cqcHoldingGuard == 0, "La repetición automática durante la recuperación encadena golpes o inicia agarre frontal");
+    simulation.Step(0.1f, {});
+    ShortPress(simulation);
+    Require(world.agents[0].actionPose == ActionPose::Kick && world.agents[0].cqcStrikePending, "La segunda pulsación breve no alterna a patada");
+    Advance(simulation, {}, 3);
+    Require(CqcEvents(world) == 2 && world.guards[0].health == CombatConfig::MaxGuardHealth, "La patada repite el impacto o provoca daño letal");
+    simulation.Step(0.1f, {});
+    Require(world.agents[0].actionPose == ActionPose::Recover && world.agents[0].cqcAttackTime > 0.f, "La patada no muestra una fase de recuperación diferenciada");
+    const auto previous = world.agents[0].position;
+    ActionCommand move; move.moveX = -1.f; move.fireLethal = false;
+    simulation.Step(0.1f, {{1, move}});
+    Require(world.agents[0].position == previous, "Moverse cancela implícitamente la recuperación del golpe");
+    Advance(simulation, {}, 5);
+    ShortPress(simulation); Advance(simulation, {}, 3);
+    Require(CqcEvents(world) == 3 && world.guards[0].state == GuardState::Incapacitated && world.guards[0].health == CombatConfig::MaxGuardHealth, "Los golpes consecutivos no acumulan inconsciencia sin matar");
+  }
+  void ImpactValidationAndRearApproach() {
+    Simulation simulation; auto &world = Fixture(simulation);
+    world.guards[0].facing = {-1.f, 0.f};
+    Advance(simulation, Held(), 5);
+    Require(world.agents[0].cqcHoldingGuard == 0 && world.guards[0].heldBy == 0 && CqcEvents(world) == 0, "Mantener F permite agarrar de frente o produce golpes automáticos");
+    simulation.Step(0.1f, {}); Advance(simulation, {}, 3);
+    Require(world.agents[0].cqcAttackTime == 0.f && CqcEvents(world) == 0, "Soltar un intento largo de agarre ejecuta un golpe accidental");
+    Fixture(simulation); ShortPress(simulation);
+    world.obstacles.push_back({{{212.f, 260.f}, {4.f, 80.f}}, CoverKind::High, true, "Pared aparecida antes del impacto"});
+    Advance(simulation, {}, 3);
+    Require(CqcEvents(world) == 0 && world.guards[0].stun == 0.f, "El golpe ignora los obstáculos existentes durante el impacto");
+    Fixture(simulation); ShortPress(simulation);
+    world.guards[0].position = {280.f, 300.f}; world.guards[0].patrol = {world.guards[0].position};
+    Advance(simulation, {}, 3);
+    Require(CqcEvents(world) == 0 && world.guards[0].stun == 0.f, "El golpe alcanza un objetivo que salió de su distancia real");
+    Fixture(simulation); auto command = Held(); Advance(simulation, command, 3);
+    const auto playerPosition = world.agents[0].position, guardPosition = world.guards[0].position;
+    Require(world.agents[0].cqcHoldingGuard == 9 && world.guards[0].heldBy == 1 && world.guards[0].position == sf::Vector2f{228.f, 300.f}, "La aproximación trasera válida no conserva el lugar del enemigo");
+    Require(world.agents[0].position == sf::Vector2f{200.f, 300.f} && (guardPosition - playerPosition).dot(world.agents[0].facing) > 0.f && world.guards[0].facing == world.agents[0].facing, "El agarre teletransporta al dueño o coloca al enemigo detrás del agente");
+    command.push = true; simulation.Step(0.1f, {{1, command}});
+    Require(world.agents[0].cqcHoldingGuard == 0 && world.guards[0].heldBy == 0, "Una acción incompatible conserva las referencias del agarre");
+  }
+  void FriendlyGripAndCleanup() {
+    Simulation simulation, replica; auto &world = Fixture(simulation, true);
+    world.agents[1].position = {234.f, 300.f};
+    Advance(simulation, Held(), 3);
+    Require(world.agents[0].cqcHoldingAgent == 2 && world.agents[1].cqcHeldBy == 1 && world.agents[0].cqcHoldingGuard == 0, "El anfitrión no crea una sujeción amistosa con referencias recíprocas");
+    Require(CqcEvents(world) == 0 && world.agents[1].health == GameplayConfig::MaxHealth, "Sujetarse entre aliados altera la puntuación enemiga o aplica daño accidental");
+    const auto original = world.agents[1].position;
+    ActionCommand move; move.moveX = 1.f; move.fireLethal = true; move.aimX = -1.f;
+    simulation.Step(0.1f, {{1, Held()}, {2, move}});
+    Require(world.agents[1].position == original && world.shots.empty() && world.agents[1].facing == world.agents[0].facing, "El compañero inmovilizado puede moverse, girar o disparar");
+    std::string error;
+    Require(replica.LoadSnapshot(simulation.SnapshotFor(1, true), error) && replica.GetState().agents[1].cqcHeldBy == 1, "La sujeción amistosa no llega íntegra al cliente");
+    const auto victimSnapshot = simulation.SnapshotFor(2, true);
+    Require(replica.LoadSnapshot(victimSnapshot, error), "La sujeción amistosa rechaza al receptor cuando el dueño queda detrás de su campo visual");
+    if (!Visibility::IsVisible(world, world.agents[1], world.agents[0].position)) Require(replica.GetState().agents.size() == 1 && replica.GetState().agents[0].cqcHeldBy == 0, "El agarre revela la identidad o posición de un dueño que el receptor no ve");
+    auto invalid = simulation.SnapshotFor(1, true); invalid["agents"][1]["cqcHeldBy"] = 9999;
+    Require(!replica.LoadSnapshot(invalid, error), "Se acepta un compañero retenido por un dueño inexistente");
+    Agent observer; observer.id = 3; observer.name = "Observador"; observer.position = {200.f, 360.f}; observer.facing = {0.f, -1.f};
+    world.agents.push_back(observer);
+    world.obstacles.push_back({{{197.f, 320.f}, {7.f, 10.f}}, CoverKind::High, true, "Muro que oculta únicamente al dueño"});
+    const auto observerSnapshot = simulation.SnapshotFor(3, true);
+    Require(replica.LoadSnapshot(observerSnapshot, error), "Un observador recibe referencias CQC huérfanas al ver solo uno de los participantes");
+    Require(std::ranges::none_of(replica.GetState().agents, [](const Agent &entry) { return entry.id == 1; }), "La sujeción amistosa revela al dueño detrás de una pared");
+    world.agents.pop_back(); world.obstacles.clear();
+    for (unsigned int pulse = 0; pulse < CqcConfig::RequiredPulses; ++pulse) {
+      Advance(simulation, {}, 3); auto command = Held(); command.cqc = true;
+      simulation.Step(0.1f, {{1, command}});
+    }
+    Require(world.agents[1].incapacitated && world.agents[1].friendlyIncapacitated && world.agents[1].alive && world.agents[1].health == GameplayConfig::MaxHealth, "La asfixia amistosa no conserva un estado de incapacitación sin daño letal");
+    Require(world.agents[1].cqcHeldBy == 0 && world.agents[0].cqcHoldingAgent == 0 && CqcEvents(world) == 0 && world.phase == GamePhase::Mission, "El sometimiento amistoso bloquea la pareja, termina la partida o puntúa como enemigo");
+    ActionCommand revive; revive.interact = true; simulation.Step(0.1f, {{1, revive}});
+    Require(!world.agents[1].incapacitated && !world.agents[1].friendlyIncapacitated, "La reanimación no limpia la incapacitación amistosa");
+    Fixture(simulation, true); Advance(simulation, Held(), 3); simulation.DisconnectPlayer(2);
+    Require(world.agents[0].cqcHoldingAgent == 0 && world.agents[1].cqcHeldBy == 0, "La desconexión del receptor deja bloqueado al dueño del agarre");
+    Fixture(simulation, true); Advance(simulation, Held(), 3); simulation.DisconnectPlayer(1);
+    Require(world.agents[0].cqcHoldingAgent == 0 && world.agents[1].cqcHeldBy == 0, "La desconexión del dueño deja bloqueado al compañero");
+    Fixture(simulation, true); Advance(simulation, Held(), 3); Advance(simulation, {}, 11);
+    Require(world.agents[0].cqcHoldingAgent == 0 && world.agents[1].cqcHeldBy == 0 && !world.agents[1].incapacitated, "La liberación por soltar F no restaura la libertad del compañero");
+    Fixture(simulation, true); ShortPress(simulation); Advance(simulation, {}, 7);
+    Require(world.agents[1].health == GameplayConfig::MaxHealth && world.agents[1].stamina == GameplayConfig::MaxStamina && !world.agents[1].incapacitated, "Un golpe breve dirigido junto a un aliado le aplica daño accidental");
+  }
   void AcquisitionAndSubdue() {
     Simulation simulation, replica; auto &world = Fixture(simulation);
     auto held = Held(); held.cqc = true;
@@ -82,8 +183,25 @@ namespace {
       Require(replica.LoadSnapshot(simulation.SnapshotFor(1, true), error), "El cliente rechaza el estado tras un empujón");
     }
   }
+  void TrainingCqcSafety() {
+    Simulation simulation; auto &world = Fixture(simulation);
+    world.phase = GamePhase::Base; world.mode = SimulationMode::Training; world.guards[0].trainingDummy = true;
+    for (int attack = 0; attack < 12; ++attack) { ShortPress(simulation); Advance(simulation, {}, 9); }
+    Require(world.guards[0].trainingHits >= 12 && world.guards[0].health >= 1.f && world.guards[0].state != GuardState::Dead && world.guards[0].state != GuardState::Incapacitated, "Los golpes repetidos incapacitan o eliminan un muñeco de entrenamiento");
+    Require(CqcEvents(world) == 0, "El CQC de entrenamiento añade penalizaciones de la operación");
+    world.agents[0].facing = {1.f, 0.f}; world.guards[0].facing = {1.f, 0.f}; Advance(simulation, Held(), 3);
+    Require(world.guards[0].heldBy == 1, "El muñeco no admite agarres reales de entrenamiento");
+    for (unsigned int pulse = 0; pulse < CqcConfig::RequiredPulses; ++pulse) { Advance(simulation, {}, 3); auto command = Held(); command.cqc = true; simulation.Step(0.1f, {{1, command}}); }
+    Require(world.guards[0].heldBy == 0 && world.agents[0].cqcHoldingGuard == 0 && world.guards[0].state != GuardState::Incapacitated && world.guards[0].health >= 1.f, "La asfixia activa una incapacitación real o bloquea al muñeco de prácticas");
+    Fixture(simulation, true); world.phase = GamePhase::Base; world.mode = SimulationMode::Training;
+    Advance(simulation, Held(), 3);
+    Require(world.agents[0].cqcHoldingAgent == 2, "No se puede practicar agarre amistoso en entrenamiento");
+    for (unsigned int pulse = 0; pulse < CqcConfig::RequiredPulses; ++pulse) { Advance(simulation, {}, 3); auto command = Held(); command.cqc = true; simulation.Step(0.1f, {{1, command}}); }
+    Require(world.agents[1].alive && !world.agents[1].incapacitated && !world.agents[1].friendlyIncapacitated && world.agents[1].health >= 1.f && world.agents[1].stamina >= 1.f, "El sometimiento amistoso omite la regla de seguridad del entrenamiento");
+    Require(world.agents[0].cqcHoldingAgent == 0 && world.agents[1].cqcHeldBy == 0 && world.phase == GamePhase::Base, "El entrenamiento deja participantes sujetos o activa derrota tras asfixia");
+  }
 }
 int main() {
-  try { AcquisitionAndSubdue(); RejectionAndCancellation(); PushAndCollisions(); std::cout << "PASS CQC y empujones: " << checks << " comprobaciones\n"; return 0; }
+  try { AcquisitionAndSubdue(); RejectionAndCancellation(); PushAndCollisions(); PunchKickAndRecovery(); ImpactValidationAndRearApproach(); FriendlyGripAndCleanup(); TrainingCqcSafety(); std::cout << "PASS CQC y empujones: " << checks << " comprobaciones\n"; return 0; }
   catch (const std::exception &error) { std::cerr << "FAIL CQC tras " << checks << ": " << error.what() << '\n'; return 1; }
 }
