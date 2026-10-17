@@ -58,10 +58,7 @@ namespace {
     simulation.Step(0.1f, {{1, prone}});
     move.moveY = 0.f;
     Advance(simulation, move, 10);
-    Require(simulation.GetState().agents[0].position == start, "Tumbarse no equivale a arrastrarse");
-    move.crawl = true;
-    Advance(simulation, move, 10);
-    Require(std::abs(simulation.GetState().agents[0].position.x - start.x - GameplayConfig::CrawlSpeed) < 0.1f, "Arrastrarse requiere la acción mantenida");
+    Require(std::abs(simulation.GetState().agents[0].position.x - start.x - GameplayConfig::CrawlSpeed) < 0.1f, "Moverse tumbado debe arrastrar automáticamente sin otra tecla");
     simulation.ResetBase();
     ActionCommand crouch; crouch.crouch = true;
     simulation.Step(0.1f, {{1, crouch}});
@@ -197,6 +194,107 @@ namespace {
     Require(simulation.GetState().agents[0].loadout.lethalAmmo == 3, "Disparar debe consumir munición");
   }
 
+  void WeaponTrajectoriesAndVitals() {
+    Simulation simulation, donor, replica;
+    auto snapshot = EmptyMission(simulation, {300.f, 500.f});
+    snapshot["guards"].push_back(GuardJson(donor, {450.f, 500.f}, {1.f, 0.f}));
+    snapshot["guards"].push_back(GuardJson(donor, {400.f, 525.f}, {1.f, 0.f}));
+    snapshot["guards"][1]["id"] = 2;
+    Load(simulation, snapshot);
+    ActionCommand shoot; shoot.fireLethal = true; shoot.aimX = 1.f;
+    simulation.Step(0.1f, {{1, shoot}});
+    Require(simulation.GetState().guards[0].state == GuardState::Dead && simulation.GetState().guards[1].state != GuardState::Dead, "La bala sigue el rayo de puntería, no selecciona un guardia cercano fuera de trayectoria");
+    Require(simulation.GetState().shots.size() == 1 && simulation.GetState().shots[0].hit && std::abs(simulation.GetState().shots[0].to.x - 438.f) < 0.01f, "El trazo termina en la primera intersección real con el cuerpo");
+    const auto fired = simulation.SnapshotFor(1);
+    Load(replica, fired);
+    Require(replica.GetState().shots[0].hit && replica.GetState().shots[0].to == simulation.GetState().shots[0].to, "El snapshot propaga impacto y trayectoria autoritativos");
+    simulation.Step(0.1f, {{1, shoot}});
+    Require(simulation.GetState().agents[0].loadout.lethalAmmo == 3, "El cooldown bloquea un segundo disparo inmediato");
+    Advance(simulation, {}, 7);
+    simulation.Step(0.1f, {{1, shoot}});
+    Require(simulation.GetState().agents[0].loadout.lethalAmmo == 2, "Al vencer la cadencia puede dispararse de nuevo");
+
+    snapshot["obstacles"].push_back({{"position", {350.f, 470.f}}, {"size", {20.f, 60.f}}, {"cover", 2}, {"solid", true}, {"name", "Muro balístico"}});
+    Load(simulation, snapshot);
+    simulation.Step(0.1f, {{1, shoot}});
+    Require(simulation.GetState().guards[0].state != GuardState::Dead && simulation.GetState().shots[0].blocked && std::abs(simulation.GetState().shots[0].to.x - 350.f) < 0.01f, "Un muro sólido detiene la bala antes del objetivo");
+    Require(simulation.GetState().agents[0].loadout.lethalAmmo == 3, "Un disparo bloqueado también gasta munición");
+    snapshot["obstacles"] = nlohmann::json::array();
+    snapshot["objects"].push_back({{"id", 90}, {"kind", static_cast<int>(ObjectKind::Door)}, {"position", {370.f, 500.f}}, {"name", "Puerta"}, {"active", true}, {"completed", false}, {"open", false}, {"progress", 0.f}, {"facing", {1.f, 0.f}}});
+    Load(simulation, snapshot);
+    simulation.Step(0.1f, {{1, shoot}});
+    Require(simulation.GetState().shots[0].blocked && simulation.GetState().guards[0].state != GuardState::Dead, "La puerta cerrada bloquea disparos");
+    snapshot["objects"][0]["open"] = true;
+    Load(simulation, snapshot);
+    simulation.Step(0.1f, {{1, shoot}});
+    Require(simulation.GetState().guards[0].state == GuardState::Dead, "La puerta abierta permite un disparo alineado");
+    snapshot["agents"][0]["loadout"][0] = 0;
+    Load(simulation, snapshot);
+    simulation.Step(0.1f, {{1, shoot}});
+    Require(simulation.GetState().shots.empty() && simulation.GetState().agents[0].loadout.lethalAmmo == 0, "Sin munición no se crean tiros ni cantidades negativas");
+
+    snapshot = EmptyMission(simulation, {100.f, 600.f});
+    Load(simulation, snapshot);
+    ActionCommand run; run.moveX = 1.f; run.run = true;
+    Advance(simulation, run, 35);
+    const float depleted = simulation.GetState().agents[0].stamina;
+    Require(depleted < 30.f && depleted >= 0.f && simulation.GetState().agents[0].health == GameplayConfig::MaxHealth, "Correr consume resistencia sin dañar salud");
+    Advance(simulation, {}, 20);
+    Require(simulation.GetState().agents[0].stamina > depleted, "Descansar recupera resistencia");
+    auto invalid = simulation.SnapshotFor(1);
+    invalid["agents"][0]["health"] = GameplayConfig::MaxHealth + 1.f;
+    std::string error;
+    Require(!replica.LoadSnapshot(invalid, error), "El snapshot rechaza salud fuera de límites");
+  }
+
+  void GuardAttacksAndRecovery() {
+    Simulation simulation, donor, replica;
+    auto snapshot = EmptyMission(simulation, {300.f, 500.f});
+    auto guard = GuardJson(donor, {480.f, 500.f}, {-1.f, 0.f});
+    guard["state"] = static_cast<int>(GuardState::Alert); guard["suspicion"] = 1.f;
+    snapshot["guards"].push_back(guard);
+    Load(simulation, snapshot);
+    simulation.Step(0.1f, {});
+    const auto firstHealth = simulation.GetState().agents[0].health;
+    Require(firstHealth == GameplayConfig::MaxHealth - GameplayConfig::GuardShotDamage && simulation.GetState().agents[0].alive, "Un guardia alerta dispara a distancia y aplica daño discreto");
+    Require(simulation.GetState().shots.size() == 1 && simulation.GetState().shots[0].guardId == 1 && simulation.GetState().shots[0].hit, "El tiro enemigo tiene origen, impacto e identidad autoritativos");
+    Load(replica, simulation.SnapshotFor(1));
+    Require(replica.GetState().agents[0].health == firstHealth && replica.GetState().guards[0].attackTime > 0.f && replica.GetState().shots[0].guardId == 1, "Salud y pose de ataque llegan al cliente");
+    Advance(simulation, {}, 8);
+    Require(simulation.GetState().agents[0].health == firstHealth, "El guardia respeta su intervalo entre ataques");
+    Advance(simulation, {}, 14);
+    Require(simulation.GetState().agents[0].health < firstHealth, "El guardia vuelve a atacar tras el cooldown");
+    snapshot["obstacles"].push_back({{"position", {380.f, 470.f}}, {"size", {20.f, 60.f}}, {"cover", 2}, {"solid", true}, {"name", "Muro"}});
+    Load(simulation, snapshot);
+    Advance(simulation, {}, 5);
+    Require(simulation.GetState().agents[0].health == GameplayConfig::MaxHealth && simulation.GetState().shots.empty(), "Un guardia no dispara sin línea de visión");
+    snapshot["obstacles"] = nlohmann::json::array();
+    snapshot["guards"][0]["position"] = {330.f, 500.f};
+    Load(simulation, snapshot);
+    simulation.Step(0.1f, {});
+    Require(simulation.GetState().agents[0].health == GameplayConfig::MaxHealth - GameplayConfig::GuardMeleeDamage && simulation.GetState().guards[0].meleeAttack, "El ataque cuerpo a cuerpo usa su daño y pose propios");
+    Require(simulation.GetState().agents[0].stamina == GameplayConfig::MaxStamina - GameplayConfig::GuardMeleeStaminaDamage && simulation.GetState().shots.empty(), "El golpe consume resistencia sin inventar una bala");
+    Advance(simulation, {}, 43);
+    Require(simulation.GetState().agents[0].alive && simulation.GetState().agents[0].incapacitated && simulation.GetState().phase == GamePhase::Mission, "Agotar resistencia incapacita temporalmente y permite que el último agente se recupere");
+    snapshot = simulation.SnapshotFor(1);
+    snapshot["guards"] = nlohmann::json::array();
+    Load(simulation, snapshot);
+    Advance(simulation, {}, 82);
+    Require(simulation.GetState().agents[0].alive && !simulation.GetState().agents[0].incapacitated && simulation.GetState().agents[0].stamina > 0.f, "El agente inconsciente recupera control al vencer el tiempo configurado");
+
+    snapshot = EmptyMission(simulation, {300.f, 500.f});
+    snapshot["guards"].push_back(GuardJson(donor, {400.f, 500.f}, {1.f, 0.f}));
+    Load(simulation, snapshot);
+    ActionCommand stun; stun.fireNonLethal = true; stun.aimX = 1.f;
+    simulation.Step(0.1f, {{1, stun}});
+    snapshot = simulation.SnapshotFor(1);
+    snapshot["guards"][0]["incapacityRemaining"] = 0.15f;
+    snapshot["agents"][0]["hidden"] = true;
+    Load(simulation, snapshot);
+    Advance(simulation, {}, 2);
+    Require(simulation.GetState().guards[0].state != GuardState::Incapacitated, "Un guardia no letal recupera consciencia al vencer su tiempo");
+  }
+
   void ScoringAndObjectives() {
     WorldState world;
     Agent agent; agent.id = 1; agent.extracted = true;
@@ -298,7 +396,7 @@ namespace {
     lethal.fireLethal = false; lethal.fireNonLethal = true;
     simulation.Step(0.1f, {{1, lethal}});
     Require(simulation.GetState().agents[1].alive && simulation.GetState().agents[1].incapacitated, "La fuerza no letal no debe contar como eliminación de un agente");
-    Require(!simulation.GetState().results.at(1).traitorVictory, "Incapacitar al equipo no cumple la orden de eliminarlo");
+    Require(simulation.GetState().phase == GamePhase::Mission && simulation.GetState().results.empty(), "Incapacitar al equipo no cumple la orden de eliminarlo ni impide su recuperación");
   }
 
   void SeedReachability() {
@@ -493,6 +591,8 @@ int main() {
     MovementAndBase();
     PerceptionAndNoise();
     CombatAndTools();
+    WeaponTrajectoriesAndVitals();
+    GuardAttacksAndRecovery();
     ScoringAndObjectives();
     PrivacyAndDisconnect();
     SeedReachability();

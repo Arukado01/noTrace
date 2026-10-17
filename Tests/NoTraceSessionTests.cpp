@@ -320,6 +320,36 @@ namespace {
     }
   }
 
+  void AimDirectionAndRestartAuthority() {
+    Pair pair;
+    ActionCommand aim; aim.aimX = 200.f; aim.aimY = 100.f;
+    pair.host.Submit(aim);
+    pair.host.Tick(0.02f);
+    const auto facing = FindAgent(pair.host.GetWorld(), 1).facing;
+    Require(std::abs(facing.x / facing.y - 2.f) < 0.001f, "La normalización local de puntería cambió el ángulo del cursor");
+    aim.aimX = -300.f; aim.aimY = 100.f;
+    pair.client.Submit(aim);
+    pair.Advance(10);
+    const auto remoteFacing = FindAgent(pair.host.GetWorld(), 2).facing;
+    Require(std::abs(remoteFacing.x / remoteFacing.y + 3.f) < 0.001f, "La puntería LAN perdió la proporción entre ejes");
+    Require(!pair.host.RestartOperation(), "No se debe reiniciar una operación desde la base");
+    pair.Deploy();
+    const auto seed = pair.host.GetWorld().seed;
+    const auto contract = pair.host.GetWorld().contract;
+    const auto original = FindAgent(pair.host.GetWorld(), 1).loadout;
+    const auto order = FindAgent(pair.host.GetWorld(), 2).privateOrder;
+    Require(!pair.client.RestartOperation(), "El cliente reinició la operación sin autoridad");
+    ActionCommand shoot; shoot.fireLethal = true; shoot.aimX = 1.f;
+    pair.host.Submit(shoot);
+    pair.Advance(15);
+    Require(FindAgent(pair.host.GetWorld(), 1).loadout.lethalAmmo == original.lethalAmmo - 1, "La prueba de reinicio no consumió munición real");
+    Require(pair.host.RestartOperation(), "El anfitrión no pudo reiniciar la misión activa");
+    Require(pair.host.GetWorld().seed == seed && pair.host.GetWorld().contract == contract && pair.host.GetWorld().elapsed == 0.f && pair.host.GetWorld().events.empty(), "El reinicio no conservó semilla/contrato o dejó registro de la misión anterior");
+    Require(FindAgent(pair.host.GetWorld(), 1).loadout.lethalAmmo == original.lethalAmmo && FindAgent(pair.host.GetWorld(), 2).privateOrder == order, "El reinicio no restauró el equipo preparado o cambió órdenes determinísticas");
+    Until([&] { return pair.client.GetWorld().events.empty() && pair.client.GetWorld().elapsed < 0.15f && FindAgent(pair.client.GetWorld(), 1).loadout.lethalAmmo == original.lethalAmmo; }, [&] { pair.Tick(); });
+    Require(pair.client.IsConnected() && pair.client.GetWorld().agents.size() == 2 && pair.client.GetWorld().seed == seed, "El reinicio perdió participantes o no se propagó al cliente");
+  }
+
   void RejectMidMissionAndVersion() {
     RawPeer running(true);
     Require(running.id == 0 && (running.rejected || running.disconnected) && running.host.GetWorld().agents.size() == 1,
@@ -350,6 +380,7 @@ int main() {
     PausedHostStillRunsRemoteAgent();
     SequenceTimeoutIdentityAndPulses();
     PendingShotKeepsItsAim();
+    AimDirectionAndRestartAuthority();
     DisconnectAndRejoin();
     RejectMidMissionAndVersion();
     RejectInvalidCommandAndFlood();

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Config/NoTraceGameplayConfig.h"
 #include <SFML/System/Vector2.hpp>
 #include <SFML/Graphics/Rect.hpp>
 #include <cstdint>
@@ -17,7 +18,7 @@ namespace NoTrace {
   enum class CqcState { None, Grabbed, KnockedDown, Restrained };
   enum class ObjectKind { Operations, Armory, Intelligence, Deployment, Door, Terminal, Secondary, Camera, Hideout, CoopSwitch, Extraction, AlarmPanel };
   enum class PrivateOrder { None, CopyArchive, RecoverDevice, Traitor };
-  enum class EventKind { Objective, Secondary, Extracted, ConfirmedDetection, AgentAlarm, Noise, WeaponLethal, WeaponNonLethal, Cqc, GuardKilled, GuardIncapacitated, BodyFound, CameraDisabled, Sabotage, PrivateObjective, AgentKilled, Disconnected };
+  enum class EventKind { Objective, Secondary, Extracted, ConfirmedDetection, AgentAlarm, Noise, WeaponLethal, WeaponNonLethal, Cqc, GuardKilled, GuardIncapacitated, BodyFound, CameraDisabled, Sabotage, PrivateObjective, AgentKilled, Disconnected, GuardShot, GuardMelee, AgentDamaged, AgentIncapacitated, AgentRevived };
   enum class Rank { D, C, B, A, S, SPlus, Maestro };
 
   struct PlayerProfile { PlayerId id = 1; std::string name = "Agente"; };
@@ -55,6 +56,9 @@ namespace NoTrace {
     bool moving = false;
     bool running = false;
     bool extracted = false;
+    float health = GameplayConfig::MaxHealth;
+    float stamina = GameplayConfig::MaxStamina;
+    float incapacityRemaining = 0.f;
     float animationTime = 0.f;
     float actionCooldown = 0.f;
     float footstepTime = 0.f;
@@ -74,6 +78,9 @@ namespace NoTrace {
     float suspicion = 0.f;
     float stateTime = 0.f;
     float attackCooldown = 0.f;
+    float attackTime = 0.f;
+    bool meleeAttack = false;
+    float incapacityRemaining = 0.f;
     bool bodyHidden = false;
     bool bodyReported = false;
     PlayerId heldBy = 0;
@@ -99,7 +106,17 @@ namespace NoTrace {
     PlayerId user = 0;
     sf::Vector2f facing{-1.f, 0.f};
   };
-  struct NoiseEvent { sf::Vector2f position; float radius = 0.f; float remaining = 0.f; PlayerId actor = 0; };
+  struct NoiseEvent { sf::Vector2f position; float radius = 0.f; float remaining = 0.f; PlayerId actor = 0; std::uint32_t guardId = 0; };
+  struct ShotTrace {
+    sf::Vector2f from;
+    sf::Vector2f to;
+    float remaining = 0.f;
+    bool lethal = false;
+    PlayerId actor = 0;
+    std::uint32_t guardId = 0;
+    bool hit = false;
+    bool blocked = false;
+  };
   struct MissionEvent { std::uint64_t sequence = 0; std::uint64_t tick = 0; PlayerId actor = 0; EventKind kind = EventKind::Noise; std::uint32_t target = 0; };
   struct Contract {
     ContractId id = ContractId::GhostArchive;
@@ -137,6 +154,7 @@ namespace NoTrace {
     std::vector<Obstacle> obstacles;
     std::vector<Interactable> objects;
     std::vector<NoiseEvent> noises;
+    std::vector<ShotTrace> shots;
     std::vector<MissionEvent> events;
     std::unordered_map<PlayerId, MissionResult> results;
     std::string message;

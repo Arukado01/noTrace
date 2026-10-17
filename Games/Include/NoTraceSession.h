@@ -27,6 +27,7 @@ namespace NoTrace {
     void SetContract(ContractId contract);
     void SetLoadout(Loadout loadout);
     void Deploy();
+    bool RestartOperation();
     void ReturnToBase();
     const WorldState &GetWorld() const;
     PlayerId GetLocalPlayerId() const;
@@ -61,6 +62,7 @@ namespace NoTrace {
     std::string status_ = "Sin sesión";
     std::vector<LobbyPlayer> lobby_;
     std::unordered_map<PeerId, Participant> participants_;
+    std::unordered_map<PlayerId, Loadout> deploymentLoadouts_;
     ActionCommand localCommand_;
     float elapsed_ = 0.f;
     float lastHostMessage_ = 0.f;

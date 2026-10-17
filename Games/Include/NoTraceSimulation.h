@@ -33,8 +33,12 @@ namespace NoTrace {
     void Finish(bool success, const std::string &reason, bool traitorVictory = false);
     void Interact(Agent &agent, bool tool);
     void Cqc(Agent &agent);
-    void Fire(Agent &agent, bool lethal);
-    void EmitNoise(sf::Vector2f position, float radius, PlayerId actor);
+    bool Fire(Agent &agent, bool lethal);
+    sf::Vector2f TraceWeapon(sf::Vector2f from, sf::Vector2f direction, float range, bool &blocked) const;
+    void DamageAgent(Agent &agent, float healthDamage, float staminaDamage, PlayerId actor, std::uint32_t source);
+    void Incapacitate(Agent &agent, PlayerId actor, std::uint32_t source);
+    void Revive(Agent &agent, PlayerId actor);
+    void EmitNoise(sf::Vector2f position, float radius, PlayerId actor, std::uint32_t guardId = 0);
     void Record(EventKind kind, PlayerId actor, std::uint32_t target = 0);
     void Detect(Agent &agent, std::uint32_t observer);
     void Move(sf::Vector2f &position, sf::Vector2f displacement, float radius) const;

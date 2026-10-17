@@ -50,8 +50,6 @@ namespace NoTrace {
       if (!std::isfinite(x) || !std::isfinite(y)) {
         return false;
       }
-      x = std::clamp(x, -1.f, 1.f);
-      y = std::clamp(y, -1.f, 1.f);
       const float length = std::hypot(x, y);
       if (length > 1.f) {
         x /= length;
@@ -62,8 +60,8 @@ namespace NoTrace {
 
     ActionCommand Sanitize(ActionCommand command) {
       const auto normalize = [](float &x, float &y) {
-        x = std::isfinite(x) ? std::clamp(x, -1.f, 1.f) : 0.f;
-        y = std::isfinite(y) ? std::clamp(y, -1.f, 1.f) : 0.f;
+        x = std::isfinite(x) ? x : 0.f;
+        y = std::isfinite(y) ? y : 0.f;
         const float length = std::hypot(x, y);
         if (length > 1.f) {
           x /= length;
@@ -173,6 +171,7 @@ namespace NoTrace {
     localPlayer_ = NetworkConfig::HostId;
     lobby_.clear();
     participants_.clear();
+    deploymentLoadouts_.clear();
     elapsed_ = 0.f;
     lastHostMessage_ = 0.f;
     commandAccumulator_ = 0.f;
@@ -314,6 +313,8 @@ namespace NoTrace {
     }
     ++epoch_;
     ClearCommands();
+    deploymentLoadouts_.clear();
+    for (const auto &agent : GetWorld().agents) deploymentLoadouts_.emplace(agent.id, agent.loadout);
     simulation_.Deploy(static_cast<std::uint32_t>(random_.Int(1, std::numeric_limits<int>::max())));
     status_ = "Operación en curso";
     SendSnapshots();
@@ -331,6 +332,21 @@ namespace NoTrace {
     }
     status_ = role_ == NetworkRole::Offline ? "Base CIO: operación individual" : "Base CIO: esperando preparación";
     SendSnapshots();
+  }
+
+  bool Session::RestartOperation() {
+    if (!active_ || !connected_ || IsClient() || GetWorld().phase != GamePhase::Mission) {
+      return false;
+    }
+    const auto seed = GetWorld().seed;
+    ++epoch_;
+    ClearCommands();
+    simulation_.ReturnToBase();
+    for (const auto &[id, loadout] : deploymentLoadouts_) simulation_.SetLoadout(id, loadout);
+    simulation_.Deploy(seed);
+    status_ = "Operación reiniciada";
+    SendSnapshots();
+    return true;
   }
 
   void Session::Reject(PeerId peer, const std::string &reason) {
