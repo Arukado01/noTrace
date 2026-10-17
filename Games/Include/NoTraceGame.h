@@ -61,6 +61,9 @@ namespace NoTrace {
     bool cqcBlocked_ = false;
     std::vector<std::unique_ptr<sf::Sound>> voices_;
     std::uint64_t lastSound_ = 0;
+    MissionEvent puzzleFailure_;
+    float puzzleFailureUntil_ = 0.f;
+    GamePhase puzzleFailurePhase_ = GamePhase::Base;
     int pendingPuzzleInput_ = -1;
     bool pendingPuzzleHeld_ = false;
     int pendingWeaponChoice_ = -1;

@@ -237,7 +237,7 @@ namespace EngineTests {
       context.gui.ProcessEvent(sf::Event::MouseButtonReleased{sf::Mouse::Button::Left, pixel});
       game.UpdateBackground();
     }
-    static void VerifyFireInput(Game &game, EngineContext &context) {
+    static void VerifyFireInput(Game &game, EngineContext &context, sf::RenderWindow &window) {
       context.input.Clear(); game.BindInputs(); game.held_.fill(false);
       auto &world = const_cast<WorldState &>(game.session_.GetWorld());
       const auto saved = world;
@@ -263,6 +263,21 @@ namespace EngineTests {
         context.input.BeginFrame();
         context.input.CaptureEvent(sf::Event::MouseButtonPressed{sf::Mouse::Button::Left, {1000, 480}});
         context.input.CaptureEvent(sf::Event::MouseButtonReleased{sf::Mouse::Button::Left, {1000, 480}});
+        game.Update(); Step(game);
+      };
+      const auto clickPanel = [&](const std::string &text) {
+        const auto button = FindButton(game, text);
+        const auto position = button->getAbsolutePosition() + button->getSize() / 2.f;
+        const auto pixel = window.mapCoordsToPixel({position.x, position.y});
+        context.input.BeginFrame(); context.cursor.SetPosition({position.x, position.y});
+        context.gui.ProcessEvent(sf::Event::MouseMoved{pixel});
+        const sf::Event pressed = sf::Event::MouseButtonPressed{sf::Mouse::Button::Left, pixel};
+        const sf::Event released = sf::Event::MouseButtonReleased{sf::Mouse::Button::Left, pixel};
+        context.input.CaptureEvent(pressed); context.gui.ProcessEvent(pressed);
+        context.input.CaptureEvent(released); context.gui.ProcessEvent(released);
+        Require(game.page_ == Game::Page::None && (text != "2 / ARMA NO LETAL" || game.pendingWeaponChoice_ == 1),
+          std::format("El clic real no alcanza el botón {}: página {}, elección {}, píxel {},{}, raíz {}, panel {}", text,
+            static_cast<int>(game.page_), game.pendingWeaponChoice_, pixel.x, pixel.y, game.root_->isEnabled(), game.panel_->isVisible()));
         game.Update(); Step(game);
       };
       mouse(sf::Mouse::Button::Right, true); idle(3);
@@ -295,8 +310,18 @@ namespace EngineTests {
       const float elapsed = world.elapsed;
       Key(game, context, sf::Keyboard::Scan::Q);
       Require(game.page_ == Game::Page::Weapons && HasButton(game, "1 / PISTOLA LETAL") && HasButton(game, "2 / ARMA NO LETAL") && world.elapsed == elapsed, "Q no abre ambos equipos o deja avanzar la operación individual mientras se selecciona");
-      Press(game, "2 / ARMA NO LETAL"); idle();
-      Require(game.page_ == Game::Page::None && agent.selectedWeapon == WeaponKind::NonLethal && agent.loadout.lethalAmmo == 5 && agent.loadout.nonLethalAmmo == 5 && !agent.nonLethalSuppressorEquipped, "El menú no aplica la elección autoritativa o altera munición y silenciador");
+      const auto beforeSelection = agent.position;
+      sf::Event::KeyPressed move; move.scancode = sf::Keyboard::Scan::D; context.input.CaptureEvent(move);
+      clickPanel("2 / ARMA NO LETAL");
+      Require(game.page_ == Game::Page::None && agent.selectedWeapon == WeaponKind::NonLethal && agent.loadout.lethalAmmo == 5 && agent.loadout.nonLethalAmmo == 5 && !agent.nonLethalSuppressorEquipped,
+        std::format("El menú no aplica la elección autoritativa o altera munición y silenciador: página {}, arma {}, L {}, NL {}, silenciador {}, pendiente {}, fase {}, pausado {}",
+          static_cast<int>(game.page_), static_cast<int>(agent.selectedWeapon), agent.loadout.lethalAmmo, agent.loadout.nonLethalAmmo, agent.nonLethalSuppressorEquipped,
+          game.pendingWeaponChoice_, static_cast<int>(world.phase), game.paused_));
+      Require(agent.position != beforeSelection, "Cerrar el selector elimina el movimiento que permanece mantenido");
+      sf::Event::KeyReleased stop; stop.scancode = sf::Keyboard::Scan::D; context.input.CaptureEvent(stop); idle();
+      Key(game, context, sf::Keyboard::Scan::Q); clickPanel("VOLVER AL JUEGO");
+      Require(game.page_ == Game::Page::None && agent.loadout.lethalAmmo == 5 && agent.loadout.nonLethalAmmo == 5 && agent.nonLethalMagazine == WeaponConfig::NonLethalCapacity - 1,
+        "El clic real para cerrar el panel dispara el arma o consume munición al volver al mundo");
       context.input.Clear(); game.BindInputs(); game.held_.fill(false); game.pendingWeaponChoice_ = -1; game.session_.Submit({});
       world = saved; game.lastSound_ = savedSound; game.UpdateBackground();
     }
@@ -525,6 +550,66 @@ namespace EngineTests {
       game.ClosePanel(); context.input.Clear(); game.BindInputs(); game.held_.fill(false); game.pendingPuzzleInput_ = -1; game.session_.Submit({});
       world = saved; game.lastSound_ = savedSound; game.UpdateBackground();
       return metrics;
+    }
+    static void VerifyPrivatePuzzleFeedback(Game &game) {
+      auto &world = const_cast<WorldState &>(game.session_.GetWorld());
+      const auto saved = world;
+      const auto savedFailure = game.puzzleFailure_;
+      const float savedUntil = game.puzzleFailureUntil_;
+      const auto savedPhase = game.puzzleFailurePhase_;
+      game.puzzleFailure_ = {}; game.puzzleFailureUntil_ = 0.f;
+      Simulation authority, replica;
+      authority.ResetBase({{1, "Local"}, {2, "Ajeno"}}); authority.Deploy(17);
+      auto &host = const_cast<WorldState &>(authority.GetState());
+      host.objects.clear(); host.obstacles.clear(); host.guards.clear(); host.securityEntries.clear(); host.events.clear(); host.sounds.clear(); host.noises.clear();
+      for (unsigned int index = 0; index < 2; ++index) {
+        host.agents[index].position = {200.f, 300.f + index * 70.f}; host.agents[index].facing = {1.f, 0.f};
+        Interactable door{200u + index, ObjectKind::Door, {240.f, 300.f + index * 70.f}, "Cerradura privada"};
+        door.footprint = {24.f, 24.f}; door.locked = true; door.puzzle.kind = PuzzleKind::Door; host.objects.push_back(door);
+      }
+      const auto receive = [&](bool includeEvents = true) {
+        auto snapshot = authority.SnapshotFor(1, true);
+        Require(snapshot.at("message") == "Operación en curso.", "La fixture LAN conserva un mensaje global sin filtrar");
+        for (const auto &event : snapshot.at("events")) Require(!(event.at("actor") == 2 && event.at("kind") == static_cast<int>(EventKind::PuzzleFailed)),
+          "El estado filtrado revela el fallo privado del otro actor");
+        for (const auto &agent : snapshot.at("agents")) if (agent.at("id") == 2)
+          Require(!agent.contains("privateOrder") && !agent.contains("puzzle"), "El estado filtrado revela la orden o el circuito del otro actor");
+        // La ventana de eventos puede avanzar mientras el cooldown sigue incluido en el estado recibido.
+        if (!includeEvents) snapshot["events"] = nlohmann::json::array();
+        std::string error;
+        Require(replica.LoadSnapshot(snapshot, error), "No se pudo aplicar la réplica LAN de puzles: " + error);
+        world = replica.GetState(); game.RefreshHud();
+      };
+      ActionCommand interact; interact.interact = true;
+      authority.Step(0.1f, {{1, interact}, {2, interact}});
+      Require(host.agents[0].puzzle.target == 200 && host.agents[1].puzzle.target == 201, "Las dos interacciones no abren sus circuitos independientes");
+      ActionCommand foreignError; foreignError.puzzleTarget = 201; foreignError.puzzleInput = host.agents[1].puzzle.sequence.front() % 4 + 1;
+      authority.Step(0.1f, {{2, foreignError}}); receive();
+      Require(std::ranges::any_of(world.objects, [](const Interactable &object) { return object.id == 201 && object.puzzle.state == PuzzleState::Failed; }),
+        "La fixture no incluye el dispositivo visible con fallo ajeno");
+      Require(game.message_->getText().toStdString() == "Operación en curso.", "El HUD atribuye al jugador local un fallo de otro actor");
+      ActionCommand localError; localError.puzzleTarget = 200; localError.puzzleInput = host.agents[0].puzzle.sequence.front() % 4 + 1;
+      authority.Step(0.1f, {{1, localError}}); receive();
+      Require(game.message_->getText().toStdString().find("Intervención fallida. Reintento en 3 s") != std::string::npos &&
+          host.objects[0].locked && !host.objects[0].open, "El HUD LAN pierde el fallo propio, el reintento o la protección real");
+      for (int frame = 0; frame < 18; ++frame) authority.Step(0.1f, {});
+      receive(false);
+      Require(game.message_->getText().toStdString().find("Reintento en 2 s; después pulsa E.") != std::string::npos,
+        "El HUD pierde el fallo recibido al avanzar la ventana de eventos o no actualiza el cooldown");
+      for (int frame = 0; frame < 14; ++frame) authority.Step(0.1f, {});
+      receive();
+      Require(host.objects[0].puzzle.state == PuzzleState::Ready && game.message_->getText().toStdString() == "Operación en curso.",
+        "El aviso privado de fallo continúa después de habilitar el reintento");
+      authority.Step(0.1f, {{1, interact}}); receive();
+      Require(host.agents[0].puzzle.target == 200 && host.objects[0].locked && game.message_->getText().toStdString() == "Operación en curso.",
+        "El reintento real conserva un error antiguo o desbloquea el dispositivo sin resolver");
+      localError.puzzleInput = host.agents[0].puzzle.sequence.front() % 4 + 1;
+      authority.Step(0.1f, {{1, localError}}); receive();
+      Require(game.puzzleFailure_.target == 200, "La segunda intervención fallida no actualiza el aviso propio");
+      authority.ReturnToBase(); receive();
+      Require(game.puzzleFailure_.target == 0 && game.message_->getText().toStdString().find("Intervención fallida") == std::string::npos,
+        "Regresar a la base conserva un fallo de la operación anterior");
+      world = saved; game.puzzleFailure_ = savedFailure; game.puzzleFailureUntil_ = savedUntil; game.puzzleFailurePhase_ = savedPhase; game.RefreshHud();
     }
     static void Close(Game &game) { game.ClosePanel(); }
     static void RequirePage(Game &game, const std::string &page) {
@@ -794,11 +879,12 @@ namespace {
     Access::Require(Access::GetSession(game).GetWorld().phase == GamePhase::Mission, "El callback no desplegó la operación");
     Access::Capture(game, context, window, output / "05-mission.png");
     Access::VerifyGameOverAndRetry(game);
-    Access::VerifyFireInput(game, context);
+    Access::VerifyFireInput(game, context, window);
     Access::VerifyAutomaticCrawl(game, context);
     Access::VerifyTacticalControls(game, context);
     Access::VerifyManeuverControls(game, context);
     for (const auto &entry : Access::VerifyPuzzleGui(game, context, window, output)) metrics.push_back(entry);
+    Access::VerifyPrivatePuzzleFeedback(game);
     Access::Escape(game);
     Access::Require(Access::HasButton(game, "REINICIAR") && Access::HasButton(game, "VOLVER A LA BASE"), "La misión individual no ofrece las acciones de pausa correspondientes");
     capture("09-mission-pause");

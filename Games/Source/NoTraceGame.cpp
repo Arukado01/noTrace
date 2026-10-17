@@ -120,6 +120,7 @@ namespace NoTrace {
   void Game::Start() {
     session_.Stop(); held_.fill(false); previousPhase_ = GamePhase::Base;
     ready_ = false; paused_ = false; showOrders_ = false; lastSound_ = 0;
+    puzzleFailure_ = {}; puzzleFailureUntil_ = 0.f; puzzleFailurePhase_ = GamePhase::Base;
     preparingDecoy_ = false; cancelledDecoy_ = false; worldRenderer_.SetDecoyPreview(false, {}, 0.f);
     cqcBlocked_ = true;
     BindInputs(); worldRenderer_.ResetZoom(); ctx.renderer.ResetView(); ctx.renderer.SetPostProcessingEnabled(false);
@@ -154,7 +155,8 @@ namespace NoTrace {
     if (!agent) return;
     worldRenderer_.AdjustZoom(ctx.input.WheelDelta());
     ActionCommand command;
-    const sf::Vector2f screenMove{static_cast<float>(Pressed(Right)) - static_cast<float>(Pressed(Left)), static_cast<float>(Pressed(Down)) - static_cast<float>(Pressed(Up))};
+    const auto moving = [this](Action action) { return Pressed(action) || ctx.input.Held(action); };
+    const sf::Vector2f screenMove{static_cast<float>(moving(Right)) - static_cast<float>(moving(Left)), static_cast<float>(moving(Down)) - static_cast<float>(moving(Up))};
     const auto &world = session_.GetWorld();
     auto direction = worldRenderer_.ScreenToGround({800.f + screenMove.x, 480.f + screenMove.y}, world, agent->id) - worldRenderer_.ScreenToGround({800.f, 480.f}, world, agent->id);
     const float length = std::sqrt(direction.x * direction.x + direction.y * direction.y);
@@ -187,6 +189,7 @@ namespace NoTrace {
     command.tool = Pressed(Tool, true);
     command.reloadWeapon = Pressed(Reload, true);
     command.weaponChoice = Pressed(SelectPistol, true) ? 0 : Pressed(SelectNonLethal, true) ? 1 : -1;
+    const bool choosingWeapon = pendingWeaponChoice_ >= 0;
     if (pendingWeaponChoice_ >= 0) { command.weaponChoice = pendingWeaponChoice_; pendingWeaponChoice_ = -1; }
     const bool lethal = ctx.input.JustPressed(Lethal), nonLethal = ctx.input.JustPressed(NonLethal);
     const bool decoyHeld = Pressed(Decoy);
@@ -208,7 +211,7 @@ namespace NoTrace {
       worldRenderer_.SetDecoyPreview(preparingDecoy_, throwDirection, command.decoyDistance);
     } else worldRenderer_.SetDecoyPreview(false, {}, 0.f);
     command.prepareDecoy = preparingDecoy_;
-    if (!decoyContext && cursor.y > 116.f && cursor.y < 750.f) { command.fireSelected = lethal; }
+    if (!choosingWeapon && !decoyContext && cursor.y > 116.f && cursor.y < 750.f) { command.fireSelected = lethal; }
     if (command.interact && world.phase == GamePhase::Base) {
       for (const auto &object : world.objects) {
         if (!WorldGeometry::Properties(object).interactive) continue;
@@ -320,6 +323,8 @@ namespace NoTrace {
     pendingPuzzleHeld_ = false;
     page_ = Page::None; panel_->setVisible(false); panel_->setFocused(false);
     lobby_->setEnabled(true);
+    // Consume las pulsaciones del panel y conserva las entradas que siguen mantenidas.
+    ctx.input.BeginFrame();
     for (int action = 0; action < Count; ++action) held_[action] = ctx.input.Pressed(action);
   }
 
@@ -534,6 +539,27 @@ namespace NoTrace {
       } else feedback = "Disparo sin impacto.";
     }
     if (const auto *listener = LocalAgent()) for (const auto &object : world.objects) if (object.kind == ObjectKind::Computer && object.puzzle.state == PuzzleState::Solved && (object.position - listener->position).length() < GameplayConfig::InteractionDistance * 2.f) feedback = object.puzzle.intelligence;
+    if (world.phase != puzzleFailurePhase_ || !session_.IsConnected() || !IsTactical(world) || world.tick < puzzleFailure_.tick) {
+      puzzleFailure_ = {}; puzzleFailureUntil_ = 0.f;
+      if (world.phase == GamePhase::Base && world.phase != puzzleFailurePhase_ && !world.events.empty()) puzzleFailure_.sequence = world.events.back().sequence;
+      puzzleFailurePhase_ = world.phase;
+    }
+    // Solo un fallo propio autoriza el aviso; el estado público de un dispositivo ajeno no lo activa.
+    if (session_.IsConnected() && IsTactical(world)) for (const auto &event : world.events) if (event.actor == session_.GetLocalPlayerId() && event.kind == EventKind::PuzzleFailed && event.sequence > puzzleFailure_.sequence) {
+      puzzleFailure_ = event; puzzleFailureUntil_ = world.elapsed + DevicesConfig::PuzzleFailureCooldown;
+    }
+    bool puzzleError = false;
+    if (puzzleFailure_.target && world.elapsed < puzzleFailureUntil_) {
+      const auto object = std::ranges::find_if(world.objects, [this](const Interactable &value) { return value.id == puzzleFailure_.target; });
+      if (object == world.objects.end()) { feedback = "Intervención fallida. Comprueba el dispositivo antes de reintentar."; puzzleError = true; }
+      else if (object->puzzle.state == PuzzleState::Failed && object->puzzle.cooldown > 0.f) {
+        puzzleFailureUntil_ = std::min(puzzleFailureUntil_, world.elapsed + object->puzzle.cooldown);
+        const auto seconds = static_cast<unsigned int>(std::ceil(std::min(object->puzzle.cooldown, puzzleFailureUntil_ - world.elapsed)));
+        feedback = object->trap.state == TrapState::Detonated ? "Intervención fallida: el explosivo ha detonado." : std::format("Intervención fallida. Reintento en {} s; después pulsa E.", seconds);
+        puzzleError = true;
+      } else puzzleFailure_.target = 0;
+    } else puzzleFailure_.target = 0;
+    message_->getRenderer()->setTextColor(puzzleError ? tgui::Color{239, 115, 106} : TEXT_COLOR);
     message_->setText(tgui::String(session_.IsConnected() ? feedback : session_.GetStatus()));
     if (page_ == Page::Deployment) {
       status_->setText(tgui::String(session_.GetStatus() + (session_.IsHost() && ctx.network.GetRole() == NetworkRole::Host ? "\nIP local: " + ctx.network.GetLocalAddress() + " : " + std::to_string(ctx.network.GetPort()) : "")));
