@@ -1,14 +1,18 @@
 #include "NoTraceSimulation.h"
 #include "Config/NoTraceCombatConfig.h"
+#include "Config/NoTraceAudioConfig.h"
 #include "Config/NoTraceCqcConfig.h"
 #include "Config/NoTraceDistractionConfig.h"
 #include "Config/NoTraceGameplayConfig.h"
+#include "Config/NoTraceNavigationConfig.h"
 #include "Config/NoTraceSecurityConfig.h"
 #include "Config/NoTraceVisibilityConfig.h"
+#include "Config/NoTraceWeaponConfig.h"
 #include "NoTraceCombatGeometry.h"
 #include "NoTraceDistractionGeometry.h"
 #include "NoTraceVisibility.h"
 #include "NoTraceWorldGeometry.h"
+#include "NoTraceStateExtensions.h"
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -89,7 +93,13 @@ namespace NoTrace {
     loadout.nonLethalAmmo = std::clamp(loadout.nonLethalAmmo, 0, GameplayConfig::MaximumAmmo);
     loadout.decoys = std::clamp(loadout.decoys, 0, GameplayConfig::MaximumDecoys);
     loadout.tools = std::clamp(loadout.tools, 0, GameplayConfig::MaximumTools);
-    for (auto &agent : world_.agents) if (agent.id == id) agent.loadout = loadout;
+    for (auto &agent : world_.agents) if (agent.id == id) {
+      agent.loadout = loadout;
+      agent.operationLoadout = loadout;
+      agent.lethalMagazine = std::min(WeaponConfig::PistolCapacity, loadout.lethalAmmo);
+      agent.nonLethalMagazine = std::min(WeaponConfig::NonLethalCapacity, loadout.nonLethalAmmo);
+      CancelReload(agent);
+    }
   }
 
   void Simulation::BuildBase() {
@@ -1067,7 +1077,7 @@ namespace NoTrace {
     using nlohmann::json;
     const auto foundObserver = std::ranges::find_if(world_.agents, [player](const Agent &agent) { return agent.id == player; });
     const Agent *observer = foundObserver == world_.agents.end() ? nullptr : &*foundObserver;
-    const bool filtered = visibilityFiltered && world_.phase == GamePhase::Mission;
+    const bool filtered = visibilityFiltered && IsTactical(world_);
     const auto visible = [&](sf::Vector2f point, Stance stance = Stance::Standing) {
       return !filtered || (observer && Visibility::IsVisible(world_, *observer, point, stance));
     };
@@ -1159,7 +1169,12 @@ namespace NoTrace {
       snapshot["footsteps"].push_back(std::move(value));
     }
     snapshot["noises"] = json::array();
-    for (const auto &noise : world_.noises) if (visible(noise.position)) snapshot["noises"].push_back({{"position", VectorJson(noise.position)}, {"radius", noise.radius}, {"remaining", noise.remaining}, {"actor", !filtered || visibleAgents.contains(noise.actor) ? noise.actor : 0}, {"guardId", visibleGuards.contains(noise.guardId) ? noise.guardId : 0}});
+    for (const auto &noise : world_.noises) {
+      if (filtered && (!observer || !Visibility::NoiseAudible(world_, *observer, noise))) continue;
+      auto point = noise.position;
+      if (filtered && noise.actor != player && !visible(point)) { point.x = std::floor(point.x / AudioConfig::PositionQuantization) * AudioConfig::PositionQuantization; point.y = std::floor(point.y / AudioConfig::PositionQuantization) * AudioConfig::PositionQuantization; }
+      snapshot["noises"].push_back({{"position", VectorJson(point)}, {"radius", noise.radius}, {"remaining", noise.remaining}, {"actor", !filtered || noise.actor == player ? noise.actor : 0}, {"guardId", !filtered ? noise.guardId : 0}});
+    }
     snapshot["shots"] = json::array();
     for (const auto &shot : world_.shots) {
       if (!visible(shot.from) && !visible(shot.to)) continue;
@@ -1200,6 +1215,7 @@ namespace NoTrace {
     snapshot["results"] = json::array();
     for (const auto &[id, result] : world_.results) snapshot["results"].push_back({{"id", id}, {"success", result.success}, {"traitorVictory", result.traitorVictory},
       {"maestroEligible", result.maestroEligible}, {"score", result.score}, {"rank", static_cast<int>(result.rank)}, {"reason", result.reason}});
+    StateExtensions::Write(snapshot, world_, player, filtered);
     return snapshot;
   }
 
@@ -1268,8 +1284,8 @@ namespace NoTrace {
         agent.aimSlope = value.value("aimSlope", 0.f);
         agent.hideoutId = value.value("hideoutId", std::uint32_t{0});
         agent.hideoutExit = ParseVector(value.value("hideoutExit", VectorJson(sf::Vector2f{})));
-        agent.actionPose = ParseEnum<ActionPose>(value.value("actionPose", nlohmann::json(0)), 4);
-        agent.actionPoseTime = finite(value.value("actionPoseTime", nlohmann::json(0.f)), GameplayConfig::AttackAnimationDuration);
+        agent.actionPose = ParseEnum<ActionPose>(value.value("actionPose", nlohmann::json(0)), 9);
+        agent.actionPoseTime = finite(value.value("actionPoseTime", nlohmann::json(0.f)), std::max(GameplayConfig::AttackAnimationDuration, CqcConfig::KickCooldown));
         agent.cqcHoldingGuard = value.value("cqcHoldingGuard", std::uint32_t{0});
         agent.cqcProgress = value.value("cqcProgress", 0u);
         if (agent.cqcProgress > CqcConfig::RequiredPulses) throw std::runtime_error("Progreso CQC inválido");
@@ -1346,7 +1362,7 @@ namespace NoTrace {
         guard.detectedTime = finite(value.value("detectedTime", nlohmann::json(0.f)), CombatConfig::ConfirmedIconDuration);
         guard.storedIn = value.value("storedIn", std::uint32_t{0});
         guard.stepTime = finite(value.value("stepTime", nlohmann::json(0.f)), 86400.f);
-        guard.staggerRemaining = finite(value.value("staggerRemaining", nlohmann::json(0.f)), CqcConfig::PushStagger);
+        guard.staggerRemaining = finite(value.value("staggerRemaining", nlohmann::json(0.f)), std::max(CqcConfig::PushStagger, CqcConfig::KickStagger));
         guard.knownHideout = value.value("knownHideout", std::uint32_t{0});
         guard.hideoutInspectionTime = finite(value.value("hideoutInspectionTime", nlohmann::json(0.f)), SpatialConfig::HideoutInspectionDuration);
         guard.observedAgent = value.value("observedAgent", PlayerId{0});
@@ -1369,7 +1385,7 @@ namespace NoTrace {
         Interactable object;
         object.id = value.at("id").get<std::uint32_t>();
         if (object.id == 0 || std::ranges::any_of(replacement.objects, [&object](const Interactable &other) { return other.id == object.id; })) throw std::runtime_error("Identificador de objeto repetido");
-        object.kind = ParseEnum<ObjectKind>(value.at("kind"), 11); object.position = ParseVector(value.at("position")); object.name = text(value.at("name"), 128);
+        object.kind = ParseEnum<ObjectKind>(value.at("kind"), 15); object.position = ParseVector(value.at("position")); object.name = text(value.at("name"), 128);
         object.active = value.at("active").get<bool>(); object.completed = value.at("completed").get<bool>(); object.open = value.at("open").get<bool>();
         object.progress = finite(value.at("progress"), 86400.f); object.facing = ParseVector(value.at("facing"));
         if (value.contains("footprint")) {
@@ -1418,7 +1434,7 @@ namespace NoTrace {
         replacement.shots.push_back(shot);
       }
       for (const auto &value : array("events", 64)) {
-        MissionEvent event{value.at("sequence").get<std::uint64_t>(), value.at("tick").get<std::uint64_t>(), value.at("actor").get<PlayerId>(), ParseEnum<EventKind>(value.at("kind"), 21), value.at("target").get<std::uint32_t>()};
+        MissionEvent event{value.at("sequence").get<std::uint64_t>(), value.at("tick").get<std::uint64_t>(), value.at("actor").get<PlayerId>(), ParseEnum<EventKind>(value.at("kind"), 28), value.at("target").get<std::uint32_t>()};
         if (event.kind == EventKind::PrivateObjective && event.actor != recipient) throw std::runtime_error("Evento privado ajeno");
         if (!replacement.events.empty() && event.sequence <= replacement.events.back().sequence) throw std::runtime_error("Secuencia de eventos inválida");
         replacement.events.push_back(event);
@@ -1520,7 +1536,9 @@ namespace NoTrace {
         if ((!replacement.visibility.authoritative && (cover.canPeekLeft != canLeft || cover.canPeekRight != canRight)) ||
             (cover.peekSide == PeekSide::Left && !cover.canPeekLeft) || (cover.peekSide == PeekSide::Right && !cover.canPeekRight)) throw std::runtime_error("Lado de asomado incompatible con la geometría");
       }
+      StateExtensions::Read(snapshot, replacement, recipient);
       world_ = std::move(replacement);
+      nextSound_ = world_.sounds.empty() ? 1 : world_.sounds.back().sequence + 1;
       alarmRemaining_ = alarmRemaining;
       securityContactAge_ = contactAge; reinforcementTimer_ = waveTimer; securityLastKnown_ = lastSecurityContact;
       securityHasClue_ = hasSecurityClue; nextGuardId_ = nextGuard;

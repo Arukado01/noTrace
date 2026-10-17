@@ -4,6 +4,7 @@
 #include "Config/NoTraceCombatConfig.h"
 #include "Config/NoTraceDistractionConfig.h"
 #include "Config/NoTraceSpatialConfig.h"
+#include "Types/NoTraceDeviceTypes.h"
 #include <SFML/System/Vector2.hpp>
 #include <SFML/Graphics/Rect.hpp>
 #include <cstdint>
@@ -14,20 +15,23 @@
 namespace NoTrace {
   using PlayerId = std::uint32_t;
   enum class GamePhase { Base, Mission, Results };
+  enum class SimulationMode { Operation, Training };
+  enum class WeaponKind { Pistol, NonLethal };
   enum class ContractId { GhostArchive, SilentRelay, DoubleCross };
   enum class Stance { Standing, Crouched, Prone };
   enum class HitZone { None, Head, Torso, Limbs };
   enum class ShotTarget { None, Agent, Guard };
-  enum class ActionPose { None, ThrowDecoy, KnockWall, Push, Subdue };
+  enum class ActionPose { None, ThrowDecoy, KnockWall, Push, Subdue, Punch, Kick, Recover, Grab, Choke };
+  enum class SoundKind { Pistol, Rifle, Suppressed, Reload, Impact, Punch, Kick, Grab, Choke, Fall, StepHard, StepSoft, Knock, TrapTick, Explosion, Lock, PuzzleStep, PuzzleFailed, PuzzleSolved, Camera, Alarm, Reinforcement, Cabinet, Hideout, Drag, Decoy };
   enum class GuardState { Patrol, Suspicion, Investigate, Alert, Search, Incapacitated, Dead, Retiring };
   enum class CoverKind { None, Low, High, Hide };
   enum class SpatialOverride { Default, Enabled, Disabled };
   enum class PeekSide { None, Left, Right };
   enum class HideoutKind { None, TrashBin, Closet, UnderTable };
   enum class CqcState { None, Grabbed, KnockedDown, Restrained };
-  enum class ObjectKind { Operations, Armory, Intelligence, Deployment, Door, Terminal, Secondary, Camera, Hideout, CoopSwitch, Extraction, AlarmPanel };
+  enum class ObjectKind { Operations, Armory, Intelligence, Deployment, Door, Terminal, Secondary, Camera, Hideout, CoopSwitch, Extraction, AlarmPanel, Explosive, Computer, CameraPanel, TrainingReset };
   enum class PrivateOrder { None, CopyArchive, RecoverDevice, Traitor };
-  enum class EventKind { Objective, Secondary, Extracted, ConfirmedDetection, AgentAlarm, Noise, WeaponLethal, WeaponNonLethal, Cqc, GuardKilled, GuardIncapacitated, BodyFound, CameraDisabled, Sabotage, PrivateObjective, AgentKilled, Disconnected, GuardShot, GuardMelee, AgentDamaged, AgentIncapacitated, AgentRevived };
+  enum class EventKind { Objective, Secondary, Extracted, ConfirmedDetection, AgentAlarm, Noise, WeaponLethal, WeaponNonLethal, Cqc, GuardKilled, GuardIncapacitated, BodyFound, CameraDisabled, Sabotage, PrivateObjective, AgentKilled, Disconnected, GuardShot, GuardMelee, AgentDamaged, AgentIncapacitated, AgentRevived, TrapTick, Explosion, PuzzleStarted, PuzzleStep, PuzzleFailed, PuzzleSolved, CameraSweep };
   enum class Rank { D, C, B, A, S, SPlus, Maestro };
 
   struct PlayerProfile { PlayerId id = 1; std::string name = "Agente"; };
@@ -57,6 +61,11 @@ namespace NoTrace {
     bool coverToggle = false;
     bool peekLeft = false;
     bool peekRight = false;
+    int puzzleInput = -1;
+    std::uint32_t puzzleTarget = 0;
+    bool reloadWeapon = false;
+    bool fireSelected = false;
+    int weaponChoice = -1;
   };
   struct AgentCover {
     bool active = false;
@@ -89,6 +98,12 @@ namespace NoTrace {
     Stance stance = Stance::Standing;
     float aimSlope = 0.f;
     Loadout loadout;
+    Loadout operationLoadout;
+    WeaponKind selectedWeapon = WeaponKind::Pistol;
+    WeaponKind reloadingWeapon = WeaponKind::Pistol;
+    int lethalMagazine = 4;
+    int nonLethalMagazine = 4;
+    float reloadRemaining = 0.f;
     bool alive = true;
     bool incapacitated = false;
     bool bodyReported = false;
@@ -107,6 +122,15 @@ namespace NoTrace {
     float animationTime = 0.f;
     float actionCooldown = 0.f;
     std::uint32_t cqcHoldingGuard = 0;
+    PlayerId cqcHoldingAgent = 0;
+    PlayerId cqcHeldBy = 0;
+    bool friendlyIncapacitated = false;
+    bool cqcPressPending = false;
+    bool cqcInputDown = false;
+    bool cqcNextKick = false;
+    bool cqcStrikePending = false;
+    float cqcAttackTime = 0.f;
+    PuzzleSession puzzle;
     float cqcHoldTime = 0.f;
     float cqcReleaseTime = 0.f;
     float cqcPulseTime = 0.f;
@@ -124,6 +148,9 @@ namespace NoTrace {
   };
   struct Guard {
     std::uint32_t id = 0;
+    bool trainingDummy = false;
+    unsigned int trainingHits = 0;
+    float trainingFeedback = 0.f;
     sf::Vector2f position;
     sf::Vector2f facing{1.f, 0.f};
     GuardState state = GuardState::Patrol;
@@ -149,6 +176,11 @@ namespace NoTrace {
     std::vector<sf::Vector2f> navigation;
     sf::Vector2f navigationTarget;
     float navigationTimer = 0.f;
+    float navigationStuckTime = 0.f;
+    unsigned int navigationFailures = 0;
+    float navigationRejectTime = 0.f;
+    sf::Vector2f navigationRejectedTarget;
+    sf::Vector2f navigationRecoveryTarget;
     float stepTime = 0.f;
     std::uint32_t knownHideout = 0;
     float hideoutInspectionTime = 0.f;
@@ -189,8 +221,13 @@ namespace NoTrace {
     float hideoutAperture = SpatialConfig::ClosetDefaultAperture;
     bool lifted = false;
     float inspectionProgress = 0.f;
+    bool locked = false;
+    CameraDevice camera;
+    TrapDevice trap;
+    PuzzleDevice puzzle;
   };
   struct NoiseEvent { sf::Vector2f position; float radius = 0.f; float remaining = 0.f; PlayerId actor = 0; std::uint32_t guardId = 0; };
+  struct SoundEvent { std::uint64_t sequence = 0; SoundKind kind = SoundKind::Impact; sf::Vector2f position; float radius = 0.f; float remaining = 0.f; PlayerId actor = 0; };
   struct FootstepCue {
     sf::Vector2f position;
     std::uint8_t direction = 0;
@@ -250,6 +287,7 @@ namespace NoTrace {
   };
   struct WorldState {
     GamePhase phase = GamePhase::Base;
+    SimulationMode mode = SimulationMode::Operation;
     ContractId contract = ContractId::GhostArchive;
     std::uint32_t seed = 0;
     std::uint64_t tick = 0;
@@ -267,6 +305,7 @@ namespace NoTrace {
     std::vector<Obstacle> obstacles;
     std::vector<Interactable> objects;
     std::vector<NoiseEvent> noises;
+    std::vector<SoundEvent> sounds;
     std::vector<ShotTrace> shots;
     std::vector<FootstepCue> footsteps;
     std::vector<MissionEvent> events;
@@ -274,4 +313,6 @@ namespace NoTrace {
     VisibilityGrid visibility;
     std::string message;
   };
+  inline bool IsTraining(const WorldState &world) { return world.mode == SimulationMode::Training && world.phase == GamePhase::Base; }
+  inline bool IsTactical(const WorldState &world) { return world.phase == GamePhase::Mission || IsTraining(world); }
 }

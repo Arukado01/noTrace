@@ -12,11 +12,11 @@ namespace NoTrace::SpatialConfig {
   inline constexpr float CoverPeekEdgeReach = 55.f;
   inline constexpr float CoverPeekClearance = 6.f;
   inline constexpr float CoverPositionTolerance = 0.15f;
-  inline constexpr std::array<sf::Vector2f, 12> ObjectGroundSizes{{
+  inline constexpr std::array<sf::Vector2f, 16> ObjectGroundSizes{{
       {78.f, 48.f}, {70.f, 26.f}, {60.f, 38.f}, {100.f, 100.f},
       {24.f, 64.f}, {38.f, 28.f}, {38.f, 28.f}, {8.f, 8.f},
-      {48.f, 48.f}, {44.f, 34.f}, {100.f, 100.f}, {28.f, 24.f}}};
-  inline constexpr std::array<float, 12> ObjectHeights{{26.f, 58.f, 42.f, 0.f, 66.f, 30.f, 30.f, 50.f, 40.f, 26.f, 0.f, 42.f}};
+      {48.f, 48.f}, {44.f, 34.f}, {100.f, 100.f}, {28.f, 24.f}, {16.f, 12.f}, {38.f, 28.f}, {28.f, 24.f}, {28.f, 24.f}}};
+  inline constexpr std::array<float, 16> ObjectHeights{{26.f, 58.f, 42.f, 0.f, 66.f, 30.f, 30.f, 50.f, 40.f, 26.f, 0.f, 42.f, 6.f, 30.f, 42.f, 42.f}};
   inline constexpr float HighCoverHeight = 66.f;
   inline constexpr float LowCoverHeight = 24.f;
   inline constexpr float HideoutHeight = 40.f;

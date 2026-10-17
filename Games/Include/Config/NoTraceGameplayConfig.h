@@ -10,6 +10,8 @@
 namespace NoTrace::GameplayConfig {
   inline constexpr std::string_view GameScene = "NoTraceGame";
   inline constexpr float AgentRadius = 12.f;
+  inline constexpr float MissionWidth = 1000.f;
+  inline constexpr float MissionHeight = 760.f;
   inline constexpr float MissionSpawnX = 50.f;
   inline constexpr float MissionSpawnY = 650.f;
   inline constexpr float MissionSpawnSpacing = 28.f;
@@ -86,7 +88,7 @@ namespace NoTrace::GameplayConfig {
   inline constexpr std::uint32_t HostPlayerId = 1;
   inline constexpr std::size_t MaximumEvents = 20000;
   inline constexpr std::size_t MaximumSnapshotBytes = 60 * 1024;
-  inline constexpr std::uint32_t ProtocolVersion = 4;
+  inline constexpr std::uint32_t ProtocolVersion = 5;
   inline constexpr float SimulationHz = 60.f;
   inline constexpr float CommandHz = 30.f;
   inline constexpr float SnapshotHz = 20.f;

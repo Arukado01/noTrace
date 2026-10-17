@@ -13,11 +13,13 @@ namespace NoTrace::Visibility {
   bool GuardVisible(const WorldState &world, const Agent &observer, const Guard &guard);
   bool ObjectVisible(const WorldState &world, const Agent &observer, const Interactable &object);
   bool FootstepAudible(const WorldState &world, const Agent &observer, const FootstepCue &cue);
+  bool NoiseAudible(const WorldState &world, const Agent &observer, const NoiseEvent &noise);
+  bool SoundAudible(const WorldState &world, const Agent &observer, const SoundEvent &sound);
   VisibilityGrid BuildGrid(const WorldState &world, const Agent &observer);
 
   inline void BuildVisualBoundary(const WorldState &world, const Agent &observer, VisibilityGrid &grid) {
     grid.visualOrigin = observer.position;
-    if (world.phase != GamePhase::Mission) { grid.visualRadii.clear(); return; }
+    if (!IsTactical(world)) { grid.visualRadii.clear(); return; }
     grid.visualRadii.resize(VisibilityConfig::VisualRayCount);
     for (std::size_t ray = 0; ray < grid.visualRadii.size(); ++ray) {
       const float angle = 2.f * std::numbers::pi_v<float> * static_cast<float>(ray) / grid.visualRadii.size();

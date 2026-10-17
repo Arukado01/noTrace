@@ -27,7 +27,7 @@ target_compile_options(AwesomeEngine PRIVATE $<IF:$<CXX_COMPILER_ID:MSVC>, /W4, 
 target_link_libraries(AwesomeEngine PRIVATE SFML::Graphics SFML::Audio SFML::Network nlohmann_json::nlohmann_json spdlog::spdlog TGUI::TGUI magic_enum::magic_enum)
 
 include(CTest)
-set(NO_TRACE_SIMULATION_SOURCES Games/Source/NoTraceSimulation.cpp Games/Source/NoTraceCqc.cpp Games/Source/NoTraceHideouts.cpp Games/Source/NoTraceSecurity.cpp)
+set(NO_TRACE_SIMULATION_SOURCES Games/Source/NoTraceSimulation.cpp Games/Source/NoTraceCqc.cpp Games/Source/NoTraceHideouts.cpp Games/Source/NoTraceSecurity.cpp Games/Source/NoTraceDevices.cpp Games/Source/NoTraceAudio.cpp Games/Source/NoTraceTraining.cpp Games/Source/NoTraceWeapons.cpp)
 if(BUILD_TESTING)
   add_executable(NoTraceNetworkTests Tests/NoTraceNetworkTests.cpp Engine/Source/Managers/NetworkManager.cpp)
   target_include_directories(NoTraceNetworkTests PRIVATE Engine/Include)

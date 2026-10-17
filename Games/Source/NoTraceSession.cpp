@@ -74,6 +74,8 @@ namespace NoTrace {
       normalize(command.aimX, command.aimY);
       command.aimSlope = std::isfinite(command.aimSlope) ? std::clamp(command.aimSlope, -CombatConfig::MaximumAimSlope, CombatConfig::MaximumAimSlope) : 0.f;
       command.decoyDistance = std::isfinite(command.decoyDistance) ? std::clamp(command.decoyDistance, 0.f, DistractionConfig::MaximumDecoyDistance) : 0.f;
+      if (command.puzzleInput < -1 || command.puzzleInput > 4) command.puzzleInput = -1;
+      if (command.weaponChoice < -1 || command.weaponChoice > 1) command.weaponChoice = -1;
       return command;
     }
 
@@ -85,14 +87,14 @@ namespace NoTrace {
              (command.throwDecoy ? 256u : 0u) | (command.knock ? 512u : 0u) |
              (command.dragBody ? 1024u : 0u) | (command.tool ? 2048u : 0u) |
              (command.coverToggle ? 4096u : 0u) | (command.peekLeft ? 8192u : 0u) | (command.peekRight ? 16384u : 0u) | (command.prepareDecoy ? 32768u : 0u) |
-             (command.cqcHeld ? 65536u : 0u) | (command.push ? 131072u : 0u);
+             (command.cqcHeld ? 65536u : 0u) | (command.push ? 131072u : 0u) | (command.reloadWeapon ? 262144u : 0u) | (command.fireSelected ? 524288u : 0u);
     }
 
     bool ReadCommand(const Json &message, ActionCommand &command) {
       std::uint64_t flags = 0;
       if (!ReadVector(message.at("move"), command.moveX, command.moveY) ||
           !ReadVector(message.at("aim"), command.aimX, command.aimY) ||
-          !ReadUnsigned(message.at("flags"), flags) || flags > 262143 || !message.at("slope").is_number() || !message.at("decoyDistance").is_number()) {
+          !ReadUnsigned(message.at("flags"), flags) || flags > 1048575 || !message.at("slope").is_number() || !message.at("decoyDistance").is_number()) {
         return false;
       }
       command.run = (flags & 1) != 0;
@@ -113,10 +115,19 @@ namespace NoTrace {
       command.prepareDecoy = (flags & 32768) != 0;
       command.cqcHeld = (flags & 65536) != 0;
       command.push = (flags & 131072) != 0;
+      command.reloadWeapon = (flags & 262144) != 0; command.fireSelected = (flags & 524288) != 0;
       command.aimSlope = message.at("slope").get<float>();
       if (!std::isfinite(command.aimSlope) || std::abs(command.aimSlope) > CombatConfig::MaximumAimSlope) return false;
       command.decoyDistance = message.at("decoyDistance").get<float>();
       if (!std::isfinite(command.decoyDistance) || command.decoyDistance < 0.f || command.decoyDistance > DistractionConfig::MaximumDecoyDistance) return false;
+      const auto puzzle = message.value("puzzleInput", Json(-1));
+      if (!puzzle.is_number_integer() || puzzle < -1 || puzzle > 4) return false;
+      command.puzzleInput = puzzle.get<int>();
+      std::uint64_t target = 0;
+      if (command.puzzleInput < -1 || command.puzzleInput > 4 || !ReadUnsigned(message.value("puzzleTarget", Json(0)), target) || target > 1000000) return false;
+      command.puzzleTarget = static_cast<std::uint32_t>(target);
+      const auto weapon = message.value("weaponChoice", Json(-1)); if (!weapon.is_number_integer() || weapon < -1 || weapon > 1) return false;
+      command.weaponChoice = weapon.get<int>(); if (command.weaponChoice < -1 || command.weaponChoice > 1) return false;
       return true;
     }
 
@@ -132,10 +143,15 @@ namespace NoTrace {
       command.knock = false;
       command.tool = false;
       command.coverToggle = false;
+      command.puzzleInput = -1; command.puzzleTarget = 0;
+      command.reloadWeapon = false; command.fireSelected = false; command.weaponChoice = -1;
     }
 
     void MergePulses(ActionCommand &command, const ActionCommand &previous) {
-      if ((previous.fireLethal || previous.fireNonLethal) && !command.fireLethal && !command.fireNonLethal) {
+      command.reloadWeapon |= previous.reloadWeapon;
+      if (command.weaponChoice == -1) command.weaponChoice = previous.weaponChoice;
+      if (command.puzzleInput == -1 && previous.puzzleInput != -1) { command.puzzleInput = previous.puzzleInput; command.puzzleTarget = previous.puzzleTarget; }
+      if ((previous.fireLethal || previous.fireNonLethal || previous.fireSelected) && !command.fireLethal && !command.fireNonLethal && !command.fireSelected) {
         // El disparo pendiente conserva la dirección capturada al pulsar.
         command.aimX = previous.aimX;
         command.aimY = previous.aimY;
@@ -149,6 +165,7 @@ namespace NoTrace {
       command.prone |= previous.prone;
       command.interact |= previous.interact;
       command.cqc |= previous.cqc;
+      command.fireSelected |= previous.fireSelected;
       command.push |= previous.push;
       command.fireLethal |= previous.fireLethal;
       command.fireNonLethal |= previous.fireNonLethal;
@@ -337,7 +354,7 @@ namespace NoTrace {
     ++epoch_;
     ClearCommands();
     deploymentLoadouts_.clear();
-    for (const auto &agent : GetWorld().agents) deploymentLoadouts_.emplace(agent.id, agent.loadout);
+    for (const auto &agent : GetWorld().agents) deploymentLoadouts_.emplace(agent.id, agent.operationLoadout);
     simulation_.Deploy(static_cast<std::uint32_t>(random_.Int(1, std::numeric_limits<int>::max())));
     status_ = "Operación en curso";
     SendSnapshots();
@@ -647,7 +664,7 @@ namespace NoTrace {
   void Session::SendCommand() {
     const Json message{{"type", "command"}, {"seq", ++commandSequence_}, {"epoch", epoch_},
                        {"move", {localCommand_.moveX, localCommand_.moveY}},
-                       {"aim", {localCommand_.aimX, localCommand_.aimY}}, {"slope", localCommand_.aimSlope}, {"decoyDistance", localCommand_.decoyDistance}, {"flags", CommandFlags(localCommand_)}};
+                       {"aim", {localCommand_.aimX, localCommand_.aimY}}, {"slope", localCommand_.aimSlope}, {"decoyDistance", localCommand_.decoyDistance}, {"flags", CommandFlags(localCommand_)}, {"puzzleInput", localCommand_.puzzleInput}, {"puzzleTarget", localCommand_.puzzleTarget}, {"weaponChoice", localCommand_.weaponChoice}};
     network_.Send(NetworkConfig::HostId, message.dump());
     ClearPulses(localCommand_);
   }

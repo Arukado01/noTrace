@@ -1,6 +1,7 @@
 #include "NoTraceVisibility.h"
 #include "Config/NoTraceVisibilityConfig.h"
 #include "Config/NoTraceDistractionConfig.h"
+#include "Config/NoTraceAudioConfig.h"
 #include "NoTraceWorldGeometry.h"
 #include <algorithm>
 #include <cmath>
@@ -73,7 +74,7 @@ namespace NoTrace::Visibility {
   }
 
   bool IsVisible(const WorldState &world, const Agent &observer, sf::Vector2f point, Stance targetStance) {
-    if (world.phase != GamePhase::Mission) return true;
+    if (!IsTactical(world)) return true;
     if (world.visibility.observer == observer.id) return GridVisible(world.visibility, point);
     return IsGeometricallyVisible(world, observer, point, targetStance);
   }
@@ -82,10 +83,11 @@ namespace NoTrace::Visibility {
     if (guard.bodyHidden) return false;
     if (world.visibility.authoritative && world.visibility.observer == observer.id) return true;
     return !guard.bodyHidden && IsVisible(world, observer, guard.position,
-      guard.state == GuardState::Dead || guard.state == GuardState::Incapacitated || guard.cqcState == CqcState::KnockedDown || guard.cqcState == CqcState::Restrained ? Stance::Prone : Stance::Standing);
+      guard.state == GuardState::Dead || guard.state == GuardState::Incapacitated || (!guard.trainingDummy && guard.heldBy == 0 && (guard.cqcState == CqcState::KnockedDown || guard.cqcState == CqcState::Restrained)) ? Stance::Prone : Stance::Standing);
   }
 
   bool ObjectVisible(const WorldState &world, const Agent &observer, const Interactable &object) {
+    if (object.kind == ObjectKind::Explosive && object.trap.state == TrapState::Armed) return false;
     if (observer.hideoutId != 0 && observer.hideoutId == object.id) return true;
     if (world.visibility.authoritative && world.visibility.observer == observer.id) return true;
     if (IsVisible(world, observer, object.position)) return true;
@@ -106,11 +108,24 @@ namespace NoTrace::Visibility {
   }
 
   bool FootstepAudible(const WorldState &world, const Agent &observer, const FootstepCue &cue) {
-    if (world.phase != GamePhase::Mission || !observer.alive || observer.incapacitated || observer.extracted || cue.remaining <= 0.f) return false;
+    if (!IsTactical(world) || !observer.alive || observer.incapacitated || observer.extracted || cue.remaining <= 0.f) return false;
     if ((cue.position - observer.position).lengthSquared() > DistractionConfig::PlayerHearingDistance * DistractionConfig::PlayerHearingDistance) return false;
     if (world.visibility.authoritative && world.visibility.observer == observer.id) return true;
     const auto source = std::ranges::find_if(world.guards, [&cue](const Guard &guard) { return guard.id == cue.sourceGuard; });
     return source != world.guards.end() && !source->bodyHidden && source->state != GuardState::Dead && source->state != GuardState::Incapacitated && !GuardVisible(world, observer, *source);
+  }
+
+  bool SoundAudible(const WorldState &world, const Agent &observer, const SoundEvent &sound) {
+    if (observer.extracted || sound.remaining <= 0.f) return false;
+    if ((!observer.alive || observer.incapacitated) && sound.kind != SoundKind::Explosion && sound.kind != SoundKind::Fall) return false;
+    if (world.visibility.authoritative && world.visibility.observer == observer.id) return true;
+    if (sound.actor == observer.id) return true;
+    const float muffling = HasLineOfSight(world, observer.position, sound.position) ? 1.f : AudioConfig::WallHearingFactor;
+    return (observer.position - sound.position).length() <= sound.radius * muffling;
+  }
+
+  bool NoiseAudible(const WorldState &world, const Agent &observer, const NoiseEvent &noise) {
+    return SoundAudible(world, observer, {0, SoundKind::Impact, noise.position, noise.radius, noise.remaining, noise.actor});
   }
 
   VisibilityGrid BuildGrid(const WorldState &world, const Agent &observer) {
@@ -124,7 +139,7 @@ namespace NoTrace::Visibility {
     grid.cells.resize(count, 0);
     for (unsigned int row = 0; row < grid.rows; ++row) for (unsigned int column = 0; column < grid.columns; ++column) {
       const sf::Vector2f point{std::min(world.size.x - 0.01f, (column + 0.5f) * grid.cellSize), std::min(world.size.y - 0.01f, (row + 0.5f) * grid.cellSize)};
-      grid.cells[static_cast<std::size_t>(row) * grid.columns + column] = world.phase != GamePhase::Mission || IsGeometricallyVisible(world, observer, point, Stance::Prone);
+      grid.cells[static_cast<std::size_t>(row) * grid.columns + column] = !IsTactical(world) || IsGeometricallyVisible(world, observer, point, Stance::Prone);
     }
     const auto column = static_cast<unsigned int>(std::max(0.f, observer.position.x) / grid.cellSize);
     const auto row = static_cast<unsigned int>(std::max(0.f, observer.position.y) / grid.cellSize);

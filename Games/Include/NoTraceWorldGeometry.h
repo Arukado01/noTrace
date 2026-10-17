@@ -44,6 +44,7 @@ namespace NoTrace::WorldGeometry {
     case ObjectKind::Deployment:
     case ObjectKind::Extraction:
     case ObjectKind::Camera:
+    case ObjectKind::Explosive:
       properties.solid = false; properties.blocksVision = false; properties.cover = CoverKind::None; break;
     default: break;
     }
