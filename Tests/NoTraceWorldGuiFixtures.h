@@ -10,6 +10,7 @@
 #include <filesystem>
 #include <fstream>
 #include <nlohmann/json.hpp>
+#include <set>
 #include <stdexcept>
 
 namespace EngineTests {
@@ -389,6 +390,126 @@ namespace EngineTests {
     const auto anonymous = capture(renderer, hearing, output / "world-footsteps-redacted.png");
     if (!identical(silent, anonymous)) throw std::runtime_error("La pista auditiva revela un modelo, cono, icono o marcador del guardia oculto");
     metadata.push_back({{"file", "world-footsteps-unseen.png"}, {"approximatePosition", {cue.position.x, cue.position.y}}, {"anonymous", true}, {"hiddenModelAbsent", true}});
+    WorldState continuousFog;
+    continuousFog.phase = GamePhase::Mission; continuousFog.size = {1200.f, 1000.f};
+    Agent fogAgent;
+    fogAgent.id = 1; fogAgent.position = {500.f, 500.f}; fogAgent.facing = {1.f, 0.f};
+    continuousFog.agents.push_back(fogAgent);
+    const std::array<const char *, 7> fogScenarios{{"open-room", "near-wall", "open-door", "corner", "hidden-corridor", "moving", "zoom"}};
+    const auto wall = [](sf::Vector2f position, sf::Vector2f size) { return Obstacle{{position, size}, CoverKind::High, true, "Oclusión"}; };
+    for (std::size_t scenario = 0; scenario < fogScenarios.size(); ++scenario) {
+      continuousFog.objects.clear(); continuousFog.obstacles.clear(); continuousFog.agents[0] = fogAgent;
+      if (scenario == 1) continuousFog.obstacles = {wall({590.f, 180.f}, {20.f, 640.f})};
+      if (scenario == 2) {
+        continuousFog.obstacles = {wall({590.f, 180.f}, {20.f, 288.f}), wall({590.f, 532.f}, {20.f, 288.f})};
+        Interactable entrance;
+        entrance.id = 6; entrance.kind = ObjectKind::Door; entrance.position = {600.f, 500.f}; entrance.open = true;
+        continuousFog.objects.push_back(entrance);
+      }
+      if (scenario == 3) continuousFog.obstacles = {wall({590.f, 260.f}, {20.f, 240.f}), wall({590.f, 260.f}, {220.f, 20.f})};
+      if (scenario == 4) continuousFog.obstacles = {wall({590.f, 180.f}, {20.f, 640.f}), wall({610.f, 180.f}, {400.f, 20.f}), wall({610.f, 800.f}, {400.f, 20.f})};
+      if (scenario == 5) continuousFog.agents[0].position += sf::Vector2f{13.f, 7.f};
+      const auto continuousBoundary = Visibility::BuildGrid(continuousFog, continuousFog.agents[0]);
+      const auto hiddenFloor = continuousFog.agents[0].position + sf::Vector2f{150.f, 0.f};
+      if ((scenario == 1 || scenario == 4) && WorldRenderer::FogOpacity(continuousBoundary, hiddenFloor) != 1.f) throw std::runtime_error("La niebla suave atraviesa un muro en fixture visual");
+      for (std::size_t zoomIndex = 0; zoomIndex < zoomNames.size(); ++zoomIndex) {
+        const std::size_t preferredZoom = scenario == 0 || scenario == 5 ? 0 : 1;
+        if (scenario != 6 && zoomIndex != preferredZoom) continue;
+        renderer.ResetZoom();
+        if (zoomIndex != 1) renderer.AdjustZoom(zoomIndex == 0 ? -100.f : 100.f);
+        const auto file = output / ("world-soft-fog-" + std::string(fogScenarios[scenario]) + "-" + zoomNames[zoomIndex] + ".png");
+        const auto pixels = capture(renderer, continuousFog, file);
+        if (scenario == 0) {
+          std::set<std::uint32_t> transitionColors;
+          for (int distance = 367; distance < 400; ++distance) {
+            const auto point = WorldRenderer::ProjectGround(fogAgent.position + sf::Vector2f{static_cast<float>(distance), 0.f}, fogAgent.position, context.window.GetLogicalSize(), renderer.GetZoom());
+            const auto pixel = point.componentWiseDiv(context.window.GetLogicalSize()).componentWiseMul(sf::Vector2f(pixels.getSize()));
+            transitionColors.insert(pixels.getPixel(sf::Vector2u(pixel)).toInteger());
+          }
+          if (transitionColors.size() < 12) throw std::runtime_error("La captura real conserva opacidades binarias en el borde de niebla");
+          metadata.push_back({{"file", file.filename().string()}, {"capturedTransitionColors", transitionColors.size()}, {"smoothPixelsVerified", true}});
+        }
+        metadata.push_back({{"file", file.filename().string()}, {"fogScenario", fogScenarios[scenario]}, {"zoom", renderer.GetZoom()},
+            {"continuousRayCount", continuousBoundary.visualRadii.size()}, {"featherWidth", PresentationConfig::FogFeatherWidth}, {"tileMaskDrawn", false}});
+      }
+    }
+    continuousFog.objects.clear(); continuousFog.obstacles.clear(); continuousFog.agents[0] = fogAgent;
+    const std::array<const char *, 4> eyeStates{{"quiet", "partial", "imminent", "confirmed"}};
+    const std::array<float, 4> eyeProgress{{0.f, 0.5f, 0.9f, 1.f}};
+    const auto eyeCrop = [&](const sf::Image &pixels) {
+      std::vector<std::uint32_t> values;
+      const auto scale = sf::Vector2f(pixels.getSize()).componentWiseDiv(context.window.GetLogicalSize());
+      const auto from = (PresentationConfig::DetectionHudCenter - sf::Vector2f{34.f, 24.f}).componentWiseMul(scale);
+      const auto to = (PresentationConfig::DetectionHudCenter + sf::Vector2f{34.f, 24.f}).componentWiseMul(scale);
+      for (unsigned int y = static_cast<unsigned int>(from.y); y < static_cast<unsigned int>(to.y); ++y) for (unsigned int x = static_cast<unsigned int>(from.x); x < static_cast<unsigned int>(to.x); ++x) {
+        values.push_back(pixels.getPixel({x, y}).toInteger());
+      }
+      return values;
+    };
+    std::vector<std::uint32_t> previousEye;
+    for (std::size_t state = 0; state < eyeStates.size(); ++state) {
+      continuousFog.agents[0].detectionProgress = eyeProgress[state]; continuousFog.agents[0].detectionConfirmed = state == 3;
+      std::vector<std::uint32_t> reference;
+      for (std::size_t zoomIndex = 0; zoomIndex < zoomNames.size(); ++zoomIndex) {
+        renderer.ResetZoom();
+        if (zoomIndex != 1) renderer.AdjustZoom(zoomIndex == 0 ? -100.f : 100.f);
+        const auto file = output / ("world-eye-" + std::string(eyeStates[state]) + "-" + zoomNames[zoomIndex] + ".png");
+        const auto pixels = capture(renderer, continuousFog, file);
+        const auto crop = eyeCrop(pixels);
+        if (zoomIndex == 0) {
+          reference = crop;
+          if (!previousEye.empty() && previousEye == crop) throw std::runtime_error("El ojo no cambia de representación al crecer la detección autoritativa");
+          previousEye = crop;
+        } else if (reference != crop) throw std::runtime_error("El zoom del mundo desplaza o escala el icono de vigilancia del HUD");
+        metadata.push_back({{"file", file.filename().string()}, {"detectionProgress", eyeProgress[state]}, {"confirmed", state == 3}, {"fixedHudAcrossZoom", true}});
+      }
+    }
+    renderer.ResetZoom();
+    continuousFog.obstacles = {wall({590.f, 180.f}, {20.f, 640.f})};
+    Guard privateWatcher;
+    privateWatcher.id = 9; privateWatcher.position = {700.f, 500.f}; privateWatcher.suspicion = 0.9f; privateWatcher.state = GuardState::Alert;
+    continuousFog.guards = {privateWatcher};
+    const auto eyePrivate = capture(renderer, continuousFog, output / "world-eye-private-observer.png");
+    continuousFog.guards.clear();
+    const auto eyeRedacted = capture(renderer, continuousFog, output / "world-eye-private-redacted.png");
+    if (!identical(eyePrivate, eyeRedacted)) throw std::runtime_error("El indicador de vigilancia revela la posición de un observador privado");
+    metadata.push_back({{"file", "world-eye-private-observer.png"}, {"hiddenObserverIdenticalToRedacted", true}});
+    const auto eyeMenuHidden = capture(renderer, continuousFog, output / "world-eye-menu-hidden.png", false);
+    const auto pupil = PresentationConfig::DetectionHudCenter.componentWiseDiv(context.window.GetLogicalSize()).componentWiseMul(sf::Vector2f(eyeMenuHidden.getSize()));
+    if (eyeRedacted.getPixel(sf::Vector2u(pupil)) != PresentationConfig::Light || eyeMenuHidden.getPixel(sf::Vector2u(pupil)) == PresentationConfig::Light || eyeCrop(eyeMenuHidden) == eyeCrop(eyeRedacted)) {
+      throw std::runtime_error("El ojo de vigilancia permanece detrás de los menús o pausa");
+    }
+    metadata.push_back({{"file", "world-eye-menu-hidden.png"}, {"hudVisible", false}, {"eyeSuppressedForMenus", true}});
+    WorldState inspectedFurniture = furniture;
+    inspectedFurniture.visibility = {}; inspectedFurniture.objects.clear(); inspectedFurniture.obstacles.clear();
+    inspectedFurniture.agents[0].position = {350.f, 420.f};
+    Interactable inspectionTable;
+    inspectionTable.id = 50; inspectionTable.kind = ObjectKind::Hideout; inspectionTable.hideoutKind = HideoutKind::UnderTable; inspectionTable.position = {350.f, 340.f};
+    inspectedFurniture.objects.push_back(inspectionTable);
+    const auto restingTable = capture(renderer, inspectedFurniture, output / "world-table-resting.png");
+    inspectedFurniture.objects[0].inspectionProgress = 0.5f;
+    const auto inspectingTable = capture(renderer, inspectedFurniture, output / "world-table-inspecting.png");
+    inspectedFurniture.objects[0].inspectionProgress = 0.f; inspectedFurniture.objects[0].lifted = true;
+    const auto liftedTable = capture(renderer, inspectedFurniture, output / "world-table-lifted.png");
+    if (identical(restingTable, inspectingTable) || identical(inspectingTable, liftedTable)) throw std::runtime_error("La mesa no representa la transición lógica de inspección y levantamiento");
+    metadata.push_back({{"file", "world-table-inspecting.png"}, {"inspectionProgress", 0.5f}, {"distinctLiftedState", true}});
+    WorldState partialHideout;
+    partialHideout.phase = GamePhase::Mission; partialHideout.size = {1200.f, 1000.f};
+    fogAgent.position = {500.f, 500.f}; fogAgent.hidden = true; fogAgent.hideoutId = inspectionTable.id; fogAgent.stance = Stance::Prone;
+    partialHideout.agents = {fogAgent}; inspectionTable.position = fogAgent.position; inspectionTable.occupantAgent = fogAgent.id; inspectionTable.occupied = true;
+    partialHideout.objects = {inspectionTable};
+    const auto tableForward = capture(renderer, partialHideout, output / "world-table-view-forward.png");
+    partialHideout.agents[0].facing = {-1.f, 0.f};
+    const auto tableBackward = capture(renderer, partialHideout, output / "world-table-view-backward.png");
+    if (identical(tableForward, tableBackward)) throw std::runtime_error("La niebla desde debajo de la mesa no gira con la orientación real");
+    partialHideout.objects[0].hideoutKind = HideoutKind::Closet; partialHideout.objects[0].facing = {1.f, 0.f};
+    partialHideout.agents[0].facing = {1.f, 0.f};
+    const auto closetClosed = capture(renderer, partialHideout, output / "world-closet-view-closed.png");
+    partialHideout.objects[0].open = true;
+    const auto closetOpen = capture(renderer, partialHideout, output / "world-closet-view-open.png");
+    if (identical(closetClosed, closetOpen)) throw std::runtime_error("Abrir el armario no modifica su abertura ni su visión exterior limitada");
+    metadata.push_back({{"file", "world-table-view-forward.png"}, {"orientationChangesFog", true}, {"hiddenSilhouetteOmitted", true}});
+    metadata.push_back({{"file", "world-closet-view-open.png"}, {"closedAndOpenDiffer", true}, {"limitedAperture", partialHideout.objects[0].hideoutAperture}});
     std::ofstream(output / "world-fixtures.json") << metadata.dump(2);
     return metadata;
   }

@@ -11,6 +11,7 @@
 #include <cmath>
 #include <initializer_list>
 #include <optional>
+#include <numbers>
 
 struct EngineContext;
 namespace sf { class Font; class Texture; }
@@ -21,6 +22,7 @@ namespace NoTrace {
     using AimSolution = CombatGeometry::AimSolution;
     enum class GuardIndicator { None, Suspicion, Confirmed, Combat, Unconscious };
     struct SpriteFrame { std::size_t index = 0; bool prone = false; bool mirror = false; };
+    struct DetectionVisual { unsigned int segments = 0; sf::Color color; bool confirmed = false; };
     struct SpritePlacement {
       sf::Vector2f position, origin, scale;
       sf::Vector2f Map(sf::Vector2f point) const { return position + (point - origin).componentWiseMul(scale); }
@@ -55,7 +57,7 @@ namespace NoTrace {
     void PixelLine(sf::Vector2f from, sf::Vector2f to, sf::Color color, float thickness = 2.f) const;
     void Label(const std::string &text, sf::Vector2f position, sf::Color color, unsigned int size = PresentationConfig::WorldLabelSize) const;
     void Box(sf::FloatRect bounds, float height, sf::Vector2f camera, sf::Color top, sf::Color left, sf::Color right) const;
-    void Floor(const WorldState &world, sf::Vector2f camera, const VisibilityGrid &visibility) const;
+    void Floor(const WorldState &world, sf::Vector2f camera) const;
     void Fog(const WorldState &world, sf::Vector2f camera, const VisibilityGrid &visibility) const;
     void ObstacleArt(const Obstacle &obstacle, sf::Vector2f camera) const;
     void ObjectArt(const Interactable &object, sf::Vector2f camera, bool nearby) const;
@@ -73,6 +75,7 @@ namespace NoTrace {
     void DecoyPreview(const WorldState &world, sf::Vector2f camera, const Agent *observer) const;
     void Footsteps(const WorldState &world, sf::Vector2f camera, const Agent *observer) const;
     void Minimap(const WorldState &world, PlayerId localPlayer, const VisibilityGrid &visibility) const;
+    void DetectionEye(const WorldState &world, const Agent *observer) const;
 
   public:
     explicit WorldRenderer(EngineContext &context);
@@ -84,7 +87,7 @@ namespace NoTrace {
       decoyPreviewDirection_ = direction;
       decoyPreviewDistance_ = std::isfinite(distance) ? std::max(0.f, distance) : 0.f;
     }
-    void Render(const WorldState &world, PlayerId localPlayer) const;
+    void Render(const WorldState &world, PlayerId localPlayer, bool hudVisible = true) const;
     sf::Vector2f ScreenToGround(sf::Vector2f logical, const WorldState &world, PlayerId localPlayer) const;
     sf::Vector2f AimToGround(sf::Vector2f logical, const WorldState &world, PlayerId localPlayer) const;
     AimSolution AimAt(sf::Vector2f logical, const WorldState &world, PlayerId localPlayer) const;
@@ -198,6 +201,46 @@ namespace NoTrace {
       const auto row = static_cast<unsigned int>(point.y / grid.cellSize);
       const auto index = static_cast<std::size_t>(row) * grid.columns + column;
       return column < grid.columns && row < grid.rows && index < grid.cells.size() && grid.cells[index] != 0;
+    }
+    static float FogBoundaryRadius(const VisibilityGrid &grid, float angle) {
+      if (grid.visualRadii.size() != VisibilityConfig::VisualRayCount || !std::isfinite(angle)) return 0.f;
+      const float turn = 2.f * std::numbers::pi_v<float>;
+      const float sample = (angle - std::floor(angle / turn) * turn) * grid.visualRadii.size() / turn;
+      const auto first = static_cast<std::size_t>(sample) % grid.visualRadii.size();
+      const auto radius = [&grid](std::size_t index) {
+        const auto count = grid.visualRadii.size();
+        const float result = std::min({grid.visualRadii[(index + count - 1) % count], grid.visualRadii[index], grid.visualRadii[(index + 1) % count]});
+        return std::isfinite(result) ? std::clamp(result, 0.f, VisibilityConfig::StandingRange) : 0.f;
+      };
+      const float fraction = sample - std::floor(sample);
+      return radius(first) * (1.f - fraction) + radius((first + 1) % grid.visualRadii.size()) * fraction;
+    }
+    static float FogOpacity(const VisibilityGrid &grid, sf::Vector2f point) {
+      const auto delta = point - grid.visualOrigin;
+      const float limit = FogBoundaryRadius(grid, std::atan2(delta.y, delta.x));
+      if (limit <= 0.f || delta.length() >= limit) return 1.f;
+      float distance = PresentationConfig::FogFeatherWidth;
+      const auto vertex = [&](std::size_t index) {
+        const float angle = index * 2.f * std::numbers::pi_v<float> / grid.visualRadii.size();
+        return grid.visualOrigin + sf::Vector2f{std::cos(angle), std::sin(angle)} * FogBoundaryRadius(grid, angle);
+      };
+      auto first = vertex(0);
+      for (std::size_t index = 1; index <= grid.visualRadii.size(); ++index) {
+        const auto last = vertex(index % grid.visualRadii.size());
+        const auto edge = last - first;
+        const float along = edge.lengthSquared() > 0.f ? std::clamp((point - first).dot(edge) / edge.lengthSquared(), 0.f, 1.f) : 0.f;
+        distance = std::min(distance, (point - first - edge * along).length());
+        first = last;
+      }
+      const float blend = std::clamp(1.f - distance / PresentationConfig::FogFeatherWidth, 0.f, 1.f);
+      return blend * blend * (3.f - 2.f * blend);
+    }
+    static DetectionVisual DetectionFor(const Agent &agent) {
+      const float progress = std::isfinite(agent.detectionProgress) ? std::clamp(agent.detectionProgress, 0.f, 1.f) : 0.f;
+      const bool confirmed = agent.detectionConfirmed;
+      auto color = confirmed || progress >= PresentationConfig::DetectionWarningThreshold ? PresentationConfig::Red : PresentationConfig::Amber;
+      color.a = static_cast<std::uint8_t>(96.f + progress * 159.f);
+      return {confirmed ? PresentationConfig::DetectionEyeSegments : static_cast<unsigned int>(std::ceil(progress * PresentationConfig::DetectionEyeSegments)), color, confirmed};
     }
     static bool FootprintVisible(const WorldState &world, const Agent &observer, sf::FloatRect footprint) {
       if (world.phase != GamePhase::Mission) return true;

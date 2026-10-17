@@ -71,6 +71,73 @@ namespace NoTrace {
       }
       return origin + delta * nearest;
     }
+
+    template <typename Project>
+    sf::VertexArray FogMask(const WorldState &world, const VisibilityGrid &visibility, Project project) {
+      sf::VertexArray mask(sf::PrimitiveType::Triangles);
+      const auto quad = [&](sf::Vector2f a, sf::Vector2f b, sf::Vector2f c, sf::Vector2f d, sf::Color inner, sf::Color outer) {
+        for (const auto &vertex : std::array<sf::Vertex, 6>{{{project(a), inner}, {project(b), inner}, {project(c), outer},
+            {project(a), inner}, {project(c), outer}, {project(d), outer}}}) mask.append(vertex);
+      };
+      if (visibility.visualRadii.size() != VisibilityConfig::VisualRayCount) {
+        quad({}, {world.size.x, 0.f}, world.size, {0.f, world.size.y}, PresentationConfig::Fog, PresentationConfig::Fog);
+        return mask;
+      }
+      const float turn = 2.f * std::numbers::pi_v<float>;
+      std::vector<float> angles;
+      for (std::size_t index = 0; index < visibility.visualRadii.size(); ++index) angles.push_back(turn * index / visibility.visualRadii.size());
+      for (const auto corner : {sf::Vector2f{}, sf::Vector2f{world.size.x, 0.f}, world.size, sf::Vector2f{0.f, world.size.y}}) {
+        const auto delta = corner - visibility.visualOrigin;
+        const float angle = std::atan2(delta.y, delta.x);
+        angles.push_back(angle < 0.f ? angle + turn : angle);
+      }
+      std::sort(angles.begin(), angles.end());
+      angles.erase(std::unique(angles.begin(), angles.end(), [](float first, float last) { return std::abs(first - last) < 0.00001f; }), angles.end());
+      const auto edge = [&](sf::Vector2f direction) {
+        float distance = world.size.length() * 2.f;
+        if (direction.x > 0.00001f) distance = std::min(distance, (world.size.x - visibility.visualOrigin.x) / direction.x);
+        if (direction.x < -0.00001f) distance = std::min(distance, -visibility.visualOrigin.x / direction.x);
+        if (direction.y > 0.00001f) distance = std::min(distance, (world.size.y - visibility.visualOrigin.y) / direction.y);
+        if (direction.y < -0.00001f) distance = std::min(distance, -visibility.visualOrigin.y / direction.y);
+        return std::max(0.f, distance);
+      };
+      std::vector<sf::Vector2f> boundary, exterior, interior;
+      for (const float angle : angles) {
+        const sf::Vector2f direction{std::cos(angle), std::sin(angle)};
+        const float mapEdge = edge(direction);
+        boundary.push_back(visibility.visualOrigin + direction * std::min(mapEdge, WorldRenderer::FogBoundaryRadius(visibility, angle)));
+        exterior.push_back(visibility.visualOrigin + direction * mapEdge);
+      }
+      for (std::size_t index = 0; index < boundary.size(); ++index) {
+        const auto point = boundary[index], before = point - boundary[(index + boundary.size() - 1) % boundary.size()], after = boundary[(index + 1) % boundary.size()] - point;
+        const auto normal = [](sf::Vector2f direction) { return direction.lengthSquared() > 0.f ? sf::Vector2f{-direction.y, direction.x} / direction.length() : sf::Vector2f{}; };
+        const auto firstNormal = normal(before), lastNormal = normal(after);
+        auto offset = (firstNormal + lastNormal) * (FogFeatherWidth / std::max(0.1f, 1.f + firstNormal.dot(lastNormal)));
+        const float maximum = std::min(FogFeatherWidth * 2.f, (point - visibility.visualOrigin).length() * 0.95f);
+        if (offset.length() > maximum) offset *= maximum / offset.length();
+        auto inner = point + offset;
+        const auto delta = inner - visibility.visualOrigin;
+        const float allowed = WorldRenderer::FogBoundaryRadius(visibility, std::atan2(delta.y, delta.x));
+        if (delta.length() > allowed && delta.lengthSquared() > 0.f) inner = visibility.visualOrigin + delta / delta.length() * std::max(0.f, allowed - FogFeatherWidth);
+        interior.push_back(inner);
+      }
+      for (std::size_t sector = 0; sector < boundary.size(); ++sector) {
+        const auto next = (sector + 1) % boundary.size();
+        const auto firstPoint = [&](float blend) { return interior[sector] + (boundary[sector] - interior[sector]) * blend; };
+        const auto lastPoint = [&](float blend) { return interior[next] + (boundary[next] - interior[next]) * blend; };
+        const auto tint = [](float blend) {
+          auto color = PresentationConfig::Fog;
+          color.a = static_cast<std::uint8_t>(255.f * blend * blend * (3.f - 2.f * blend));
+          return color;
+        };
+        for (unsigned int band = 0; band < FogFeatherBands; ++band) {
+          const float inner = static_cast<float>(band) / FogFeatherBands, outer = static_cast<float>(band + 1) / FogFeatherBands;
+          quad(firstPoint(inner), lastPoint(inner), lastPoint(outer), firstPoint(outer), tint(inner), tint(outer));
+        }
+        quad(firstPoint(1.f), lastPoint(1.f), exterior[next], exterior[sector], PresentationConfig::Fog, PresentationConfig::Fog);
+      }
+      return mask;
+    }
   }
 
   WorldRenderer::WorldRenderer(EngineContext &context)
@@ -164,18 +231,17 @@ namespace NoTrace {
     PixelLine(c, c - rise, Shade(right, 0.7f));
   }
 
-  void WorldRenderer::Floor(const WorldState &world, sf::Vector2f camera, const VisibilityGrid &visibility) const {
+  void WorldRenderer::Floor(const WorldState &world, sf::Vector2f camera) const {
     using namespace PresentationConfig;
     sf::VertexArray tiles(sf::PrimitiveType::Triangles);
     sf::VertexArray grid(sf::PrimitiveType::Lines);
     const bool fog = world.phase == GamePhase::Mission;
-    const float tile = fog && visibility.cellSize > 0.f ? visibility.cellSize : FloorTileSize;
+    const float tile = FloorTileSize;
     const int columns = static_cast<int>(std::ceil(world.size.x / tile));
     const int rows = static_cast<int>(std::ceil(world.size.y / tile));
     for (int x = 0; x < columns; ++x) for (int y = 0; y < rows; ++y) {
       const sf::Vector2f start{x * tile, y * tile};
       const sf::Vector2f end{std::min(start.x + tile, world.size.x), std::min(start.y + tile, world.size.y)};
-      if (fog && !VisibleCell(visibility, (start + end) * 0.5f)) continue;
       const auto a = GroundToScreen(start, camera);
       const auto b = GroundToScreen({end.x, start.y}, camera);
       const auto c = GroundToScreen(end, camera);
@@ -195,7 +261,6 @@ namespace NoTrace {
       PixelLine(c, d, WallTop, 4.f); PixelLine(d, a, WallTop, 4.f);
     }
     for (float x = 72.f; x < world.size.x; x += 144.f) {
-      if (fog && !VisibleCell(visibility, {x, 24.f})) continue;
       const auto light = GroundToScreen({x, 24.f}, camera);
       PixelRect(light - sf::Vector2f{14.f, 2.f}, {28.f, 4.f}, {93, 139, 153});
     }
@@ -206,17 +271,12 @@ namespace NoTrace {
   }
 
   void WorldRenderer::Fog(const WorldState &world, sf::Vector2f camera, const VisibilityGrid &visibility) const {
-    if (world.phase != GamePhase::Mission || visibility.cellSize <= 0.f) return;
-    sf::VertexArray mask(sf::PrimitiveType::Triangles);
-    for (unsigned int x = 0; x < visibility.columns; ++x) for (unsigned int y = 0; y < visibility.rows; ++y) {
-      const sf::Vector2f start{x * visibility.cellSize, y * visibility.cellSize};
-      const sf::Vector2f end{std::min(start.x + visibility.cellSize, world.size.x), std::min(start.y + visibility.cellSize, world.size.y)};
-      if (VisibleCell(visibility, (start + end) * 0.5f)) continue;
-      const auto a = GroundToScreen(start, camera), b = GroundToScreen({end.x, start.y}, camera);
-      const auto c = GroundToScreen(end, camera), d = GroundToScreen({start.x, end.y}, camera);
-      for (const auto point : {a, b, c, a, c, d}) mask.append({point, PresentationConfig::Fog});
-    }
-    ctx_.renderer.Draw(mask);
+    if (world.phase != GamePhase::Mission) return;
+    const auto focus = LogicalCenter(ctx_.window.GetLogicalSize());
+    ctx_.renderer.Draw(FogMask(world, visibility, [&](sf::Vector2f point) {
+      const auto delta = point - camera;
+      return focus + sf::Vector2f{(delta.x - delta.y) * PresentationConfig::GroundProjection.x, (delta.x + delta.y) * PresentationConfig::GroundProjection.y};
+    }));
   }
 
   void WorldRenderer::ObstacleArt(const Obstacle &obstacle, sf::Vector2f camera) const {
@@ -301,25 +361,41 @@ namespace NoTrace {
       const auto bounds = ObjectFootprint(object);
       const float height = WorldGeometry::ObjectHeight(object);
       if (type == HideoutKind::UnderTable) {
+        const float tableHeight = SpatialConfig::UnderTableHeight;
+        const float lifting = object.lifted ? 1.f : std::clamp(object.inspectionProgress, 0.f, 1.f);
         for (const float x : {bounds.position.x + 3.f, bounds.position.x + bounds.size.x - 9.f}) for (const float y : {bounds.position.y + 3.f, bounds.position.y + bounds.size.y - 9.f}) {
-          Box({{x, y}, {6.f, 6.f}}, height, camera, WallTop, WallLeft, WallRight);
+          Box({{x, y}, {6.f, 6.f}}, tableHeight, camera, WallTop, WallLeft, WallRight);
         }
-        const sf::Vector2f rise{0.f, height};
+        const sf::Vector2f rise{0.f, tableHeight};
         const auto a = GroundToScreen(bounds.position, camera) - rise;
         const auto b = GroundToScreen(bounds.position + sf::Vector2f{bounds.size.x, 0.f}, camera) - rise;
-        const auto c = GroundToScreen(bounds.position + bounds.size, camera) - rise;
-        const auto d = GroundToScreen(bounds.position + sf::Vector2f{0.f, bounds.size.y}, camera) - rise;
+        const auto c = GroundToScreen(bounds.position + bounds.size, camera) - rise - sf::Vector2f{0.f, 42.f * lifting};
+        const auto d = GroundToScreen(bounds.position + sf::Vector2f{0.f, bounds.size.y}, camera) - rise - sf::Vector2f{0.f, 42.f * lifting};
         Polygon({d, c, c + sf::Vector2f{0.f, 5.f}, d + sf::Vector2f{0.f, 5.f}}, CrateLeft);
         Polygon({b, c, c + sf::Vector2f{0.f, 5.f}, b + sf::Vector2f{0.f, 5.f}}, CrateRight);
         Polygon({a, b, c, d}, CrateTop);
         PixelLine(d, c, Light); PixelLine(c, b, Outline);
+        if (object.inspectionProgress > 0.f && !object.lifted) {
+          const auto marker = feet - sf::Vector2f{0.f, tableHeight + 18.f};
+          PixelLine(marker + sf::Vector2f{-6.f, 6.f}, marker, Amber);
+          PixelLine(marker, marker + sf::Vector2f{6.f, 6.f}, Amber);
+          Label("INSPECCIÓN", feet + sf::Vector2f{0.f, 5.f}, Amber, 11);
+        }
       } else if (type == HideoutKind::Closet) {
         cabinet(height);
-        PixelRect(feet + sf::Vector2f{-17.f, -height + 7.f}, {34.f, height - 10.f}, Outline);
-        PixelRect(feet + sf::Vector2f{-15.f, -height + 9.f}, {30.f, height - 14.f}, WallLeft);
-        PixelLine(feet + sf::Vector2f{0.f, -height + 9.f}, feet - sf::Vector2f{0.f, 7.f}, Outline);
-        PixelRect(feet + sf::Vector2f{-6.f, -height * 0.5f}, {3.f, 7.f}, Light);
-        PixelRect(feet + sf::Vector2f{4.f, -height * 0.5f}, {3.f, 7.f}, Light);
+        const auto normal = WorldGeometry::HideoutFrontNormal(object);
+        const sf::Vector2f tangent{-normal.y, normal.x};
+        const float depth = (std::abs(normal.x) * bounds.size.x + std::abs(normal.y) * bounds.size.y) * 0.5f;
+        const float width = (std::abs(tangent.x) * bounds.size.x + std::abs(tangent.y) * bounds.size.y) * 0.5f;
+        const auto front = object.position + normal * (depth + 0.5f);
+        const auto left = GroundToScreen(front - tangent * width * 0.85f, camera), right = GroundToScreen(front + tangent * width * 0.85f, camera);
+        const sf::Vector2f bottom{0.f, -4.f}, top{0.f, -height + 5.f};
+        Polygon({left + top, right + top, right + bottom, left + bottom}, Outline);
+        const float aperture = object.open ? std::clamp(object.hideoutAperture, 0.f, 1.f) : 0.f;
+        const auto seam = left + (right - left) * (1.f - aperture);
+        Polygon({left + top + sf::Vector2f{0.f, 2.f}, seam + top + sf::Vector2f{0.f, 2.f}, seam + bottom, left + bottom}, WallLeft);
+        PixelLine(seam + top, seam + bottom, Light);
+        if (object.open) PixelLine(right + top, right + bottom, Shade(WallTop, 1.25f));
       } else {
         cabinet(height);
         PixelRect(feet + sf::Vector2f{-15.f, -height - 2.f}, {30.f, 4.f}, Outline);
@@ -605,13 +681,8 @@ namespace NoTrace {
     const auto player = std::find_if(world.agents.begin(), world.agents.end(), [localPlayer](const Agent &agent) { return agent.id == localPlayer; });
     const bool fog = world.phase == GamePhase::Mission;
     const auto visible = [&](sf::Vector2f point) { return !fog || (player != world.agents.end() && Visibility::IsVisible(world, *player, point)); };
-    PixelRect(origin, MinimapGroundSize, fog ? PresentationConfig::Fog : sf::Color{22, 33, 42});
-    if (fog) for (unsigned int x = 0; x < visibility.columns; ++x) for (unsigned int y = 0; y < visibility.rows; ++y) {
-      const sf::Vector2f position{x * visibility.cellSize, y * visibility.cellSize};
-      if (!VisibleCell(visibility, position + sf::Vector2f{visibility.cellSize * 0.5f, visibility.cellSize * 0.5f})) continue;
-      const sf::Vector2f size{std::min(visibility.cellSize, world.size.x - position.x), std::min(visibility.cellSize, world.size.y - position.y)};
-      PixelRect(map(position), size.componentWiseMul(scale), {22, 33, 42});
-    }
+    PixelRect(origin, MinimapGroundSize, {22, 33, 42});
+    if (fog) ctx_.renderer.Draw(FogMask(world, visibility, map));
     for (const auto &obstacle : world.obstacles) {
       if (fog && (player == world.agents.end() || !FootprintVisible(world, *player, obstacle.bounds))) continue;
       PixelRect(map(obstacle.bounds.position), obstacle.bounds.size.componentWiseMul(scale),
@@ -662,7 +733,34 @@ namespace NoTrace {
     }
   }
 
-  void WorldRenderer::Render(const WorldState &world, PlayerId localPlayer) const {
+  void WorldRenderer::DetectionEye(const WorldState &world, const Agent *observer) const {
+    if (world.phase != GamePhase::Mission || !observer || !observer->alive || observer->incapacitated || observer->extracted) return;
+    const auto visual = DetectionFor(*observer);
+    const auto center = PresentationConfig::DetectionHudCenter;
+    Polygon({center + sf::Vector2f{-34.f, -26.f}, center + sf::Vector2f{34.f, -26.f}, center + sf::Vector2f{38.f, -22.f},
+        center + sf::Vector2f{38.f, 22.f}, center + sf::Vector2f{34.f, 26.f}, center + sf::Vector2f{-34.f, 26.f},
+        center + sf::Vector2f{-38.f, 22.f}, center + sf::Vector2f{-38.f, -22.f}}, PresentationConfig::Outline);
+    const std::array<sf::Vector2f, PresentationConfig::DetectionEyeSegments> contour{{{-24.f, 0.f}, {-20.f, -6.f}, {-14.f, -10.f}, {-8.f, -14.f},
+        {0.f, -16.f}, {8.f, -14.f}, {14.f, -10.f}, {20.f, -6.f}, {24.f, 0.f}, {20.f, 6.f}, {14.f, 10.f}, {8.f, 14.f},
+        {0.f, 16.f}, {-8.f, 14.f}, {-14.f, 10.f}, {-20.f, 6.f}}};
+    for (std::size_t segment = 0; segment < contour.size(); ++segment) {
+      const auto color = segment < visual.segments ? visual.color : sf::Color{69, 86, 98, 100};
+      PixelLine(center + contour[segment], center + contour[(segment + 1) % contour.size()], color, 2.f);
+    }
+    const auto iris = visual.segments > 0 ? visual.color : sf::Color{69, 86, 98, 100};
+    PixelRect(center - sf::Vector2f{6.f, 8.f}, {12.f, 16.f}, iris);
+    PixelRect(center - sf::Vector2f{8.f, 4.f}, {16.f, 8.f}, iris);
+    PixelRect(center - sf::Vector2f{2.f, 6.f}, {4.f, 12.f}, visual.confirmed ? PresentationConfig::Light : PresentationConfig::Outline);
+    if (visual.confirmed) for (const float side : {-1.f, 1.f}) {
+      const auto corner = center + sf::Vector2f{side * 32.f, -20.f};
+      PixelLine(corner, corner - sf::Vector2f{side * 8.f, 0.f}, PresentationConfig::Red, 2.f);
+      PixelLine(corner, corner + sf::Vector2f{0.f, 10.f}, PresentationConfig::Red, 2.f);
+      PixelLine(corner + sf::Vector2f{0.f, 40.f}, corner + sf::Vector2f{-side * 8.f, 40.f}, PresentationConfig::Red, 2.f);
+      PixelLine(corner + sf::Vector2f{0.f, 40.f}, corner + sf::Vector2f{0.f, 30.f}, PresentationConfig::Red, 2.f);
+    }
+  }
+
+  void WorldRenderer::Render(const WorldState &world, PlayerId localPlayer, bool hudVisible) const {
     ctx_.renderer.ResetView();
     PixelRect({}, ctx_.window.GetLogicalSize(), PresentationConfig::Void);
     ctx_.renderer.SetView(WorldView(ctx_.window.GetLogicalSize(), zoom_));
@@ -675,7 +773,7 @@ namespace NoTrace {
     const auto guardVisible = [&](const Guard &guard) { return !guard.bodyHidden && guard.storedIn == 0 && (!fog || (observer && Visibility::GuardVisible(world, *observer, guard))); };
     const auto obstacleVisible = [&](const Obstacle &obstacle) { return !fog || (observer && FootprintVisible(world, *observer, obstacle.bounds)); };
     const auto visibility = observer ? Visibility::BuildGrid(world, *observer) : VisibilityGrid{};
-    Floor(world, camera, visibility);
+    Floor(world, camera);
     for (const auto &obstacle : world.obstacles) if (obstacle.cover == CoverKind::Hide && obstacleVisible(obstacle)) ObstacleArt(obstacle, camera);
     for (const auto &guard : world.guards) if (guardVisible(guard)) Vision(guard, world, camera);
     for (const auto &object : world.objects) {
@@ -722,5 +820,6 @@ namespace NoTrace {
     Combat(world, camera, observer);
     ctx_.renderer.ResetView();
     Minimap(world, localPlayer, visibility);
+    if (hudVisible) DetectionEye(world, observer);
   }
 }

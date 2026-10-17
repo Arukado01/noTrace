@@ -270,6 +270,71 @@ int main() {
     NoTrace::ShotTrace shot;
     shot.toHeight = 38.f;
     Require(WorldRenderer::ShotImpactHeight(shot, fogWorld) == 38.f, "La presentación reemplaza la altura de impacto resuelta por el anfitrión");
+    NoTrace::WorldState softFog;
+    softFog.phase = NoTrace::GamePhase::Mission; softFog.size = {1200.f, 1000.f};
+    NoTrace::Agent viewer;
+    viewer.id = 1; viewer.position = {500.f, 500.f}; viewer.facing = {1.f, 0.f};
+    softFog.agents.push_back(viewer);
+    const auto openFog = NoTrace::Visibility::BuildGrid(softFog, viewer);
+    Require(openFog.visualRadii.size() == NoTrace::VisibilityConfig::VisualRayCount && openFog.visualOrigin == viewer.position,
+        "La frontera continua no usa rayos propios del observador");
+    const float openLimit = WorldRenderer::FogBoundaryRadius(openFog, 0.f);
+    Require(openLimit > 399.f && openLimit <= NoTrace::VisibilityConfig::StandingRange, "La niebla reduce o amplía el alcance real en una habitación abierta");
+    float previousOpacity = -1.f;
+    std::set<int> opacityLevels;
+    for (int distance = 360; distance <= 405; ++distance) {
+      const float opacity = WorldRenderer::FogOpacity(openFog, viewer.position + sf::Vector2f{static_cast<float>(distance), 0.f});
+      Require(std::isfinite(opacity) && opacity >= previousOpacity && opacity >= 0.f && opacity <= 1.f, "La transición radial de niebla no es gradual y monótona");
+      previousOpacity = opacity; opacityLevels.insert(static_cast<int>(std::round(opacity * 255.f)));
+    }
+    Require(opacityLevels.size() > 25, "La niebla continúa usando dos opacidades o saltos asociados a tiles");
+    const float viewEdge = 107.f * std::numbers::pi_v<float> / 180.f;
+    const auto sideTransition = viewer.position + sf::Vector2f{std::cos(viewEdge), std::sin(viewEdge)} * 250.f;
+    Require(WorldRenderer::FogOpacity(openFog, sideTransition) > 0.1f && WorldRenderer::FogOpacity(openFog, sideTransition) < 1.f,
+        "La niebla suaviza la distancia pero conserva un corte duro en los lados del campo de visión");
+    auto alteredCells = openFog;
+    std::fill(alteredCells.cells.begin(), alteredCells.cells.end(), 0);
+    Require(WorldRenderer::FogOpacity(alteredCells, {880.f, 500.f}) == WorldRenderer::FogOpacity(openFog, {880.f, 500.f}),
+        "El dibujo continuo vuelve a recortarse por la cuadrícula de simulación");
+    for (int index = 1; index < 70; ++index) {
+      const float angle = index * 0.01f;
+      const float radius = WorldRenderer::FogBoundaryRadius(openFog, angle);
+      const sf::Vector2f point = viewer.position + sf::Vector2f{std::cos(angle), std::sin(angle)} * (radius - 10.f);
+      Require(WorldRenderer::FogOpacity(openFog, point) > 0.f && WorldRenderer::FogOpacity(openFog, point) < 1.f,
+          "La transición continua presenta un escalón cuadrado al cambiar de ángulo");
+    }
+    softFog.obstacles = {{{{590.f, 150.f}, {20.f, 700.f}}, NoTrace::CoverKind::High, true, "Pared continua"}};
+    const auto wallFog = NoTrace::Visibility::BuildGrid(softFog, viewer);
+    Require(WorldRenderer::FogBoundaryRadius(wallFog, 0.f) <= 90.f && WorldRenderer::FogOpacity(wallFog, {650.f, 500.f}) == 1.f,
+        "Suavizar el borde revela suelo al otro lado de una pared");
+    softFog.obstacles = {{{{590.f, 150.f}, {20.f, 318.f}}, NoTrace::CoverKind::High, true, "Marco norte"},
+        {{{590.f, 532.f}, {20.f, 318.f}}, NoTrace::CoverKind::High, true, "Marco sur"}};
+    NoTrace::Interactable corridorDoor;
+    corridorDoor.id = 5; corridorDoor.kind = NoTrace::ObjectKind::Door; corridorDoor.position = {600.f, 500.f}; softFog.objects = {corridorDoor};
+    const auto closedFog = NoTrace::Visibility::BuildGrid(softFog, viewer);
+    softFog.objects[0].open = true;
+    const auto openedFog = NoTrace::Visibility::BuildGrid(softFog, viewer);
+    Require(WorldRenderer::FogOpacity(closedFog, {700.f, 500.f}) == 1.f && WorldRenderer::FogOpacity(openedFog, {700.f, 500.f}) == 0.f,
+        "La frontera continua no distingue puerta cerrada y abierta");
+    softFog.objects.clear(); softFog.obstacles.clear();
+    viewer.position += sf::Vector2f{13.f, 7.f}; softFog.agents[0] = viewer;
+    const auto movedFog = NoTrace::Visibility::BuildGrid(softFog, viewer);
+    Require(movedFog.visualOrigin == viewer.position && std::abs(WorldRenderer::FogBoundaryRadius(movedFog, 0.f) - openLimit) < 0.001f,
+        "El movimiento desplaza el contorno por casillas en lugar de seguir al agente");
+    viewer.detectionProgress = 0.f;
+    const auto quietEye = WorldRenderer::DetectionFor(viewer);
+    viewer.detectionProgress = 0.5f;
+    const auto partialEye = WorldRenderer::DetectionFor(viewer);
+    viewer.detectionProgress = 0.9f;
+    const auto warningEye = WorldRenderer::DetectionFor(viewer);
+    viewer.detectionConfirmed = true;
+    const auto confirmedEye = WorldRenderer::DetectionFor(viewer);
+    Require(quietEye.segments == 0 && partialEye.segments == NoTrace::PresentationConfig::DetectionEyeSegments / 2 && warningEye.segments > partialEye.segments,
+        "El ojo no sigue el progreso gradual autoritativo");
+    Require(partialEye.color.r == NoTrace::PresentationConfig::Amber.r && warningEye.color.r == NoTrace::PresentationConfig::Red.r && confirmedEye.confirmed && confirmedEye.segments == NoTrace::PresentationConfig::DetectionEyeSegments,
+        "El ojo no distingue sospecha, advertencia y confirmación");
+    viewer.detectionConfirmed = false; viewer.detectionProgress = std::numeric_limits<float>::quiet_NaN();
+    Require(WorldRenderer::DetectionFor(viewer).segments == 0, "Una intensidad inválida llena el indicador de vigilancia");
     std::cout << "PASS presentación: " << checks << " comprobaciones de ejes, profundidad, zoom, cámara, cursor y cuantización sin ventana\n";
     return 0;
   } catch (const std::exception &error) {

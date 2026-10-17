@@ -64,7 +64,7 @@ namespace NoTrace {
     hint_ = label("", 30.f, 758.f, 1530.f, 22);
     message_ = label("", 30.f, 798.f, 1530.f, 18);
     label("WASD mover / arrastrarse tumbado · Mayús correr · C agacharse · Z tumbarse · E interactuar / mantener para cuerpo", 30.f, 832.f, 1530.f, 16);
-    label("Q golpear pared · R CQC · clic izq. letal / der. no letal · G mantener, soltar: señuelo · F cobertura · Alt asomarse · rueda zoom", 30.f, 863.f, 1550.f, 16);
+    label("F mantener / pulsar: CQC · V empujar · Q pared · G mantener / soltar: señuelo · R cobertura · Alt asomarse · rueda zoom", 30.f, 863.f, 1550.f, 16);
     private_ = tgui::Label::create(); private_->setPosition({34.f, 140.f}); private_->setSize({620.f, 115.f});
     private_->setTextSize(19); private_->getRenderer()->setTextColor({239, 203, 117});
     private_->setIgnoreMouseEvents(true); private_->setVisible(false); root_->add(private_);
@@ -96,9 +96,9 @@ namespace NoTrace {
     const std::array<sf::Keyboard::Scan, Count> keys{
       sf::Keyboard::Scan::A, sf::Keyboard::Scan::D, sf::Keyboard::Scan::W, sf::Keyboard::Scan::S,
       sf::Keyboard::Scan::LShift, sf::Keyboard::Scan::C, sf::Keyboard::Scan::Z,
-      sf::Keyboard::Scan::E, sf::Keyboard::Scan::R, sf::Keyboard::Scan::Unknown, sf::Keyboard::Scan::Unknown,
+      sf::Keyboard::Scan::E, sf::Keyboard::Scan::F, sf::Keyboard::Scan::Unknown, sf::Keyboard::Scan::Unknown,
       sf::Keyboard::Scan::G, sf::Keyboard::Scan::Q, sf::Keyboard::Scan::Unknown, sf::Keyboard::Scan::T,
-      sf::Keyboard::Scan::Tab, sf::Keyboard::Scan::F2, sf::Keyboard::Scan::F, sf::Keyboard::Scan::LAlt
+      sf::Keyboard::Scan::Tab, sf::Keyboard::Scan::F2, sf::Keyboard::Scan::R, sf::Keyboard::Scan::LAlt, sf::Keyboard::Scan::V
     };
     for (int action = 0; action < Count; ++action) if (keys[action] != sf::Keyboard::Scan::Unknown) ctx.input.Bind(action, Input::Keyboard{keys[action]});
     ctx.input.Bind(Lethal, Input::Mouse{sf::Mouse::Button::Left});
@@ -113,6 +113,7 @@ namespace NoTrace {
     session_.Stop(); held_.fill(false); previousPhase_ = GamePhase::Base;
     ready_ = false; paused_ = false; showOrders_ = false; lastAudioEvent_ = 0;
     preparingDecoy_ = false; cancelledDecoy_ = false; worldRenderer_.SetDecoyPreview(false, {}, 0.f);
+    cqcBlocked_ = true;
     BindInputs(); worldRenderer_.ResetZoom(); ctx.renderer.ResetView(); ctx.renderer.SetPostProcessingEnabled(false);
     ctx.renderer.SetTextureSmoothing(false); ctx.cursor.SetVisible(true); ctx.cursor.SetHovered(false);
     root_->setEnabled(true); ctx.gui.Add(root_); Open(Page::Connection); RefreshHud();
@@ -162,14 +163,17 @@ namespace NoTrace {
     command.run = Pressed(Run); command.crouch = Pressed(Crouch, true); command.prone = Pressed(Prone, true);
     command.interact = Pressed(Interact, true);
     command.dragBody = held_[Interact];
-    command.cqc = Pressed(Cqc, true); command.knock = Pressed(Knock, true);
+    if (!ctx.input.Held(Cqc)) cqcBlocked_ = false;
+    command.cqc = !cqcBlocked_ && ctx.input.JustPressed(Cqc);
+    command.cqcHeld = !cqcBlocked_ && ctx.input.Held(Cqc);
+    command.push = Pressed(Shove, true); command.knock = Pressed(Knock, true);
     command.tool = Pressed(Tool, true);
     const bool lethal = Pressed(Lethal, true), nonLethal = Pressed(NonLethal, true);
     const bool decoyHeld = Pressed(Decoy);
     const bool wasPreparing = preparingDecoy_;
     if (!decoyHeld && cancelledDecoy_) cancelledDecoy_ = false;
     const bool canThrow = world.phase == GamePhase::Mission && agent->alive && !agent->incapacitated && !agent->hidden && !agent->extracted && agent->draggingGuard < 0 &&
-        agent->loadout.decoys > 0 && agent->actionCooldown <= 0.f && !command.dragBody && !command.interact && !command.tool && !command.cqc && !command.knock &&
+        agent->loadout.decoys > 0 && agent->actionCooldown <= 0.f && !command.dragBody && !command.interact && !command.tool && !command.cqc && !command.cqcHeld && !command.push && !command.knock &&
         std::ranges::none_of(world.guards, [&](const Guard &guard) { return guard.heldBy == agent->id && guard.cqcState != CqcState::None; });
     if (decoyHeld && canThrow && !cancelledDecoy_) preparingDecoy_ = true;
     const bool decoyContext = preparingDecoy_ || wasPreparing;
@@ -225,7 +229,9 @@ namespace NoTrace {
     RefreshHud();
   }
 
-  void Game::Render() const { worldRenderer_.Render(session_.GetWorld(), session_.GetLocalPlayerId()); }
+  void Game::Render() const {
+    worldRenderer_.Render(session_.GetWorld(), session_.GetLocalPlayerId(), !paused_ && page_ == Page::None && session_.GetWorld().phase == GamePhase::Mission);
+  }
 
   void Game::OnEvent(const sf::Event &event) {
     if (const auto *key = event.getIf<sf::Event::KeyPressed>()) {
@@ -259,6 +265,7 @@ namespace NoTrace {
   }
 
   void Game::Open(Page page) {
+    cqcBlocked_ = true;
     if (preparingDecoy_) cancelledDecoy_ = true;
     preparingDecoy_ = false; worldRenderer_.SetDecoyPreview(false, {}, 0.f);
     page_ = page; session_.Submit({}); panel_->removeAllWidgets(); panel_->setVisible(true);
@@ -329,7 +336,7 @@ namespace NoTrace {
       }
     } else if (page == Page::Intelligence) {
       Label("CENTRO DE INTELIGENCIA", {30.f, 20.f}, {714.f, 45.f}, 28);
-      Label(contract.name + "\n" + contract.briefing + "\n\nLa niebla oculta lo que no observas; los pasos indican movimiento cercano sin identificar al enemigo.\n\nE: interactuar / entrar / salir. Mantén E para arrastrar; suelta para dejar el cuerpo. E en un contenedor vacío lo almacena. La mesa admite al agente tumbado.\n\nQ: golpear pared. Mantén G para apuntar el señuelo y suelta para lanzar; Esc o clic derecho cancela.\n\nR: CQC por etapas. T: herramienta. F: cobertura; Alt + dirección: asomarse.\n\nTab: orden privada. E: reanimar u operar objetivos.", {30.f, 82.f}, {714.f, 450.f}, 18);
+      Label(contract.name + "\n" + contract.briefing + "\n\nLa niebla oculta lo que no observas; el ojo indica detección real. Los pasos no identifican al enemigo.\n\nE: interactuar / escondite. Mantén E para arrastrar. En armario, T abre la puerta; entrada y salida frontales. La mesa permite observar al frente.\n\nF: mantener para agarrar; suelta brevemente y pulsa tres veces para someter. Soltar más tiempo libera. V: empujar.\n\nQ: pared. G: mantener y soltar señuelo; Esc o clic derecho cancela. R: cobertura; Alt + dirección: asomarse.\n\nTab: orden privada. E: reanimar u operar objetivos.", {30.f, 82.f}, {714.f, 450.f}, 18);
     } else {
       Label("DESPLIEGUE / SALA LAN", {30.f, 20.f}, {714.f, 45.f}, 28);
       status_ = Label("", {30.f, 79.f}, {714.f, 65.f}, 18);
@@ -432,8 +439,9 @@ namespace NoTrace {
       Label(std::string(RankName(result.rank)), {30.f, 90.f}, {714.f, 65.f}, 42);
       Label(std::format("{}  ·  {} puntos\n\n{}\n\nObjetivos: {}/{}    Secundarios: {}\nAlarmas confirmadas: {}    Tiempo: {:.0f} s\n\n{}", result.success ? "OPERACIÓN CUMPLIDA" : "OPERACIÓN FALLIDA", result.score, result.reason, world.objectives, GetContract(world.contract).requiredObjectives, world.secondary, world.alarmCount, world.elapsed, result.maestroEligible ? "Disciplina Maestro: sin armas, CQC ni detección." : "La puntuación conserva cada acción y detección de la misión."), {30.f, 175.f}, {714.f, 290.f}, 21);
     } else Label("Esperando el informe del anfitrión…", {30.f, 100.f}, {714.f, 100.f}, 24);
-    auto back = Button("REGRESAR A LA BASE", 475.f, [this] { session_.ReturnToBase(); }); back->setEnabled(!session_.IsClient());
-    Button("SALIR AL MENÚ", 535.f, [this] { ctx.scenes.ChangeScene("Menu"); });
+    auto retry = Button("REINTENTAR OPERACIÓN", 475.f, [this] { if (session_.RestartOperation()) { lastAudioEvent_ = 0; ClosePanel(); } }); retry->setEnabled(!session_.IsClient());
+    auto back = Button("REGRESAR A LA BASE", 535.f, [this] { session_.ReturnToBase(); }); back->setEnabled(!session_.IsClient()); back->setSize({344.f, 44.f});
+    auto menu = Button("SALIR AL MENÚ", 535.f, [this] { ctx.scenes.ChangeScene("Menu"); }); menu->setPosition({400.f, 535.f}); menu->setSize({344.f, 44.f});
   }
 
   void Game::RefreshHud() {
@@ -469,7 +477,8 @@ namespace NoTrace {
       for (const auto &guard : world.guards) if (agent->draggingGuard < 0 && !guard.bodyHidden && (guard.state == GuardState::Dead || guard.state == GuardState::Incapacitated) &&
           Visibility::GuardVisible(world, *agent, guard) && (guard.position - agent->position).length() < GameplayConfig::CqcDistance) hint = "Mantener E para arrastrar el cuerpo.";
       if (agent->draggingGuard >= 0 && nearest >= GameplayConfig::InteractionDistance) hint = "Mantén E para arrastrar; suelta E para dejar el cuerpo.";
-      if (agent->hidden) hint = "E  //  Salir del escondite";
+      if (agent->hidden) hint = "E  //  Salir del escondite; T abre o cierra la puerta del armario";
+      if (agent->cqcHoldingGuard) hint = std::format("CQC  //  F: mantener / soltar brevemente y pulsar ({}/3). Soltar libera; V empuja.", agent->cqcProgress);
       if (preparingDecoy_) hint = "SEÑUELO  //  Apunta con el cursor; suelta G para lanzar. Clic derecho o Esc cancela.";
       hint_->setText(tgui::String(hint));
     } else { agent_->setText("Accede a CIO para preparar tu operación."); hint_->setText("Elige individual, crea una sala o conecta por IP local."); private_->setVisible(false); health_->setVisible(false); stamina_->setVisible(false); }
@@ -510,6 +519,7 @@ namespace NoTrace {
   void Game::OnPause(bool paused) {
     paused_ = paused; session_.Submit({}); root_->setEnabled(!paused);
     if (paused) { preparingDecoy_ = false; cancelledDecoy_ = true; worldRenderer_.SetDecoyPreview(false, {}, 0.f); }
+    if (paused) cqcBlocked_ = true;
     for (int action = 0; action < Count; ++action) held_[action] = ctx.input.Pressed(action);
   }
 

@@ -61,6 +61,16 @@ namespace EngineTests {
       Require(bars == 2, "El HUD debe contener solo los dos indicadores del jugador local");
       agent.health = health; agent.stamina = stamina; game.RefreshHud();
     }
+    static void VerifyGameOverAndRetry(Game &game) {
+      auto &world = const_cast<WorldState &>(game.session_.GetWorld());
+      const auto seed = world.seed;
+      world.agents[0].incapacitated = true; world.agents[0].health = 0.f; world.agents[0].incapacityRemaining = GameplayConfig::IncapacityDuration;
+      Step(game);
+      Require(world.phase == GamePhase::Results && !world.results.at(1).success && game.page_ == Game::Page::Results, "El desmayo no abre la derrota separada de la pausa");
+      Require(HasButton(game, "REINTENTAR") && HasButton(game, "REGRESAR A LA BASE"), "La derrota no conserva las acciones de recuperación");
+      Press(game, "REINTENTAR OPERACIÓN");
+      Require(world.phase == GamePhase::Mission && world.seed == seed && !world.agents[0].incapacitated && game.page_ == Game::Page::None, "Reintentar no restablece la operación tras el desmayo");
+    }
     static void VerifyAudioRestart(Game &game) {
       game.lastAudioEvent_ = 100;
       game.UpdateBackground();
@@ -175,8 +185,8 @@ namespace EngineTests {
       Require(agent.draggingGuard < 0, "Soltar E no termina el arrastre");
       world.guards.clear(); world.obstacles.push_back({{{200.f, 150.f}, {40.f, 100.f}}, CoverKind::High, true, "Pared"});
       agent.position = {187.99f, 155.f}; agent.cover = {};
-      press(sf::Keyboard::Scan::F); release(sf::Keyboard::Scan::F);
-      Require(agent.cover.active, "F no activa la cobertura desde la entrada del juego");
+      press(sf::Keyboard::Scan::R); release(sf::Keyboard::Scan::R);
+      Require(agent.cover.active, "R no activa la cobertura desde la entrada del juego");
       const float anchorY = agent.cover.anchor.y;
       context.input.BeginFrame();
       sf::Event::KeyPressed alt; alt.scancode = sf::Keyboard::Scan::LAlt; context.input.CaptureEvent(alt);
@@ -284,9 +294,9 @@ namespace EngineTests {
       window.setSize(original); context.window.HandleResize(original);
       context.gui.SyncPresentation(context.window.GetLogicalSize(), context.window.GetViewport());
     }
-    static sf::Image CaptureWorld(WorldRenderer &renderer, const WorldState &world, EngineContext &context, sf::RenderWindow &window, const std::filesystem::path &file) {
+    static sf::Image CaptureWorld(WorldRenderer &renderer, const WorldState &world, EngineContext &context, sf::RenderWindow &window, const std::filesystem::path &file, bool hudVisible = true) {
       window.setView(sf::View(sf::FloatRect({0.f, 0.f}, gConfig.windowSize)));
-      window.clear(); context.renderer.BeginDrawing(); renderer.Render(world, 1);
+      window.clear(); context.renderer.BeginDrawing(); renderer.Render(world, 1, hudVisible);
       window.draw(sf::Sprite(context.renderer.FinishDrawing()));
       sf::Texture pixels(window.getSize()); pixels.update(window); window.display();
       const auto image = pixels.copyToImage();
@@ -498,6 +508,7 @@ namespace {
     Access::Press(game, "DESPLEGAR OPERACIÓN");
     Access::Require(Access::GetSession(game).GetWorld().phase == GamePhase::Mission, "El callback no desplegó la operación");
     Access::Capture(game, context, window, output / "05-mission.png");
+    Access::VerifyGameOverAndRetry(game);
     Access::VerifyFireInput(game, context);
     Access::VerifyAutomaticCrawl(game, context);
     Access::VerifyTacticalControls(game, context);
@@ -517,8 +528,8 @@ namespace {
     Access::Require(Access::GetSession(game).IsConnected() && Access::GetSession(game).GetWorld().phase == GamePhase::Base, "Volver a base perdió la sesión o no cambió de fase");
     Access::GetSession(game).Deploy(); game.UpdateBackground();
     Access::Require(Access::GetSession(game).GetWorld().phase == GamePhase::Mission, "No se pudo desplegar después de volver a base");
-    EngineTests::RunWorldRenderFixtures(context, output, [&](WorldRenderer &renderer, const WorldState &world, const std::filesystem::path &file) {
-      return Access::CaptureWorld(renderer, world, context, window, file);
+    EngineTests::RunWorldRenderFixtures(context, output, [&](WorldRenderer &renderer, const WorldState &world, const std::filesystem::path &file, bool hudVisible = true) {
+      return Access::CaptureWorld(renderer, world, context, window, file, hudVisible);
     });
 
     ActionCommand crouch;

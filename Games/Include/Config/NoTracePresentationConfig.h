@@ -52,6 +52,11 @@ namespace NoTrace::PresentationConfig {
   inline constexpr float IconOffset = 12.f;
   inline constexpr float IconHalfSize = 9.f;
   inline constexpr float FogEffectStep = 12.f;
+  inline constexpr float FogFeatherWidth = 34.f;
+  inline constexpr unsigned int FogFeatherBands = 6;
+  inline constexpr sf::Vector2f DetectionHudCenter{1260.f, 164.f};
+  inline constexpr unsigned int DetectionEyeSegments = 16;
+  inline constexpr float DetectionWarningThreshold = 0.8f;
   inline constexpr float DecoyGuideStep = 12.f;
   inline constexpr float DecoyMarkerSize = 8.f;
   inline constexpr float FootstepMarkLength = 7.f;
