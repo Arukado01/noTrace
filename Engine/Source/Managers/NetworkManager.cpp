@@ -1,6 +1,7 @@
 #include "Managers/NetworkManager.h"
 
 #include <SFML/Network/IpAddress.hpp>
+#include <SFML/Network/SocketSelector.hpp>
 #include <SFML/Network/TcpListener.hpp>
 #include <SFML/Network/TcpSocket.hpp>
 #include <SFML/System/Clock.hpp>
@@ -218,10 +219,19 @@ void NetworkManager::Update() {
   std::vector<PeerId> disconnected;
   for (auto &[id, peer] : state_->peers) {
     if (peer->connecting) {
-      if (peer->socket.getRemoteAddress()) {
+      sf::SocketSelector selector;
+      // Windows puede devolver el destino antes del fin de TCP; Time::Zero bloquearía el sondeo.
+      const bool ready = selector.add(peer->socket, sf::SocketSelector::Send) &&
+                         selector.wait(sf::microseconds(1)) &&
+                         selector.isReady(peer->socket, sf::SocketSelector::Send);
+      if (ready && peer->socket.getRemoteAddress()) {
         peer->connecting = false;
         state_->status = "Conexión LAN establecida";
         state_->Emit(NetworkEventType::Connected, id, "");
+      } else if (ready) {
+        state_->Emit(NetworkEventType::Error, id, "No se pudo completar la conexión LAN");
+        disconnected.push_back(id);
+        continue;
       } else if (peer->connectionClock.getElapsedTime().asSeconds() >= NetworkConfig::ConnectTimeoutSeconds) {
         state_->Emit(NetworkEventType::Error, id, "Se agotó el plazo de conexión LAN");
         disconnected.push_back(id);

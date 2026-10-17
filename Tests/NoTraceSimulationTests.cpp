@@ -476,6 +476,34 @@ namespace {
     Require(simulation.GetState().phase == GamePhase::Results && !simulation.GetState().results.at(1).traitorVictory && !simulation.GetState().results.at(2).success, "Incapacitar a todo el equipo causa derrota y no cumple la orden letal del traidor");
   }
 
+  void DisconnectNeutralizesMovement() {
+    Simulation simulation;
+    simulation.ResetBase({{1, "Anfitrión"}, {2, "Cliente"}});
+    simulation.Deploy(0);
+    const auto initial = simulation.GetState().agents[1].position;
+    ActionCommand moving;
+    moving.moveX = 1.f; moving.run = true; moving.aiming = true; moving.aimX = 1.f;
+    simulation.Step(0.1f, {{2, moving}});
+    const auto &active = simulation.GetState().agents[1];
+    Require(active.moving && active.running && active.aiming && (active.position - initial).length() > 1.f,
+        "El cliente debe mantener movimiento, carrera y apuntado reales antes del corte");
+    const auto stopped = active.position;
+    const auto tick = simulation.GetState().tick;
+    simulation.DisconnectPlayer(2);
+    const auto &disconnected = simulation.GetState().agents[1];
+    Require(!disconnected.connected && !disconnected.moving && !disconnected.running && !disconnected.aiming,
+        "Desconectar debe neutralizar los indicadores de movimiento, carrera y apuntado");
+    for (int frame = 0; frame < 30; ++frame) simulation.Step(1.f / 60.f, {{2, moving}});
+    const auto &world = simulation.GetState();
+    Require(world.tick > tick && world.phase == GamePhase::Mission && world.agents.front().connected,
+        "El anfitrión debe continuar simulando la misión tras desconectar al cliente activo");
+    Require(world.agents[1].position == stopped && !world.agents[1].moving && !world.agents[1].running && !world.agents[1].aiming,
+        "Los mandos residuales no deben mover ni reactivar al cliente desconectado");
+    simulation.DisconnectPlayer(2);
+    Require(std::ranges::count_if(world.events, [](const MissionEvent &event) { return event.kind == EventKind::Disconnected && event.actor == 2; }) == 1,
+        "Un corte repetido no debe duplicar el evento de desconexión");
+  }
+
   void SeedReachability() {
     for (std::uint32_t seed = 0; seed < 36; ++seed) {
       Simulation simulation;
@@ -738,6 +766,7 @@ int main() {
     GuardAttacksAndRecovery();
     ScoringAndObjectives();
     PrivacyAndDisconnect();
+    DisconnectNeutralizesMovement();
     SeedReachability();
     SafeInsertion();
     CompleteOperationWithoutStateShortcuts();

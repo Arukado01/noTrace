@@ -46,6 +46,7 @@ namespace NoTrace {
       float rateWindow = 0.f;
       unsigned int rateCount = 0;
       std::uint64_t sequence = 0;
+      std::uint64_t lastSnapshotCommandSequence = 0;
       ActionCommand command;
       bool rejected = false;
       float rejectTime = 0.f;
@@ -80,7 +81,7 @@ namespace NoTrace {
     void Reject(PeerId peer, const std::string &reason);
     void LoseHost(const std::string &reason);
     void RemoveParticipant(PeerId peer);
-    void SendSnapshots();
+    void SendSnapshots(bool force = true);
     void SendCommand();
     void StepSimulation(float deltaTime, bool localPaused);
     void ClearCommands();

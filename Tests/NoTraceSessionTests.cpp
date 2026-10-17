@@ -250,6 +250,46 @@ namespace {
     Require(FindAgent(pair.host.GetWorld(), 2).position.x > clientBefore.x + 3.f, "La pausa del anfitrión bloqueó al cliente");
   }
 
+  void SlowClientKeepsLobbyAndPhaseChanges() {
+    Pair pair;
+    sf::Clock hostFrame, clientFrame;
+    const auto tick = [&] {
+      pair.host.Tick(hostFrame.restart().asSeconds(), true);
+      if (clientFrame.getElapsedTime().asSeconds() >= 0.125f) {
+        pair.client.Tick(clientFrame.restart().asSeconds(), true);
+      }
+      Require(pair.host.GetLobbyPlayers().size() == 2 && pair.client.IsConnected(),
+              "Un cliente de ocho actualizaciones por segundo perdió la sala LAN");
+      sf::sleep(sf::milliseconds(5));
+    };
+    const auto advance = [&](float seconds) {
+      sf::Clock duration;
+      while (duration.getElapsedTime().asSeconds() < seconds) tick();
+    };
+    const auto before = pair.client.GetWorld().tick;
+    currentCase = "SlowClient/base sostenida";
+    advance(4.f);
+    Require(pair.client.GetWorld().tick > before, "El cliente lento conservó conexión sin recibir estados nuevos");
+    pair.host.SetReady(true);
+    pair.client.SetReady(true);
+    Until([&] { return pair.host.CanDeploy(); }, tick);
+    pair.host.Deploy();
+    currentCase = "SlowClient/despliegue";
+    Until([&] { return pair.client.GetWorld().phase == GamePhase::Mission; }, tick);
+    Require(pair.client.GetWorld().seed == pair.host.GetWorld().seed, "El despliegue lento perdió la semilla autoritativa");
+    advance(1.f);
+    const auto missionTick = pair.client.GetWorld().tick;
+    Require(pair.host.RestartOperation(), "No se pudo reiniciar la misión con un cliente lento");
+    currentCase = "SlowClient/reinicio";
+    Until([&] { return pair.client.GetWorld().tick < missionTick; }, tick);
+    pair.host.ReturnToBase();
+    currentCase = "SlowClient/regreso a base";
+    Until([&] { return pair.client.GetWorld().phase == GamePhase::Base; }, tick);
+    Require(!pair.host.CanDeploy() && std::ranges::none_of(pair.client.GetLobbyPlayers(), [](const LobbyPlayer &player) { return player.ready; }),
+            "La vuelta lenta a base conservó la preparación anterior");
+    advance(5.f);
+  }
+
   void SequenceTimeoutIdentityAndPulses() {
     RawPeer pair;
     Require(pair.id == 2, "Cliente de protocolo no asignado");
@@ -851,6 +891,7 @@ int main() {
     run("LobbyAndAuthority", LobbyAndAuthority);
     run("PrivateSnapshotAndClientDoesNotSimulate", PrivateSnapshotAndClientDoesNotSimulate);
     run("PausedHostStillRunsRemoteAgent", PausedHostStillRunsRemoteAgent);
+    run("SlowClientKeepsLobbyAndPhaseChanges", SlowClientKeepsLobbyAndPhaseChanges);
     run("SequenceTimeoutIdentityAndPulses", SequenceTimeoutIdentityAndPulses);
     run("PendingShotKeepsItsAim", PendingShotKeepsItsAim);
     run("AimDirectionAndRestartAuthority", AimDirectionAndRestartAuthority);

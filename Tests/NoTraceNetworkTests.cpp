@@ -1,6 +1,7 @@
 #include "Managers/NetworkManager.h"
 
 #include <SFML/Network/IpAddress.hpp>
+#include <SFML/Network/TcpListener.hpp>
 #include <SFML/Network/TcpSocket.hpp>
 #include <SFML/System/Clock.hpp>
 #include <SFML/System/Sleep.hpp>
@@ -84,6 +85,27 @@ namespace {
                                   static_cast<std::uint8_t>(size >> 8), static_cast<std::uint8_t>(size)};
     data.insert(data.end(), payload.begin(), payload.end());
     return data;
+  }
+
+  void RejectedConnectionDoesNotConnect() {
+    sf::TcpListener reservation;
+    Require(reservation.listen(0, sf::IpAddress::LocalHostV4) == sf::Socket::Status::Done,
+            "No se pudo reservar el puerto de prueba");
+    const auto port = reservation.getLocalPort();
+    reservation.close();
+    NetworkManager client;
+    if (client.Join("127.0.0.1", port)) {
+      bool finished = false;
+      Until([&] { return finished; }, [&] {
+        client.Update();
+        const auto events = client.DrainEvents();
+        Require(!Has(events, NetworkEventType::Connected), "Se anunció conexión antes de completar TCP");
+        finished = Has(events, NetworkEventType::Error) || Has(events, NetworkEventType::Disconnected);
+      }, NetworkConfig::ConnectTimeoutSeconds + 1.f);
+    }
+    Require(client.GetRole() == NetworkRole::Offline, "Cliente rechazado permanece activo");
+    Require(!client.Send(NetworkConfig::HostId, "unreachable"), "Envío aceptado sin conexión TCP");
+    Require(!Has(client.DrainEvents(), NetworkEventType::Connected), "Conexión rechazada generó Connected");
   }
 
   void ExchangeAndDisconnect() {
@@ -281,6 +303,7 @@ int main(int argc, char **argv) {
       return SmokeClient(argv[2], static_cast<std::uint16_t>(std::stoul(argv[3])));
     }
     Require(argc == 1, "Uso: NoTraceNetworkTests [--host puerto | --client IPv4 puerto]");
+    RejectedConnectionDoesNotConnect();
     ExchangeAndDisconnect();
     HostDisconnect();
     MaximumPayloadAndQueue();

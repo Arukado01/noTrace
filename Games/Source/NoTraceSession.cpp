@@ -644,7 +644,7 @@ namespace NoTrace {
     status_ = GetWorld().phase == GamePhase::Base ? "Base CIO: conectado al anfitrión" : "Operación LAN en curso";
   }
 
-  void Session::SendSnapshots() {
+  void Session::SendSnapshots(bool force) {
     if (!IsHost() || !active_) {
       return;
     }
@@ -653,13 +653,16 @@ namespace NoTrace {
       lobby.push_back({{"id", player.id}, {"name", player.name}, {"ready", player.ready}});
     }
     const auto sequence = ++snapshotSequence_;
-    for (const auto &[id, participant] : participants_) {
-      if (participant.accepted && !participant.rejected) {
+    for (auto &[id, participant] : participants_) {
+      // Un mando nuevo confirma actividad del cliente y limita la acumulación de estados periódicos.
+      if (participant.accepted && !participant.rejected && (force || participant.sequence > participant.lastSnapshotCommandSequence)) {
         // Cada destinatario recibe únicamente su propia orden privada.
         const Json message{{"type", "snapshot"}, {"seq", sequence}, {"epoch", epoch_},
                            {"lobby", lobby}, {"world", simulation_.SnapshotFor(id, true)}};
         if (!network_.Send(id, message.dump())) {
           status_ = "No se pudo enviar una instantánea LAN";
+        } else {
+          participant.lastSnapshotCommandSequence = participant.sequence;
         }
       }
     }
@@ -751,7 +754,7 @@ namespace NoTrace {
       snapshotAccumulator_ += dt;
       if (snapshotAccumulator_ >= 1.f / GameplayConfig::SnapshotHz) {
         snapshotAccumulator_ = std::fmod(snapshotAccumulator_, 1.f / GameplayConfig::SnapshotHz);
-        SendSnapshots();
+        SendSnapshots(false);
       }
     }
   }

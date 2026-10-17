@@ -69,6 +69,7 @@ namespace NoTrace {
   void Simulation::DisconnectPlayer(PlayerId id) {
     for (auto &agent : world_.agents) if (agent.id == id && agent.connected) {
       agent.connected = false;
+      agent.moving = false; agent.running = false;
       CancelManeuver(agent); agent.aiming = false;
       CancelPuzzle(agent);
       ReleaseCqc(agent);
