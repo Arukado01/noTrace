@@ -288,7 +288,9 @@ namespace {
     Require(simulation.GetState().objectives == 1, "La desconexión no debe bloquear el objeto cooperativo");
 
     simulation.ResetBase({{1, "Uno"}, {2, "Dos"}}); simulation.SetContract(ContractId::DoubleCross); simulation.Deploy(0);
-    ActionCommand lethal; lethal.fireLethal = true; lethal.aimX = 1.f;
+    ActionCommand lethal; lethal.fireLethal = true;
+    auto towardOther = (simulation.GetState().agents[1].position - simulation.GetState().agents[0].position).normalized();
+    lethal.aimX = towardOther.x; lethal.aimY = towardOther.y;
     simulation.Step(0.1f, {{1, lethal}});
     Require(simulation.GetState().phase == GamePhase::Results && simulation.GetState().results.at(1).traitorVictory, "El traidor debe ganar solo después de eliminar al equipo sin alarma");
     Require(!simulation.GetState().agents[1].alive, "La victoria del traidor exige eliminación real");
@@ -302,7 +304,7 @@ namespace {
   void SeedReachability() {
     for (std::uint32_t seed = 0; seed < 36; ++seed) {
       Simulation simulation;
-      simulation.ResetBase(); simulation.Deploy(seed);
+      simulation.ResetBase({{1, "Uno"}, {2, "Dos"}, {3, "Tres"}, {4, "Cuatro"}}); simulation.Deploy(seed);
       const auto &world = simulation.GetState();
       constexpr int columns = 50, rows = 38;
       const auto blocked = [&world](int x, int y) {
@@ -314,7 +316,9 @@ namespace {
       };
       std::array<bool, columns * rows> visited{};
       std::queue<std::pair<int, int>> queue;
-      queue.push({4, 33}); visited[33 * columns + 4] = true;
+      const auto insertion = world.agents.front().position;
+      const int insertionX = static_cast<int>(insertion.x / 20.f), insertionY = static_cast<int>(insertion.y / 20.f);
+      queue.push({insertionX, insertionY}); visited[insertionY * columns + insertionX] = true;
       while (!queue.empty()) {
         const auto [x, y] = queue.front(); queue.pop();
         for (const auto [dx, dy] : std::array<std::pair<int, int>, 4>{{{1, 0}, {-1, 0}, {0, 1}, {0, -1}}}) {
@@ -327,6 +331,38 @@ namespace {
         bool reachable = false;
         for (int y = 0; y < rows; ++y) for (int x = 0; x < columns; ++x) if (visited[y * columns + x] && (sf::Vector2f{10.f + x * 20.f, 10.f + y * 20.f} - object.position).length() < 45.f) reachable = true;
         Require(reachable, "Toda semilla necesita acceso a objetivos y extracción");
+      }
+      for (const auto &agent : world.agents) Require(visited[static_cast<int>(agent.position.y / 20.f) * columns + static_cast<int>(agent.position.x / 20.f)], "Los cuatro puntos de inserción deben compartir un corredor conectado");
+    }
+  }
+
+  void SafeInsertion() {
+    for (auto contract : {ContractId::GhostArchive, ContractId::SilentRelay, ContractId::DoubleCross}) {
+      for (std::uint32_t seed : {0u, 1u, 2u, 3u, 4u, 5u, 545993526u}) {
+        Simulation simulation;
+        simulation.ResetBase({{1, "Uno"}, {2, "Dos"}, {3, "Tres"}, {4, "Cuatro"}});
+        const auto basePosition = simulation.GetState().agents.front().position;
+        Require(basePosition == sf::Vector2f{130.f, 150.f}, "La corrección de inserción no debe cambiar la base");
+        simulation.SetContract(contract); simulation.Deploy(seed);
+        const auto &world = simulation.GetState();
+        for (const auto &agent : world.agents) {
+          const float radius = GameplayConfig::AgentRadius;
+          Require(agent.position.x >= radius && agent.position.y >= radius && agent.position.x <= world.size.x - radius && agent.position.y <= world.size.y - radius, "Los cuatro agentes deben aparecer dentro del mapa");
+          for (const auto &obstacle : world.obstacles) if (obstacle.solid) Require(!sf::FloatRect{obstacle.bounds.position - sf::Vector2f{radius, radius}, obstacle.bounds.size + sf::Vector2f{radius * 2.f, radius * 2.f}}.contains(agent.position), "La inserción no debe intersectar obstáculos");
+          for (const auto &object : world.objects) if (object.kind == ObjectKind::Door && !object.open) Require(!sf::FloatRect{{object.position.x - 12.f - radius, object.position.y - 30.f - radius}, {24.f + radius * 2.f, 60.f + radius * 2.f}}.contains(agent.position), "La inserción no debe intersectar una puerta cerrada");
+          for (const auto &other : world.agents) if (other.id != agent.id) Require((agent.position - other.position).length() >= radius * 2.f, "Los agentes no deben aparecer superpuestos");
+          for (const auto &guard : world.guards) for (std::size_t index = 0; index < guard.patrol.size(); ++index) {
+            const auto start = guard.patrol[index], end = guard.patrol[(index + 1) % guard.patrol.size()];
+            const auto segment = end - start;
+            const float t = std::clamp((agent.position - start).dot(segment) / segment.lengthSquared(), 0.f, 1.f);
+            Require((agent.position - (start + segment * t)).length() > GameplayConfig::VisionDistance, "Ningún tramo de patrulla debe observar la inserción de pie");
+          }
+        }
+        for (int frame = 0; frame < 720; ++frame) simulation.Step(1.f / 60.f, {});
+        Require(simulation.GetState().phase == GamePhase::Mission, "Una misión no debe terminar mientras el equipo se orienta en la inserción");
+        Require(simulation.GetState().alarmCount == 0, "La inserción inmóvil no debe activar alarmas");
+        Require(std::ranges::all_of(simulation.GetState().agents, [](const Agent &agent) { return agent.alive && !agent.incapacitated && agent.stance == Stance::Standing; }), "Los cuatro agentes de pie deben seguir operativos tras doce segundos");
+        Require(std::ranges::none_of(simulation.GetState().events, [](const MissionEvent &event) { return event.kind == EventKind::ConfirmedDetection || event.kind == EventKind::AgentKilled; }), "La espera inicial no debe registrar detecciones ni bajas");
       }
     }
   }
@@ -443,6 +479,8 @@ namespace {
     }
     Simulation clean;
     clean.ResetBase(); clean.SetLoadout(1, {0, 0, 6, 6}); clean.Deploy(0);
+    ActionCommand approach; approach.moveX = 1.f; approach.moveY = 0.25f; approach.run = true;
+    Advance(clean, approach, 7, 1.f / 30.f);
     ReachAndInteract(clean, ObjectKind::Terminal, true);
     ReachAndInteract(clean, ObjectKind::Extraction, true);
     Require(clean.GetState().results.at(1).rank == Rank::Maestro, "Una infiltración real limpia debe lograr Maestro");
@@ -458,6 +496,7 @@ int main() {
     ScoringAndObjectives();
     PrivacyAndDisconnect();
     SeedReachability();
+    SafeInsertion();
     CompleteOperationWithoutStateShortcuts();
     std::cout << "NO TRACE: " << checks << " comprobaciones de simulación correctas.\n";
     return 0;

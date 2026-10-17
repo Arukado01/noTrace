@@ -127,7 +127,7 @@ namespace NoTrace {
     std::size_t index = 0;
     const auto connected = std::ranges::count_if(world_.agents, [](const Agent &agent) { return agent.connected; });
     for (auto &agent : world_.agents) {
-      agent.position = {90.f + static_cast<float>(index) * 28.f, 660.f};
+      agent.position = {GameplayConfig::MissionSpawnX, GameplayConfig::MissionSpawnY + static_cast<float>(index) * GameplayConfig::MissionSpawnSpacing};
       agent.facing = {1.f, 0.f}; agent.stance = Stance::Standing;
       agent.alive = true; agent.incapacitated = false; agent.bodyReported = false; agent.hidden = false; agent.extracted = false; agent.moving = false;
       agent.animationTime = 0.f; agent.actionCooldown = 0.f; agent.footstepTime = 0.f; agent.draggingGuard = -1;

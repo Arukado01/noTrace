@@ -275,18 +275,13 @@ namespace {
       Pair pair;
       pair.host.SetContract(ContractId::DoubleCross);
       pair.Deploy();
-      ActionCommand move;
-      move.moveX = 1.f;
-      pair.host.Submit(move);
-      pair.Advance(40);
-      Require(FindAgent(pair.host.GetWorld(), 1).position.x > FindAgent(pair.host.GetWorld(), 2).position.x,
-              "No se preparó un objetivo a la izquierda del anfitrión");
+      const auto direction = (FindAgent(pair.host.GetWorld(), 2).position - FindAgent(pair.host.GetWorld(), 1).position).normalized();
       ActionCommand fire;
-      fire.aimX = -1.f;
+      fire.aimX = direction.x; fire.aimY = direction.y;
       fire.fireLethal = true;
       pair.host.Submit(fire);
       ActionCommand pointerMoved;
-      pointerMoved.aimX = 1.f;
+      pointerMoved.aimX = -direction.x; pointerMoved.aimY = -direction.y;
       pair.host.Submit(pointerMoved);
       pair.host.Tick(0.02f);
       Require(!FindAgent(pair.host.GetWorld(), 2).alive, "El anfitrión cambió la dirección de un disparo pendiente");
@@ -295,12 +290,13 @@ namespace {
       Pair pair;
       pair.host.SetContract(ContractId::DoubleCross);
       pair.Deploy();
+      const auto direction = (FindAgent(pair.host.GetWorld(), 1).position - FindAgent(pair.host.GetWorld(), 2).position).normalized();
       ActionCommand fire;
-      fire.aimX = -1.f;
+      fire.aimX = direction.x; fire.aimY = direction.y;
       fire.fireLethal = true;
       pair.client.Submit(fire);
       ActionCommand pointerMoved;
-      pointerMoved.aimX = 1.f;
+      pointerMoved.aimX = -direction.x; pointerMoved.aimY = -direction.y;
       pair.client.Submit(pointerMoved);
       pair.Advance(10);
       Require(!FindAgent(pair.host.GetWorld(), 1).alive, "El envío del cliente cambió la dirección capturada al disparar");
@@ -313,10 +309,11 @@ namespace {
       Until([&] { return pair.host.CanDeploy(); }, [&] { pair.Tick(); });
       pair.host.Deploy();
       pair.Tick();
+      const auto direction = (FindAgent(pair.host.GetWorld(), 1).position - FindAgent(pair.host.GetWorld(), 2).position).normalized();
       const Json fire{{"type", "command"}, {"seq", 1}, {"epoch", pair.epoch},
-                      {"move", {0, 0}}, {"aim", {-1, 0}}, {"flags", 64}};
+                      {"move", {0, 0}}, {"aim", {direction.x, direction.y}}, {"flags", 64}};
       const Json pointerMoved{{"type", "command"}, {"seq", 2}, {"epoch", pair.epoch},
-                              {"move", {0, 0}}, {"aim", {1, 0}}, {"flags", 0}};
+                              {"move", {0, 0}}, {"aim", {-direction.x, -direction.y}}, {"flags", 0}};
       Require(pair.clientNetwork.Send(1, fire.dump()) && pair.clientNetwork.Send(1, pointerMoved.dump()), "No se enviaron ambos mandos de regresión");
       pair.Advance(8);
       Require(!FindAgent(pair.host.GetWorld(), 1).alive, "La recepción de varios mandos cambió la dirección del disparo pendiente");

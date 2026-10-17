@@ -8,6 +8,9 @@
 namespace NoTrace::GameplayConfig {
   inline constexpr std::string_view GameScene = "NoTraceGame";
   inline constexpr float AgentRadius = 12.f;
+  inline constexpr float MissionSpawnX = 50.f;
+  inline constexpr float MissionSpawnY = 650.f;
+  inline constexpr float MissionSpawnSpacing = 28.f;
   inline constexpr float WalkSpeed = 105.f;
   inline constexpr float RunSpeed = 175.f;
   inline constexpr float CrouchSpeed = 60.f;
