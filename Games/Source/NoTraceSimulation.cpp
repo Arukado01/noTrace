@@ -92,6 +92,7 @@ namespace NoTrace {
   void Simulation::DisconnectPlayer(PlayerId id) {
     for (auto &agent : world_.agents) if (agent.id == id && agent.connected) {
       agent.connected = false;
+      ReleaseHideout(agent);
       agent.draggingGuard = -1;
       Record(EventKind::Disconnected, id);
     }
@@ -341,6 +342,47 @@ namespace NoTrace {
     Record(EventKind::Noise, actor);
   }
 
+  void Simulation::HandleDistractions(Agent &agent, const ActionCommand &command) {
+    using namespace DistractionConfig;
+    if ((!command.throwDecoy && !command.knock) || world_.phase != GamePhase::Mission || !agent.connected ||
+        !agent.alive || agent.incapacitated || agent.hidden || agent.extracted || agent.actionCooldown > 0.f) return;
+    const bool held = std::ranges::any_of(world_.guards, [&agent](const Guard &guard) { return guard.heldBy == agent.id && guard.cqcState != CqcState::None; });
+    if (agent.draggingGuard >= 0 || command.dragBody || command.interact || command.tool || held) {
+      world_.message = "Termina la interacción o suelta el cuerpo antes de usar una distracción.";
+      return;
+    }
+    if (command.throwDecoy) {
+      if (agent.loadout.decoys <= 0) { world_.message = "No quedan señuelos."; return; }
+      const auto trajectory = DistractionGeometry::TraceDecoy(world_, agent.position, agent.facing, command.decoyDistance);
+      if (!trajectory.valid) { world_.message = "Lanzamiento bloqueado: busca una trayectoria despejada."; return; }
+      --agent.loadout.decoys;
+      EmitNoise(trajectory.to, DecoyHearingDistance, agent.id);
+      agent.actionPose = ActionPose::ThrowDecoy; agent.actionPoseTime = GameplayConfig::AttackAnimationDuration;
+      agent.actionCooldown = GameplayConfig::WeaponCooldown;
+      world_.message = trajectory.blocked ? "Señuelo detenido por un obstáculo: las patrullas investigarán el punto de caída." : "Señuelo lanzado: las patrullas investigarán el punto de caída.";
+      return;
+    }
+    if (agent.stance == Stance::Prone) { world_.message = "Levántate o agáchate para golpear una pared."; return; }
+    sf::Vector2f contact;
+    float nearest = KnockDistance;
+    bool found = false;
+    const auto consider = [&](const sf::FloatRect &surface, std::uint32_t object) {
+      const auto point = WorldGeometry::ClosestPoint(agent.position, surface);
+      const auto offset = point - agent.position;
+      const float distance = Length(offset);
+      if (distance < 0.01f || distance > nearest || Unit(agent.facing).dot(Unit(offset)) < KnockFacingCosine ||
+          !Visibility::HasLineOfSight(world_, agent.position, point, agent.stance, object)) return;
+      contact = point; nearest = distance; found = true;
+    };
+    for (const auto &obstacle : world_.obstacles) if (WorldGeometry::SupportsWallCover(obstacle)) consider(obstacle.bounds, 0);
+    for (const auto &object : world_.objects) if (WorldGeometry::SupportsWallCover(object)) consider(WorldGeometry::ObjectFootprint(object), object.id);
+    if (!found) { world_.message = "Mira hacia una pared sólida cercana para golpearla."; return; }
+    EmitNoise(contact, KnockHearingDistance, agent.id);
+    agent.actionPose = ActionPose::KnockWall; agent.actionPoseTime = GameplayConfig::AttackAnimationDuration;
+    agent.actionCooldown = GameplayConfig::WeaponCooldown;
+    world_.message = "Golpe en la pared: las patrullas cercanas investigarán su origen.";
+  }
+
   void Simulation::Detect(Agent &agent, std::uint32_t observer) {
     Record(EventKind::ConfirmedDetection, agent.id, observer);
     if (!world_.alarm) {
@@ -378,6 +420,78 @@ namespace NoTrace {
     }
   }
 
+  bool Simulation::CoverSurfaceValid(const AgentCover &cover) const {
+    if (!cover.active || std::abs(Length(cover.normal) - 1.f) > 0.001f || (std::abs(cover.normal.x) > 0.001f && std::abs(cover.normal.y) > 0.001f)) return false;
+    if (cover.obstacle >= 0) {
+      const auto index = static_cast<std::size_t>(cover.obstacle);
+      return index < world_.obstacles.size() && WorldGeometry::SupportsWallCover(world_.obstacles[index]) && world_.obstacles[index].bounds == cover.surface;
+    }
+    const auto found = std::ranges::find_if(world_.objects, [&](const Interactable &object) { return object.id == cover.object; });
+    return cover.object != 0 && found != world_.objects.end() && WorldGeometry::SupportsWallCover(*found) && WorldGeometry::ObjectFootprint(*found) == cover.surface;
+  }
+
+  void Simulation::ToggleCover(Agent &agent) {
+    if (agent.cover.active) { agent.cover = {}; world_.message = "Cobertura abandonada: movimiento libre."; return; }
+    if (agent.stance == Stance::Prone || agent.draggingGuard >= 0) { world_.message = "Levántate y suelta el cuerpo para apoyarte en una pared."; return; }
+    AgentCover nearest;
+    float distance = SpatialConfig::CoverAttachDistance;
+    const auto consider = [&](const sf::FloatRect &surface, int obstacle, std::uint32_t object) {
+      const float radius = GameplayConfig::AgentRadius + SpatialConfig::CollisionSkin;
+      const auto minimum = surface.position, maximum = surface.position + surface.size;
+      const std::array<sf::Vector2f, 4> normals{{{-1.f, 0.f}, {1.f, 0.f}, {0.f, -1.f}, {0.f, 1.f}}};
+      const std::array<sf::Vector2f, 4> anchors{{
+          {minimum.x - radius, std::clamp(agent.position.y, minimum.y, maximum.y)},
+          {maximum.x + radius, std::clamp(agent.position.y, minimum.y, maximum.y)},
+          {std::clamp(agent.position.x, minimum.x, maximum.x), minimum.y - radius},
+          {std::clamp(agent.position.x, minimum.x, maximum.x), maximum.y + radius}}};
+      for (std::size_t side = 0; side < anchors.size(); ++side) {
+        const float gap = Distance(agent.position, anchors[side]);
+        if (gap > distance || Blocked(anchors[side], GameplayConfig::AgentRadius)) continue;
+        auto reached = agent.position; Move(reached, anchors[side] - reached, GameplayConfig::AgentRadius);
+        if (Distance(reached, anchors[side]) > SpatialConfig::CoverPositionTolerance) continue;
+        nearest.active = true; nearest.anchor = anchors[side]; nearest.normal = normals[side]; nearest.surface = surface;
+        nearest.obstacle = obstacle; nearest.object = object; distance = gap;
+      }
+    };
+    for (std::size_t index = 0; index < world_.obstacles.size(); ++index) if (WorldGeometry::SupportsWallCover(world_.obstacles[index])) consider(world_.obstacles[index].bounds, static_cast<int>(index), 0);
+    for (const auto &object : world_.objects) if (WorldGeometry::SupportsWallCover(object)) consider(WorldGeometry::ObjectFootprint(object), -1, object.id);
+    if (!nearest.active) { world_.message = "No hay una pared o cobertura alta válida a tu alcance."; return; }
+    agent.cover = nearest; agent.position = nearest.anchor; agent.hidden = false; agent.running = false;
+    world_.message = "Cobertura: deslízate por la pared; mantén Alt y una dirección lateral para asomarte.";
+  }
+
+  bool Simulation::CoverPeekTarget(const AgentCover &cover, PeekSide side, sf::Vector2f &target) const {
+    return CoverSurfaceValid(cover) && WorldGeometry::CoverPeekPosition(cover, side, target) &&
+           WorldGeometry::ClearMovementSegment(world_, cover.anchor, target, GameplayConfig::AgentRadius);
+  }
+
+  bool Simulation::UpdateCover(Agent &agent, const ActionCommand &command, sf::Vector2f direction, float dt) {
+    if (!agent.cover.active) return false;
+    if (!CoverSurfaceValid(agent.cover) || agent.stance == Stance::Prone || agent.draggingGuard >= 0 || Blocked(agent.cover.anchor, GameplayConfig::AgentRadius)) { agent.cover = {}; return false; }
+    auto &cover = agent.cover;
+    sf::Vector2f left, right;
+    cover.canPeekLeft = CoverPeekTarget(cover, PeekSide::Left, left);
+    cover.canPeekRight = CoverPeekTarget(cover, PeekSide::Right, right);
+    const bool wantsLeft = command.peekLeft && !command.peekRight && cover.canPeekLeft;
+    const bool wantsRight = command.peekRight && !command.peekLeft && cover.canPeekRight;
+    const bool atAnchor = Distance(agent.position, cover.anchor) <= SpatialConfig::CoverPositionTolerance;
+    const sf::Vector2f tangent{-cover.normal.y, cover.normal.x};
+    if (!command.peekLeft && !command.peekRight && atAnchor) {
+      auto destination = cover.anchor + tangent * (direction.dot(tangent) * SpatialConfig::CoverSlideSpeed * dt);
+      if (std::abs(cover.normal.x) > 0.5f) destination.y = std::clamp(destination.y, cover.surface.position.y, cover.surface.position.y + cover.surface.size.y);
+      else destination.x = std::clamp(destination.x, cover.surface.position.x, cover.surface.position.x + cover.surface.size.x);
+      Move(cover.anchor, destination - cover.anchor, GameplayConfig::AgentRadius);
+    }
+    const auto destination = wantsLeft ? left : wantsRight ? right : cover.anchor;
+    cover.peekSide = wantsLeft ? PeekSide::Left : wantsRight ? PeekSide::Right : PeekSide::None;
+    const auto movement = destination - agent.position;
+    Move(agent.position, Unit(movement) * std::min(Length(movement), SpatialConfig::CoverPeekSpeed * dt), GameplayConfig::AgentRadius);
+    cover.canPeekLeft = CoverPeekTarget(cover, PeekSide::Left, left);
+    cover.canPeekRight = CoverPeekTarget(cover, PeekSide::Right, right);
+    agent.running = false;
+    return true;
+  }
+
   bool Simulation::HideoutPathClear(const Interactable &object, sf::Vector2f from, sf::Vector2f to) const {
     const float radius = GameplayConfig::AgentRadius;
     for (const auto &obstacle : world_.obstacles) if (WorldGeometry::BlocksMovement(obstacle) && WorldGeometry::SegmentRect(from, to, WorldGeometry::Expanded(obstacle.bounds, radius))) return false;
@@ -412,23 +526,97 @@ namespace NoTrace {
     ResolvePenetration(agent.position, GameplayConfig::AgentRadius);
   }
 
+  bool Simulation::UseHideout(Agent &agent, Interactable &object) {
+    if (WorldGeometry::HideoutType(object) == HideoutKind::None || !WorldGeometry::Properties(object).interactive) return false;
+    if (agent.hideoutId == object.id && object.occupantAgent == agent.id) {
+      sf::Vector2f exit;
+      if (!HideoutExit(agent, object, exit)) { world_.message = "La salida está bloqueada; espera una posición libre."; return true; }
+      object.occupantAgent = 0; object.occupied = object.occupantGuard != 0; agent.position = exit; agent.hideoutId = 0; agent.hideoutExit = {}; agent.hidden = false;
+      world_.message = "Has salido del escondite."; return true;
+    }
+    if (WorldGeometry::HideoutOccupied(object)) { world_.message = "Este escondite ya está ocupado."; return true; }
+    if (!HideoutPathClear(object, agent.position, object.position)) { world_.message = "Una superficie impide acceder al escondite."; return true; }
+    if (agent.draggingGuard >= 0) {
+      if (!WorldGeometry::HideoutAllowsBody(object)) { world_.message = "La mesa permite ocultar un agente, pero no almacenar cuerpos."; return true; }
+      const auto body = std::ranges::find_if(world_.guards, [&](const Guard &guard) { return static_cast<int>(guard.id) == agent.draggingGuard; });
+      if (body == world_.guards.end() || !IsBody(*body) || body->bodyHidden || body->storedIn != 0 ||
+          WorldGeometry::DistanceToBounds(body->position, WorldGeometry::ObjectFootprint(object)) > GameplayConfig::InteractionDistance || !HideoutPathClear(object, body->position, object.position)) { world_.message = "Acerca el cuerpo al mismo acceso del escondite."; return true; }
+      body->position = object.position; body->bodyHidden = true; body->storedIn = object.id; body->heldBy = 0; body->cqcState = CqcState::None;
+      body->navigation.clear(); object.occupantGuard = body->id; object.occupied = true; agent.draggingGuard = -1;
+      world_.message = "Cuerpo almacenado. El escondite tiene capacidad para un único ocupante."; return true;
+    }
+    agent.hideoutExit = agent.position; agent.position = object.position; agent.hideoutId = object.id; agent.hidden = true;
+    agent.cover = {}; agent.moving = false; agent.running = false; agent.draggingGuard = -1; agent.actionPose = ActionPose::None; agent.actionPoseTime = 0.f;
+    if (WorldGeometry::HideoutType(object) == HideoutKind::UnderTable) agent.stance = Stance::Prone;
+    object.occupantAgent = agent.id; object.occupied = true; world_.message = "Oculto. Pulsa E para salir por un acceso libre."; return true;
+  }
+
+  Guard *Simulation::NearbyBody(const Agent &agent) {
+    Guard *nearest = nullptr; float distance = GameplayConfig::InteractionDistance;
+    for (auto &guard : world_.guards) if (IsBody(guard) && !guard.bodyHidden && guard.storedIn == 0) {
+      const float candidate = Distance(agent.position, guard.position);
+      if (candidate >= distance || std::ranges::any_of(world_.agents, [&](const Agent &other) { return other.id != agent.id && other.draggingGuard == static_cast<int>(guard.id); })) continue;
+      if (!WorldGeometry::ClearMovementSegment(world_, agent.position, guard.position, GameplayConfig::AgentRadius)) continue;
+      nearest = &guard; distance = candidate;
+    }
+    return nearest;
+  }
+
+  void Simulation::UpdateBodyDrag(Agent &agent, bool held) {
+    if (!held || agent.hideoutId != 0 || agent.hidden) { agent.draggingGuard = -1; return; }
+    if (agent.draggingGuard >= 0) {
+      const auto body = std::ranges::find_if(world_.guards, [&](const Guard &guard) { return static_cast<int>(guard.id) == agent.draggingGuard; });
+      if (body != world_.guards.end() && IsBody(*body) && !body->bodyHidden && body->storedIn == 0 && Distance(agent.position, body->position) <= GameplayConfig::InteractionDistance &&
+          WorldGeometry::ClearMovementSegment(world_, agent.position, body->position, GameplayConfig::AgentRadius)) return;
+      agent.draggingGuard = -1;
+    }
+    if (const auto body = NearbyBody(agent)) { agent.draggingGuard = static_cast<int>(body->id); agent.cover = {}; }
+  }
+
+  void Simulation::MoveDraggedBody(Agent &agent, sf::Vector2f previous, float dt) {
+    if (agent.draggingGuard < 0) return;
+    const auto body = std::ranges::find_if(world_.guards, [&](const Guard &guard) { return static_cast<int>(guard.id) == agent.draggingGuard; });
+    if (body == world_.guards.end()) { agent.draggingGuard = -1; return; }
+    const auto target = agent.position - Unit(agent.position - body->position) * GameplayConfig::BodyDragOffset;
+    const auto offset = target - body->position;
+    auto candidate = body->position;
+    Move(candidate, Unit(offset) * std::min(Length(offset), GameplayConfig::DragSpeed * dt), GameplayConfig::AgentRadius);
+    if (!WorldGeometry::ClearMovementSegment(world_, body->position, candidate, GameplayConfig::AgentRadius) || !WorldGeometry::ClearMovementSegment(world_, agent.position, candidate, GameplayConfig::AgentRadius) || Distance(agent.position, candidate) > GameplayConfig::InteractionDistance) { agent.position = previous; return; }
+    body->position = candidate;
+  }
+
   void Simulation::UpdateAgent(Agent &agent, const ActionCommand &command, float dt) {
     using namespace GameplayConfig;
+    agent.decoyGuide = {};
     agent.actionCooldown = std::max(0.f, agent.actionCooldown - dt);
+    agent.actionPoseTime = std::max(0.f, agent.actionPoseTime - dt);
+    if (agent.actionPoseTime == 0.f) agent.actionPose = ActionPose::None;
+    if (agent.hideoutId != 0) {
+      agent.moving = false; agent.running = false; agent.draggingGuard = -1; agent.cover = {}; agent.actionPose = ActionPose::None; agent.actionPoseTime = 0.f;
+      agent.stamina = std::min(MaxStamina, agent.stamina + StaminaRecoveryPerSecond * dt);
+      const auto object = std::ranges::find_if(world_.objects, [&](const Interactable &entry) { return entry.id == agent.hideoutId; });
+      if (object == world_.objects.end() || object->occupantAgent != agent.id) ReleaseHideout(agent);
+      else { agent.position = object->position; agent.hidden = true; if (WorldGeometry::HideoutType(*object) == HideoutKind::UnderTable) agent.stance = Stance::Prone; if (command.interact) UseHideout(agent, *object); }
+      return;
+    }
+    UpdateBodyDrag(agent, command.dragBody);
     if (command.crouch) { agent.stance = agent.stance == Stance::Crouched ? Stance::Standing : Stance::Crouched; agent.hidden = false; }
     if (command.prone) { agent.stance = agent.stance == Stance::Prone ? Stance::Standing : Stance::Prone; agent.hidden = false; }
+    Move(agent.position, {}, AgentRadius);
+    if (command.coverToggle) ToggleCover(agent);
     sf::Vector2f direction{std::isfinite(command.moveX) ? std::clamp(command.moveX, -1.f, 1.f) : 0.f, std::isfinite(command.moveY) ? std::clamp(command.moveY, -1.f, 1.f) : 0.f};
     if (Length(direction) > 1.f) direction = Unit(direction);
-    agent.running = command.run && Length(direction) > 0.f && agent.stance == Stance::Standing && agent.draggingGuard < 0 && agent.stamina >= MinimumRunningStamina;
+    agent.running = !agent.cover.active && command.run && Length(direction) > 0.f && agent.stance == Stance::Standing && agent.draggingGuard < 0 && agent.stamina >= MinimumRunningStamina;
     float speed = agent.stance == Stance::Prone ? CrawlSpeed : (agent.stance == Stance::Crouched ? CrouchSpeed : (agent.running ? RunSpeed : WalkSpeed));
     if (agent.draggingGuard >= 0) speed = DragSpeed;
     const auto previous = agent.position;
-    Move(agent.position, direction * speed * dt, AgentRadius);
+    if (!UpdateCover(agent, command, direction, dt)) Move(agent.position, direction * speed * dt, AgentRadius);
+    MoveDraggedBody(agent, previous, dt);
     agent.moving = Distance(previous, agent.position) > 0.01f;
     if (agent.running && agent.moving) agent.stamina = std::max(0.f, agent.stamina - RunningStaminaPerSecond * dt);
     else agent.stamina = std::min(MaxStamina, agent.stamina + StaminaRecoveryPerSecond * dt);
     if (agent.moving) {
-      agent.hidden = false; agent.facing = Unit(direction); agent.animationTime += dt * (agent.running ? 1.6f : 1.f);
+      agent.hidden = false; agent.facing = Unit(agent.position - previous); agent.animationTime += dt * (agent.running ? 1.6f : 1.f);
       agent.footstepTime += dt;
       if (world_.phase == GamePhase::Mission && agent.footstepTime >= FootstepInterval && agent.stance == Stance::Standing) {
         EmitNoise(agent.position, agent.running ? RunningNoiseRadius : WalkingNoiseRadius, agent.id); agent.footstepTime = 0.f;
@@ -437,38 +625,38 @@ namespace NoTrace {
     const sf::Vector2f aim{command.aimX, command.aimY};
     agent.aimSlope = std::isfinite(command.aimSlope) ? std::clamp(command.aimSlope, -CombatConfig::MaximumAimSlope, CombatConfig::MaximumAimSlope) : 0.f;
     if (std::isfinite(aim.x) && std::isfinite(aim.y) && Length(aim) > 0.1f) agent.facing = Unit(aim);
-    if (agent.draggingGuard >= 0) for (auto &guard : world_.guards) if (static_cast<int>(guard.id) == agent.draggingGuard) guard.position = agent.position - agent.facing * BodyDragOffset;
-    if (command.interact || command.tool) Interact(agent, command.tool);
-    if (world_.phase != GamePhase::Mission) return;
-    if (command.dragBody) {
-      if (agent.draggingGuard >= 0) agent.draggingGuard = -1;
-      else for (auto &guard : world_.guards) if (IsBody(guard) && !guard.bodyHidden && Distance(agent.position, guard.position) < InteractionDistance && std::ranges::none_of(world_.agents, [&guard](const Agent &other) { return other.draggingGuard == static_cast<int>(guard.id); })) {
-        agent.draggingGuard = static_cast<int>(guard.id); break;
-      }
+    if (command.prepareDecoy && world_.phase == GamePhase::Mission && agent.loadout.decoys > 0 && agent.draggingGuard < 0 && agent.actionCooldown <= 0.f &&
+        !command.dragBody && !command.interact && !command.tool && !command.cqc && !command.knock && !command.fireLethal && !command.fireNonLethal &&
+        std::ranges::none_of(world_.guards, [&](const Guard &guard) { return guard.heldBy == agent.id && guard.cqcState != CqcState::None; })) {
+      const float distance = std::isfinite(command.decoyDistance) ? std::clamp(command.decoyDistance, 0.f, DistractionConfig::MaximumDecoyDistance) : 0.f;
+      const auto trajectory = DistractionGeometry::TraceDecoy(world_, agent.position, agent.facing, distance);
+      const auto maximum = DistractionGeometry::TraceDecoy(world_, agent.position, agent.facing);
+      agent.decoyGuide = {true, agent.facing, distance, trajectory.to, maximum.to, trajectory.travelled, maximum.travelled, trajectory.valid, trajectory.blocked, maximum.blocked};
     }
+    if (command.interact || command.tool) Interact(agent, command.tool);
+    if (agent.hideoutId != 0 || agent.draggingGuard >= 0) return;
+    if (world_.phase != GamePhase::Mission) return;
     if (agent.actionCooldown > 0.f) return;
     if (command.cqc) { Cqc(agent); agent.actionCooldown = CqcCooldown; }
     else if (command.fireLethal || command.fireNonLethal) { if (Fire(agent, command.fireLethal)) agent.actionCooldown = WeaponCooldown; }
-    else if (command.throwDecoy && agent.loadout.decoys > 0) {
-      --agent.loadout.decoys;
-      auto target = agent.position + agent.facing * DecoyDistance;
-      target.x = std::clamp(target.x, 0.f, world_.size.x); target.y = std::clamp(target.y, 0.f, world_.size.y);
-      EmitNoise(target, DecoyNoiseRadius, agent.id); agent.actionCooldown = WeaponCooldown;
-      world_.message = "Señuelo: las patrullas investigarán el origen del ruido.";
-    } else if (command.knock) {
-      const auto nearby = [&agent](const sf::FloatRect &bounds) {
-        const sf::Vector2f closest{std::clamp(agent.position.x, bounds.position.x, bounds.position.x + bounds.size.x), std::clamp(agent.position.y, bounds.position.y, bounds.position.y + bounds.size.y)};
-        return Distance(agent.position, closest) <= KnockDistance;
-      };
-      const bool wall = std::ranges::any_of(world_.obstacles, [&nearby](const Obstacle &obstacle) { return obstacle.solid && nearby(obstacle.bounds); });
-      const bool door = std::ranges::any_of(world_.objects, [&nearby](const Interactable &object) { return object.kind == ObjectKind::Door && !object.open && nearby({{object.position.x - 12.f, object.position.y - 30.f}, {24.f, 60.f}}); });
-      if (wall || door) { EmitNoise(agent.position, KnockNoiseRadius, agent.id); agent.actionCooldown = WeaponCooldown; world_.message = "Golpe en una superficie: las patrullas cercanas investigarán."; }
-      else world_.message = "Acércate a una pared, cobertura sólida o puerta cerrada para golpearla.";
-    }
+    else HandleDistractions(agent, command);
   }
 
   void Simulation::Interact(Agent &agent, bool tool) {
     using namespace GameplayConfig;
+    if (agent.draggingGuard >= 0) {
+      if (tool) { world_.message = "Suelta E antes de utilizar una herramienta."; return; }
+      Interactable *hideout = nullptr; float nearest = InteractionDistance;
+      for (auto &object : world_.objects) {
+        const float distance = WorldGeometry::DistanceToBounds(agent.position, WorldGeometry::ObjectFootprint(object));
+        if (WorldGeometry::HideoutType(object) != HideoutKind::None && WorldGeometry::Properties(object).interactive && distance < nearest &&
+            Visibility::HasLineOfSight(world_, agent.position, WorldGeometry::ClosestPoint(agent.position, WorldGeometry::ObjectFootprint(object)), Stance::Standing, object.id)) { hideout = &object; nearest = distance; }
+      }
+      if (hideout) UseHideout(agent, *hideout);
+      else world_.message = "Mantén E para arrastrar; pulsa E junto a un contenedor vacío para almacenar el cuerpo.";
+      return;
+    }
+    if (!tool && NearbyBody(agent)) { world_.message = "Mantén E para arrastrar el cuerpo neutralizado."; return; }
     if (world_.phase == GamePhase::Mission && !tool) for (auto &other : world_.agents) {
       if (other.id != agent.id && other.connected && other.alive && other.incapacitated && Distance(agent.position, other.position) < InteractionDistance) {
         if (Occluded(agent.position, other.position, Stance::Prone)) continue;
@@ -480,11 +668,17 @@ namespace NoTrace {
     Interactable *nearest = nullptr;
     float distance = InteractionDistance;
     for (auto &object : world_.objects) {
-      const float candidate = Distance(agent.position, object.position);
-      if (candidate < distance) { nearest = &object; distance = candidate; }
+      if (!WorldGeometry::Properties(object).interactive) continue;
+      const float candidate = WorldGeometry::DistanceToBounds(agent.position, WorldGeometry::ObjectFootprint(object));
+      if (candidate < distance && Visibility::HasLineOfSight(world_, agent.position, WorldGeometry::ClosestPoint(agent.position, WorldGeometry::ObjectFootprint(object)), Stance::Standing, object.id)) { nearest = &object; distance = candidate; }
     }
     if (!nearest) { world_.message = "Acércate a una estación u objeto para interactuar."; return; }
     auto &object = *nearest;
+    if (WorldGeometry::HideoutType(object) != HideoutKind::None) {
+      if (!tool) UseHideout(agent, object);
+      else world_.message = "Pulsa E para utilizar el escondite.";
+      return;
+    }
     switch (object.kind) {
     case ObjectKind::Operations:
       if (agent.id == HostPlayerId) SetContract(static_cast<ContractId>((static_cast<unsigned int>(world_.contract) + 1) % Contracts().size()));
@@ -521,10 +715,7 @@ namespace NoTrace {
       } else world_.message = "Usa una herramienta para sabotear la central.";
       break;
     case ObjectKind::Hideout:
-      if (agent.draggingGuard >= 0) {
-        for (auto &guard : world_.guards) if (static_cast<int>(guard.id) == agent.draggingGuard) { guard.bodyHidden = true; guard.position = object.position; }
-        agent.draggingGuard = -1; world_.message = "Cuerpo oculto.";
-      } else { agent.hidden = !agent.hidden; world_.message = agent.hidden ? "Oculto. Moverte abandona el escondite." : "Has abandonado el escondite."; }
+      UseHideout(agent, object);
       break;
     case ObjectKind::CoopSwitch:
       object.user = agent.id;
