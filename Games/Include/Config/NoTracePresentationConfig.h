@@ -1,41 +1,60 @@
 #pragma once
 
+#include "Config/NoTraceCombatConfig.h"
+#include "Config/NoTraceSpatialConfig.h"
 #include <SFML/Graphics/Color.hpp>
 #include <SFML/System/Vector2.hpp>
 #include <array>
+#include <cstddef>
 
 namespace NoTrace::PresentationConfig {
+  inline constexpr const char *ActorAtlas = "NoTrace/Characters/SoldiersAtlas.png";
+  inline constexpr const char *ProneAtlas = "NoTrace/Characters/ProneAtlas.png";
+  inline constexpr const char *ActorFrameTable = "Content/Textures/NoTrace/Characters/SoldiersAtlas.frames";
+  inline constexpr const char *ProneFrameTable = "Content/Textures/NoTrace/Characters/ProneAtlas.frames";
+  inline constexpr const char *ActorMuzzleTable = "Content/Textures/NoTrace/Characters/SoldiersAtlas.muzzles";
+  inline constexpr const char *ProneMuzzleTable = "Content/Textures/NoTrace/Characters/ProneAtlas.muzzles";
+  inline constexpr std::size_t ActorAtlasRows = 13;
+  inline constexpr std::size_t ActorAtlasColumns = 16;
+  inline constexpr std::size_t ProneAtlasRows = 8;
+  inline constexpr std::size_t ProneAtlasColumns = 6;
+  inline constexpr float WalkFramesPerSecond = 8.f;
+  inline constexpr float RunFramesPerSecond = 13.f;
+  inline constexpr float CrouchFramesPerSecond = 5.f;
+  inline constexpr float CrawlFramesPerSecond = 4.f;
   inline constexpr sf::Vector2f GroundProjection{1.35f, 0.675f};
   inline constexpr sf::Vector2f CameraFocusRatio{0.5f, 0.535f};
   inline constexpr float PixelSize = 2.f;
-  inline constexpr float DefaultZoom = 1.f;
-  inline constexpr float MinimumZoom = 0.5f;
-  inline constexpr float MaximumZoom = 2.f;
+  inline constexpr float DefaultZoom = 1.6f;
+  inline constexpr float MinimumZoom = 1.f;
+  inline constexpr float MaximumZoom = 3.5f;
   inline constexpr float ZoomFactorPerStep = 1.125f;
-  inline constexpr std::array<sf::Vector2f, 12> ObjectGroundSizes{{
-      {78.f, 48.f}, {70.f, 26.f}, {60.f, 38.f}, {100.f, 100.f},
-      {24.f, 64.f}, {38.f, 28.f}, {38.f, 28.f}, {8.f, 8.f},
-      {48.f, 48.f}, {44.f, 34.f}, {100.f, 100.f}, {28.f, 24.f}}};
   inline constexpr float FloorTileSize = 48.f;
-  inline constexpr float HighCoverHeight = 66.f;
-  inline constexpr float LowCoverHeight = 24.f;
-  inline constexpr float HideoutHeight = 40.f;
-  inline constexpr float ActorHeight = 46.f;
-  inline constexpr float ShotHeight = 22.f;
-  inline constexpr float CrouchedShotHeight = 10.f;
-  inline constexpr float ProneShotHeight = 6.f;
+  inline constexpr float HighCoverHeight = SpatialConfig::HighCoverHeight;
+  inline constexpr float LowCoverHeight = SpatialConfig::LowCoverHeight;
+  inline constexpr float HideoutHeight = SpatialConfig::HideoutHeight;
+  inline constexpr float ActorHeight = CombatConfig::StandingHeight;
+  inline constexpr float ShotHeight = CombatConfig::StandingWeaponHeight;
+  inline constexpr float CrouchedShotHeight = CombatConfig::CrouchedWeaponHeight;
+  inline constexpr float ProneShotHeight = CombatConfig::ProneWeaponHeight;
   inline constexpr float StandingWeaponOffset = 12.f;
   inline constexpr float ProneWeaponOffset = 24.f;
   inline constexpr float StandingBarrelLength = 16.f;
   inline constexpr float ProneBarrelLength = 12.f;
   inline constexpr float ShotTargetTolerance = 18.f;
   inline constexpr float ActorHalfWidth = 18.f;
-  inline constexpr float CrouchedHeight = ActorHeight - 12.f;
+  inline constexpr float CrouchedHeight = CombatConfig::CrouchedHeight;
   inline constexpr sf::Vector2f ProneSilhouetteOffset{-26.f, -14.f};
   inline constexpr sf::Vector2f ProneSilhouetteSize{54.f, 24.f};
   inline constexpr unsigned int WorldLabelSize = 14;
   inline constexpr int NoiseCircleSegments = 40;
   inline constexpr int VisionSegments = 14;
+  inline constexpr float IconOffset = 12.f;
+  inline constexpr float IconHalfSize = 9.f;
+  inline constexpr float FogEffectStep = 12.f;
+  inline constexpr float DecoyGuideStep = 12.f;
+  inline constexpr float DecoyMarkerSize = 8.f;
+  inline constexpr float FootstepMarkLength = 7.f;
   inline constexpr sf::Vector2f MinimapPosition{1320.f, 140.f};
   inline constexpr sf::Vector2f MinimapSize{240.f, 190.f};
   inline constexpr sf::Vector2f MinimapGroundOffset{10.f, 24.f};
@@ -43,6 +62,7 @@ namespace NoTrace::PresentationConfig {
   inline constexpr unsigned int MinimapTextSize = 11;
   inline constexpr std::array<float, 4> WalkStride{-4.f, 0.f, 4.f, 0.f};
   inline const sf::Color Void{5, 9, 16};
+  inline const sf::Color Fog{3, 7, 12};
   inline const sf::Color Floor{24, 33, 42};
   inline const sf::Color FloorAlternate{27, 37, 46};
   inline const sf::Color FloorGrid{35, 47, 56};

@@ -2,21 +2,42 @@
 
 #include "Types/NoTraceGameplayTypes.h"
 #include "Config/NoTracePresentationConfig.h"
+#include "NoTraceCombatGeometry.h"
+#include "NoTraceVisibility.h"
+#include "NoTraceWorldGeometry.h"
 #include <SFML/Graphics/Color.hpp>
 #include <SFML/Graphics/View.hpp>
 #include <algorithm>
 #include <cmath>
 #include <initializer_list>
+#include <optional>
 
 struct EngineContext;
-namespace sf { class Font; }
+namespace sf { class Font; class Texture; }
 
 namespace NoTrace {
   class WorldRenderer {
+  public:
+    using AimSolution = CombatGeometry::AimSolution;
+    enum class GuardIndicator { None, Suspicion, Confirmed, Combat, Unconscious };
+    struct SpriteFrame { std::size_t index = 0; bool prone = false; bool mirror = false; };
+    struct SpritePlacement {
+      sf::Vector2f position, origin, scale;
+      sf::Vector2f Map(sf::Vector2f point) const { return position + (point - origin).componentWiseMul(scale); }
+    };
   private:
     EngineContext &ctx_;
     const sf::Font *font_;
+    sf::Texture *actorAtlas_;
+    sf::Texture *proneAtlas_;
+    std::vector<sf::IntRect> actorFrames_;
+    std::vector<sf::IntRect> proneFrames_;
+    std::vector<sf::Vector2f> actorMuzzles_;
+    std::vector<sf::Vector2f> proneMuzzles_;
     float zoom_ = PresentationConfig::DefaultZoom;
+    bool decoyPreviewActive_ = false;
+    sf::Vector2f decoyPreviewDirection_;
+    float decoyPreviewDistance_ = 0.f;
 
     static sf::Vector2f SnapToPixels(sf::Vector2f value) {
       return {std::round(value.x / PresentationConfig::PixelSize) * PresentationConfig::PixelSize,
@@ -34,27 +55,39 @@ namespace NoTrace {
     void PixelLine(sf::Vector2f from, sf::Vector2f to, sf::Color color, float thickness = 2.f) const;
     void Label(const std::string &text, sf::Vector2f position, sf::Color color, unsigned int size = PresentationConfig::WorldLabelSize) const;
     void Box(sf::FloatRect bounds, float height, sf::Vector2f camera, sf::Color top, sf::Color left, sf::Color right) const;
-    void Floor(const WorldState &world, sf::Vector2f camera) const;
+    void Floor(const WorldState &world, sf::Vector2f camera, const VisibilityGrid &visibility) const;
+    void Fog(const WorldState &world, sf::Vector2f camera, const VisibilityGrid &visibility) const;
     void ObstacleArt(const Obstacle &obstacle, sf::Vector2f camera) const;
     void ObjectArt(const Interactable &object, sf::Vector2f camera, bool nearby) const;
-    void Humanoid(sf::Vector2f feet, sf::Vector2f facing, Stance stance, sf::Color uniform,
-                  float animation, bool moving, bool running, bool down, bool grappling) const;
+    SpriteFrame AgentFrame(const Agent &agent, const WorldState &world, bool local) const;
+    SpriteFrame GuardFrame(const Guard &guard, const WorldState &world) const;
+    std::optional<sf::Vector2f> SourceMuzzle(const WorldState &world, const ShotTrace &shot, sf::Vector2f camera, const Agent *observer) const;
+    void Humanoid(sf::Vector2f feet, sf::Vector2f facing, Stance stance, sf::Color uniform, SpriteFrame frame, bool down, bool guard = false) const;
     void AgentArt(const Agent &agent, const WorldState &world, sf::Vector2f camera, bool local) const;
     void GuardArt(const Guard &guard, const WorldState &world, sf::Vector2f camera) const;
     void Vision(const Guard &guard, const WorldState &world, sf::Vector2f camera) const;
     void FieldOfView(sf::Vector2f position, sf::Vector2f facing, float range, sf::Color color, const WorldState &world, sf::Vector2f camera) const;
     void Noise(const NoiseEvent &noise, sf::Vector2f camera) const;
-    void Combat(const WorldState &world, sf::Vector2f camera) const;
-    void Minimap(const WorldState &world, PlayerId localPlayer) const;
+    void Combat(const WorldState &world, sf::Vector2f camera, const Agent *observer) const;
+    void GuardIcon(const Guard &guard, sf::Vector2f camera) const;
+    void DecoyPreview(const WorldState &world, sf::Vector2f camera, const Agent *observer) const;
+    void Footsteps(const WorldState &world, sf::Vector2f camera, const Agent *observer) const;
+    void Minimap(const WorldState &world, PlayerId localPlayer, const VisibilityGrid &visibility) const;
 
   public:
     explicit WorldRenderer(EngineContext &context);
     void AdjustZoom(float steps) { zoom_ = ZoomAfterSteps(zoom_, steps); }
     float GetZoom() const { return zoom_; }
     void ResetZoom() { zoom_ = PresentationConfig::DefaultZoom; }
+    void SetDecoyPreview(bool active, sf::Vector2f direction, float distance) {
+      decoyPreviewActive_ = active;
+      decoyPreviewDirection_ = direction;
+      decoyPreviewDistance_ = std::isfinite(distance) ? std::max(0.f, distance) : 0.f;
+    }
     void Render(const WorldState &world, PlayerId localPlayer) const;
     sf::Vector2f ScreenToGround(sf::Vector2f logical, const WorldState &world, PlayerId localPlayer) const;
     sf::Vector2f AimToGround(sf::Vector2f logical, const WorldState &world, PlayerId localPlayer) const;
+    AimSolution AimAt(sf::Vector2f logical, const WorldState &world, PlayerId localPlayer) const;
     static float ClampZoom(float zoom) {
       return std::isfinite(zoom) ? std::clamp(zoom, PresentationConfig::MinimumZoom, PresentationConfig::MaximumZoom) : PresentationConfig::DefaultZoom;
     }
@@ -69,27 +102,70 @@ namespace NoTrace {
       const auto focus = LogicalCenter(logicalSize);
       return sf::View(sf::FloatRect(focus - focus / zoom, logicalSize / zoom));
     }
-    static sf::Vector2f ProjectGround(sf::Vector2f ground, sf::Vector2f camera, sf::Vector2f logicalSize, float zoom = PresentationConfig::DefaultZoom) {
+    static sf::Vector2f ProjectGround(sf::Vector2f ground, sf::Vector2f camera, sf::Vector2f logicalSize, float zoom = 1.f) {
       const auto delta = ground - camera;
       const auto focus = LogicalCenter(logicalSize);
       const auto point = SnapToPixels(focus + sf::Vector2f{(delta.x - delta.y) * PresentationConfig::GroundProjection.x,
                                                          (delta.x + delta.y) * PresentationConfig::GroundProjection.y});
       return focus + (point - focus) * ClampZoom(zoom);
     }
-    static sf::Vector2f UnprojectGround(sf::Vector2f logical, sf::Vector2f camera, sf::Vector2f logicalSize, float zoom = PresentationConfig::DefaultZoom) {
+    static sf::Vector2f UnprojectGround(sf::Vector2f logical, sf::Vector2f camera, sf::Vector2f logicalSize, float zoom = 1.f) {
       const auto delta = (logical - LogicalCenter(logicalSize)) / ClampZoom(zoom);
       const float horizontal = delta.x / PresentationConfig::GroundProjection.x;
       const float vertical = delta.y / PresentationConfig::GroundProjection.y;
       return camera + sf::Vector2f{(horizontal + vertical) * 0.5f, (vertical - horizontal) * 0.5f};
     }
     static sf::FloatRect ObjectFootprint(const Interactable &object) {
-      const auto size = PresentationConfig::ObjectGroundSizes[static_cast<std::size_t>(object.kind)];
-      return {object.position - size * 0.5f, size};
+      return WorldGeometry::ObjectFootprint(object);
     }
     static float WeaponHeight(Stance stance) {
-      if (stance == Stance::Prone) return PresentationConfig::ProneShotHeight;
-      if (stance == Stance::Crouched) return PresentationConfig::CrouchedShotHeight;
-      return PresentationConfig::ShotHeight;
+      return CombatGeometry::WeaponHeight(stance);
+    }
+    static SpriteFrame SelectSprite(sf::Vector2f facing, Stance stance, float animation, bool moving, bool running, bool down, bool grappling,
+        bool braced = false, bool peeking = false, bool guard = false, bool action = false) {
+      const sf::Vector2f projected{(facing.x - facing.y) * PresentationConfig::GroundProjection.x, (facing.x + facing.y) * PresentationConfig::GroundProjection.y};
+      constexpr float turn = 0.78539816339f;
+      const int direction = (static_cast<int>(std::lround(std::atan2(projected.x, -projected.y) / turn)) + 8) % 8;
+      const auto frame = static_cast<std::size_t>(std::max(0.f, animation) * (running ? PresentationConfig::RunFramesPerSecond : PresentationConfig::WalkFramesPerSecond));
+      if (stance == Stance::Prone && !down) {
+        const auto crawl = static_cast<std::size_t>(std::max(0.f, animation) * PresentationConfig::CrawlFramesPerSecond);
+        const std::size_t column = moving || action ? 1 + crawl % 2 : 0;
+        return {static_cast<std::size_t>(direction) * PresentationConfig::ProneAtlasColumns + (guard ? 3 : 0) + column, true, false};
+      }
+      const std::array<std::size_t, 8> agentRows{{4, 3, 2, 1, 0, 1, 6, 5}}, guardRows{{11, 10, 9, 8, 7, 8, 9, 10}};
+      const bool mirror = guard ? direction >= 5 : direction == 5;
+      std::size_t column = moving ? 1 + frame % 4 : 0;
+      if (stance == Stance::Crouched) column = moving ? 6 + static_cast<std::size_t>(std::max(0.f, animation) * PresentationConfig::CrouchFramesPerSecond) % 2 : 5;
+      if (braced) column = peeking ? 13 : 12;
+      if (grappling || action) column = 15;
+      if (down) column = 11;
+      return {(guard ? guardRows[direction] : agentRows[direction]) * PresentationConfig::ActorAtlasColumns + column, false, mirror};
+    }
+    static sf::FloatRect SpriteBounds(sf::Vector2f facing, Stance stance, bool down) {
+      float left = 0.f, right = 0.f, top = 0.f, bottom = 0.f;
+      const auto include = [&](sf::Vector2f ground, float height) {
+        const sf::Vector2f point{(ground.x - ground.y) * PresentationConfig::GroundProjection.x, (ground.x + ground.y) * PresentationConfig::GroundProjection.y - height};
+        left = std::min(left, point.x); right = std::max(right, point.x); top = std::min(top, point.y); bottom = std::max(bottom, point.y);
+      };
+      for (const auto &volume : CombatGeometry::ActorVolumes({}, facing, stance, down)) {
+        const sf::Vector2f side{-volume.forward.y, volume.forward.x};
+        for (const float x : {-1.f, 1.f}) for (const float y : {-1.f, 1.f}) {
+          const auto corner = volume.center + volume.forward * volume.halfSize.x * x + side * volume.halfSize.y * y;
+          include(corner, volume.bottom); include(corner, volume.top);
+        }
+      }
+      if (!down) {
+        const auto muzzle = WeaponOffset(stance, facing, true);
+        left = std::min(left, muzzle.x); right = std::max(right, muzzle.x);
+        top = std::min(top, muzzle.y); bottom = std::max(bottom, muzzle.y);
+      }
+      return {{left, top}, {std::max(1.f, right - left), std::max(1.f, bottom - top)}};
+    }
+    static SpritePlacement PlaceSprite(sf::Vector2f feet, sf::Vector2f facing, Stance stance, bool down, SpriteFrame frame, sf::Vector2i size) {
+      const auto bounds = SpriteBounds(facing, stance, down);
+      const sf::Vector2f scale{bounds.size.x / size.x, bounds.size.y / size.y};
+      const sf::Vector2f origin{-bounds.position.x / scale.x, -bounds.position.y / scale.y};
+      return {SnapToPixels(feet), {frame.mirror ? static_cast<float>(size.x) - origin.x : origin.x, origin.y}, {frame.mirror ? -scale.x : scale.x, scale.y}};
     }
     static sf::Vector2f WeaponOffset(Stance stance, sf::Vector2f facing, bool barrelTip = false) {
       const float side = facing.x - facing.y >= 0.f ? 1.f : -1.f;
@@ -107,55 +183,71 @@ namespace NoTrace {
       if (shot.actor == 0 || agent == world.agents.end()) return Stance::Standing;
       return !agent->alive || agent->incapacitated ? Stance::Prone : agent->stance;
     }
-    static float ShotImpactHeight(const ShotTrace &shot, const WorldState &world) {
-      float height = WeaponHeight(ShotStance(shot, world));
-      if (!shot.hit) return height;
-      float nearest = PresentationConfig::ShotTargetTolerance * PresentationConfig::ShotTargetTolerance;
-      const auto consider = [&](sf::Vector2f position, Stance stance) {
-        const float distance = (position - shot.to).lengthSquared();
-        if (distance < nearest) { nearest = distance; height = WeaponHeight(stance); }
-      };
-      for (const auto &guard : world.guards) {
-        if (guard.bodyHidden || (shot.actor == 0 && guard.id == shot.guardId)) continue;
-        const bool down = guard.state == GuardState::Dead || guard.state == GuardState::Incapacitated || guard.cqcState == CqcState::KnockedDown || guard.cqcState == CqcState::Restrained;
-        consider(guard.position, down ? Stance::Prone : Stance::Standing);
-      }
-      for (const auto &agent : world.agents) {
-        if (agent.id == shot.actor || agent.extracted || !agent.connected) continue;
-        consider(agent.position, !agent.alive || agent.incapacitated ? Stance::Prone : agent.stance);
-      }
-      return height;
+    static float ShotImpactHeight(const ShotTrace &shot, const WorldState &) { return shot.toHeight; }
+    static GuardIndicator IndicatorFor(const Guard &guard) {
+      if (guard.bodyHidden || guard.storedIn != 0 || guard.state == GuardState::Dead) return GuardIndicator::None;
+      if (guard.state == GuardState::Incapacitated) return GuardIndicator::Unconscious;
+      if (guard.detectedTime > 0.f) return GuardIndicator::Confirmed;
+      if (guard.state == GuardState::Alert) return GuardIndicator::Combat;
+      if (guard.state == GuardState::Suspicion || guard.state == GuardState::Investigate || guard.state == GuardState::Search) return GuardIndicator::Suspicion;
+      return GuardIndicator::None;
     }
-    static sf::Vector2f ResolveAimGround(sf::Vector2f logical, const WorldState &world, PlayerId localPlayer, sf::Vector2f logicalSize, float zoom) {
+    static bool VisibleCell(const VisibilityGrid &grid, sf::Vector2f point) {
+      if (grid.cellSize <= 0.f || point.x < 0.f || point.y < 0.f) return false;
+      const auto column = static_cast<unsigned int>(point.x / grid.cellSize);
+      const auto row = static_cast<unsigned int>(point.y / grid.cellSize);
+      const auto index = static_cast<std::size_t>(row) * grid.columns + column;
+      return column < grid.columns && row < grid.rows && index < grid.cells.size() && grid.cells[index] != 0;
+    }
+    static bool FootprintVisible(const WorldState &world, const Agent &observer, sf::FloatRect footprint) {
+      if (world.phase != GamePhase::Mission) return true;
+      const auto end = footprint.position + footprint.size;
+      const sf::Vector2f closest{std::clamp(observer.position.x, footprint.position.x, end.x), std::clamp(observer.position.y, footprint.position.y, end.y)};
+      if (Visibility::IsVisible(world, observer, closest)) return true;
+      for (const auto point : {footprint.position, sf::Vector2f{end.x, footprint.position.y}, end, sf::Vector2f{footprint.position.x, end.y}}) {
+        if (Visibility::IsVisible(world, observer, point)) return true;
+      }
+      return false;
+    }
+    static AimSolution ResolveAim(sf::Vector2f logical, const WorldState &world, PlayerId localPlayer, sf::Vector2f logicalSize, float zoom) {
       zoom = ClampZoom(zoom);
       const auto local = std::find_if(world.agents.begin(), world.agents.end(), [localPlayer](const Agent &agent) { return agent.id == localPlayer; });
       const auto camera = local == world.agents.end() ? world.size * 0.5f : local->position;
-      std::vector<sf::Vector2f> candidates;
-      std::vector<sf::FloatRect> footprints;
-      const auto consider = [&](sf::Vector2f position, Stance stance) {
-        const auto feet = ProjectGround(position, camera, logicalSize, zoom);
-        const float height = stance == Stance::Crouched ? PresentationConfig::CrouchedHeight : PresentationConfig::ActorHeight;
-        const sf::FloatRect silhouette = stance == Stance::Prone
-            ? sf::FloatRect(feet + PresentationConfig::ProneSilhouetteOffset * zoom, PresentationConfig::ProneSilhouetteSize * zoom)
-            : sf::FloatRect(feet - sf::Vector2f{PresentationConfig::ActorHalfWidth, height} * zoom,
-                            sf::Vector2f{PresentationConfig::ActorHalfWidth * 2.f, height + PresentationConfig::PixelSize} * zoom);
-        if (silhouette.contains(logical)) {
-          candidates.push_back(position);
-          footprints.push_back({position, {0.f, 0.f}});
+      const float weaponHeight = WeaponHeight(local == world.agents.end() ? Stance::Standing : local->stance);
+      AimSolution result{UnprojectGround(logical + sf::Vector2f{0.f, weaponHeight * zoom}, camera, logicalSize, zoom), 0.f};
+      const auto base = UnprojectGround(logical, camera, logicalSize, zoom);
+      const sf::Vector2f heightRay{0.5f / PresentationConfig::GroundProjection.y, 0.5f / PresentationConfig::GroundProjection.y};
+      float closestHeight = -1.f;
+      const auto consider = [&](sf::Vector2f position, sf::Vector2f facing, Stance stance, bool down) {
+        for (const auto &volume : CombatGeometry::ActorVolumes(position, facing, stance, down)) {
+          const float viewHeight = CombatConfig::StandingHeight + PresentationConfig::PixelSize;
+          const float viewRate = heightRay.length();
+          const auto intersection = CombatGeometry::IntersectVolume(base + heightRay * viewHeight, -heightRay / viewRate, viewHeight, -1.f / viewRate, viewHeight * viewRate, volume);
+          if (!intersection) continue;
+          const float height = std::max(volume.bottom, viewHeight - *intersection / viewRate - 0.01f);
+          if (height < closestHeight) continue;
+          const auto point = base + heightRay * height;
+          const float distance = (point - camera).length();
+          if (distance <= 0.01f) continue;
+          closestHeight = height;
+          result = {point, std::clamp((height - weaponHeight) / distance, -CombatConfig::MaximumAimSlope, CombatConfig::MaximumAimSlope)};
         }
       };
       for (const auto &guard : world.guards) {
-        if (guard.bodyHidden || guard.state == GuardState::Dead || guard.state == GuardState::Incapacitated) continue;
+        if (guard.bodyHidden || guard.storedIn != 0 || guard.state == GuardState::Dead || guard.state == GuardState::Incapacitated) continue;
+        if (local != world.agents.end() && !Visibility::GuardVisible(world, *local, guard)) continue;
         const bool down = guard.cqcState == CqcState::KnockedDown || guard.cqcState == CqcState::Restrained;
-        consider(guard.position, down ? Stance::Prone : Stance::Standing);
+        consider(guard.position, guard.facing, Stance::Standing, down);
       }
       for (const auto &agent : world.agents) {
         if (agent.id == localPlayer || !agent.alive || agent.incapacitated || agent.extracted || !agent.connected || agent.hidden) continue;
-        consider(agent.position, agent.stance);
+        if (local != world.agents.end() && !Visibility::IsVisible(world, *local, agent.position, agent.stance)) continue;
+        consider(agent.position, agent.facing, agent.stance, false);
       }
-      if (!candidates.empty()) return candidates[GroundDrawOrder(footprints).back()];
-      const float height = WeaponHeight(local == world.agents.end() ? Stance::Standing : local->stance);
-      return UnprojectGround(logical + sf::Vector2f{0.f, height * zoom}, camera, logicalSize, zoom);
+      return result;
+    }
+    static sf::Vector2f ResolveAimGround(sf::Vector2f logical, const WorldState &world, PlayerId localPlayer, sf::Vector2f logicalSize, float zoom) {
+      return ResolveAim(logical, world, localPlayer, logicalSize, zoom).ground;
     }
     static std::vector<std::size_t> GroundDrawOrder(const std::vector<sf::FloatRect> &footprints) {
       const auto count = footprints.size();

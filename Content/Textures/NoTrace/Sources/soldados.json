@@ -1,0 +1,29 @@
+{
+  "animationPolicy": "Fotogramas distintos de contacto y paso; arrastre alterna brazo y rodilla; no se divide una ilustración estática.",
+  "generator": "OpenAI image_gen",
+  "muzzlePolicy": "Una boca opcional por fotograma en tablas .muzzles, revisada visualmente sobre el cañón. Coordenadas locales de centro de píxel; -1 -1 indica ausencia de arma visible. La transformación de dibujo y de boca es compartida; la física conserva sus alturas autoritativas.",
+  "muzzleTools": ["anotar_bocas.ps1", "revisar_bocas.ps1"],
+  "prompts": [
+    "Atlas original 2D de soldados CIO azul y guardias oliva, direcciones y poses independientes, andar de cuatro fotogramas, agachado y arrastre de dos, idle, caída, cobertura, asomado y acción; transparente, píxeles definidos, sin vóxeles ni suelo.",
+    "Atlas complementario tumbado y arrastre de 6 columnas y 8 filas: agente idle/izquierda/derecha y guardia idle/izquierda/derecha; cada fila orienta el cuerpo completo N,NE,E,SE,S,SW,W,NW; pixel art 2D original sin sombras ni cubos."
+  ],
+  "atlases": [
+    {
+      "rows": 13,
+      "frames": 208,
+      "alphaThreshold": 100,
+      "file": "SoldiersAtlas.png",
+      "columns": 16
+    },
+    {
+      "rows": 8,
+      "frames": 48,
+      "alphaThreshold": 100,
+      "file": "ProneAtlas.png",
+      "columns": 6
+    }
+  ],
+  "author": "Carlos Cortina",
+  "organization": "CIO",
+  "directionPolicy": "Ocho direcciones; espejo de diagonal inferior en atlas de pie; tumbado tiene ocho filas diseñadas."
+}
