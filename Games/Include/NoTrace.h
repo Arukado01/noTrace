@@ -27,6 +27,7 @@ namespace NoTrace {
 
   public:
     explicit Menu(EngineContext &context);
+    bool UsesGlobalOverlay() const override { return false; }
     void Start() override;
     void Update() override;
     void Render() const override;
@@ -55,6 +56,7 @@ namespace NoTrace {
 
   public:
     explicit Reception(EngineContext &context);
+    bool UsesGlobalOverlay() const override { return false; }
     void Start() override;
     void Update() override;
     void Render() const override;

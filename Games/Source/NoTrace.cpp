@@ -263,6 +263,10 @@ namespace NoTrace {
     if (!key || page_ != MenuPage::Options) {
       return;
     }
+    if (key->scancode == sf::Keyboard::Scan::Escape) {
+      ShowPage(MenuPage::Main);
+      return;
+    }
     const auto slider = volumeSlider_->isFocused() ? volumeSlider_ :
                         (cursorSlider_->isFocused() ? cursorSlider_ : nullptr);
     if (!slider) {

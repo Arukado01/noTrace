@@ -17,6 +17,7 @@ public:
   virtual void Update() = 0;
   virtual void UpdateBackground() {};
   virtual void Render() const = 0;
+  virtual bool UsesGlobalOverlay() const { return true; }
 
   virtual void OnEvent(const sf::Event &) {};
   virtual void OnPause(bool /* pausa */) {};

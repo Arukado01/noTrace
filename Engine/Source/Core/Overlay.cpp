@@ -7,6 +7,7 @@
 Overlay::Overlay(GuiManager &gui) {
   group_ = tgui::Group::create();
   group_->setVisible(false);
+  group_->setEnabled(false);
 
   InitBackground();
   InitButtons();
@@ -19,6 +20,8 @@ std::optional<OverlaySelection> Overlay::FetchSelection() {
 }
 
 void Overlay::SetVisible(bool visible) {
+  group_->setEnabled(visible);
+  if (!visible) selection_.reset();
   if (visible) {
     group_->moveToFront();
   }

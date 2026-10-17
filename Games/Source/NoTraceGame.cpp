@@ -4,6 +4,7 @@
 #include "Config/NoTraceConfig.h"
 #include "Core/EngineConfig.h"
 #include "Utils/Log.h"
+#include "Utils/InputBindings.h"
 #include <algorithm>
 #include <charconv>
 #include <cmath>
@@ -14,7 +15,7 @@ namespace NoTrace {
     std::string StanceName(Stance stance) {
       switch (stance) {
       case Stance::Crouched: return "AGACHADO";
-      case Stance::Prone: return "TUMBADO / X para arrastrarse";
+      case Stance::Prone: return "TUMBADO / ARRASTRE AUTOMÁTICO";
       default: return "DE PIE";
       }
     }
@@ -34,18 +35,32 @@ namespace NoTrace {
       root_->add(result); return result;
     };
     title_ = label("NO TRACE  //  CIO", 30.f, 13.f, 970.f, 26);
-    mission_ = label("", 30.f, 56.f, 1160.f, 20);
-    agent_ = label("", 30.f, 83.f, 1420.f, 18);
-    auto lobby = tgui::Button::create("BASE / SALA  [F2]");
-    lobby->setPosition({1260.f, 22.f}); lobby->setSize({310.f, 50.f}); lobby->setTextSize(20);
-    lobby->onPress([this] { if (!session_.IsConnected()) Open(Page::Connection); else if (session_.GetWorld().phase == GamePhase::Base) Open(Page::Deployment); });
-    root_->add(lobby);
+    mission_ = label("", 30.f, 56.f, 960.f, 18);
+    agent_ = label("", 30.f, 83.f, 1540.f, 16);
+    lobby_ = tgui::Button::create("BASE / SALA  [F2]");
+    lobby_->setPosition({1260.f, 22.f}); lobby_->setSize({310.f, 50.f}); lobby_->setTextSize(20);
+    lobby_->onPress([this] {
+      if (!session_.IsConnected()) Open(Page::Connection);
+      else if (session_.GetWorld().phase == GamePhase::Base) Open(Page::Deployment);
+      else if (session_.GetWorld().phase == GamePhase::Mission) Open(Page::Pause);
+    });
+    root_->add(lobby_);
+    const auto indicator = [this](float y, tgui::Color color) {
+      auto bar = tgui::ProgressBar::create();
+      bar->setPosition({1010.f, y}); bar->setSize({220.f, 28.f}); bar->setTextSize(16);
+      bar->getRenderer()->setFillColor(color); bar->getRenderer()->setBackgroundColor({12, 22, 32});
+      bar->getRenderer()->setTextColor(TEXT_COLOR); bar->getRenderer()->setTextColorFilled(tgui::Color::White);
+      bar->getRenderer()->setBorderColor({84, 102, 117}); bar->setIgnoreMouseEvents(true);
+      root_->add(bar); return bar;
+    };
+    health_ = indicator(16.f, {148, 44, 59});
+    stamina_ = indicator(56.f, {37, 103, 97});
     auto footer = tgui::Panel::create({"100%", 150.f});
     footer->setPosition({0.f, 750.f}); footer->getRenderer()->setBackgroundColor({5, 12, 20, 235});
     footer->getRenderer()->setBorders(0); root_->add(footer);
     hint_ = label("", 30.f, 758.f, 1530.f, 22);
     message_ = label("", 30.f, 798.f, 1530.f, 18);
-    label("WASD mover · Mayús correr · C agacharse · Z tumbarse · X arrastrarse · E interactuar", 30.f, 832.f, 1530.f, 17);
+    label("WASD mover / arrastre tumbado · Mayús correr · C agacharse / levantarse · Z tumbarse · E interactuar · rueda zoom · Esc pausa", 30.f, 832.f, 1530.f, 16);
     label("Q CQC · clic izq. letal / der. no letal · G señuelo · K golpe · B arrastrar cuerpo · T herramienta · Tab orden privada", 30.f, 863.f, 1550.f, 16);
     private_ = tgui::Label::create(); private_->setPosition({34.f, 140.f}); private_->setSize({620.f, 115.f});
     private_->setTextSize(19); private_->getRenderer()->setTextColor({239, 203, 117});
@@ -77,7 +92,7 @@ namespace NoTrace {
   void Game::BindInputs() {
     const std::array<sf::Keyboard::Scan, Count> keys{
       sf::Keyboard::Scan::A, sf::Keyboard::Scan::D, sf::Keyboard::Scan::W, sf::Keyboard::Scan::S,
-      sf::Keyboard::Scan::LShift, sf::Keyboard::Scan::C, sf::Keyboard::Scan::Z, sf::Keyboard::Scan::X,
+      sf::Keyboard::Scan::LShift, sf::Keyboard::Scan::C, sf::Keyboard::Scan::Z,
       sf::Keyboard::Scan::E, sf::Keyboard::Scan::Q, sf::Keyboard::Scan::Unknown, sf::Keyboard::Scan::Unknown,
       sf::Keyboard::Scan::G, sf::Keyboard::Scan::K, sf::Keyboard::Scan::B, sf::Keyboard::Scan::T,
       sf::Keyboard::Scan::Tab, sf::Keyboard::Scan::F2
@@ -94,7 +109,7 @@ namespace NoTrace {
   void Game::Start() {
     session_.Stop(); held_.fill(false); previousPhase_ = GamePhase::Base;
     ready_ = false; paused_ = false; showOrders_ = false; lastAudioEvent_ = 0;
-    BindInputs(); ctx.renderer.ResetView(); ctx.renderer.SetPostProcessingEnabled(false);
+    BindInputs(); worldRenderer_.ResetZoom(); ctx.renderer.ResetView(); ctx.renderer.SetPostProcessingEnabled(false);
     ctx.renderer.SetTextureSmoothing(false); ctx.cursor.SetVisible(true); ctx.cursor.SetHovered(false);
     root_->setEnabled(true); ctx.gui.Add(root_); Open(Page::Connection); RefreshHud();
   }
@@ -110,13 +125,14 @@ namespace NoTrace {
   }
 
   void Game::Update() {
-    if (page_ != Page::None || !session_.IsConnected()) {
+    if (paused_ || page_ != Page::None || !session_.IsConnected()) {
       session_.Submit({}); held_.fill(false); return;
     }
     if (Pressed(Lobby, true) && session_.GetWorld().phase == GamePhase::Base) { Open(Page::Deployment); return; }
     if (Pressed(Orders, true)) showOrders_ = !showOrders_;
     const auto *agent = LocalAgent();
     if (!agent) return;
+    worldRenderer_.AdjustZoom(ctx.input.WheelDelta());
     ActionCommand command;
     const sf::Vector2f screenMove{static_cast<float>(Pressed(Right)) - static_cast<float>(Pressed(Left)), static_cast<float>(Pressed(Down)) - static_cast<float>(Pressed(Up))};
     const auto &world = session_.GetWorld();
@@ -125,12 +141,12 @@ namespace NoTrace {
     if (length > 0.f) direction /= length;
     command.moveX = direction.x; command.moveY = direction.y;
     const auto cursor = ctx.cursor.GetPosition();
-    auto aim = worldRenderer_.ScreenToGround(cursor, world, agent->id) - agent->position;
+    auto aim = worldRenderer_.AimToGround(cursor, world, agent->id) - agent->position;
     const float aimLength = std::sqrt(aim.x * aim.x + aim.y * aim.y);
     if (aimLength > 1.f) aim /= aimLength; else aim = agent->facing;
     command.aimX = aim.x; command.aimY = aim.y;
     command.run = Pressed(Run); command.crouch = Pressed(Crouch, true); command.prone = Pressed(Prone, true);
-    command.crawl = Pressed(Crawl); command.interact = Pressed(Interact, true);
+    command.interact = Pressed(Interact, true);
     command.cqc = Pressed(Cqc, true); command.throwDecoy = Pressed(Decoy, true); command.knock = Pressed(Knock, true);
     command.dragBody = Pressed(Drag, true); command.tool = Pressed(Tool, true);
     const bool lethal = Pressed(Lethal, true), nonLethal = Pressed(NonLethal, true);
@@ -161,27 +177,64 @@ namespace NoTrace {
       previousPhase_ = phase;
     }
     if (session_.IsConnected()) {
-      for (const auto &event : session_.GetWorld().events) if (event.sequence > lastAudioEvent_) {
-        if (event.actor == session_.GetLocalPlayerId() && (event.kind == EventKind::WeaponLethal || event.kind == EventKind::WeaponNonLethal)) PlayCue("Laser.mp3");
+      const auto &events = session_.GetWorld().events;
+      if (events.empty() || events.back().sequence < lastAudioEvent_) lastAudioEvent_ = 0;
+      for (const auto &event : events) if (event.sequence > lastAudioEvent_) {
+        if ((event.actor == session_.GetLocalPlayerId() && (event.kind == EventKind::WeaponLethal || event.kind == EventKind::WeaponNonLethal)) || event.kind == EventKind::GuardShot) PlayCue("Laser.mp3");
+        else if (event.kind == EventKind::GuardMelee || (event.target == session_.GetLocalPlayerId() && event.kind == EventKind::AgentDamaged)) PlayCue("Explosion.mp3");
         else if (event.kind == EventKind::Objective || event.kind == EventKind::Extracted) PlayCue("Bonus.mp3");
         lastAudioEvent_ = event.sequence;
       }
     }
+    if (page_ == Page::Options && observedDisplay_ != ctx.window.GetDisplaySettings()) SyncDisplayOptions();
     RefreshHud();
   }
 
   void Game::Render() const { worldRenderer_.Render(session_.GetWorld(), session_.GetLocalPlayerId()); }
+
+  void Game::OnEvent(const sf::Event &event) {
+    if (const auto *key = event.getIf<sf::Event::KeyPressed>()) {
+      if (key->scancode == sf::Keyboard::Scan::Escape) { NavigateBack(); return; }
+      if (page_ == Page::Options) for (const auto &widget : panel_->getWidgets()) {
+        const auto slider = std::dynamic_pointer_cast<tgui::Slider>(widget);
+        if (!slider || !slider->isFocused()) continue;
+        if (key->scancode == sf::Keyboard::Scan::Left) slider->setValue(slider->getValue() - slider->getStep());
+        else if (key->scancode == sf::Keyboard::Scan::Right) slider->setValue(slider->getValue() + slider->getStep());
+        else if (key->scancode == sf::Keyboard::Scan::Home) slider->setValue(slider->getMinimum());
+        else if (key->scancode == sf::Keyboard::Scan::End) slider->setValue(slider->getMaximum());
+        break;
+      }
+    }
+    if (const auto *joystick = event.getIf<sf::Event::JoystickButtonPressed>()) {
+      const auto button = Input::HardwareToLogical(joystick->button, joystick->joystickId);
+      if (button == GamepadButton::Start || button == GamepadButton::Select) NavigateBack();
+    }
+  }
+
+  void Game::NavigateBack() {
+    if (paused_) return;
+    if (page_ == Page::Options) Open(Page::Pause);
+    else if (page_ == Page::Connection) ctx.scenes.ChangeScene(MENU_SCENE);
+    else if (page_ == Page::None && session_.IsConnected() && session_.GetWorld().phase != GamePhase::Results) Open(Page::Pause);
+    else if (page_ != Page::Results) ClosePanel();
+  }
 
   void Game::Open(Page page) {
     page_ = page; session_.Submit({}); panel_->removeAllWidgets(); panel_->setVisible(true);
     status_.reset(); roster_.reset(); briefing_.reset(); deploy_.reset(); ctx.cursor.SetHovered(false);
     if (page == Page::Connection) BuildConnection();
     else if (page == Page::Results) BuildResults();
+    else if (page == Page::Pause) BuildPause();
+    else if (page == Page::Options) BuildOptions();
     else BuildStation(page);
+    lobby_->setEnabled(false);
+    for (const auto &widget : panel_->getWidgets()) if (const auto button = std::dynamic_pointer_cast<tgui::Button>(widget); button && button->isEnabled()) { button->setFocused(true); break; }
+    if (page == Page::Options) resolutionBox_->setFocused(true);
   }
 
   void Game::ClosePanel() {
     page_ = Page::None; panel_->setVisible(false); panel_->setFocused(false);
+    lobby_->setEnabled(true);
     for (int action = 0; action < Count; ++action) held_[action] = ctx.input.Pressed(action);
   }
 
@@ -253,6 +306,82 @@ namespace NoTrace {
     }
   }
 
+  void Game::BuildPause() {
+    const bool mission = session_.GetWorld().phase == GamePhase::Mission;
+    Label(mission ? "OPERACIÓN / PAUSA" : "BASE CIO / MENÚ", {30.f, 20.f}, {714.f, 45.f}, 29);
+    Label(session_.IsClient() || session_.IsHost() ? "Pausa local: la operación LAN continúa para todos.\nTus controles quedan neutralizados mientras esté abierto este menú." : "La operación individual permanece detenida hasta reanudar.", {30.f, 78.f}, {714.f, 65.f}, 18);
+    float y = 156.f;
+    Button(mission ? "REANUDAR OPERACIÓN" : "REANUDAR EN LA BASE", y, [this] { ClosePanel(); });
+    if (mission && !session_.IsClient()) {
+      y += 62.f;
+      Button("REINICIAR OPERACIÓN", y, [this] {
+        if (session_.RestartOperation()) { lastAudioEvent_ = 0; ClosePanel(); }
+      });
+    }
+    y += 62.f;
+    Button("OPCIONES", y, [this] { Open(Page::Options); });
+    if (mission && !session_.IsClient()) {
+      y += 62.f;
+      Button("VOLVER A LA BASE", y, [this] { session_.ReturnToBase(); ClosePanel(); });
+    }
+    y += 62.f;
+    Button("REGRESAR AL MENÚ PRINCIPAL", y, [this] { ctx.scenes.ChangeScene(MENU_SCENE); });
+    y += 62.f;
+    Button("SALIR DEL JUEGO", y, [this] { ctx.scenes.RequestQuit(); });
+  }
+
+  void Game::BuildOptions() {
+    Label("OPCIONES / NO TRACE", {30.f, 20.f}, {714.f, 45.f}, 29);
+    Label("Resolución", {30.f, 94.f}, {300.f, 35.f}, 21);
+    resolutionBox_ = tgui::ComboBox::create(); resolutionBox_->setPosition({340.f, 89.f});
+    resolutionBox_->setSize({404.f, 42.f}); resolutionBox_->setTextSize(20); resolutionBox_->setItemsToDisplay(5);
+    panel_->add(resolutionBox_);
+    Label("Modo de pantalla", {30.f, 165.f}, {300.f, 35.f}, 21);
+    modeBox_ = tgui::ComboBox::create(); modeBox_->setPosition({340.f, 160.f});
+    modeBox_->setSize({404.f, 42.f}); modeBox_->setTextSize(20); panel_->add(modeBox_);
+    const auto volumeLabel = Label("", {30.f, 239.f}, {300.f, 35.f}, 20);
+    auto volume = tgui::Slider::create(MIN_VOLUME, MAX_VOLUME); volume->setStep(VOLUME_STEP);
+    volume->setPosition({340.f, 247.f}); volume->setSize({404.f, 24.f}); volume->setFocusable(true);
+    volume->setValue(ctx.audio.GetGlobalVolume());
+    volumeLabel->setText("Volumen: " + std::to_string(static_cast<int>(std::lround(volume->getValue()))) + "%");
+    volume->onValueChange([this, volumeLabel](float value) {
+      ctx.audio.SetGlobalVolume(value); ctx.save.Set(VOLUME_SAVE_KEY, value);
+      volumeLabel->setText("Volumen: " + std::to_string(static_cast<int>(std::lround(value))) + "%");
+    });
+    panel_->add(volume);
+    const auto cursorLabel = Label("", {30.f, 313.f}, {300.f, 35.f}, 20);
+    auto cursor = tgui::Slider::create(MIN_CURSOR_SPEED, MAX_CURSOR_SPEED); cursor->setStep(CURSOR_SPEED_STEP);
+    cursor->setPosition({340.f, 321.f}); cursor->setSize({404.f, 24.f}); cursor->setFocusable(true);
+    cursor->setValue(ctx.cursor.GetSpeed());
+    cursorLabel->setText("Cursor / mando: " + std::to_string(static_cast<int>(cursor->getValue())));
+    cursor->onValueChange([this, cursorLabel](float value) {
+      ctx.cursor.SetSpeed(value); ctx.save.Set(CURSOR_SPEED_SAVE_KEY, value);
+      cursorLabel->setText("Cursor / mando: " + std::to_string(static_cast<int>(value)));
+    });
+    panel_->add(cursor);
+    status_ = Label("Aplica y confirma los cambios de pantalla.", {30.f, 377.f}, {714.f, 60.f}, 18);
+    Button("APLICAR PANTALLA", 450.f, [this] {
+      const auto &modes = ctx.window.GetAvailableResolutions(); const int index = resolutionBox_->getSelectedItemIndex();
+      if (index < 0 || static_cast<std::size_t>(index) >= modes.size()) { status_->setText("Selecciona una resolución compatible."); return; }
+      const DisplaySettings settings{modes[static_cast<std::size_t>(index)], modeBox_->getSelectedItemIndex() == 1};
+      if (settings == ctx.window.GetDisplaySettings()) status_->setText("La configuración seleccionada ya está activa.");
+      else status_->setText(ctx.window.RequestDisplaySettings(settings) ? "Confirma el cambio o espera su restauración automática." : "No se puede aplicar este modo de pantalla.");
+    });
+    Button("VOLVER A LA PAUSA", 520.f, [this] { Open(Page::Pause); });
+    SyncDisplayOptions();
+  }
+
+  void Game::SyncDisplayOptions() {
+    observedDisplay_ = ctx.window.GetDisplaySettings();
+    const auto &modes = ctx.window.GetAvailableResolutions(); resolutionBox_->removeAllItems();
+    for (const auto size : modes) resolutionBox_->addItem(std::format("{} x {}", size.x, size.y));
+    const auto found = std::find(modes.begin(), modes.end(), observedDisplay_.resolution);
+    if (found != modes.end()) resolutionBox_->setSelectedItemByIndex(static_cast<std::size_t>(found - modes.begin()));
+    modeBox_->removeAllItems(); modeBox_->addItem("Ventana");
+    if (ctx.window.IsFullscreenAvailable()) modeBox_->addItem("Pantalla completa");
+    modeBox_->setSelectedItemByIndex(observedDisplay_.fullscreen ? 1 : 0);
+  }
+
   void Game::BuildResults() {
     const auto &world = session_.GetWorld();
     Label("INFORME DE OPERACIÓN", {30.f, 20.f}, {714.f, 45.f}, 28);
@@ -272,6 +401,12 @@ namespace NoTrace {
     title_->setText(world.phase == GamePhase::Base ? "NO TRACE  //  BASE CIO" : "NO TRACE  //  " + contract.name);
     mission_->setText(world.phase == GamePhase::Base ? "PREPARACIÓN: operaciones · armería · inteligencia · despliegue" : std::format("OBJETIVOS {}/{}  ·  SECUNDARIOS {}  ·  {:.0f} s  ·  {}  ·  SEMILLA {}", world.objectives, contract.requiredObjectives, world.secondary, std::max(0.f, contract.timeLimit - world.elapsed), world.alarm ? "ALARMA" : "SIN ALARMA", world.seed));
     if (const auto *agent = LocalAgent()) {
+      health_->setVisible(true); stamina_->setVisible(true);
+      health_->setValue(static_cast<unsigned int>(std::lround(std::clamp(agent->health / GameplayConfig::MaxHealth, 0.f, 1.f) * 100.f)));
+      stamina_->setValue(static_cast<unsigned int>(std::lround(std::clamp(agent->stamina / GameplayConfig::MaxStamina, 0.f, 1.f) * 100.f)));
+      health_->setText("VIDA " + std::to_string(health_->getValue()) + "%");
+      stamina_->setText("RESIST. " + std::to_string(stamina_->getValue()) + "%");
+      lobby_->setText(world.phase == GamePhase::Mission ? "PAUSA  [ESC]" : "BASE / SALA  [F2]");
       agent_->setText(std::format("{}  |  {}{}  |  Letal {} · No letal {} · Señuelos {} · Herramientas {}", agent->name, StanceName(agent->stance), !agent->alive ? " / ELIMINADO" : agent->incapacitated ? " / INCAPACITADO: un compañero puede reanimarte" : agent->hidden ? " / OCULTO" : agent->extracted ? " / EXTRAÍDO" : "", agent->loadout.lethalAmmo, agent->loadout.nonLethalAmmo, agent->loadout.decoys, agent->loadout.tools));
       private_->setText(tgui::String(std::string(PrivateOrderText(agent->privateOrder)) + (agent->privateComplete ? "\nORDEN CUMPLIDA" : "")));
       private_->setVisible(showOrders_ && world.phase == GamePhase::Mission && page_ == Page::None);
@@ -282,7 +417,7 @@ namespace NoTrace {
         if (distance < nearest) { nearest = distance; hint = "E  //  " + object.name; if (object.kind == ObjectKind::Camera || object.kind == ObjectKind::AlarmPanel) hint = "T  //  " + object.name + " — requiere herramienta"; }
       }
       hint_->setText(tgui::String(hint));
-    } else { agent_->setText("Accede a CIO para preparar tu operación."); hint_->setText("Elige individual, crea una sala o conecta por IP local."); private_->setVisible(false); }
+    } else { agent_->setText("Accede a CIO para preparar tu operación."); hint_->setText("Elige individual, crea una sala o conecta por IP local."); private_->setVisible(false); health_->setVisible(false); stamina_->setVisible(false); }
     message_->setText(tgui::String(session_.IsConnected() ? world.message : session_.GetStatus()));
     if (page_ == Page::Deployment) {
       status_->setText(tgui::String(session_.GetStatus() + (session_.IsHost() && ctx.network.GetRole() == NetworkRole::Host ? "\nIP local: " + ctx.network.GetLocalAddress() + " : " + std::to_string(ctx.network.GetPort()) : "")));

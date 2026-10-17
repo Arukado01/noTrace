@@ -3,6 +3,7 @@
 #include "Scene/Scene.h"
 #include "NoTraceSession.h"
 #include "NoTraceWorldRenderer.h"
+#include "Types/DisplayTypes.h"
 #include <SFML/Audio/Sound.hpp>
 #include <array>
 #include <functional>
@@ -14,17 +15,19 @@ namespace NoTrace {
   class Game : public Scene {
   public:
     explicit Game(EngineContext &context);
+    bool UsesGlobalOverlay() const override { return false; }
     void Start() override;
     void Update() override;
     void UpdateBackground() override;
     void Render() const override;
+    void OnEvent(const sf::Event &event) override;
     void OnPause(bool paused) override;
     void OnCleanup() override;
 
   private:
     friend struct EngineTests::GuiAccess;
-    enum Action { Left, Right, Up, Down, Run, Crouch, Prone, Crawl, Interact, Cqc, Lethal, NonLethal, Decoy, Knock, Drag, Tool, Orders, Lobby, Count };
-    enum class Page { Connection, Operations, Armory, Intelligence, Deployment, Results, None };
+    enum Action { Left, Right, Up, Down, Run, Crouch, Prone, Interact, Cqc, Lethal, NonLethal, Decoy, Knock, Drag, Tool, Orders, Lobby, Count };
+    enum class Page { Connection, Operations, Armory, Intelligence, Deployment, Results, Pause, Options, None };
     Session session_;
     WorldRenderer worldRenderer_;
     tgui::Group::Ptr root_;
@@ -39,6 +42,12 @@ namespace NoTrace {
     tgui::Label::Ptr roster_;
     tgui::Label::Ptr briefing_;
     tgui::Button::Ptr deploy_;
+    tgui::Button::Ptr lobby_;
+    tgui::ProgressBar::Ptr health_;
+    tgui::ProgressBar::Ptr stamina_;
+    tgui::ComboBox::Ptr resolutionBox_;
+    tgui::ComboBox::Ptr modeBox_;
+    DisplaySettings observedDisplay_;
     std::array<bool, Count> held_{};
     Page page_ = Page::Connection;
     GamePhase previousPhase_ = GamePhase::Base;
@@ -54,6 +63,10 @@ namespace NoTrace {
     void BuildConnection();
     void BuildStation(Page page);
     void BuildResults();
+    void BuildPause();
+    void BuildOptions();
+    void SyncDisplayOptions();
+    void NavigateBack();
     void RefreshHud();
     void PersistResults();
     void PlayCue(const std::string &file);

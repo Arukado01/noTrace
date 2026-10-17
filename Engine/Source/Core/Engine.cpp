@@ -177,17 +177,20 @@ void Engine::EventSceneChange(const std::string &name) {
   if (currentScene_) {
     currentScene_->OnCleanup();
   }
+  overlay_.SetVisible(false);
   context_.input.Clear();
   currentScene_ = nextScene;
   currentScene_->Start();
 }
 
 void Engine::EventSceneRestart() {
+  if (!currentScene_ || !currentScene_->UsesGlobalOverlay()) return;
   overlay_.SetVisible(false);
   context_.scenes.RestartCurrentScene();
 }
 
 void Engine::EventSceneMenuReturn() {
+  if (!currentScene_ || !currentScene_->UsesGlobalOverlay()) return;
   overlay_.SetVisible(false);
   context_.scenes.ChangeScene("Menu");
   context_.cursor.SetVisible(true);
@@ -195,6 +198,7 @@ void Engine::EventSceneMenuReturn() {
 }
 
 void Engine::EventOverlayPauseToggle() {
+  if (!currentScene_ || !currentScene_->UsesGlobalOverlay()) return;
   const bool visible = !overlay_.IsVisible();
   overlay_.SetVisible(visible);
   if (visible) {
