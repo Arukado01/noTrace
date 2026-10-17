@@ -1,0 +1,88 @@
+#pragma once
+
+#include <array>
+#include <cstddef>
+#include <cstdint>
+#include <string_view>
+
+namespace NoTrace::GameplayConfig {
+  inline constexpr std::string_view GameScene = "NoTraceGame";
+  inline constexpr float AgentRadius = 12.f;
+  inline constexpr float WalkSpeed = 105.f;
+  inline constexpr float RunSpeed = 175.f;
+  inline constexpr float CrouchSpeed = 60.f;
+  inline constexpr float CrawlSpeed = 32.f;
+  inline constexpr float DragSpeed = 42.f;
+  inline constexpr float GuardSpeed = 66.f;
+  inline constexpr float GuardAlertSpeed = 100.f;
+  inline constexpr float VisionDistance = 260.f;
+  inline constexpr float VisionCosHalfAngle = 0.57f;
+  inline constexpr float ConfirmationTime = 0.85f;
+  inline constexpr float SuspicionDecay = 0.55f;
+  inline constexpr float InvestigationDuration = 5.f;
+  inline constexpr float SearchDuration = 9.f;
+  inline constexpr float AlarmDuration = 20.f;
+  inline constexpr float InteractionDistance = 48.f;
+  inline constexpr float CqcDistance = 38.f;
+  inline constexpr float WeaponRange = 340.f;
+  inline constexpr float WeaponCooldown = 0.65f;
+  inline constexpr float CqcCooldown = 0.45f;
+  inline constexpr float FootstepInterval = 0.4f;
+  inline constexpr float RunningNoiseRadius = 170.f;
+  inline constexpr float WalkingNoiseRadius = 38.f;
+  inline constexpr float DecoyNoiseRadius = 260.f;
+  inline constexpr float KnockNoiseRadius = 190.f;
+  inline constexpr float KnockDistance = 28.f;
+  inline constexpr float LethalNoiseRadius = 360.f;
+  inline constexpr float NonLethalNoiseRadius = 80.f;
+  inline constexpr float DecoyDistance = 170.f;
+  inline constexpr float NoiseDuration = 0.6f;
+  inline constexpr float CameraDistance = 220.f;
+  inline constexpr float GuardAttackInterval = 2.f;
+  inline constexpr float GuardAttackDistance = 45.f;
+  inline constexpr float MaximumStep = 0.1f;
+  inline constexpr float CrouchedVisionFactor = 0.68f;
+  inline constexpr float ProneVisionFactor = 0.42f;
+  inline constexpr float CloseVisionDistance = 24.f;
+  inline constexpr float AlarmVisionMultiplier = 1.2f;
+  inline constexpr float BodyVisionDistance = 130.f;
+  inline constexpr float CqcEscapeDuration = 10.f;
+  inline constexpr float CqcMaximumStretch = 1.5f;
+  inline constexpr float WeaponAimCosine = 0.93f;
+  inline constexpr float PatrolWaypointDistance = 12.f;
+  inline constexpr float InvestigationStopDistance = 8.f;
+  inline constexpr float SearchAngularSpeed = 0.9f;
+  inline constexpr float NavigationCellSize = 20.f;
+  inline constexpr float NavigationRefresh = 0.4f;
+  inline constexpr float BodyDragOffset = 18.f;
+  inline constexpr float CoopInteractionBoost = 0.55f;
+  inline constexpr float SoloSwitchRate = 0.6f;
+  inline constexpr float CooperativeSwitchRate = 1.5f;
+  inline constexpr float CoopHoldDuration = 2.f;
+  inline constexpr std::size_t MaximumPlayers = 4;
+  inline constexpr std::uint32_t HostPlayerId = 1;
+  inline constexpr std::size_t MaximumEvents = 20000;
+  inline constexpr std::size_t MaximumSnapshotBytes = 60 * 1024;
+  inline constexpr std::uint32_t ProtocolVersion = 1;
+  inline constexpr float SimulationHz = 60.f;
+  inline constexpr float CommandHz = 30.f;
+  inline constexpr float SnapshotHz = 20.f;
+  inline constexpr float CommandTimeout = 0.35f;
+  inline constexpr float SessionTimeout = 6.f;
+  inline constexpr std::size_t MaximumNameBytes = 32;
+  inline constexpr unsigned int MaximumCommandsPerSecond = 64;
+  inline constexpr int MaximumAmmo = 12;
+  inline constexpr int MaximumDecoys = 6;
+  inline constexpr int MaximumTools = 6;
+  inline constexpr std::array<int, 5> RankThresholds{250, 500, 700, 850, 1000};
+  inline constexpr int MainObjectiveScore = 500;
+  inline constexpr int SecondaryObjectiveScore = 200;
+  inline constexpr int ExtractionScore = 300;
+  inline constexpr int DetectionPenalty = 150;
+  inline constexpr int AlarmPenalty = 120;
+  inline constexpr int LethalPenalty = 180;
+  inline constexpr int NonLethalPenalty = 45;
+  inline constexpr int CqcPenalty = 35;
+  inline constexpr int BodyFoundPenalty = 80;
+  inline constexpr int PrivateBonus = 100;
+}
