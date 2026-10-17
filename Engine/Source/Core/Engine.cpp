@@ -60,6 +60,7 @@ void Engine::UpdateWindowServices() {
 }
 
 void Engine::ProcessEvent() {
+  context_.input.BeginFrame();
   UpdateWindowServices();
   if (!window_.isOpen()) {
     return;
@@ -92,6 +93,8 @@ void Engine::ProcessEvent() {
       break;
     }
     SyncWindowPresentation();
+    context_.input.CaptureEvent(*event, !overlay_.IsVisible() && !context_.window.IsDisplayConfirmationPending()
+                                      && !context_.gui.IsTextInputFocused());
     context_.gui.ProcessEvent(*event);
     if (!overlay_.IsVisible() && !context_.window.IsDisplayConfirmationPending()) {
       currentScene_->OnEvent(*event);

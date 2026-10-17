@@ -7,6 +7,37 @@ void InputManager::Bind(int action, const Input::Binding &binding) {
   bindings_.emplace(action, binding);
 }
 
+void InputManager::BeginFrame() {
+  pressedKeys_.clear();
+  pressedMouseButtons_.clear();
+  pressedGamepadButtons_.clear();
+}
+
+void InputManager::CaptureEvent(const sf::Event &event, bool gameplayAllowed) {
+  if (event.is<sf::Event::FocusLost>()) {
+    BeginFrame();
+    return;
+  }
+  if (const auto *disconnected = event.getIf<sf::Event::JoystickDisconnected>()) {
+    std::erase_if(pressedGamepadButtons_, [disconnected](std::uint64_t button) {
+      return (button >> 32) == disconnected->joystickId;
+    });
+  }
+  if (!gameplayAllowed) {
+    return;
+  }
+  // Conserva los pulsos breves hasta Update aunque su liberación llegue en el mismo frame.
+  if (const auto *key = event.getIf<sf::Event::KeyPressed>()) {
+    if (key->scancode != sf::Keyboard::Scan::Unknown) pressedKeys_.insert(key->scancode);
+  } else if (const auto *mouse = event.getIf<sf::Event::MouseButtonPressed>()) {
+    pressedMouseButtons_.insert(mouse->button);
+  } else if (const auto *gamepad = event.getIf<sf::Event::JoystickButtonPressed>()) {
+    if (gamepad->joystickId < sf::Joystick::Count && gamepad->button < sf::Joystick::ButtonCount) {
+      pressedGamepadButtons_.insert((static_cast<std::uint64_t>(gamepad->joystickId) << 32) | gamepad->button);
+    }
+  }
+}
+
 /**Busca todos los bindings de esta acción. Luego revisa cada binding.
  * Dependiendo del tipo de entrada que sea, comprueba si esa entrada está
  * presionada. Si al menos una está presionada, devuelve true **/
@@ -30,7 +61,10 @@ bool InputManager::Pressed(int action) const {
   });
 }
 
-void InputManager::Clear() { bindings_.clear(); }
+void InputManager::Clear() {
+  bindings_.clear();
+  BeginFrame();
+}
 
 GlobalShortcut InputManager::HandleGlobalEvent(const sf::Event &event,
                                              bool displayConfirmationPending) {
@@ -90,16 +124,19 @@ GlobalShortcut InputManager::HandleGlobalEvent(const sf::Event &event,
 }
 
 bool InputManager::Pressed(const Input::Keyboard &binding) const {
-  return sf::Keyboard::isKeyPressed(binding.key);
+  return pressedKeys_.contains(binding.key) || sf::Keyboard::isKeyPressed(binding.key);
 }
 
 bool InputManager::Pressed(const Input::Mouse &binding) const {
-  return sf::Mouse::isButtonPressed(binding.button);
+  return pressedMouseButtons_.contains(binding.button) || sf::Mouse::isButtonPressed(binding.button);
 }
 
 bool InputManager::Pressed(const Input::Gamepad &binding) const {
+  if (binding.id < 0 || binding.id >= static_cast<int>(sf::Joystick::Count)) return false;
   const auto button = Input::LogicalToHardware(binding.button, binding.id);
-  return button ? sf::Joystick::isButtonPressed(binding.id, *button) : false;
+  if (!button) return false;
+  const auto key = (static_cast<std::uint64_t>(binding.id) << 32) | static_cast<unsigned int>(*button);
+  return pressedGamepadButtons_.contains(key) || sf::Joystick::isButtonPressed(binding.id, *button);
 }
 
 /** Se lee el valor del joysticj axis y se divide entre 100 para normalizarlo
