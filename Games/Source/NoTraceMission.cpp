@@ -24,7 +24,7 @@ namespace NoTrace {
   }
 
   std::string_view GuardStateName(GuardState state) {
-    constexpr std::array<std::string_view, 7> names{"Patrulla", "Sospecha", "Investiga", "Alerta", "Búsqueda", "Incapacitado", "Eliminado"};
+    constexpr std::array<std::string_view, 8> names{"Patrulla", "Sospecha", "Investiga", "Alerta", "Búsqueda", "Incapacitado", "Eliminado", "Retirada"};
     return names[std::min(static_cast<std::size_t>(state), names.size() - 1)];
   }
 

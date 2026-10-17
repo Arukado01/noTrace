@@ -42,7 +42,6 @@ namespace NoTrace {
     void CheckResults();
     void Finish(bool success, const std::string &reason, bool traitorVictory = false);
     void Interact(Agent &agent, bool tool);
-    void Cqc(Agent &agent);
     bool UpdateCqc(Agent &agent, const ActionCommand &command, float dt);
     void ReleaseCqc(Agent &agent);
     void Push(Agent &agent);

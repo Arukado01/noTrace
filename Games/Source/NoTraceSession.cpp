@@ -84,14 +84,15 @@ namespace NoTrace {
              (command.fireLethal ? 64u : 0u) | (command.fireNonLethal ? 128u : 0u) |
              (command.throwDecoy ? 256u : 0u) | (command.knock ? 512u : 0u) |
              (command.dragBody ? 1024u : 0u) | (command.tool ? 2048u : 0u) |
-             (command.coverToggle ? 4096u : 0u) | (command.peekLeft ? 8192u : 0u) | (command.peekRight ? 16384u : 0u) | (command.prepareDecoy ? 32768u : 0u);
+             (command.coverToggle ? 4096u : 0u) | (command.peekLeft ? 8192u : 0u) | (command.peekRight ? 16384u : 0u) | (command.prepareDecoy ? 32768u : 0u) |
+             (command.cqcHeld ? 65536u : 0u) | (command.push ? 131072u : 0u);
     }
 
     bool ReadCommand(const Json &message, ActionCommand &command) {
       std::uint64_t flags = 0;
       if (!ReadVector(message.at("move"), command.moveX, command.moveY) ||
           !ReadVector(message.at("aim"), command.aimX, command.aimY) ||
-          !ReadUnsigned(message.at("flags"), flags) || flags > 65535 || !message.at("slope").is_number() || !message.at("decoyDistance").is_number()) {
+          !ReadUnsigned(message.at("flags"), flags) || flags > 262143 || !message.at("slope").is_number() || !message.at("decoyDistance").is_number()) {
         return false;
       }
       command.run = (flags & 1) != 0;
@@ -110,6 +111,8 @@ namespace NoTrace {
       command.peekLeft = (flags & 8192) != 0;
       command.peekRight = (flags & 16384) != 0;
       command.prepareDecoy = (flags & 32768) != 0;
+      command.cqcHeld = (flags & 65536) != 0;
+      command.push = (flags & 131072) != 0;
       command.aimSlope = message.at("slope").get<float>();
       if (!std::isfinite(command.aimSlope) || std::abs(command.aimSlope) > CombatConfig::MaximumAimSlope) return false;
       command.decoyDistance = message.at("decoyDistance").get<float>();
@@ -122,6 +125,7 @@ namespace NoTrace {
       command.prone = false;
       command.interact = false;
       command.cqc = false;
+      command.push = false;
       command.fireLethal = false;
       command.fireNonLethal = false;
       command.throwDecoy = false;
@@ -145,6 +149,7 @@ namespace NoTrace {
       command.prone |= previous.prone;
       command.interact |= previous.interact;
       command.cqc |= previous.cqc;
+      command.push |= previous.push;
       command.fireLethal |= previous.fireLethal;
       command.fireNonLethal |= previous.fireNonLethal;
       command.throwDecoy |= previous.throwDecoy;
@@ -353,7 +358,7 @@ namespace NoTrace {
   }
 
   bool Session::RestartOperation() {
-    if (!active_ || !connected_ || IsClient() || GetWorld().phase != GamePhase::Mission) {
+    if (!active_ || !connected_ || IsClient() || (GetWorld().phase != GamePhase::Mission && GetWorld().phase != GamePhase::Results)) {
       return false;
     }
     const auto seed = GetWorld().seed;

@@ -25,6 +25,7 @@ namespace {
     snapshot["obstacles"] = nlohmann::json::array();
     snapshot["guards"] = nlohmann::json::array();
     snapshot["objects"] = nlohmann::json::array();
+    snapshot["securityEntries"] = nlohmann::json::array();
     snapshot["agents"][0]["position"] = {position.x, position.y};
     return snapshot;
   }
@@ -172,7 +173,8 @@ namespace {
     auto snapshot = EmptyMission(simulation, {300.f, 500.f});
     snapshot["guards"].push_back(GuardJson(donor, {330.f, 500.f}, {1.f, 0.f}));
     Load(simulation, snapshot);
-    ActionCommand cqc; cqc.cqc = true;
+    ActionCommand cqc; cqc.cqc = true; cqc.cqcHeld = true; cqc.aimX = 1.f;
+    Advance(simulation, cqc, 2);
     const std::array<CqcState, 3> stages{CqcState::Grabbed, CqcState::KnockedDown, CqcState::Restrained};
     for (auto stage : stages) {
       simulation.Step(0.1f, {{1, cqc}});
@@ -291,12 +293,19 @@ namespace {
     Require(simulation.GetState().agents[0].stamina == GameplayConfig::MaxStamina - GameplayConfig::GuardMeleeStaminaDamage && simulation.GetState().shots.empty(), "El golpe consume resistencia sin inventar una bala");
     Require(simulation.GetState().guards[0].ammo == GameplayConfig::GuardAmmo, "El golpe cuerpo a cuerpo no consume munición");
     Advance(simulation, {}, 43);
-    Require(simulation.GetState().agents[0].alive && simulation.GetState().agents[0].incapacitated && simulation.GetState().phase == GamePhase::Mission, "Agotar resistencia incapacita temporalmente y permite que el último agente se recupere");
+    Require(simulation.GetState().agents[0].alive && simulation.GetState().agents[0].incapacitated && simulation.GetState().phase == GamePhase::Results, "Agotar la resistencia del último agente operativo termina la operación con derrota");
     snapshot = simulation.SnapshotFor(1);
-    snapshot["guards"] = nlohmann::json::array();
     Load(simulation, snapshot);
     Advance(simulation, {}, 82);
-    Require(simulation.GetState().agents[0].alive && !simulation.GetState().agents[0].incapacitated && simulation.GetState().agents[0].stamina > 0.f, "El agente inconsciente recupera control al vencer el tiempo configurado");
+    Require(simulation.GetState().agents[0].incapacitated && simulation.GetState().phase == GamePhase::Results, "La derrota permanece reconocible sin reanimación ni reinicio automático");
+    simulation.ResetBase({{1, "Uno"}, {2, "Dos"}}); simulation.Deploy(0);
+    snapshot = simulation.SnapshotFor(1);
+    snapshot["guards"] = nlohmann::json::array(); snapshot["obstacles"] = nlohmann::json::array(); snapshot["objects"] = nlohmann::json::array();
+    snapshot["agents"][0]["incapacitated"] = true; snapshot["agents"][0]["incapacityRemaining"] = 0.15f; snapshot["agents"][0]["stamina"] = 0.f;
+    snapshot["agents"][1]["position"] = {900.f, 700.f};
+    Load(simulation, snapshot);
+    Advance(simulation, {}, 2);
+    Require(simulation.GetState().phase == GamePhase::Mission && !simulation.GetState().agents[0].incapacitated && simulation.GetState().agents[0].stamina > 0.f, "Un compañero operativo mantiene la sesión y permite la recuperación cooperativa explícita por temporizador");
 
     snapshot = EmptyMission(simulation, {300.f, 500.f});
     snapshot["guards"].push_back(GuardJson(donor, {400.f, 500.f}, {1.f, 0.f}));
@@ -441,7 +450,7 @@ namespace {
     lethal.fireLethal = false; lethal.fireNonLethal = true;
     simulation.Step(0.1f, {{1, lethal}});
     Require(simulation.GetState().agents[1].alive && simulation.GetState().agents[1].incapacitated, "La fuerza no letal no debe contar como eliminación de un agente");
-    Require(simulation.GetState().phase == GamePhase::Mission && simulation.GetState().results.empty(), "Incapacitar al equipo no cumple la orden de eliminarlo ni impide su recuperación");
+    Require(simulation.GetState().phase == GamePhase::Results && !simulation.GetState().results.at(1).traitorVictory && !simulation.GetState().results.at(2).success, "Incapacitar a todo el equipo causa derrota y no cumple la orden letal del traidor");
   }
 
   void SeedReachability() {

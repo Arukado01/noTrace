@@ -1,7 +1,9 @@
 #include "NoTraceSimulation.h"
 #include "Config/NoTraceCombatConfig.h"
+#include "Config/NoTraceCqcConfig.h"
 #include "Config/NoTraceDistractionConfig.h"
 #include "Config/NoTraceGameplayConfig.h"
+#include "Config/NoTraceSecurityConfig.h"
 #include "Config/NoTraceVisibilityConfig.h"
 #include "NoTraceCombatGeometry.h"
 #include "NoTraceDistractionGeometry.h"
@@ -63,6 +65,7 @@ namespace NoTrace {
   void Simulation::DisconnectPlayer(PlayerId id) {
     for (auto &agent : world_.agents) if (agent.id == id && agent.connected) {
       agent.connected = false;
+      ReleaseCqc(agent);
       ReleaseHideout(agent);
       agent.draggingGuard = -1;
       Record(EventKind::Disconnected, id);
@@ -90,6 +93,7 @@ namespace NoTrace {
   }
 
   void Simulation::BuildBase() {
+    ResetSecurity();
     for (auto &agent : world_.agents) { agent.cover = {}; agent.decoyGuide = {}; agent.hideoutId = 0; agent.hideoutExit = {}; agent.hidden = false; agent.draggingGuard = -1; agent.actionPose = ActionPose::None; agent.actionPoseTime = 0.f; }
     world_.phase = GamePhase::Base;
     world_.size = {1000.f, 760.f};
@@ -134,6 +138,7 @@ namespace NoTrace {
   }
 
   void Simulation::BuildMission(std::uint32_t seed) {
+    ResetSecurity();
     for (auto &agent : world_.agents) { agent.cover = {}; agent.decoyGuide = {}; agent.hideoutId = 0; agent.hideoutExit = {}; agent.hidden = false; agent.draggingGuard = -1; agent.actionPose = ActionPose::None; agent.actionPoseTime = 0.f; }
     world_.obstacles.clear(); world_.guards.clear(); world_.objects.clear(); world_.footsteps.clear();
     const float offset = static_cast<float>(seed % 3) * 38.f;
@@ -178,6 +183,7 @@ namespace NoTrace {
       guard.facing = Unit(guard.patrol[guard.waypoint] - guard.position);
       world_.guards.push_back(guard);
     }
+    world_.securityEntries = {{{982.f, 110.f}, {910.f, 110.f}}, {{982.f, 690.f}, {920.f, 690.f}}, {{315.f, 18.f}, {315.f, 95.f}}};
   }
 
   void Simulation::ReturnToBase() {
@@ -351,23 +357,28 @@ namespace NoTrace {
   }
 
   void Simulation::Detect(Agent &agent, std::uint32_t observer) {
+    if (!agent.connected || !agent.alive || agent.incapacitated || agent.extracted) return;
     Record(EventKind::ConfirmedDetection, agent.id, observer);
     if (!world_.alarm) {
       world_.alarm = true; ++world_.alarmCount;
       Record(EventKind::AgentAlarm, agent.id, observer);
     }
-    alarmRemaining_ = GameplayConfig::AlarmDuration;
+    RegisterSecurityContact(agent.position);
+    agent.detectionProgress = 1.f;
+    agent.detectionConfirmed = true;
     world_.message = "DETECCIÓN CONFIRMADA: rompe la línea de visión. Maestro ya no es elegible.";
   }
 
   void Simulation::Step(float deltaTime, const std::unordered_map<PlayerId, ActionCommand> &commands) {
     if (world_.phase == GamePhase::Results || !std::isfinite(deltaTime) || deltaTime <= 0.f) return;
+    if (world_.phase == GamePhase::Mission) { CheckResults(); if (world_.phase == GamePhase::Results) return; }
     const float dt = std::min(deltaTime, GameplayConfig::MaximumStep);
     ++world_.tick;
     if (world_.phase == GamePhase::Mission) world_.elapsed += dt;
     for (auto &shot : world_.shots) shot.remaining -= dt;
     std::erase_if(world_.shots, [](const ShotTrace &shot) { return shot.remaining <= 0.f; });
     for (auto &agent : world_.agents) {
+      agent.detectionProgress = 0.f; agent.detectionConfirmed = false;
       if (!agent.connected || !agent.alive || agent.extracted) continue;
       if (agent.incapacitated) {
         agent.incapacityRemaining = std::max(0.f, agent.incapacityRemaining - dt);
@@ -378,11 +389,11 @@ namespace NoTrace {
       UpdateAgent(agent, found == commands.end() ? ActionCommand{} : found->second, dt);
     }
     if (world_.phase == GamePhase::Mission) {
-      UpdateGuards(dt); UpdateObjects(dt);
+      UpdateGuards(dt); UpdateObjects(dt); UpdateSecurity(dt);
       for (auto &noise : world_.noises) noise.remaining -= dt;
       std::erase_if(world_.noises, [](const NoiseEvent &noise) { return noise.remaining <= 0.f; });
       alarmRemaining_ = std::max(0.f, alarmRemaining_ - dt);
-      if (alarmRemaining_ == 0.f) world_.alarm = false;
+      if (alarmRemaining_ == 0.f && !world_.securityActive) world_.alarm = false;
       CheckResults();
     }
   }
@@ -467,6 +478,12 @@ namespace NoTrace {
   }
 
   bool Simulation::HideoutExit(const Agent &agent, const Interactable &object, sf::Vector2f &position) const {
+    if (WorldGeometry::HideoutType(object) == HideoutKind::Closet) {
+      const std::array<sf::Vector2f, 2> candidates{{agent.hideoutExit, WorldGeometry::HideoutFrontPosition(object, GameplayConfig::AgentRadius)}};
+      for (const auto candidate : candidates) if (WorldGeometry::AtHideoutEntrance(object, candidate, GameplayConfig::AgentRadius) &&
+          !Blocked(candidate, GameplayConfig::AgentRadius) && HideoutPathClear(object, object.position, candidate)) { position = candidate; return true; }
+      return false;
+    }
     const auto bounds = WorldGeometry::ObjectFootprint(object);
     const auto minimum = bounds.position, maximum = bounds.position + bounds.size;
     const float radius = GameplayConfig::AgentRadius + SpatialConfig::CollisionSkin;
@@ -482,6 +499,7 @@ namespace NoTrace {
   void Simulation::ReleaseHideout(Agent &agent) {
     agent.decoyGuide = {};
     if (agent.hideoutId != 0) {
+      ReleaseCqc(agent);
       const auto object = std::ranges::find_if(world_.objects, [&](const Interactable &entry) { return entry.id == agent.hideoutId; });
       if (object != world_.objects.end()) {
         sf::Vector2f exit;
@@ -495,27 +513,36 @@ namespace NoTrace {
 
   bool Simulation::UseHideout(Agent &agent, Interactable &object) {
     if (WorldGeometry::HideoutType(object) == HideoutKind::None || !WorldGeometry::Properties(object).interactive) return false;
+    if (object.lifted) { world_.message = "La mesa está levantada y ya no proporciona ocultación."; return true; }
     if (agent.hideoutId == object.id && object.occupantAgent == agent.id) {
       sf::Vector2f exit;
       if (!HideoutExit(agent, object, exit)) { world_.message = "La salida está bloqueada; espera una posición libre."; return true; }
       object.occupantAgent = 0; object.occupied = object.occupantGuard != 0; agent.position = exit; agent.hideoutId = 0; agent.hideoutExit = {}; agent.hidden = false;
+      object.inspectionProgress = 0.f;
+      if (WorldGeometry::HideoutType(object) == HideoutKind::Closet) object.open = false;
       world_.message = "Has salido del escondite."; return true;
     }
     if (WorldGeometry::HideoutOccupied(object)) { world_.message = "Este escondite ya está ocupado."; return true; }
+    if (!WorldGeometry::AtHideoutEntrance(object, agent.position, GameplayConfig::AgentRadius)) { world_.message = "El armario solo permite acceder por su puerta frontal."; return true; }
     if (!HideoutPathClear(object, agent.position, object.position)) { world_.message = "Una superficie impide acceder al escondite."; return true; }
     if (agent.draggingGuard >= 0) {
       if (!WorldGeometry::HideoutAllowsBody(object)) { world_.message = "La mesa permite ocultar un agente, pero no almacenar cuerpos."; return true; }
       const auto body = std::ranges::find_if(world_.guards, [&](const Guard &guard) { return static_cast<int>(guard.id) == agent.draggingGuard; });
       if (body == world_.guards.end() || !IsBody(*body) || body->bodyHidden || body->storedIn != 0 ||
-          WorldGeometry::DistanceToBounds(body->position, WorldGeometry::ObjectFootprint(object)) > GameplayConfig::InteractionDistance || !HideoutPathClear(object, body->position, object.position)) { world_.message = "Acerca el cuerpo al mismo acceso del escondite."; return true; }
+          WorldGeometry::DistanceToBounds(body->position, WorldGeometry::ObjectFootprint(object)) > GameplayConfig::InteractionDistance ||
+          !WorldGeometry::AtHideoutEntrance(object, body->position, GameplayConfig::AgentRadius) || !HideoutPathClear(object, body->position, object.position)) { world_.message = "Acerca el cuerpo al mismo acceso del escondite."; return true; }
       body->position = object.position; body->bodyHidden = true; body->storedIn = object.id; body->heldBy = 0; body->cqcState = CqcState::None;
       body->navigation.clear(); object.occupantGuard = body->id; object.occupied = true; agent.draggingGuard = -1;
       world_.message = "Cuerpo almacenado. El escondite tiene capacidad para un único ocupante."; return true;
     }
+    ObserveHideoutEntry(agent, object);
     agent.hideoutExit = agent.position; agent.position = object.position; agent.hideoutId = object.id; agent.hidden = true;
     agent.cover = {}; agent.moving = false; agent.running = false; agent.draggingGuard = -1; agent.actionPose = ActionPose::None; agent.actionPoseTime = 0.f;
     if (WorldGeometry::HideoutType(object) == HideoutKind::UnderTable) agent.stance = Stance::Prone;
-    object.occupantAgent = agent.id; object.occupied = true; world_.message = "Oculto. Pulsa E para salir por un acceso libre."; return true;
+    object.occupantAgent = agent.id; object.occupied = true;
+    if (WorldGeometry::HideoutType(object) == HideoutKind::Closet) object.open = false;
+    world_.message = WorldGeometry::HideoutType(object) == HideoutKind::Closet ? "Oculto en el armario. T abre o cierra la abertura; E permite salir por la puerta." : WorldGeometry::HideoutType(object) == HideoutKind::UnderTable ? "Oculto bajo la mesa. Gira para observar; pulsa E para salir por un acceso libre." : "Oculto. Pulsa E para salir por un acceso libre.";
+    return true;
   }
 
   Guard *Simulation::NearbyBody(const Agent &agent) {
@@ -559,13 +586,23 @@ namespace NoTrace {
     agent.actionPoseTime = std::max(0.f, agent.actionPoseTime - dt);
     if (agent.actionPoseTime == 0.f) agent.actionPose = ActionPose::None;
     if (agent.hideoutId != 0) {
+      ReleaseCqc(agent);
+      const sf::Vector2f look{command.aimX, command.aimY};
+      if (std::isfinite(look.x) && std::isfinite(look.y) && look.lengthSquared() > 0.01f) agent.facing = Unit(look);
       agent.moving = false; agent.running = false; agent.draggingGuard = -1; agent.cover = {}; agent.actionPose = ActionPose::None; agent.actionPoseTime = 0.f;
       agent.stamina = std::min(MaxStamina, agent.stamina + StaminaRecoveryPerSecond * dt);
       const auto object = std::ranges::find_if(world_.objects, [&](const Interactable &entry) { return entry.id == agent.hideoutId; });
       if (object == world_.objects.end() || object->occupantAgent != agent.id) ReleaseHideout(agent);
-      else { agent.position = object->position; agent.hidden = true; if (WorldGeometry::HideoutType(*object) == HideoutKind::UnderTable) agent.stance = Stance::Prone; if (command.interact) UseHideout(agent, *object); }
+      else { agent.position = object->position; agent.hidden = true; if (WorldGeometry::HideoutType(*object) == HideoutKind::UnderTable) agent.stance = Stance::Prone; if (command.tool) ToggleHideoutOpening(agent); else if (command.interact) UseHideout(agent, *object); }
       return;
     }
+    agent.staggerRemaining = std::max(0.f, agent.staggerRemaining - dt);
+    if (agent.staggerRemaining > 0.f) { ReleaseCqc(agent); agent.moving = false; agent.running = false; return; }
+    if (agent.cqcHoldingGuard == 0) {
+      const sf::Vector2f look{command.aimX, command.aimY};
+      if (std::isfinite(look.x) && std::isfinite(look.y) && look.lengthSquared() > 0.01f) agent.facing = Unit(look);
+    }
+    if (UpdateCqc(agent, command, dt)) return;
     UpdateBodyDrag(agent, command.dragBody);
     if (command.crouch) { agent.stance = agent.stance == Stance::Crouched ? Stance::Standing : Stance::Crouched; agent.hidden = false; }
     if (command.prone) { agent.stance = agent.stance == Stance::Prone ? Stance::Standing : Stance::Prone; agent.hidden = false; }
@@ -593,7 +630,7 @@ namespace NoTrace {
     agent.aimSlope = std::isfinite(command.aimSlope) ? std::clamp(command.aimSlope, -CombatConfig::MaximumAimSlope, CombatConfig::MaximumAimSlope) : 0.f;
     if (std::isfinite(aim.x) && std::isfinite(aim.y) && Length(aim) > 0.1f) agent.facing = Unit(aim);
     if (command.prepareDecoy && world_.phase == GamePhase::Mission && agent.loadout.decoys > 0 && agent.draggingGuard < 0 && agent.actionCooldown <= 0.f &&
-        !command.dragBody && !command.interact && !command.tool && !command.cqc && !command.knock && !command.fireLethal && !command.fireNonLethal &&
+        !command.dragBody && !command.interact && !command.tool && !command.cqc && !command.cqcHeld && !command.push && !command.knock && !command.fireLethal && !command.fireNonLethal &&
         std::ranges::none_of(world_.guards, [&](const Guard &guard) { return guard.heldBy == agent.id && guard.cqcState != CqcState::None; })) {
       const float distance = std::isfinite(command.decoyDistance) ? std::clamp(command.decoyDistance, 0.f, DistractionConfig::MaximumDecoyDistance) : 0.f;
       const auto trajectory = DistractionGeometry::TraceDecoy(world_, agent.position, agent.facing, distance);
@@ -604,7 +641,7 @@ namespace NoTrace {
     if (agent.hideoutId != 0 || agent.draggingGuard >= 0) return;
     if (world_.phase != GamePhase::Mission) return;
     if (agent.actionCooldown > 0.f) return;
-    if (command.cqc) { Cqc(agent); agent.actionCooldown = CqcCooldown; }
+    if (command.push) Push(agent);
     else if (command.fireLethal || command.fireNonLethal) { if (Fire(agent, command.fireLethal)) agent.actionCooldown = WeaponCooldown; }
     else HandleDistractions(agent, command);
   }
@@ -698,24 +735,6 @@ namespace NoTrace {
     }
   }
 
-  void Simulation::Cqc(Agent &agent) {
-    using namespace GameplayConfig;
-    if (agent.stamina < CqcStaminaCost) { world_.message = "Sin resistencia suficiente para CQC; descansa."; return; }
-    Guard *target = nullptr;
-    float closest = CqcDistance;
-    for (auto &guard : world_.guards) if (!IsBody(guard) || guard.heldBy == agent.id) {
-      const float distance = Distance(agent.position, guard.position);
-      if (distance < closest && (guard.heldBy == 0 || guard.heldBy == agent.id) && !Occluded(agent.position, guard.position, Stance::Standing)) { closest = distance; target = &guard; }
-    }
-    if (!target) { world_.message = "CQC requiere aproximarte a un guardia a corta distancia."; return; }
-    agent.stamina = std::max(0.f, agent.stamina - CqcStaminaCost);
-    Record(EventKind::Cqc, agent.id, target->id);
-    if (target->cqcState == CqcState::None) { target->cqcState = CqcState::Grabbed; target->heldBy = agent.id; target->stateTime = 0.f; world_.message = "Agarre. Pulsa CQC de nuevo para derribar."; }
-    else if (target->cqcState == CqcState::Grabbed) { target->cqcState = CqcState::KnockedDown; target->stateTime = 0.f; world_.message = "Derribo. Pulsa CQC para inmovilizar."; }
-    else if (target->cqcState == CqcState::KnockedDown) { target->cqcState = CqcState::Restrained; world_.message = "Inmovilizado. Pulsa CQC para incapacitar."; }
-    else { HitGuard(*target, HitZone::Head, false, agent.id); world_.message = "Guardia incapacitado temporalmente. Puedes arrastrar y ocultar el cuerpo."; }
-  }
-
   sf::Vector2f Simulation::TraceWeapon(sf::Vector2f from, sf::Vector2f direction, float range, bool &blocked, float fromHeight, float slope) const {
     direction = Unit(direction);
     if (direction.x > 0.f) range = std::min(range, (world_.size.x - from.x) / direction.x);
@@ -739,15 +758,18 @@ namespace NoTrace {
   }
 
   void Simulation::Incapacitate(Agent &agent, PlayerId actor, std::uint32_t source) {
+    ReleaseCqc(agent);
+    agent.detectionProgress = 0.f; agent.detectionConfirmed = false;
     ReleaseHideout(agent);
     agent.incapacitated = true; agent.incapacityRemaining = GameplayConfig::IncapacityDuration;
     agent.cover = {};
     agent.stamina = 0.f; agent.moving = false; agent.running = false; agent.hidden = false; agent.draggingGuard = -1;
     Record(EventKind::AgentIncapacitated, actor, source);
-    world_.message = "Agente inconsciente: un compañero puede reanimarlo o se recuperará tras unos segundos.";
+    world_.message = "Agente inconsciente: derrota si no quedan compañeros operativos.";
   }
 
   void Simulation::Revive(Agent &agent, PlayerId actor) {
+    ReleaseCqc(agent);
     ReleaseHideout(agent);
     agent.incapacitated = false; agent.incapacityRemaining = 0.f; agent.bodyReported = false;
     agent.cover = {};
@@ -762,9 +784,11 @@ namespace NoTrace {
     if (!agent.alive || agent.extracted || (agent.incapacitated && healthDamage <= 0.f)) return;
     // La protección tumbado se aplica también aquí aunque cambie la selección de blancos enemigos.
     if (enemyBullet && agent.stance == Stance::Prone) return;
+    ReleaseCqc(agent);
     agent.health = std::max(0.f, agent.health - healthDamage);
     agent.stamina = std::max(0.f, agent.stamina - staminaDamage);
     Record(EventKind::AgentDamaged, actor, agent.id);
+    if (agent.health <= 0.f && actor == 0) { Incapacitate(agent, actor, source); return; }
     if (agent.health <= 0.f) {
       ReleaseHideout(agent);
       agent.alive = false; agent.incapacitated = false; agent.incapacityRemaining = 0.f;
@@ -779,6 +803,7 @@ namespace NoTrace {
   void Simulation::HitGuard(Guard &guard, HitZone zone, bool lethal, PlayerId actor) {
     using namespace GameplayConfig;
     if (IsBody(guard)) return;
+    if (guard.heldBy != 0) for (auto &owner : world_.agents) if (owner.id == guard.heldBy) { ReleaseCqc(owner); break; }
     if (lethal) guard.health = std::max(0.f, guard.health - CombatGeometry::LethalDamage(zone));
     else guard.stun = std::min(CombatConfig::MaxGuardStun, guard.stun + CombatGeometry::StunDamage(zone));
     if (guard.health <= 0.f || guard.stun >= CombatConfig::MaxGuardStun) {
@@ -838,6 +863,20 @@ namespace NoTrace {
     std::erase_if(world_.footsteps, [](const FootstepCue &cue) { return cue.remaining <= 0.f; });
     for (auto &guard : world_.guards) {
       const auto previousPosition = guard.position;
+      const auto recordFootstep = [this, &guard, previousPosition, dt] {
+        const auto displacement = guard.position - previousPosition;
+        if (Length(displacement) > DistractionConfig::MinimumFootstepMovement) {
+          guard.stepTime += dt;
+          if (guard.stepTime >= DistractionConfig::FootstepInterval) {
+            guard.stepTime = std::fmod(guard.stepTime, DistractionConfig::FootstepInterval);
+            if (world_.footsteps.size() >= DistractionConfig::MaximumFootstepCues) world_.footsteps.erase(world_.footsteps.begin());
+            auto approximate = DistractionGeometry::QuantizeFootstep(guard.position);
+            approximate.x = std::clamp(approximate.x, 0.f, world_.size.x - SpatialConfig::CollisionSkin);
+            approximate.y = std::clamp(approximate.y, 0.f, world_.size.y - SpatialConfig::CollisionSkin);
+            world_.footsteps.push_back({approximate, DistractionGeometry::FootstepDirection(displacement), DistractionConfig::FootstepLifetime, guard.id});
+          }
+        } else guard.stepTime = 0.f;
+      };
       guard.attackTime = std::max(0.f, guard.attackTime - dt);
       guard.detectedTime = std::max(0.f, guard.detectedTime - dt);
       if (guard.state == GuardState::Incapacitated && !guard.bodyHidden && guard.incapacityRemaining > 0.f) {
@@ -847,24 +886,34 @@ namespace NoTrace {
           for (auto &agent : world_.agents) if (agent.draggingGuard == static_cast<int>(guard.id)) agent.draggingGuard = -1;
         }
       }
-      if (IsBody(guard)) { guard.stepTime = 0.f; continue; }
+      if (IsBody(guard)) { UpdateHideoutInspection(guard, dt); guard.stepTime = 0.f; continue; }
       guard.stun = std::max(0.f, guard.stun - CombatConfig::GuardStunRecoveryPerSecond * dt);
       guard.stateTime += dt;
       guard.attackCooldown = std::max(0.f, guard.attackCooldown - dt);
-      if (guard.cqcState != CqcState::None) {
-        const auto holder = std::ranges::find_if(world_.agents, [&guard](const Agent &agent) { return agent.id == guard.heldBy && agent.connected && agent.alive && !agent.incapacitated; });
-        if (holder == world_.agents.end() || Distance(holder->position, guard.position) > CqcDistance * CqcMaximumStretch || guard.stateTime > CqcEscapeDuration) {
-          guard.heldBy = 0; guard.cqcState = CqcState::None; guard.state = GuardState::Search; guard.stateTime = 0.f; guard.lastKnown = guard.position;
-        } else { guard.stepTime = 0.f; continue; }
+      if (guard.cqcState != CqcState::None || guard.heldBy != 0) { UpdateHideoutInspection(guard, dt); guard.stepTime = 0.f; continue; }
+      guard.staggerRemaining = std::max(0.f, guard.staggerRemaining - dt);
+      if (guard.staggerRemaining > 0.f) {
+        guard.stepTime = 0.f; guard.attackTime = 0.f; guard.hideoutInspectionTime = 0.f;
+        for (auto &object : world_.objects) if (object.id == guard.knownHideout) object.inspectionProgress = 0.f;
+        continue;
       }
       Agent *seen = nullptr;
       for (auto &agent : world_.agents) if (CanSee(guard.position, guard.facing, agent, world_.alarm ? VisionDistance * AlarmVisionMultiplier : VisionDistance) && (!seen || Distance(guard.position, agent.position) < Distance(guard.position, seen->position))) seen = &agent;
+      if (!seen && UpdateHideoutInspection(guard, dt)) { recordFootstep(); continue; }
       if (seen) {
+        guard.hideoutInspectionTime = 0.f;
+        for (auto &object : world_.objects) if (object.id == guard.knownHideout) object.inspectionProgress = 0.f;
+      }
+      if (seen) {
+        if (guard.observedAgent != 0 && guard.observedAgent != seen->id) guard.suspicion = 0.f;
+        guard.observedAgent = seen->id;
         guard.lastKnown = seen->position;
-        guard.suspicion += dt / ConfirmationTime;
+        guard.suspicion = std::min(1.f, guard.suspicion + dt / ConfirmationTime);
+        seen->detectionProgress = std::max(seen->detectionProgress, guard.suspicion);
         if (guard.suspicion >= 1.f) {
           if (guard.state != GuardState::Alert) { Detect(*seen, guard.id); guard.detectedTime = CombatConfig::ConfirmedIconDuration; }
-          else alarmRemaining_ = AlarmDuration;
+          else RegisterSecurityContact(seen->position);
+          seen->detectionConfirmed = true;
           guard.state = GuardState::Alert; guard.stateTime = 0.f;
           const auto aim = Unit(seen->position - guard.position);
           const float distance = Distance(guard.position, seen->position);
@@ -907,6 +956,7 @@ namespace NoTrace {
         if (guard.state == GuardState::Alert || (guard.state == GuardState::Suspicion && guard.suspicion == 0.f)) { guard.state = GuardState::Search; guard.stateTime = 0.f; }
         if (guard.state != GuardState::Alert) for (const auto &noise : world_.noises) if (noise.guardId != guard.id && Distance(guard.position, noise.position) <= noise.radius) {
           guard.lastKnown = noise.position; guard.state = GuardState::Investigate; guard.stateTime = 0.f;
+          if (noise.actor != 0 && securityHasClue_) securityContactAge_ = std::min(securityContactAge_, SecurityConfig::PatrolRecoveryDelay);
           break;
         }
         const auto seesBody = [this, &guard](sf::Vector2f position) {
@@ -921,6 +971,7 @@ namespace NoTrace {
         for (auto &body : world_.agents) if ((!body.alive || body.incapacitated) && body.connected && !body.bodyReported && seesBody(body.position)) {
           body.bodyReported = true; guard.lastKnown = body.position; guard.state = GuardState::Search; guard.stateTime = 0.f;
           if (!world_.alarm) { world_.alarm = true; ++world_.alarmCount; alarmRemaining_ = AlarmDuration; }
+          RegisterSecurityContact(body.position);
           Record(EventKind::BodyFound, 0, body.id); world_.message = "Una patrulla encontró a un agente caído: alarma de seguridad.";
         }
       }
@@ -929,6 +980,13 @@ namespace NoTrace {
         destination = guard.patrol[guard.waypoint];
         if (Distance(guard.position, destination) < PatrolWaypointDistance) guard.waypoint = (guard.waypoint + 1) % guard.patrol.size();
       } else if (guard.state == GuardState::Investigate || guard.state == GuardState::Alert || guard.state == GuardState::Search) destination = guard.lastKnown;
+      else if (guard.state == GuardState::Retiring) destination = guard.reinforcementExit;
+      if (!seen && guard.state == GuardState::Search && guard.stateTime > SecurityConfig::SearchDuration / 3.f && guard.stateTime < SecurityConfig::SearchDuration) {
+        const auto phase = static_cast<unsigned int>(guard.stateTime / (SecurityConfig::SearchDuration / 3.f)) + guard.id;
+        const std::array<sf::Vector2f, 4> probes{{{1.f, 0.f}, {0.f, 1.f}, {-1.f, 0.f}, {0.f, -1.f}}};
+        const auto candidate = guard.lastKnown + probes[phase % probes.size()] * SecurityConfig::SearchProbeDistance;
+        if (!Blocked(candidate, AgentRadius)) destination = candidate;
+      }
       if (seen && guard.state == GuardState::Alert && Distance(guard.position, seen->position) <= GuardAttackDistance * 0.8f) destination = guard.position;
       const auto offset = destination - guard.position;
       if (Length(offset) > InvestigationStopDistance) {
@@ -937,19 +995,8 @@ namespace NoTrace {
         const float angle = dt * SearchAngularSpeed;
         guard.facing = {guard.facing.x * std::cos(angle) - guard.facing.y * std::sin(angle), guard.facing.x * std::sin(angle) + guard.facing.y * std::cos(angle)};
       }
-      if ((guard.state == GuardState::Investigate && guard.stateTime > InvestigationDuration) || (guard.state == GuardState::Search && guard.stateTime > SearchDuration)) { guard.state = GuardState::Patrol; guard.stateTime = 0.f; }
-      const auto displacement = guard.position - previousPosition;
-      if (Length(displacement) > DistractionConfig::MinimumFootstepMovement) {
-        guard.stepTime += dt;
-        if (guard.stepTime >= DistractionConfig::FootstepInterval) {
-          guard.stepTime = std::fmod(guard.stepTime, DistractionConfig::FootstepInterval);
-          if (world_.footsteps.size() >= DistractionConfig::MaximumFootstepCues) world_.footsteps.erase(world_.footsteps.begin());
-          auto approximate = DistractionGeometry::QuantizeFootstep(guard.position);
-          approximate.x = std::clamp(approximate.x, 0.f, world_.size.x - SpatialConfig::CollisionSkin);
-          approximate.y = std::clamp(approximate.y, 0.f, world_.size.y - SpatialConfig::CollisionSkin);
-          world_.footsteps.push_back({approximate, DistractionGeometry::FootstepDirection(displacement), DistractionConfig::FootstepLifetime, guard.id});
-        }
-      } else guard.stepTime = 0.f;
+      if ((guard.state == GuardState::Investigate && guard.stateTime > InvestigationDuration) || (guard.state == GuardState::Search && guard.stateTime > SecurityConfig::SearchDuration && !world_.securityActive)) { guard.state = GuardState::Patrol; guard.stateTime = 0.f; }
+      recordFootstep();
     }
   }
 
@@ -960,15 +1007,20 @@ namespace NoTrace {
         Agent *seen = nullptr;
         for (auto &agent : world_.agents) if (CanSee(object.position, object.facing, agent, CameraDistance)) { seen = &agent; break; }
         if (seen) {
-          object.progress += dt;
+          if (object.observedAgent != 0 && object.observedAgent != seen->id) object.progress = 0.f;
+          object.observedAgent = seen->id;
+          const bool wasConfirmed = object.progress >= ConfirmationTime;
+          object.progress = std::min(ConfirmationTime, object.progress + dt);
+          seen->detectionProgress = std::max(seen->detectionProgress, object.progress / ConfirmationTime);
           if (object.progress >= ConfirmationTime) {
-            if (object.progress - dt < ConfirmationTime) Detect(*seen, object.id + 1000);
-            else alarmRemaining_ = AlarmDuration;
+            if (!wasConfirmed) Detect(*seen, object.id + 1000);
+            else RegisterSecurityContact(seen->position);
+            seen->detectionConfirmed = true;
           }
         } else object.progress = std::max(0.f, object.progress - dt);
       } else if (object.kind == ObjectKind::CoopSwitch && !object.completed && object.progress > 0.f) {
-        const auto active = std::ranges::count_if(world_.agents, [](const Agent &agent) { return agent.connected && agent.alive && !agent.extracted; });
-        const auto nearby = std::ranges::count_if(world_.agents, [&object](const Agent &agent) { return agent.connected && agent.alive && !agent.extracted && Distance(agent.position, object.position) < InteractionDistance; });
+        const auto active = std::ranges::count_if(world_.agents, [](const Agent &agent) { return agent.connected && agent.alive && !agent.incapacitated && !agent.extracted; });
+        const auto nearby = std::ranges::count_if(world_.agents, [&object](const Agent &agent) { return agent.connected && agent.alive && !agent.incapacitated && !agent.extracted && Distance(agent.position, object.position) < InteractionDistance; });
         if (nearby >= std::min<std::ptrdiff_t>(2, active)) object.progress += dt * (nearby > 1 ? CooperativeSwitchRate : SoloSwitchRate);
         else object.progress = std::max(0.f, object.progress - dt);
         if (object.progress >= CoopHoldDuration) {
@@ -995,7 +1047,7 @@ namespace NoTrace {
       const bool allDead = std::ranges::none_of(world_.agents, [&traitor](const Agent &agent) { return agent.connected && agent.id != traitor->id && agent.alive; });
       if (anyOther && allDead) { Finish(false, "El traidor eliminó a los demás agentes sin activar alarmas.", true); return; }
     }
-    const auto operational = [](const Agent &agent) { return agent.connected && agent.alive && agent.privateOrder != PrivateOrder::Traitor; };
+    const auto operational = [](const Agent &agent) { return agent.connected && agent.alive && !agent.incapacitated && agent.privateOrder != PrivateOrder::Traitor; };
     if (std::ranges::none_of(world_.agents, operational)) { Finish(false, "No quedan agentes del equipo operativos."); return; }
     if (world_.objectives >= contract.requiredObjectives && std::ranges::all_of(world_.agents, [&operational](const Agent &agent) { return !operational(agent) || agent.extracted; })) Finish(true, "Contrato cumplido y equipo extraído.");
   }
@@ -1026,12 +1078,19 @@ namespace NoTrace {
     json snapshot{{"version", GameplayConfig::ProtocolVersion}, {"player", player}, {"phase", static_cast<int>(world_.phase)},
       {"contract", static_cast<int>(world_.contract)}, {"seed", world_.seed}, {"tick", world_.tick}, {"size", VectorJson(world_.size)},
       {"elapsed", world_.elapsed}, {"alarm", world_.alarm}, {"alarmRemaining", alarmRemaining_}, {"alarmCount", world_.alarmCount}, {"objectives", world_.objectives},
-      {"secondary", world_.secondary}, {"message", filtered ? "Operación en curso." : world_.message}, {"visibilityFiltered", filtered}};
+      {"secondary", world_.secondary}, {"message", filtered ? "Operación en curso." : world_.message}, {"visibilityFiltered", filtered},
+      {"securityActive", world_.securityActive}, {"reinforcementWaves", world_.reinforcementWaves}};
+    snapshot["securityEntries"] = json::array();
+    if (!filtered) {
+      for (const auto &entry : world_.securityEntries) snapshot["securityEntries"].push_back({{"position", VectorJson(entry.position)}, {"rally", VectorJson(entry.rally)}});
+      snapshot["securityInternal"] = {{"contactAge", securityContactAge_}, {"waveTimer", reinforcementTimer_},
+        {"lastKnown", VectorJson(securityLastKnown_)}, {"hasClue", securityHasClue_}, {"nextGuard", nextGuardId_}};
+    }
     snapshot["visibility"] = nullptr;
     if (filtered && observer) {
       const auto grid = Visibility::BuildGrid(world_, *observer);
       snapshot["visibility"] = {{"observer", grid.observer}, {"tick", grid.tick}, {"cellSize", grid.cellSize},
-        {"columns", grid.columns}, {"rows", grid.rows}, {"cells", grid.cells}};
+        {"columns", grid.columns}, {"rows", grid.rows}, {"cells", grid.cells}, {"visualOrigin", VectorJson(grid.visualOrigin)}, {"visualRadii", grid.visualRadii}};
     }
     snapshot["agents"] = json::array();
     for (const auto &agent : world_.agents) {
@@ -1045,6 +1104,10 @@ namespace NoTrace {
         {"draggingGuard", filtered && agent.id != player && !visibleGuards.contains(static_cast<std::uint32_t>(agent.draggingGuard)) ? -1 : agent.draggingGuard}, {"aimSlope", agent.aimSlope},
         {"hideoutId", agent.hideoutId}, {"hideoutExit", VectorJson(agent.hideoutExit)},
         {"actionPose", static_cast<int>(agent.actionPose)}, {"actionPoseTime", agent.actionPoseTime},
+        {"cqcHoldingGuard", !filtered || visibleGuards.contains(agent.cqcHoldingGuard) ? agent.cqcHoldingGuard : 0},
+        {"cqcProgress", agent.cqcProgress}, {"cqcHoldTime", agent.cqcHoldTime}, {"cqcReleaseTime", agent.cqcReleaseTime},
+        {"cqcPulseTime", agent.cqcPulseTime}, {"cqcPulseReady", agent.cqcPulseReady}, {"staggerRemaining", agent.staggerRemaining},
+        {"detectionProgress", agent.id == player ? agent.detectionProgress : 0.f}, {"detectionConfirmed", agent.id == player && agent.detectionConfirmed},
         {"cover", {{"active", cover.active}, {"anchor", VectorJson(cover.anchor)}, {"normal", VectorJson(cover.normal)},
           {"surfacePosition", VectorJson(cover.surface.position)}, {"surfaceSize", VectorJson(cover.surface.size)},
           {"obstacle", cover.obstacle}, {"object", cover.object}, {"peekSide", static_cast<int>(cover.peekSide)},
@@ -1066,9 +1129,12 @@ namespace NoTrace {
       if (!filtered) for (auto point : guard.patrol) patrol.push_back(VectorJson(point));
       snapshot["guards"].push_back({{"id", guard.id}, {"position", VectorJson(guard.position)}, {"facing", VectorJson(guard.facing)},
         {"state", static_cast<int>(guard.state)}, {"cqcState", static_cast<int>(guard.cqcState)}, {"patrol", patrol}, {"waypoint", filtered ? 0 : guard.waypoint},
-        {"lastKnown", VectorJson(filtered ? guard.position : guard.lastKnown)}, {"suspicion", guard.suspicion}, {"bodyHidden", guard.bodyHidden}, {"bodyReported", guard.bodyReported}, {"heldBy", guard.heldBy},
+        {"lastKnown", VectorJson(filtered ? guard.position : guard.lastKnown)}, {"suspicion", guard.suspicion}, {"bodyHidden", guard.bodyHidden}, {"bodyReported", guard.bodyReported}, {"heldBy", !filtered || visibleAgents.contains(guard.heldBy) ? guard.heldBy : 0},
         {"stateTime", guard.stateTime}, {"attackCooldown", guard.attackCooldown}, {"attackTime", guard.attackTime}, {"meleeAttack", guard.meleeAttack}, {"ammo", guard.ammo}, {"incapacityRemaining", guard.incapacityRemaining},
-        {"health", guard.health}, {"stun", guard.stun}, {"detectedTime", guard.detectedTime}, {"storedIn", guard.storedIn}, {"stepTime", guard.stepTime}});
+        {"health", guard.health}, {"stun", guard.stun}, {"detectedTime", guard.detectedTime}, {"storedIn", guard.storedIn}, {"stepTime", guard.stepTime},
+        {"knownHideout", filtered ? 0 : guard.knownHideout}, {"hideoutInspectionTime", guard.hideoutInspectionTime},
+        {"observedAgent", !filtered || guard.observedAgent == player ? guard.observedAgent : 0}, {"reinforcement", guard.reinforcement},
+        {"reinforcementExit", VectorJson(filtered ? sf::Vector2f{} : guard.reinforcementExit)}, {"staggerRemaining", guard.staggerRemaining}});
     }
     snapshot["obstacles"] = json::array();
     for (const auto &obstacle : world_.obstacles) snapshot["obstacles"].push_back({{"position", VectorJson(obstacle.bounds.position)},
@@ -1082,7 +1148,8 @@ namespace NoTrace {
       {"open", object.open}, {"progress", object.progress}, {"facing", VectorJson(object.facing)},
       {"footprint", VectorJson(object.footprint)}, {"solid", static_cast<int>(object.solid)},
       {"blocksVision", static_cast<int>(object.blocksVision)}, {"wallCover", static_cast<int>(object.wallCover)}, {"interactive", object.interactive}, {"decorative", object.decorative},
-      {"hideoutKind", static_cast<int>(object.hideoutKind)}, {"occupied", WorldGeometry::HideoutOccupied(object)}, {"occupantAgent", !filtered || object.occupantAgent == player ? object.occupantAgent : 0}, {"occupantGuard", filtered ? 0 : object.occupantGuard}});
+      {"hideoutKind", static_cast<int>(object.hideoutKind)}, {"occupied", WorldGeometry::HideoutOccupied(object)}, {"occupantAgent", !filtered || object.occupantAgent == player ? object.occupantAgent : 0}, {"occupantGuard", filtered ? 0 : object.occupantGuard},
+      {"hideoutAperture", object.hideoutAperture}, {"lifted", object.lifted}, {"inspectionProgress", object.inspectionProgress}, {"observedAgent", !filtered || object.observedAgent == player ? object.observedAgent : 0}});
     }
     snapshot["footsteps"] = json::array();
     for (const auto &cue : world_.footsteps) {
@@ -1167,6 +1234,24 @@ namespace NoTrace {
       replacement.objectives = snapshot.at("objectives").get<int>(); replacement.secondary = snapshot.at("secondary").get<int>();
       if (replacement.alarmCount < 0 || replacement.alarmCount > 10000 || replacement.objectives < 0 || replacement.objectives > 100 || replacement.secondary < 0 || replacement.secondary > 100) throw std::runtime_error("Contadores de estado inválidos");
       replacement.message = text(snapshot.at("message"), 2048);
+      replacement.securityActive = snapshot.value("securityActive", false);
+      replacement.reinforcementWaves = snapshot.value("reinforcementWaves", 0u);
+      if (replacement.reinforcementWaves > SecurityConfig::MaximumWaves) throw std::runtime_error("Oleadas de seguridad inválidas");
+      if (snapshot.contains("securityEntries")) for (const auto &value : array("securityEntries", 8)) {
+        if (snapshot.value("visibilityFiltered", false)) throw std::runtime_error("Entradas privadas en estado filtrado");
+        const SecurityEntry entry{ParseVector(value.at("position")), ParseVector(value.at("rally"))};
+        for (const auto point : {entry.position, entry.rally}) if (point.x < 0.f || point.y < 0.f || point.x > replacement.size.x || point.y > replacement.size.y) throw std::runtime_error("Entrada de seguridad fuera del mapa");
+        replacement.securityEntries.push_back(entry);
+      }
+      float contactAge = 0.f, waveTimer = 0.f; sf::Vector2f lastSecurityContact; bool hasSecurityClue = false; std::uint32_t nextGuard = 1;
+      if (snapshot.contains("securityInternal")) {
+        if (snapshot.value("visibilityFiltered", false)) throw std::runtime_error("Pista privada de seguridad en cliente");
+        const auto &security = snapshot.at("securityInternal");
+        contactAge = finite(security.at("contactAge"), 86400.f); waveTimer = finite(security.at("waveTimer"), 86400.f);
+        lastSecurityContact = ParseVector(security.at("lastKnown")); hasSecurityClue = security.at("hasClue").get<bool>();
+        nextGuard = security.at("nextGuard").get<std::uint32_t>();
+        if (nextGuard == 0 || nextGuard > 1000000) throw std::runtime_error("Secuencia de refuerzos inválida");
+      }
       for (const auto &value : array("agents", GameplayConfig::MaximumPlayers)) {
         Agent agent;
         agent.id = value.at("id").get<PlayerId>();
@@ -1183,8 +1268,19 @@ namespace NoTrace {
         agent.aimSlope = value.value("aimSlope", 0.f);
         agent.hideoutId = value.value("hideoutId", std::uint32_t{0});
         agent.hideoutExit = ParseVector(value.value("hideoutExit", VectorJson(sf::Vector2f{})));
-        agent.actionPose = ParseEnum<ActionPose>(value.value("actionPose", nlohmann::json(0)), 2);
+        agent.actionPose = ParseEnum<ActionPose>(value.value("actionPose", nlohmann::json(0)), 4);
         agent.actionPoseTime = finite(value.value("actionPoseTime", nlohmann::json(0.f)), GameplayConfig::AttackAnimationDuration);
+        agent.cqcHoldingGuard = value.value("cqcHoldingGuard", std::uint32_t{0});
+        agent.cqcProgress = value.value("cqcProgress", 0u);
+        if (agent.cqcProgress > CqcConfig::RequiredPulses) throw std::runtime_error("Progreso CQC inválido");
+        agent.cqcHoldTime = finite(value.value("cqcHoldTime", nlohmann::json(0.f)), 86400.f);
+        agent.cqcReleaseTime = finite(value.value("cqcReleaseTime", nlohmann::json(0.f)), CqcConfig::ReleaseGrace + GameplayConfig::MaximumStep);
+        agent.cqcPulseTime = finite(value.value("cqcPulseTime", nlohmann::json(0.f)), 86400.f);
+        agent.cqcPulseReady = value.value("cqcPulseReady", false);
+        agent.staggerRemaining = finite(value.value("staggerRemaining", nlohmann::json(0.f)), CqcConfig::PushStagger);
+        agent.detectionProgress = finite(value.value("detectionProgress", nlohmann::json(0.f)), 1.f);
+        agent.detectionConfirmed = value.value("detectionConfirmed", false);
+        if (agent.id != recipient && (agent.detectionProgress > 0.f || agent.detectionConfirmed)) throw std::runtime_error("Progreso de detección ajeno");
         if (!std::isfinite(agent.aimSlope) || std::abs(agent.aimSlope) > CombatConfig::MaximumAimSlope) throw std::runtime_error("Elevación de apuntado inválida");
         if (value.contains("cover")) {
           const auto &cover = value.at("cover");
@@ -1197,7 +1293,7 @@ namespace NoTrace {
               agent.cover.anchor.x < GameplayConfig::AgentRadius || agent.cover.anchor.y < GameplayConfig::AgentRadius ||
               agent.cover.anchor.x > replacement.size.x - GameplayConfig::AgentRadius || agent.cover.anchor.y > replacement.size.y - GameplayConfig::AgentRadius)) throw std::runtime_error("Cobertura inválida");
         }
-        if ((!agent.alive && (agent.incapacitated || agent.incapacityRemaining > 0.f)) || (agent.alive && agent.health <= 0.f) || (agent.incapacitated != (agent.incapacityRemaining > 0.f))) throw std::runtime_error("Estado vital de agente inválido");
+        if ((!agent.alive && (agent.incapacitated || agent.incapacityRemaining > 0.f)) || (agent.alive && !agent.incapacitated && agent.health <= 0.f) || (agent.incapacitated != (agent.incapacityRemaining > 0.f))) throw std::runtime_error("Estado vital de agente inválido");
         const auto &loadout = value.at("loadout");
         if (!loadout.is_array() || loadout.size() != 4) throw std::runtime_error("Equipo inválido");
         std::array<int, 4> counts{};
@@ -1230,13 +1326,13 @@ namespace NoTrace {
         guard.id = value.at("id").get<std::uint32_t>();
         if (guard.id == 0 || std::ranges::any_of(replacement.guards, [&guard](const Guard &other) { return other.id == guard.id; })) throw std::runtime_error("Identificador de guardia repetido");
         guard.position = ParseVector(value.at("position")); guard.facing = ParseVector(value.at("facing"));
-        guard.state = ParseEnum<GuardState>(value.at("state"), 6); guard.cqcState = ParseEnum<CqcState>(value.at("cqcState"), 3);
+        guard.state = ParseEnum<GuardState>(value.at("state"), 7); guard.cqcState = ParseEnum<CqcState>(value.at("cqcState"), 3);
         const auto &patrol = value.at("patrol");
         if (!patrol.is_array() || patrol.size() > 32) throw std::runtime_error("Patrulla inválida");
         for (const auto &point : patrol) guard.patrol.push_back(ParseVector(point));
         guard.waypoint = value.at("waypoint").get<std::size_t>();
         if (!guard.patrol.empty() && guard.waypoint >= guard.patrol.size()) throw std::runtime_error("Índice de patrulla inválido");
-        guard.lastKnown = ParseVector(value.at("lastKnown")); guard.suspicion = finite(value.at("suspicion"), 10000.f);
+        guard.lastKnown = ParseVector(value.at("lastKnown")); guard.suspicion = finite(value.at("suspicion"), 1.f);
         guard.bodyHidden = value.at("bodyHidden").get<bool>(); guard.bodyReported = value.at("bodyReported").get<bool>(); guard.heldBy = value.at("heldBy").get<PlayerId>();
         guard.stateTime = finite(value.at("stateTime"), 86400.f); guard.attackCooldown = finite(value.at("attackCooldown"), 60.f);
         guard.attackTime = finite(value.at("attackTime"), GameplayConfig::AttackAnimationDuration); guard.meleeAttack = value.at("meleeAttack").get<bool>();
@@ -1250,6 +1346,15 @@ namespace NoTrace {
         guard.detectedTime = finite(value.value("detectedTime", nlohmann::json(0.f)), CombatConfig::ConfirmedIconDuration);
         guard.storedIn = value.value("storedIn", std::uint32_t{0});
         guard.stepTime = finite(value.value("stepTime", nlohmann::json(0.f)), 86400.f);
+        guard.staggerRemaining = finite(value.value("staggerRemaining", nlohmann::json(0.f)), CqcConfig::PushStagger);
+        guard.knownHideout = value.value("knownHideout", std::uint32_t{0});
+        guard.hideoutInspectionTime = finite(value.value("hideoutInspectionTime", nlohmann::json(0.f)), SpatialConfig::HideoutInspectionDuration);
+        guard.observedAgent = value.value("observedAgent", PlayerId{0});
+        guard.reinforcement = value.value("reinforcement", false);
+        guard.reinforcementExit = ParseVector(value.value("reinforcementExit", VectorJson(sf::Vector2f{})));
+        if (snapshot.value("visibilityFiltered", false) && (guard.knownHideout || guard.reinforcementExit != sf::Vector2f{})) throw std::runtime_error("Conocimiento privado del guardia incluido en cliente");
+        if (snapshot.value("visibilityFiltered", false) && guard.observedAgent != 0 && guard.observedAgent != recipient) throw std::runtime_error("Identidad observada ajena en guardia");
+        if (guard.reinforcement && (guard.reinforcementExit.x < 0.f || guard.reinforcementExit.y < 0.f || guard.reinforcementExit.x > replacement.size.x || guard.reinforcementExit.y > replacement.size.y)) throw std::runtime_error("Salida de refuerzo fuera del mapa");
         replacement.guards.push_back(guard);
       }
       for (const auto &value : array("obstacles", 128)) {
@@ -1278,6 +1383,11 @@ namespace NoTrace {
         object.hideoutKind = ParseEnum<HideoutKind>(value.value("hideoutKind", nlohmann::json(0)), 3);
         object.occupantAgent = value.value("occupantAgent", PlayerId{0}); object.occupantGuard = value.value("occupantGuard", std::uint32_t{0});
         object.occupied = value.value("occupied", object.occupantAgent != 0 || object.occupantGuard != 0);
+        object.hideoutAperture = finite(value.value("hideoutAperture", nlohmann::json(SpatialConfig::ClosetDefaultAperture)), 1.f);
+        object.inspectionProgress = finite(value.value("inspectionProgress", nlohmann::json(0.f)), 1.f);
+        object.lifted = value.value("lifted", false); object.observedAgent = value.value("observedAgent", PlayerId{0});
+        if (snapshot.value("visibilityFiltered", false) && object.observedAgent != 0 && object.observedAgent != recipient) throw std::runtime_error("Identidad observada ajena en cámara");
+        if (object.lifted && (WorldGeometry::HideoutType(object) != HideoutKind::UnderTable || object.occupantAgent != 0 || object.occupantGuard != 0)) throw std::runtime_error("Mesa levantada con ocupante o tipo inválido");
         const bool hasOccupant = object.occupantAgent != 0 || object.occupantGuard != 0;
         if ((!snapshot.value("visibilityFiltered", false) && object.occupied != hasOccupant) || (hasOccupant && !object.occupied)) throw std::runtime_error("Estado de ocupación incoherente");
         if (object.occupantAgent && object.occupantGuard) throw std::runtime_error("Escondite con capacidad excedida");
@@ -1325,6 +1435,11 @@ namespace NoTrace {
         const auto &grid = snapshot.at("visibility");
         if (!grid.is_object() || grid.at("observer").get<PlayerId>() != recipient || grid.at("tick").get<std::uint64_t>() != replacement.tick) throw std::runtime_error("Destinatario de visibilidad inválido");
         replacement.visibility.authoritative = true; replacement.visibility.observer = recipient; replacement.visibility.tick = replacement.tick;
+        replacement.visibility.visualOrigin = ParseVector(grid.at("visualOrigin"));
+        const auto &radii = grid.at("visualRadii");
+        if (!radii.is_array() || radii.size() != VisibilityConfig::VisualRayCount) throw std::runtime_error("Frontera visual incompleta");
+        if (replacement.visibility.visualOrigin.x < 0.f || replacement.visibility.visualOrigin.y < 0.f || replacement.visibility.visualOrigin.x > replacement.size.x || replacement.visibility.visualOrigin.y > replacement.size.y) throw std::runtime_error("Origen de visión fuera del mapa");
+        for (const auto &radius : radii) replacement.visibility.visualRadii.push_back(finite(radius, VisibilityConfig::StandingRange));
         replacement.visibility.cellSize = finite(grid.at("cellSize"), VisibilityConfig::CellSize);
         replacement.visibility.columns = grid.at("columns").get<unsigned int>(); replacement.visibility.rows = grid.at("rows").get<unsigned int>();
         if (replacement.visibility.cellSize != VisibilityConfig::CellSize || replacement.visibility.columns != static_cast<unsigned int>(std::ceil(replacement.size.x / VisibilityConfig::CellSize)) ||
@@ -1349,11 +1464,20 @@ namespace NoTrace {
           if (guard == replacement.guards.end() || !guard->bodyHidden || guard->storedIn != object.id) throw std::runtime_error("Ocupación de cuerpo incoherente");
         }
       }
+      for (const auto &guard : replacement.guards) if (guard.knownHideout) {
+        const auto object = std::ranges::find_if(replacement.objects, [&](const Interactable &entry) { return entry.id == guard.knownHideout; });
+        if (object == replacement.objects.end() || WorldGeometry::HideoutType(*object) != HideoutKind::UnderTable) throw std::runtime_error("Escondite conocido inexistente");
+      }
       for (const auto &guard : replacement.guards) if (guard.storedIn) {
         const auto object = std::ranges::find_if(replacement.objects, [&](const Interactable &entry) { return entry.id == guard.storedIn; });
         if (!guard.bodyHidden || (guard.state != GuardState::Dead && guard.state != GuardState::Incapacitated) || object == replacement.objects.end() || object->occupantGuard != guard.id) throw std::runtime_error("Cuerpo almacenado inválido");
       }
       for (const auto &agent : replacement.agents) {
+        if (agent.cqcHoldingGuard) {
+          const auto guard = std::ranges::find_if(replacement.guards, [&](const Guard &entry) { return entry.id == agent.cqcHoldingGuard; });
+          if (!agent.alive || agent.incapacitated || agent.hidden || guard == replacement.guards.end() || guard->heldBy != agent.id || guard->cqcState == CqcState::None ||
+              guard->state == GuardState::Dead || guard->state == GuardState::Incapacitated || (guard->position - agent.position).length() > GameplayConfig::CqcDistance * GameplayConfig::CqcMaximumStretch) throw std::runtime_error("Sujeción CQC incoherente");
+        }
         if (agent.hideoutId) {
           const auto object = std::ranges::find_if(replacement.objects, [&](const Interactable &entry) { return entry.id == agent.hideoutId; });
           if (!agent.hidden || agent.moving || agent.running || agent.draggingGuard >= 0 || agent.cover.active || object == replacement.objects.end() || object->occupantAgent != agent.id ||
@@ -1398,6 +1522,8 @@ namespace NoTrace {
       }
       world_ = std::move(replacement);
       alarmRemaining_ = alarmRemaining;
+      securityContactAge_ = contactAge; reinforcementTimer_ = waveTimer; securityLastKnown_ = lastSecurityContact;
+      securityHasClue_ = hasSecurityClue; nextGuardId_ = nextGuard;
       nextEvent_ = world_.events.empty() ? 1 : world_.events.back().sequence + 1;
       error.clear();
       return true;

@@ -3,6 +3,7 @@
 #include "NoTraceCombatGeometry.h"
 #include "NoTraceWorldGeometry.h"
 #include "Config/NoTraceDistractionConfig.h"
+#include "Config/NoTraceVisibilityConfig.h"
 
 #include <SFML/System/Clock.hpp>
 #include <SFML/System/Sleep.hpp>
@@ -17,10 +18,11 @@
 namespace {
   using namespace NoTrace;
   using Json = nlohmann::json;
+  const char *currentCase = "inicio";
 
   void Require(bool condition, const char *message) {
     if (!condition) {
-      throw std::runtime_error(message);
+      throw std::runtime_error(std::string(message) + " [" + currentCase + "]");
     }
   }
 
@@ -397,7 +399,8 @@ namespace {
     auto &remote = world.agents[1]; remote.position = {150.f, 180.f}; remote.facing = {1.f, 0.f}; remote.actionCooldown = 0.f;
     Interactable closet; closet.id = 90; closet.kind = ObjectKind::Hideout; closet.hideoutKind = HideoutKind::Closet;
     closet.position = {210.f, 180.f}; closet.name = "Armario"; world.objects.push_back(closet);
-    ActionCommand interact; interact.interact = true; interact.dragBody = true;
+    currentCase = "Hideouts/entrada";
+    ActionCommand interact; interact.interact = true; interact.dragBody = true; interact.aimX = 1.f;
     pair.client.Submit(interact);
     Until([&] { return FindAgent(pair.host.GetWorld(), 2).hidden && FindAgent(pair.client.GetWorld(), 2).hidden; }, [&] { pair.Tick(true); });
     const auto inside = FindAgent(pair.host.GetWorld(), 2).position;
@@ -409,18 +412,23 @@ namespace {
     Until([&] { return !FindAgent(pair.host.GetWorld(), 2).hidden && !FindAgent(pair.client.GetWorld(), 2).hidden; }, [&] { pair.Tick(true); });
     pair.client.Submit({}); pair.Advance(8, true);
     Require(!WorldGeometry::PositionBlocked(world, FindAgent(world, 2).position, GameplayConfig::AgentRadius), "La salida LAN del escondite penetra su volumen");
-    Guard body; body.id = 77; body.position = FindAgent(world, 2).position + sf::Vector2f{20.f, 0.f};
+    Guard body; body.id = 77; body.position = FindAgent(world, 2).position + WorldGeometry::HideoutFrontNormal(world.objects[0]) * 20.f;
     body.state = GuardState::Incapacitated; body.stun = 100.f; body.incapacityRemaining = 80.f; world.guards.push_back(body);
     ActionCommand drag; drag.dragBody = true; pair.client.Submit(drag);
+    currentCase = "Hideouts/arrastre";
     Until([&] { return FindAgent(world, 2).draggingGuard == 77; }, [&] { pair.Tick(true); });
-    drag.moveY = 1.f; pair.client.Submit(drag); pair.Advance(15, true);
+    drag.moveX = -1.f; pair.client.Submit(drag); pair.Advance(15, true);
     Require(Distance(world.guards[0].position, FindAgent(world, 2).position) <= GameplayConfig::BodyDragOffset + 1.f, "El cuerpo LAN no sigue al agente");
     pair.client.Submit({});
+    currentCase = "Hideouts/soltar";
     Until([&] { return FindAgent(world, 2).draggingGuard < 0; }, [&] { pair.Tick(true); });
     const auto released = world.guards[0].position;
     pair.Advance(8, true);
     Require(world.guards[0].position == released, "Soltar E dejó un cuerpo LAN bloqueado en arrastre");
+    remote.position = WorldGeometry::HideoutFrontPosition(world.objects[0], GameplayConfig::AgentRadius);
+    world.guards[0].position = remote.position + WorldGeometry::HideoutFrontNormal(world.objects[0]) * GameplayConfig::BodyDragOffset;
     pair.client.Submit(interact);
+    currentCase = "Hideouts/almacenar";
     Until([&] { return world.guards[0].bodyHidden; }, [&] { pair.Tick(true); });
     pair.client.Submit({}); pair.Advance(10, true);
     Require(world.objects[0].occupantGuard == 77 && world.guards[0].storedIn == 90, "El host no conserva la ocupación del cuerpo almacenado");
@@ -430,6 +438,7 @@ namespace {
     ActionCommand decoy; decoy.aimX = 1.f; decoy.throwDecoy = true; decoy.decoyDistance = 300.f;
     const int decoys = remote.loadout.decoys;
     pair.client.Submit(decoy); pair.client.Submit({});
+    currentCase = "Hideouts/señuelo";
     Until([&] { return remote.loadout.decoys == decoys - 1; }, [&] { pair.Tick(true); });
     Require(!world.noises.empty() && std::abs(world.noises.back().position.x - 450.f) < 1.f, "Un señuelo pendiente perdió su dirección o distancia en la red");
     pair.Advance(50, true); world.noises.clear(); remote.position = {150.f, 180.f}; remote.facing = {1.f, 0.f}; remote.actionCooldown = 0.f;
@@ -482,6 +491,35 @@ namespace {
     Require(pair.client.GetWorld().footsteps.empty(), "Los pasos LAN no caducaron");
   }
 
+  void CqcAndPushOnTheWire() {
+    Pair pair; pair.Deploy();
+    auto &world = const_cast<WorldState &>(pair.host.GetWorld());
+    world.guards.clear(); world.objects.clear(); world.obstacles.clear(); world.noises.clear(); world.shots.clear(); world.events.clear();
+    for (auto &agent : world.agents) { agent.privateOrder = PrivateOrder::None; agent.actionCooldown = 0.f; }
+    world.agents[0].position = {700.f, 650.f}; world.agents[1].position = {200.f, 300.f}; world.agents[1].facing = {1.f, 0.f};
+    Guard guard; guard.id = 91; guard.position = {228.f, 300.f}; guard.facing = {1.f, 0.f}; guard.patrol = {guard.position};
+    world.guards.push_back(guard);
+    Until([&] { return pair.client.GetWorld().guards.size() == 1 && pair.client.GetWorld().guards[0].id == 91; }, [&] { pair.Tick(); });
+    ActionCommand hold; hold.cqcHeld = true; hold.cqc = true; hold.aimX = 1.f;
+    pair.client.Submit(hold); pair.Advance(40);
+    Require(world.guards[0].heldBy == 2 && FindAgent(world, 2).cqcHoldingGuard == 91, "El anfitrión no valida el agarre F del cliente");
+    Require(FindAgent(pair.client.GetWorld(), 2).cqcHoldingGuard == 91 && pair.client.GetWorld().guards[0].heldBy == 2, "El cliente no recibe la sujeción confirmada");
+    Require(pair.client.GetWorld().visibility.visualRadii.size() == VisibilityConfig::VisualRayCount && pair.client.GetWorld().securityEntries.empty(), "El cliente pierde la frontera suave o recibe accesos privados de seguridad");
+    Require(FindAgent(world, 2).cqcProgress == 0, "Mantener F se serializa como pulsaciones repetidas");
+    for (unsigned int pulse = 1; pulse <= 3; ++pulse) {
+      pair.client.Submit({}); pair.Advance(13);
+      pair.client.Submit(hold); pair.Advance(34);
+      if (pulse < 3) Require(FindAgent(world, 2).cqcProgress == pulse, "Las nuevas pulsaciones F no conservan la cadencia autoritativa");
+    }
+    Require(world.guards[0].state == GuardState::Incapacitated && world.guards[0].health == 100.f && world.guards[0].heldBy == 0, "CQC remoto no termina con inconsciencia y liberación");
+    pair.client.Submit({}); pair.Advance(20);
+    world.agents[0].position = {228.f, 300.f}; world.agents[0].cover = {};
+    ActionCommand push; push.push = true; push.aimX = 1.f;
+    pair.client.Submit(push); pair.Advance(15);
+    Require(world.agents[0].position.x > 228.f && world.agents[0].position.x <= 264.01f && world.agents[0].health == 100.f, "El cliente no empuja a su compañero de forma limitada y no letal");
+    Until([&] { return std::ranges::any_of(pair.client.GetWorld().agents, [&](const Agent &agent) { return agent.id == 1 && Distance(agent.position, world.agents[0].position) < 0.01f; }); }, [&] { pair.Tick(); });
+  }
+
   void RejectInvalidCommandAndFlood() {
     RawPeer invalid;
     const std::string malformed = "{\"type\":\"command\",\"seq\":1,\"epoch\":" + std::to_string(invalid.epoch) +
@@ -498,20 +536,22 @@ namespace {
 
 int main() {
   try {
-    SoloPauseAndFiniteInput();
-    LobbyAndAuthority();
-    PrivateSnapshotAndClientDoesNotSimulate();
-    PausedHostStillRunsRemoteAgent();
-    SequenceTimeoutIdentityAndPulses();
-    PendingShotKeepsItsAim();
-    AimDirectionAndRestartAuthority();
-    DisconnectAndRejoin();
-    RejectMidMissionAndVersion();
-    VisibilityAndCoverOnTheWire();
-    HideoutsDraggingAndDistractionsOnTheWire();
-    AuthoritativeDecoyGuideOnTheWire();
-    HiddenFootstepsOnTheWire();
-    RejectInvalidCommandAndFlood();
+    const auto run = [](const char *name, auto test) { currentCase = name; test(); };
+    run("SoloPauseAndFiniteInput", SoloPauseAndFiniteInput);
+    run("LobbyAndAuthority", LobbyAndAuthority);
+    run("PrivateSnapshotAndClientDoesNotSimulate", PrivateSnapshotAndClientDoesNotSimulate);
+    run("PausedHostStillRunsRemoteAgent", PausedHostStillRunsRemoteAgent);
+    run("SequenceTimeoutIdentityAndPulses", SequenceTimeoutIdentityAndPulses);
+    run("PendingShotKeepsItsAim", PendingShotKeepsItsAim);
+    run("AimDirectionAndRestartAuthority", AimDirectionAndRestartAuthority);
+    run("DisconnectAndRejoin", DisconnectAndRejoin);
+    run("RejectMidMissionAndVersion", RejectMidMissionAndVersion);
+    run("VisibilityAndCoverOnTheWire", VisibilityAndCoverOnTheWire);
+    run("HideoutsDraggingAndDistractionsOnTheWire", HideoutsDraggingAndDistractionsOnTheWire);
+    run("AuthoritativeDecoyGuideOnTheWire", AuthoritativeDecoyGuideOnTheWire);
+    run("HiddenFootstepsOnTheWire", HiddenFootstepsOnTheWire);
+    run("CqcAndPushOnTheWire", CqcAndPushOnTheWire);
+    run("RejectInvalidCommandAndFlood", RejectInvalidCommandAndFlood);
     std::cout << "PASS sesión: sala, autoridad, privacidad, mandos, pausa, desconexión y loopback de dos participantes\n";
     return 0;
   } catch (const std::exception &error) {

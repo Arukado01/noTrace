@@ -16,19 +16,47 @@ namespace NoTrace::Visibility {
       return index < grid.cells.size() && grid.cells[index] != 0;
     }
 
-    bool GeometricVisibility(const WorldState &world, const Agent &observer, sf::Vector2f point, Stance targetStance) {
-      using namespace VisibilityConfig;
-      if (!std::isfinite(point.x) || !std::isfinite(point.y) || point.x < 0.f || point.y < 0.f || point.x > world.size.x || point.y > world.size.y) return false;
-      const auto delta = point - observer.position;
-      const float distance = std::hypot(delta.x, delta.y);
-      if (distance < SurfaceOffset) return true;
-      const float range = observer.stance == Stance::Prone ? ProneRange : observer.stance == Stance::Crouched ? CrouchedRange : StandingRange;
-      if (distance > range) return false;
-      const float facingLength = std::hypot(observer.facing.x, observer.facing.y);
-      if (distance > CloseRange && facingLength > 0.f && observer.facing.dot(delta) / (facingLength * distance) < CosHalfAngle) return false;
-      const auto lowStance = observer.stance == Stance::Standing ? targetStance : observer.stance;
-      return HasLineOfSight(world, observer.position, point, lowStance);
+  }
+
+  bool IsGeometricallyVisible(const WorldState &world, const Agent &observer, sf::Vector2f point, Stance targetStance) {
+    using namespace VisibilityConfig;
+    if (!std::isfinite(point.x) || !std::isfinite(point.y) || point.x < 0.f || point.y < 0.f || point.x > world.size.x || point.y > world.size.y) return false;
+    const auto delta = point - observer.position;
+    const float distance = std::hypot(delta.x, delta.y);
+    if (distance < SurfaceOffset) return true;
+    if (observer.hideoutId != 0) {
+      const auto hideout = std::ranges::find_if(world.objects, [&observer](const Interactable &object) { return object.id == observer.hideoutId; });
+      if (hideout == world.objects.end() || hideout->occupantAgent != observer.id) return false;
+      const auto kind = WorldGeometry::HideoutType(*hideout);
+      if (kind == HideoutKind::UnderTable && !hideout->lifted) {
+        const float facingLength = observer.facing.length();
+        if (distance > SpatialConfig::UnderTableViewRange || facingLength <= 0.f || observer.facing.dot(delta) / (facingLength * distance) < SpatialConfig::UnderTableViewCosHalfAngle) return false;
+        const float targetHeight = targetStance == Stance::Standing ? CombatConfig::StandingHeight - CombatConfig::HeadHeight * 0.5f : targetStance == Stance::Crouched ? CombatConfig::CrouchedHeight - CombatConfig::HeadHeight * 0.5f : SpatialConfig::UnderTableEyeHeight;
+        const float rise = targetHeight - SpatialConfig::UnderTableEyeHeight;
+        if (rise > 0.f) {
+          const float underside = WorldGeometry::ObjectHeight(*hideout) - SpatialConfig::UnderTableTopThickness;
+          const float crossing = (underside - SpatialConfig::UnderTableEyeHeight) / rise;
+          if (crossing >= 0.f && crossing <= 1.f && WorldGeometry::ObjectFootprint(*hideout).contains(observer.position + delta * crossing)) return false;
+        }
+        return HasLineOfSight(world, observer.position, point, Stance::Prone, hideout->id);
+      }
+      if (kind != HideoutKind::Closet || !hideout->open || hideout->hideoutAperture <= 0.f || distance > SpatialConfig::ClosetViewRange) return false;
+      const auto normal = WorldGeometry::HideoutFrontNormal(*hideout);
+      if (normal.dot(delta) / distance < SpatialConfig::ClosetViewCosHalfAngle) return false;
+      const sf::Vector2f tangent{-normal.y, normal.x};
+      const auto size = WorldGeometry::ObjectFootprint(*hideout).size;
+      const float depth = (std::abs(normal.x) * size.x + std::abs(normal.y) * size.y) * 0.5f;
+      const float halfWidth = (std::abs(tangent.x) * size.x + std::abs(tangent.y) * size.y) * 0.5f * std::clamp(hideout->hideoutAperture, 0.f, 1.f);
+      const float forward = normal.dot(delta);
+      if (forward <= 0.f || std::abs(tangent.dot(delta) * depth / forward) > halfWidth) return false;
+      return HasLineOfSight(world, observer.position, point, Stance::Prone, hideout->id);
     }
+    const float range = observer.stance == Stance::Prone ? ProneRange : observer.stance == Stance::Crouched ? CrouchedRange : StandingRange;
+    if (distance > range) return false;
+    const float facingLength = std::hypot(observer.facing.x, observer.facing.y);
+    if (distance > CloseRange && facingLength > 0.f && observer.facing.dot(delta) / (facingLength * distance) < CosHalfAngle) return false;
+    const auto lowStance = observer.stance == Stance::Standing ? targetStance : observer.stance;
+    return HasLineOfSight(world, observer.position, point, lowStance);
   }
 
   bool HasLineOfSight(const WorldState &world, sf::Vector2f from, sf::Vector2f to, Stance stance, std::uint32_t ignoredObject) {
@@ -47,7 +75,7 @@ namespace NoTrace::Visibility {
   bool IsVisible(const WorldState &world, const Agent &observer, sf::Vector2f point, Stance targetStance) {
     if (world.phase != GamePhase::Mission) return true;
     if (world.visibility.observer == observer.id) return GridVisible(world.visibility, point);
-    return GeometricVisibility(world, observer, point, targetStance);
+    return IsGeometricallyVisible(world, observer, point, targetStance);
   }
 
   bool GuardVisible(const WorldState &world, const Agent &observer, const Guard &guard) {
@@ -96,11 +124,12 @@ namespace NoTrace::Visibility {
     grid.cells.resize(count, 0);
     for (unsigned int row = 0; row < grid.rows; ++row) for (unsigned int column = 0; column < grid.columns; ++column) {
       const sf::Vector2f point{std::min(world.size.x - 0.01f, (column + 0.5f) * grid.cellSize), std::min(world.size.y - 0.01f, (row + 0.5f) * grid.cellSize)};
-      grid.cells[static_cast<std::size_t>(row) * grid.columns + column] = world.phase != GamePhase::Mission || GeometricVisibility(world, observer, point, Stance::Standing);
+      grid.cells[static_cast<std::size_t>(row) * grid.columns + column] = world.phase != GamePhase::Mission || IsGeometricallyVisible(world, observer, point, Stance::Prone);
     }
     const auto column = static_cast<unsigned int>(std::max(0.f, observer.position.x) / grid.cellSize);
     const auto row = static_cast<unsigned int>(std::max(0.f, observer.position.y) / grid.cellSize);
     if (column < grid.columns && row < grid.rows) grid.cells[static_cast<std::size_t>(row) * grid.columns + column] = 1;
+    BuildVisualBoundary(world, observer, grid);
     return grid;
   }
 }

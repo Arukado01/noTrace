@@ -156,7 +156,7 @@ namespace {
     headWorld.agents[1].position = {300.f, 300.f}; headWorld.agents[1].stance = Stance::Crouched; headWorld.agents[1].hidden = true;
     headWorld.guards.push_back(guard);
     simulation.Step(0.1f, {});
-    Require(headWorld.shots.back().zone == HitZone::Head && !headWorld.agents[1].alive && headWorld.agents[1].health == 0.f, "Una cabeza que intercepta un tiro letal enemigo conserva el daño inmediato de cabeza");
+    Require(headWorld.shots.back().zone == HitZone::Head && headWorld.agents[1].alive && headWorld.agents[1].incapacitated && headWorld.agents[1].health == 0.f, "Una cabeza que intercepta un tiro enemigo recibe el daño inmediato y deja inconsciente al agente");
   }
 
   void FriendlyZonesAndSnapshots() {
