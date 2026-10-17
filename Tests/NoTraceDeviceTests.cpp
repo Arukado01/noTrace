@@ -1,10 +1,14 @@
 #include "NoTraceSimulation.h"
 #include "Config/NoTraceDevicesConfig.h"
+#include "Config/NoTraceNavigationConfig.h"
+#include "NoTraceVisibility.h"
 #include "NoTraceWorldGeometry.h"
 #include <algorithm>
 #include <cmath>
 #include <iostream>
+#include <queue>
 #include <stdexcept>
+#include <unordered_set>
 
 namespace {
   using namespace NoTrace;
@@ -45,6 +49,49 @@ namespace {
   void Solve(Simulation &simulation, PlayerId player = 1) {
     for (unsigned int stage = 0; stage < DevicesConfig::PuzzleMaximumStages && simulation.GetState().agents[player - 1].puzzle.target != 0; ++stage)
       simulation.Step(0.1f, {{player, Choice(simulation.GetState().agents[player - 1])}});
+  }
+  struct NavigationGrid {
+    int columns = 0;
+    int rows = 0;
+    sf::Vector2f origin;
+    std::vector<int> previous;
+    sf::Vector2f Point(int index) const { return {(index % columns + 0.5f) * NavigationConfig::CellSize, (index / columns + 0.5f) * NavigationConfig::CellSize}; }
+  };
+  NavigationGrid ReachableGrid(const WorldState &world, sf::Vector2f origin) {
+    NavigationGrid grid;
+    grid.columns = static_cast<int>(std::ceil(world.size.x / NavigationConfig::CellSize));
+    grid.rows = static_cast<int>(std::ceil(world.size.y / NavigationConfig::CellSize)); grid.origin = origin;
+    grid.previous.assign(static_cast<std::size_t>(grid.columns * grid.rows), -1);
+    std::queue<int> pending;
+    const int startX = static_cast<int>(origin.x / NavigationConfig::CellSize), startY = static_cast<int>(origin.y / NavigationConfig::CellSize);
+    for (int y = std::max(0, startY - 1); y <= std::min(grid.rows - 1, startY + 1); ++y) for (int x = std::max(0, startX - 1); x <= std::min(grid.columns - 1, startX + 1); ++x) {
+      const int index = y * grid.columns + x;
+      if (WorldGeometry::ClearMovementSegment(world, origin, grid.Point(index), GameplayConfig::AgentRadius)) { grid.previous[index] = index; pending.push(index); }
+    }
+    while (!pending.empty()) {
+      const int current = pending.front(); pending.pop();
+      const int x = current % grid.columns, y = current / grid.columns;
+      for (const auto [dx, dy] : std::array<std::pair<int, int>, 4>{{{1, 0}, {-1, 0}, {0, 1}, {0, -1}}}) {
+        const int nx = x + dx, ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= grid.columns || ny >= grid.rows) continue;
+        const int next = ny * grid.columns + nx;
+        if (grid.previous[next] >= 0 || !WorldGeometry::ClearMovementSegment(world, grid.Point(current), grid.Point(next), GameplayConfig::AgentRadius)) continue;
+        grid.previous[next] = current; pending.push(next);
+      }
+    }
+    return grid;
+  }
+  std::vector<sf::Vector2f> NavigationRoute(const WorldState &world, const NavigationGrid &grid, sf::Vector2f destination) {
+    const int goalX = static_cast<int>(destination.x / NavigationConfig::CellSize), goalY = static_cast<int>(destination.y / NavigationConfig::CellSize);
+    int finish = -1;
+    for (int y = std::max(0, goalY - 1); y <= std::min(grid.rows - 1, goalY + 1) && finish < 0; ++y) for (int x = std::max(0, goalX - 1); x <= std::min(grid.columns - 1, goalX + 1); ++x) {
+      const int index = y * grid.columns + x;
+      if (grid.previous[index] >= 0 && WorldGeometry::ClearMovementSegment(world, grid.Point(index), destination, GameplayConfig::AgentRadius)) { finish = index; break; }
+    }
+    std::vector<sf::Vector2f> route;
+    if (finish < 0) return route;
+    for (int current = finish;; current = grid.previous[current]) { route.push_back(grid.Point(current)); if (grid.previous[current] == current) break; }
+    route.push_back(grid.origin); std::ranges::reverse(route); route.push_back(destination); return route;
   }
   void CameraSweepAndPerception() {
     Simulation simulation; auto &world = Fixture(simulation);
@@ -335,12 +382,57 @@ namespace {
       }
     }
   }
+  void DistributedPuzzleRoutesAcrossMissions() {
+    for (const auto contract : {ContractId::GhostArchive, ContractId::SilentRelay, ContractId::DoubleCross}) for (std::uint32_t seed = 0; seed < 16; ++seed) {
+      Simulation simulation; simulation.ResetBase(); simulation.SetContract(contract); simulation.Deploy(seed);
+      const auto &world = simulation.GetState();
+      ++checks; if (std::ranges::none_of(world.objects, [](const Interactable &object) { return object.kind == ObjectKind::Computer && object.puzzle.parentDevice == 0; }))
+        throw std::runtime_error("Falta el computador distribuido contrato=" + std::to_string(static_cast<int>(contract)) + " semilla=" + std::to_string(seed));
+      const auto grid = ReachableGrid(world, world.agents.front().position);
+      const auto verify = [&](bool condition, const std::string &message, const Interactable &object) {
+        ++checks; if (!condition) throw std::runtime_error(message + " contrato=" + std::to_string(static_cast<int>(contract)) + " semilla=" + std::to_string(seed) +
+          " objeto=" + std::to_string(object.id) + " posición=" + std::to_string(object.position.x) + "," + std::to_string(object.position.y));
+      };
+      for (const auto &computer : world.objects) if (computer.kind == ObjectKind::Computer && computer.puzzle.parentDevice == 0) {
+        std::vector<const Interactable *> nodes;
+        for (const auto &node : world.objects) if (node.puzzle.parentDevice == computer.id) nodes.push_back(&node);
+        verify(nodes.size() == 4, "El computador no dispone de cuatro palancas", computer);
+        unsigned int sequence = 0;
+        for (const auto node : computer.puzzle.leverOrder) if (node >= 1 && node <= 4) sequence |= 1u << (node - 1);
+        verify(computer.puzzle.leverOrder.size() == 4 && sequence == 15, "La secuencia del computador no corresponde a sus cuatro palancas", computer);
+        bool panelAccessible = false;
+        for (std::size_t index = 0; index < grid.previous.size() && !panelAccessible; ++index) if (grid.previous[index] >= 0) {
+          const auto point = grid.Point(static_cast<int>(index)); const auto footprint = WorldGeometry::ObjectFootprint(computer);
+          panelAccessible = WorldGeometry::DistanceToBounds(point, footprint) < GameplayConfig::InteractionDistance &&
+            Visibility::HasLineOfSight(world, point, WorldGeometry::ClosestPoint(point, footprint), Stance::Standing, computer.id);
+        }
+        verify(panelAccessible, "El panel no tiene una posición de interacción alcanzable desde el agente", computer);
+        std::unordered_set<std::uint32_t> ids;
+        unsigned int indices = 0;
+        for (const auto *node : nodes) {
+          verify(node->kind == ObjectKind::PuzzleNode && node->puzzle.nodeIndex >= 1 && node->puzzle.nodeIndex <= 4, "La palanca tiene un tipo o índice inválido", *node);
+          verify(ids.insert(node->id).second && !(indices & (1u << (node->puzzle.nodeIndex - 1))), "Las palancas repiten identificador o índice", *node);
+          indices |= 1u << (node->puzzle.nodeIndex - 1);
+          const auto footprint = WorldGeometry::ObjectFootprint(*node);
+          const float radius = GameplayConfig::AgentRadius + std::max(footprint.size.x, footprint.size.y) * 0.5f;
+          verify(!WorldGeometry::PositionBlocked(world, node->position, radius), "La huella y el acceso físico de la palanca intersectan un sólido", *node);
+          verify(std::ranges::all_of(nodes, [node](const Interactable *other) { return node == other || (node->position - other->position).length() >= DevicesConfig::PuzzleNodeMinimumSeparation; }),
+            "Dos palancas se superponen o comparten posición", *node);
+          const auto route = NavigationRoute(world, grid, node->position);
+          verify(!route.empty(), "La palanca carece de ruta física desde el agente y el panel accesible", *node);
+          for (std::size_t point = 1; point < route.size(); ++point) verify(WorldGeometry::ClearMovementSegment(world, route[point - 1], route[point], GameplayConfig::AgentRadius),
+            "La ruta de la palanca corta una colisión", *node);
+        }
+        verify(indices == 15, "El circuito no dispone de las cuatro palancas distintas", computer);
+      }
+    }
+  }
 }
 
 int main() {
   try {
     CameraSweepAndPerception(); CameraTrackingAndMemory(); DoorPuzzleLifecycle(); ComputerAndCameraPanel(); BrokenCameraSurvivesCentralAndPanelReset(); TrapLifecycleAndDamage(); PuzzleFailureAndInvalidation();
-    WiresRequireActualPairs(); DistributedLeversNeedPhysicalInteraction(); CoordinationNeedsConcurrentHolds(); MissionDevicesAreReachable();
+    WiresRequireActualPairs(); DistributedLeversNeedPhysicalInteraction(); CoordinationNeedsConcurrentHolds(); MissionDevicesAreReachable(); DistributedPuzzleRoutesAcrossMissions();
     std::cout << "NoTraceDeviceTests: " << checks << " comprobaciones correctas.\n"; return 0;
   } catch (const std::exception &exception) { std::cerr << "NoTraceDeviceTests: " << exception.what() << '\n'; return 1; }
 }
