@@ -100,6 +100,7 @@ namespace {
     ActionCommand aim; aim.aiming = true;
     simulation.Step(0.1f, {{1, aim}});
     Require(world.agents[0].health == 0.f && world.agents[0].alive && world.agents[0].incapacitated, "El disparo enemigo que agota la salud produce un desmayo real sin una eliminación definitiva");
+    Require(world.agents[0].actionPose == ActionPose::Fall && world.agents[0].actionPoseTime > 0.f, "El desmayo omite el inicio de su transición de caída");
     Require(world.phase == GamePhase::Mission && world.agents[0].detectionProgress == 0.f, "El compañero operativo mantiene la misión y el agente caído deja de mostrar progreso de detección");
     std::string error;
     Require(replica.LoadSnapshot(simulation.SnapshotFor(1), error), "El cliente acepta el estado autoritativo de desmayo con salud cero");
@@ -108,6 +109,7 @@ namespace {
     const auto shots = std::ranges::count_if(world.events, [](const MissionEvent &event) { return event.kind == EventKind::GuardShot; });
     const auto ammo = world.guards[0].ammo;
     Advance(simulation, 2.5f);
+    Require(world.agents[0].actionPoseTime == 0.f, "La caída queda congelada durante la inconsciencia cooperativa");
     Require(world.guards[0].ammo == ammo && std::ranges::count_if(world.events, [](const MissionEvent &event) { return event.kind == EventKind::GuardShot; }) == shots, "El guardia no consume más balas ni sigue disparando al agente desmayado");
     Require(world.agents[0].incapacitated && !world.agents[0].aiming && !world.agents[0].detectionConfirmed && world.agents[0].detectionProgress == 0.f && world.agents[0].confirmedIndicatorRemaining == 0.f && world.agents[0].detectionIndicatorRemaining == 0.f, "Los ticks cooperativos reactivan el apuntado o la confirmación visual del agente inconsciente");
 

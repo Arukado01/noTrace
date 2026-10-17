@@ -499,6 +499,7 @@ namespace NoTrace {
     for (auto &agent : world_.agents) {
       agent.transitionTime = std::max(0.f, agent.transitionTime - dt);
       agent.animationTime += dt;
+      if (!agent.alive || agent.incapacitated) agent.actionPoseTime = std::max(0.f, agent.actionPoseTime - dt);
       if (!agent.connected || !agent.alive || agent.extracted || agent.incapacitated) {
         agent.aiming = false; agent.detectionProgress = 0.f; agent.detectionConfirmed = false;
         agent.detectionIndicatorRemaining = agent.confirmedIndicatorRemaining = 0.f;
@@ -1007,6 +1008,7 @@ namespace NoTrace {
     if (agent.health <= 0.f) {
       ReleaseHideout(agent);
       agent.alive = false; agent.incapacitated = false; agent.incapacityRemaining = 0.f;
+      agent.actionPose = ActionPose::Fall; agent.actionPoseTime = GameplayConfig::AttackAnimationDuration;
       agent.detectionProgress = 0.f; agent.detectionConfirmed = false;
       agent.detectionIndicatorRemaining = agent.confirmedIndicatorRemaining = 0.f;
       agent.friendlyIncapacitated = false;
@@ -1031,6 +1033,7 @@ namespace NoTrace {
     else guard.stun = std::min(CombatConfig::MaxGuardStun, guard.stun + CombatGeometry::StunDamage(zone));
     if (guard.health <= 0.f || guard.stun >= CombatConfig::MaxGuardStun) {
       guard.state = guard.health <= 0.f ? GuardState::Dead : GuardState::Incapacitated;
+      guard.attackTime = AttackAnimationDuration;
       guard.incapacityRemaining = guard.health <= 0.f ? 0.f : GuardIncapacityDuration;
       guard.heldBy = 0; guard.cqcState = CqcState::None;
       Record(guard.health <= 0.f ? EventKind::GuardKilled : EventKind::GuardIncapacitated, actor, guard.id);
