@@ -3,6 +3,7 @@
 #include "Config/NoTraceGameplayConfig.h"
 #include "Config/NoTraceCombatConfig.h"
 #include "Config/NoTraceDistractionConfig.h"
+#include "Config/NoTraceSpatialConfig.h"
 #include <SFML/System/Vector2.hpp>
 #include <SFML/Graphics/Rect.hpp>
 #include <cstdint>
@@ -17,8 +18,8 @@ namespace NoTrace {
   enum class Stance { Standing, Crouched, Prone };
   enum class HitZone { None, Head, Torso, Limbs };
   enum class ShotTarget { None, Agent, Guard };
-  enum class ActionPose { None, ThrowDecoy, KnockWall };
-  enum class GuardState { Patrol, Suspicion, Investigate, Alert, Search, Incapacitated, Dead };
+  enum class ActionPose { None, ThrowDecoy, KnockWall, Push, Subdue };
+  enum class GuardState { Patrol, Suspicion, Investigate, Alert, Search, Incapacitated, Dead, Retiring };
   enum class CoverKind { None, Low, High, Hide };
   enum class SpatialOverride { Default, Enabled, Disabled };
   enum class PeekSide { None, Left, Right };
@@ -44,6 +45,8 @@ namespace NoTrace {
     bool crawl = false;
     bool interact = false;
     bool cqc = false;
+    bool cqcHeld = false;
+    bool push = false;
     bool fireLethal = false;
     bool fireNonLethal = false;
     bool throwDecoy = false;
@@ -90,6 +93,8 @@ namespace NoTrace {
     bool incapacitated = false;
     bool bodyReported = false;
     bool connected = true;
+    float detectionProgress = 0.f;
+    bool detectionConfirmed = false;
     bool hidden = false;
     std::uint32_t hideoutId = 0;
     sf::Vector2f hideoutExit;
@@ -101,6 +106,13 @@ namespace NoTrace {
     float incapacityRemaining = 0.f;
     float animationTime = 0.f;
     float actionCooldown = 0.f;
+    std::uint32_t cqcHoldingGuard = 0;
+    float cqcHoldTime = 0.f;
+    float cqcReleaseTime = 0.f;
+    float cqcPulseTime = 0.f;
+    bool cqcPulseReady = false;
+    unsigned int cqcProgress = 0;
+    float staggerRemaining = 0.f;
     float footstepTime = 0.f;
     ActionPose actionPose = ActionPose::None;
     float actionPoseTime = 0.f;
@@ -133,10 +145,16 @@ namespace NoTrace {
     std::uint32_t storedIn = 0;
     bool bodyReported = false;
     PlayerId heldBy = 0;
+    float staggerRemaining = 0.f;
     std::vector<sf::Vector2f> navigation;
     sf::Vector2f navigationTarget;
     float navigationTimer = 0.f;
     float stepTime = 0.f;
+    std::uint32_t knownHideout = 0;
+    float hideoutInspectionTime = 0.f;
+    PlayerId observedAgent = 0;
+    bool reinforcement = false;
+    sf::Vector2f reinforcementExit;
   };
   struct Obstacle {
     sf::FloatRect bounds;
@@ -156,6 +174,7 @@ namespace NoTrace {
     bool open = false;
     float progress = 0.f;
     PlayerId user = 0;
+    PlayerId observedAgent = 0;
     sf::Vector2f facing{-1.f, 0.f};
     sf::Vector2f footprint;
     SpatialOverride solid = SpatialOverride::Default;
@@ -167,6 +186,9 @@ namespace NoTrace {
     PlayerId occupantAgent = 0;
     std::uint32_t occupantGuard = 0;
     bool occupied = false;
+    float hideoutAperture = SpatialConfig::ClosetDefaultAperture;
+    bool lifted = false;
+    float inspectionProgress = 0.f;
   };
   struct NoiseEvent { sf::Vector2f position; float radius = 0.f; float remaining = 0.f; PlayerId actor = 0; std::uint32_t guardId = 0; };
   struct FootstepCue {
@@ -212,6 +234,8 @@ namespace NoTrace {
     std::string reason;
   };
   struct VisibilityGrid {
+    sf::Vector2f visualOrigin;
+    std::vector<float> visualRadii;
     bool authoritative = false;
     PlayerId observer = 0;
     std::uint64_t tick = 0;
@@ -219,6 +243,10 @@ namespace NoTrace {
     unsigned int columns = 0;
     unsigned int rows = 0;
     std::vector<std::uint8_t> cells;
+  };
+  struct SecurityEntry {
+    sf::Vector2f position;
+    sf::Vector2f rally;
   };
   struct WorldState {
     GamePhase phase = GamePhase::Base;
@@ -229,6 +257,9 @@ namespace NoTrace {
     float elapsed = 0.f;
     bool alarm = false;
     int alarmCount = 0;
+    bool securityActive = false;
+    unsigned int reinforcementWaves = 0;
+    std::vector<SecurityEntry> securityEntries;
     int objectives = 0;
     int secondary = 0;
     std::vector<Agent> agents;

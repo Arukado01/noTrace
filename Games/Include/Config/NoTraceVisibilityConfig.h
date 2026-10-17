@@ -11,4 +11,6 @@ namespace NoTrace::VisibilityConfig {
   inline constexpr float CellSize = 24.f;
   inline constexpr float SurfaceOffset = 0.5f;
   inline constexpr std::size_t MaximumCells = 20000;
+  inline constexpr std::size_t VisualRayCount = 360;
+  inline constexpr unsigned int VisualRayIterations = 12;
 }

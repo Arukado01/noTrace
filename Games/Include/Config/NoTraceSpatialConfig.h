@@ -25,4 +25,13 @@ namespace NoTrace::SpatialConfig {
   inline constexpr sf::Vector2f UnderTableSize{78.f, 48.f};
   inline constexpr float ClosetHeight = 64.f;
   inline constexpr float UnderTableHeight = 28.f;
+  inline constexpr float UnderTableEyeHeight = 8.f;
+  inline constexpr float UnderTableTopThickness = 6.f;
+  inline constexpr float UnderTableViewRange = 180.f;
+  inline constexpr float UnderTableViewCosHalfAngle = 0.70710678f;
+  inline constexpr float ClosetViewRange = 120.f;
+  inline constexpr float ClosetViewCosHalfAngle = 0.96592583f;
+  inline constexpr float ClosetDefaultAperture = 0.35f;
+  inline constexpr float HideoutInspectionDuration = 1.5f;
+  inline constexpr float HideoutInspectionReach = 6.f;
 }

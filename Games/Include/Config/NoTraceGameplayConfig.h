@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Config/NoTraceDistractionConfig.h"
+#include "Config/NoTraceSecurityConfig.h"
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -24,7 +25,7 @@ namespace NoTrace::GameplayConfig {
   inline constexpr float ConfirmationTime = 0.85f;
   inline constexpr float SuspicionDecay = 0.55f;
   inline constexpr float InvestigationDuration = 5.f;
-  inline constexpr float SearchDuration = 9.f;
+  inline constexpr float SearchDuration = SecurityConfig::SearchDuration;
   inline constexpr float AlarmDuration = 20.f;
   inline constexpr float InteractionDistance = 48.f;
   inline constexpr float CqcDistance = 38.f;
@@ -85,7 +86,7 @@ namespace NoTrace::GameplayConfig {
   inline constexpr std::uint32_t HostPlayerId = 1;
   inline constexpr std::size_t MaximumEvents = 20000;
   inline constexpr std::size_t MaximumSnapshotBytes = 60 * 1024;
-  inline constexpr std::uint32_t ProtocolVersion = 3;
+  inline constexpr std::uint32_t ProtocolVersion = 4;
   inline constexpr float SimulationHz = 60.f;
   inline constexpr float CommandHz = 30.f;
   inline constexpr float SnapshotHz = 20.f;

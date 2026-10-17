@@ -25,6 +25,10 @@ namespace NoTrace::WorldGeometry {
     return HideoutType(object) == HideoutKind::TrashBin || HideoutType(object) == HideoutKind::Closet;
   }
   inline bool HideoutOccupied(const Interactable &object) { return object.occupied || object.occupantAgent != 0 || object.occupantGuard != 0; }
+  inline sf::Vector2f HideoutFrontNormal(const Interactable &object) {
+    if (std::abs(object.facing.x) >= std::abs(object.facing.y)) return {object.facing.x > 0.f ? 1.f : -1.f, 0.f};
+    return {0.f, object.facing.y > 0.f ? 1.f : -1.f};
+  }
 
   inline ObjectProperties Properties(const Interactable &object) {
     ObjectProperties properties;
@@ -55,6 +59,9 @@ namespace NoTrace::WorldGeometry {
     if (object.kind == ObjectKind::Door && object.open) {
       properties.solid = false; properties.blocksVision = false; properties.wallCover = false;
     }
+    if (HideoutType(object) == HideoutKind::UnderTable && object.lifted) {
+      properties.solid = false; properties.blocksVision = false; properties.cover = CoverKind::None;
+    }
     return properties;
   }
 
@@ -69,6 +76,7 @@ namespace NoTrace::WorldGeometry {
   }
 
   inline float ObjectHeight(const Interactable &object) {
+    if (HideoutType(object) == HideoutKind::UnderTable && object.lifted) return 0.f;
     if (HideoutType(object) == HideoutKind::TrashBin) return SpatialConfig::HideoutHeight;
     if (HideoutType(object) == HideoutKind::Closet) return SpatialConfig::ClosetHeight;
     if (HideoutType(object) == HideoutKind::UnderTable) return SpatialConfig::UnderTableHeight;
@@ -130,6 +138,25 @@ namespace NoTrace::WorldGeometry {
     if (far < 0.f || near > 1.f) return false;
     if (intersection) *intersection = std::max(0.f, near);
     return true;
+  }
+  inline bool AtHideoutEntrance(const Interactable &object, sf::Vector2f point, float radius = 0.f) {
+    if (HideoutType(object) != HideoutKind::Closet) return true;
+    const auto normal = HideoutFrontNormal(object);
+    const sf::Vector2f tangent{-normal.y, normal.x};
+    const auto size = ObjectFootprint(object).size;
+    const float depth = (std::abs(normal.x) * size.x + std::abs(normal.y) * size.y) * 0.5f;
+    const float width = (std::abs(tangent.x) * size.x + std::abs(tangent.y) * size.y) * 0.5f;
+    const auto offset = point - object.position;
+    const float forward = offset.dot(normal);
+    if (forward < depth + radius - SpatialConfig::CollisionSkin) return false;
+    const float crossing = offset.dot(tangent) * depth / std::max(depth, forward);
+    return std::abs(crossing) + radius <= width + SpatialConfig::CollisionSkin;
+  }
+  inline sf::Vector2f HideoutFrontPosition(const Interactable &object, float radius) {
+    const auto normal = HideoutFrontNormal(object);
+    const auto size = ObjectFootprint(object).size;
+    const float depth = (std::abs(normal.x) * size.x + std::abs(normal.y) * size.y) * 0.5f;
+    return object.position + normal * (depth + radius + SpatialConfig::CollisionSkin);
   }
   template <typename Visit>
   void ForEachSolid(const WorldState &world, Visit visit) {

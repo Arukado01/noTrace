@@ -24,6 +24,16 @@ namespace NoTrace {
     WorldState world_;
     float alarmRemaining_ = 0.f;
     std::uint64_t nextEvent_ = 1;
+    float securityContactAge_ = 0.f;
+    float reinforcementTimer_ = 0.f;
+    sf::Vector2f securityLastKnown_;
+    bool securityHasClue_ = false;
+    std::uint32_t nextGuardId_ = 1;
+    void ResetSecurity();
+    void RegisterSecurityContact(sf::Vector2f position);
+    void UpdateSecurity(float dt);
+    bool SpawnReinforcementWave();
+    bool SecurityEntryValid(const SecurityEntry &entry) const;
     void BuildBase();
     void BuildMission(std::uint32_t seed);
     void UpdateAgent(Agent &agent, const ActionCommand &command, float dt);
@@ -33,6 +43,9 @@ namespace NoTrace {
     void Finish(bool success, const std::string &reason, bool traitorVictory = false);
     void Interact(Agent &agent, bool tool);
     void Cqc(Agent &agent);
+    bool UpdateCqc(Agent &agent, const ActionCommand &command, float dt);
+    void ReleaseCqc(Agent &agent);
+    void Push(Agent &agent);
     bool Fire(Agent &agent, bool lethal);
     sf::Vector2f TraceWeapon(sf::Vector2f from, sf::Vector2f direction, float range, bool &blocked, float fromHeight = CombatConfig::StandingWeaponHeight, float slope = 0.f) const;
     void DamageAgent(Agent &agent, float healthDamage, float staminaDamage, PlayerId actor, std::uint32_t source, bool enemyBullet = false);
@@ -56,6 +69,9 @@ namespace NoTrace {
     bool HideoutPathClear(const Interactable &object, sf::Vector2f from, sf::Vector2f to) const;
     bool HideoutExit(const Agent &agent, const Interactable &object, sf::Vector2f &position) const;
     bool UseHideout(Agent &agent, Interactable &object);
+    void ToggleHideoutOpening(Agent &agent);
+    void ObserveHideoutEntry(const Agent &agent, const Interactable &object);
+    bool UpdateHideoutInspection(Guard &guard, float dt);
     Guard *NearbyBody(const Agent &agent);
     void UpdateBodyDrag(Agent &agent, bool held);
     void MoveDraggedBody(Agent &agent, sf::Vector2f previous, float dt);
