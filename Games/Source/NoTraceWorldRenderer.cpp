@@ -3,7 +3,6 @@
 #include "Config/NoTraceGameplayConfig.h"
 #include "Config/NoTracePresentationConfig.h"
 #include "Core/EngineContext.h"
-#include "Core/EngineConfig.h"
 #include <SFML/Graphics/ConvexShape.hpp>
 #include <SFML/Graphics/RectangleShape.hpp>
 #include <SFML/Graphics/Text.hpp>
@@ -64,11 +63,15 @@ namespace NoTrace {
   }
 
   sf::Vector2f WorldRenderer::GroundToScreen(sf::Vector2f ground, sf::Vector2f camera) const {
-    return ProjectGround(ground, camera, gConfig.windowSize);
+    return ProjectGround(ground, camera, ctx_.window.GetLogicalSize());
   }
 
   sf::Vector2f WorldRenderer::ScreenToGround(sf::Vector2f logical, const WorldState &world, PlayerId localPlayer) const {
-    return UnprojectGround(logical, CameraGround(world, localPlayer), gConfig.windowSize);
+    return UnprojectGround(logical, CameraGround(world, localPlayer), ctx_.window.GetLogicalSize(), zoom_);
+  }
+
+  sf::Vector2f WorldRenderer::AimToGround(sf::Vector2f logical, const WorldState &world, PlayerId localPlayer) const {
+    return ResolveAimGround(logical, world, localPlayer, ctx_.window.GetLogicalSize(), zoom_);
   }
 
   void WorldRenderer::Polygon(std::initializer_list<sf::Vector2f> points, sf::Color color) const {
@@ -132,7 +135,6 @@ namespace NoTrace {
 
   void WorldRenderer::Floor(const WorldState &world, sf::Vector2f camera) const {
     using namespace PresentationConfig;
-    PixelRect({}, gConfig.windowSize, Void);
     sf::VertexArray tiles(sf::PrimitiveType::Triangles);
     sf::VertexArray grid(sf::PrimitiveType::Lines);
     const int columns = static_cast<int>(std::ceil(world.size.x / FloorTileSize));
@@ -195,25 +197,25 @@ namespace NoTrace {
     const auto feet = GroundToScreen(object.position, camera);
     auto accent = object.completed ? Green : Cyan;
     if (!object.active) accent = {81, 96, 105};
-    const auto cabinet = [&](sf::Vector2f size, float height) {
-      Box({object.position - size * 0.5f, size}, height, camera, WallTop, WallLeft, WallRight);
+    const auto cabinet = [&](float height) {
+      Box(ObjectFootprint(object), height, camera, WallTop, WallLeft, WallRight);
     };
     switch (object.kind) {
     case ObjectKind::Operations:
-      cabinet({78.f, 48.f}, 26.f);
+      cabinet(26.f);
       Polygon({feet + sf::Vector2f{-32.f, -26.f}, feet + sf::Vector2f{0.f, -40.f},
                feet + sf::Vector2f{32.f, -26.f}, feet + sf::Vector2f{0.f, -12.f}}, {39, 112, 132});
       PixelLine(feet + sf::Vector2f{-22.f, -26.f}, feet + sf::Vector2f{22.f, -26.f}, Cyan);
       break;
     case ObjectKind::Armory:
-      cabinet({70.f, 26.f}, 58.f);
+      cabinet(58.f);
       for (float x : {-18.f, 0.f, 18.f}) {
         PixelRect(feet + sf::Vector2f{x, -52.f}, {4.f, 30.f}, Outline);
         PixelRect(feet + sf::Vector2f{x - 4.f, -36.f}, {12.f, 4.f}, Light);
       }
       break;
     case ObjectKind::Intelligence:
-      cabinet({60.f, 38.f}, 42.f);
+      cabinet(42.f);
       PixelRect(feet + sf::Vector2f{-24.f, -62.f}, {48.f, 28.f}, Outline);
       PixelRect(feet + sf::Vector2f{-20.f, -58.f}, {40.f, 20.f}, {26, 80, 95});
       for (float y : {-54.f, -48.f, -42.f}) PixelRect(feet + sf::Vector2f{-16.f, y}, {24.f, 2.f}, Cyan);
@@ -234,7 +236,7 @@ namespace NoTrace {
     case ObjectKind::Door:
       Box({object.position - sf::Vector2f{12.f, 32.f}, {24.f, 6.f}}, 66.f, camera, WallTop, WallLeft, WallRight);
       Box({object.position + sf::Vector2f{-12.f, 26.f}, {24.f, 6.f}}, 66.f, camera, WallTop, WallLeft, WallRight);
-      if (!object.open) cabinet({20.f, 48.f}, 58.f);
+      if (!object.open) Box({object.position - sf::Vector2f{10.f, 24.f}, {20.f, 48.f}}, 58.f, camera, WallTop, WallLeft, WallRight);
       PixelRect(feet + sf::Vector2f{-5.f, -52.f}, {10.f, 4.f}, object.open ? Green : Amber);
       break;
     case ObjectKind::Camera: {
@@ -245,25 +247,25 @@ namespace NoTrace {
       break;
     }
     case ObjectKind::Hideout:
-      cabinet({48.f, 48.f}, HideoutHeight);
+      cabinet(HideoutHeight);
       for (float y : {-30.f, -24.f, -18.f, -12.f}) PixelRect(feet + sf::Vector2f{-18.f, y}, {30.f, 2.f}, Outline);
       accent = Green;
       break;
     case ObjectKind::CoopSwitch:
-      cabinet({44.f, 34.f}, 26.f);
+      cabinet(26.f);
       PixelRect(feet + sf::Vector2f{-15.f, -38.f}, {12.f, 10.f}, accent);
       PixelRect(feet + sf::Vector2f{5.f, -38.f}, {12.f, 10.f}, accent);
       PixelRect(feet + sf::Vector2f{-20.f, -48.f}, {40.f, 4.f}, Outline);
       PixelRect(feet + sf::Vector2f{-20.f, -48.f}, {40.f * std::clamp(object.progress / GameplayConfig::CoopHoldDuration, 0.f, 1.f), 4.f}, Amber);
       break;
     case ObjectKind::AlarmPanel:
-      cabinet({28.f, 24.f}, 42.f);
+      cabinet(42.f);
       PixelRect(feet + sf::Vector2f{-9.f, -48.f}, {18.f, 12.f}, object.active ? Red : Green);
       PixelRect(feet + sf::Vector2f{-5.f, -28.f}, {10.f, 8.f}, Outline);
       break;
     case ObjectKind::Terminal:
     case ObjectKind::Secondary:
-      cabinet({38.f, 28.f}, 30.f);
+      cabinet(30.f);
       PixelRect(feet + sf::Vector2f{-18.f, -50.f}, {36.f, 24.f}, Outline);
       PixelRect(feet + sf::Vector2f{-14.f, -46.f}, {28.f, 16.f}, Shade(accent, 0.55f));
       PixelRect(feet + sf::Vector2f{-10.f, -40.f}, {16.f, 2.f}, accent);
@@ -300,6 +302,12 @@ namespace NoTrace {
       at(21.f, -10.f, 10.f, 6.f, light);
       at(23.f, -4.f, 6.f, 4.f, Skin);
       at(17.f + stride, 4.f, 18.f, 4.f, dark);
+      if (!down) {
+        const auto muzzle = feet + WeaponOffset(Stance::Prone, facing);
+        const auto tip = feet + WeaponOffset(Stance::Prone, facing, true);
+        PixelLine(muzzle, tip, Outline, 4.f);
+        PixelLine(muzzle, muzzle + (tip - muzzle) * 0.75f, {99, 115, 119});
+      }
       return;
     }
     const bool crouched = stance == Stance::Crouched;
@@ -329,11 +337,10 @@ namespace NoTrace {
     at(-2.f, -ActorHeight + lift, 8.f, 2.f, light);
     at(5.f, -ActorHeight + 6.f + lift, 6.f, 2.f, Outline);
     if (!grappling) {
-      const sf::Vector2f aim{facing.x - facing.y, (facing.x + facing.y) * 0.5f};
-      const float length = std::hypot(aim.x, aim.y);
-      const auto muzzle = feet + sf::Vector2f{12.f * side, -22.f + lift};
-      PixelLine(muzzle, muzzle + aim * (16.f / std::max(length, 0.01f)), Outline, 4.f);
-      PixelLine(muzzle, muzzle + aim * (12.f / std::max(length, 0.01f)), {99, 115, 119});
+      const auto muzzle = feet + WeaponOffset(stance, facing);
+      const auto tip = feet + WeaponOffset(stance, facing, true);
+      PixelLine(muzzle, tip, Outline, 4.f);
+      PixelLine(muzzle, muzzle + (tip - muzzle) * 0.75f, {99, 115, 119});
     }
   }
 
@@ -346,6 +353,10 @@ namespace NoTrace {
     const bool grappling = std::any_of(world.guards.begin(), world.guards.end(), [&agent](const Guard &guard) {
       return guard.heldBy == agent.id;
     });
+    if (local && agent.alive) {
+      PixelLine(feet + sf::Vector2f{-18.f, 8.f}, feet + sf::Vector2f{-8.f, 12.f}, Green);
+      PixelLine(feet + sf::Vector2f{8.f, 12.f}, feet + sf::Vector2f{18.f, 8.f}, Green);
+    }
     Humanoid(feet, agent.facing, agent.stance, uniform, agent.animationTime, agent.moving, agent.running,
              !agent.alive || agent.incapacitated, grappling);
     if (!agent.alive || agent.incapacitated) PixelRect(feet + sf::Vector2f{-2.f, -6.f}, {6.f, 4.f}, agent.alive ? Amber : Red);
@@ -366,7 +377,12 @@ namespace NoTrace {
     const bool moving = !down && guard.cqcState == CqcState::None &&
                         (destination - guard.position).lengthSquared() > GameplayConfig::InvestigationStopDistance * GameplayConfig::InvestigationStopDistance;
     Humanoid(feet, guard.facing, Stance::Standing, {126, 99, 77}, world.elapsed + guard.id * 0.25f,
-             moving, alert, down, guard.cqcState == CqcState::Grabbed);
+             moving, alert, down, guard.cqcState == CqcState::Grabbed || (guard.meleeAttack && guard.attackTime > 0.f));
+    if (guard.meleeAttack && guard.attackTime > 0.f && !down) {
+      const auto target = GroundToScreen(guard.position + guard.facing * GameplayConfig::GuardAttackDistance, camera) - sf::Vector2f{0.f, ShotHeight};
+      PixelLine(feet - sf::Vector2f{0.f, ShotHeight}, target, Amber, 4.f);
+      PixelLine(target - sf::Vector2f{4.f, 6.f}, target + sf::Vector2f{4.f, 6.f}, Light);
+    }
     if (body) {
       PixelRect(feet + sf::Vector2f{-2.f, -6.f}, {6.f, 4.f}, guard.state == GuardState::Dead ? Red : Amber);
       Label(guard.state == GuardState::Dead ? "ELIMINADO" : "INCAPACITADO", feet + sf::Vector2f{0.f, 12.f}, guard.state == GuardState::Dead ? Red : Amber);
@@ -425,6 +441,25 @@ namespace NoTrace {
       }
     }
     ctx_.renderer.Draw(ring);
+  }
+
+  void WorldRenderer::Combat(const WorldState &world, sf::Vector2f camera) const {
+    using namespace PresentationConfig;
+    for (const auto &shot : world.shots) {
+      if (shot.remaining <= 0.f) continue;
+      const auto direction = shot.to - shot.from;
+      const auto start = GroundToScreen(shot.from, camera) + WeaponOffset(ShotStance(shot, world), direction, true);
+      const auto end = GroundToScreen(shot.to, camera) - sf::Vector2f{0.f, ShotImpactHeight(shot, world)};
+      auto color = shot.lethal ? Amber : Cyan;
+      color.a = static_cast<std::uint8_t>(std::clamp(shot.remaining / GameplayConfig::ShotTraceDuration, 0.f, 1.f) * 230.f);
+      PixelLine(start, end, color);
+      PixelRect(start - sf::Vector2f{3.f, 3.f}, {6.f, 6.f}, Light);
+      if (shot.hit || shot.blocked) {
+        const auto impact = shot.hit && shot.lethal ? Red : color;
+        PixelLine(end - sf::Vector2f{6.f, 0.f}, end + sf::Vector2f{6.f, 0.f}, impact);
+        PixelLine(end - sf::Vector2f{0.f, 6.f}, end + sf::Vector2f{0.f, 6.f}, impact);
+      }
+    }
   }
 
   void WorldRenderer::Minimap(const WorldState &world, PlayerId localPlayer) const {
@@ -487,8 +522,11 @@ namespace NoTrace {
 
   void WorldRenderer::Render(const WorldState &world, PlayerId localPlayer) const {
     ctx_.renderer.ResetView();
+    PixelRect({}, ctx_.window.GetLogicalSize(), PresentationConfig::Void);
+    ctx_.renderer.SetView(WorldView(ctx_.window.GetLogicalSize(), zoom_));
     const auto camera = CameraGround(world, localPlayer);
     Floor(world, camera);
+    for (const auto &obstacle : world.obstacles) if (obstacle.cover == CoverKind::Hide) ObstacleArt(obstacle, camera);
     for (const auto &guard : world.guards) Vision(guard, world, camera);
     for (const auto &object : world.objects) {
       if (object.kind == ObjectKind::Camera && object.active) {
@@ -496,26 +534,27 @@ namespace NoTrace {
       }
     }
     for (const auto &noise : world.noises) Noise(noise, camera);
-    struct Item { float depth; int kind; std::size_t index; };
+    struct Item { int kind; std::size_t index; };
     std::vector<Item> items;
+    std::vector<sf::FloatRect> footprints;
+    const auto add = [&](int kind, std::size_t index, sf::FloatRect footprint) {
+      items.push_back({kind, index});
+      footprints.push_back(footprint);
+    };
     for (std::size_t index = 0; index < world.obstacles.size(); ++index) {
-      const auto end = world.obstacles[index].bounds.position + world.obstacles[index].bounds.size;
-      items.push_back({end.x + end.y, 0, index});
+      if (world.obstacles[index].cover != CoverKind::Hide) add(0, index, world.obstacles[index].bounds);
     }
     for (std::size_t index = 0; index < world.objects.size(); ++index) {
-      const auto position = world.objects[index].position;
-      items.push_back({position.x + position.y + 4.f, 1, index});
+      add(1, index, ObjectFootprint(world.objects[index]));
     }
     for (std::size_t index = 0; index < world.guards.size(); ++index) {
-      const auto position = world.guards[index].position;
-      items.push_back({position.x + position.y, 2, index});
+      add(2, index, {world.guards[index].position, {0.f, 0.f}});
     }
     for (std::size_t index = 0; index < world.agents.size(); ++index) {
-      const auto position = world.agents[index].position;
-      items.push_back({position.x + position.y + 1.f, 3, index});
+      add(3, index, {world.agents[index].position, {0.f, 0.f}});
     }
-    std::stable_sort(items.begin(), items.end(), [](const Item &left, const Item &right) { return left.depth < right.depth; });
-    for (const auto &item : items) {
+    for (const auto index : GroundDrawOrder(footprints)) {
+      const auto &item = items[index];
       switch (item.kind) {
       case 0: ObstacleArt(world.obstacles[item.index], camera); break;
       case 1: ObjectArt(world.objects[item.index], camera, world.phase == GamePhase::Base ||
@@ -524,12 +563,8 @@ namespace NoTrace {
       case 3: AgentArt(world.agents[item.index], world, camera, world.agents[item.index].id == localPlayer); break;
       }
     }
-    const auto player = std::find_if(world.agents.begin(), world.agents.end(), [localPlayer](const Agent &agent) { return agent.id == localPlayer; });
-    if (player != world.agents.end() && player->alive && !player->extracted) {
-      const auto position = GroundToScreen(player->position, camera);
-      PixelLine(position + sf::Vector2f{-18.f, 8.f}, position + sf::Vector2f{-8.f, 12.f}, PresentationConfig::Green);
-      PixelLine(position + sf::Vector2f{8.f, 12.f}, position + sf::Vector2f{18.f, 8.f}, PresentationConfig::Green);
-    }
+    Combat(world, camera);
+    ctx_.renderer.ResetView();
     Minimap(world, localPlayer);
   }
 }
