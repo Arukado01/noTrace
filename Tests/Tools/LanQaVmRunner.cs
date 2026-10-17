@@ -198,11 +198,12 @@ internal static class LanQaVmRunner {
     var path=Path.Combine(Transfer,"QA-CANCEL","STOP-"+SessionId+".json");
     if(!File.Exists(path)) { return false; } var value=ReadJson(path,65536); return Number(value,"schema")==1 && Text(value,"sessionId")==SessionId;
   }
-  private static bool Cancelled(Dictionary<string,object> job) {
-    if(StopRequested()) { return true; }
+  private static string CancellationReason(Dictionary<string,object> job) {
+    if(StopRequested()) { return "Parada del ejecutor VM"; }
     var path=Path.Combine(Transfer,"QA-CANCEL",Text(job,"jobId")+".json");
-    if(!File.Exists(path)) { return false; } var value=ReadJson(path,65536);
-    return Number(value,"schema")==1 && Text(value,"sessionId")==SessionId && Text(value,"jobId")==Text(job,"jobId");
+    if(!File.Exists(path)) { return null; } var value=ReadJson(path,65536);
+    if(Number(value,"schema")!=1 || Text(value,"sessionId")!=SessionId || Text(value,"jobId")!=Text(job,"jobId")) { return null; }
+    object reason; return value.TryGetValue("reason",out reason) && reason is string && ((string)reason).Length>0 ? (string)reason : "Cancelacion del ejecutor VM";
   }
   private static void CancelChild(Process child,string coord,string runId,string reason) {
     var cancel=Path.Combine(coord,"cancel.json"); bool exists=false;
@@ -257,10 +258,16 @@ internal static class LanQaVmRunner {
             recorder.Start(); var item=Map("attempt",attempt,"pid",child.Id,"startedUtc",Utc(),"exitCode",null,"forced",false); attempts.Add(item); WriteJson(Path.Combine(remote,"STARTED.json"),receipt);
             while(!child.HasExited) {
               Heartbeat("RUNNING",jobId);
-              if(Cancelled(job)) { cancelled=true; CancelChild(child,coord,runId,"Cancelacion del ejecutor VM"); break; }
+              var cancellation=CancellationReason(job);
+              if(cancellation!=null) { cancelled=true; receipt["error"]=cancellation; CancelChild(child,coord,runId,cancellation); break; }
               if(watch.Elapsed.TotalSeconds>365) { CancelChild(child,coord,runId,"Timeout del ejecutor VM"); throw new TimeoutException("Tiempo agotado del job VM."); }
+              var finalReport=Path.Combine(output,"qa-report.json");
+              if(File.Exists(finalReport)) {
+                var ending=ReadJson(finalReport,4194304); CheckIdentity(ending,job);
+                if(Text(ending,"status")=="CANCELLED") { cancelled=true; receipt["report"]=ending; receipt["error"]=Text(ending,"reason"); CancelChild(child,coord,runId,Text(ending,"reason")); break; }
+              }
               var ready=Path.Combine(coord,"client-drop-ready.json");
-              if(scenario=="client-drop" && attempt==1 && File.Exists(ready)) {
+              if(scenario=="client-drop" && attempt==1 && File.Exists(ready) && !File.Exists(finalReport)) {
                 CheckIdentity(ReadJson(ready,4194304),job); child.Kill(); child.WaitForExit(); forced=true; item["forced"]=true;
                 var drop=Map("schema",1,"runId",runId,"role","client","scenario",scenario,"attempt",1,"pid",child.Id,"exitCode",child.ExitCode,"createdUtc",Utc(),"method","Process.Kill del hijo exacto del ejecutor VM");
                 WriteJson(Path.Combine(coord,"client-forced-drop.json"),drop); forcedDrops.Add(drop); break;
@@ -271,6 +278,7 @@ internal static class LanQaVmRunner {
             if(cancelled) { receipt["status"]="CANCELLED"; break; }
             if(forced) { continue; }
             var report=ReadJson(Path.Combine(output,"qa-report.json"),4194304); CheckIdentity(report,job); receipt["report"]=report;
+            if(child.ExitCode==3 && Text(report,"status")=="CANCELLED") { receipt["status"]="CANCELLED"; receipt["error"]=Text(report,"reason"); break; }
             Require(child.ExitCode==0 && Text(report,"status")=="PASS","El juego QA no completo el escenario con PASS.");
             Require(scenario!="client-drop" || forcedDrops.Count==1,"Falta la terminacion abrupta real del primer cliente."); receipt["status"]="PASS"; break;
           } finally { if(recorder.Started && !child.HasExited) { child.Kill(); child.WaitForExit(); } }

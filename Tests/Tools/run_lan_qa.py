@@ -19,6 +19,10 @@ TIMEOUT = 360
 PORT = 55041
 
 
+class CancelledCase(RuntimeError):
+    pass
+
+
 def development_package(development_root):
     development_root = Path(development_root).resolve()
     require(development_root.is_relative_to(BUILD.resolve()) and development_root.is_dir(), "El preflight debe usar una compilacion dentro de build")
@@ -102,6 +106,24 @@ def read_json(path):
 
 def check_identity(value, run_id, role, scenario):
     require(value.get("schema") == 1 and value.get("runId") == run_id and value.get("role") == role and value.get("scenario") == scenario, "Identidad de reporte o marcador incorrecta")
+
+
+def cancellation_reason(coord, run_id):
+    for name in ("cancel.json", "CANCEL.json"):
+        path = coord / name
+        if path.exists():
+            marker = read_json(path)
+            if isinstance(marker, dict) and marker.get("schema") == 1 and marker.get("runId") == run_id:
+                return str(marker.get("reason") or "Cancelacion solicitada durante el escenario")
+    return None
+
+
+def batch_status(results, expected):
+    if any(item["status"] == "FAIL" for item in results):
+        return "FAIL"
+    if any(item["status"] == "CANCELLED" for item in results):
+        return "CANCELLED"
+    return "PASS" if len(results) == expected and all(item["status"] == "PASS" for item in results) else "FAIL"
 
 
 def check_job(job, session_id, label=LABEL):
@@ -204,6 +226,14 @@ class Child:
     def poll(self):
         if self.finished:
             return
+        final_report = self.output / "qa-report.json"
+        if self.process.poll() is None and final_report.is_file():
+            report = read_json(final_report)
+            check_identity(report, self.run_id, self.role, self.scenario)
+            if report.get("status") == "CANCELLED":
+                self.report = report
+                raise CancelledCase(str(report.get("reason") or "Ventana QA cancelada: " + self.role))
+            return
         drop_role = "client" if self.scenario == "client-drop" else "host" if self.scenario == "host-drop" else None
         ready = self.coord / (self.role + "-drop-ready.json")
         if self.process.poll() is None and self.role == drop_role and len(self.attempts) == 1 and ready.exists():
@@ -225,6 +255,8 @@ class Child:
             report = read_json(path)
             check_identity(report, self.run_id, self.role, self.scenario)
             self.report = report
+            if self.process.returncode == 3 and report.get("status") == "CANCELLED":
+                raise CancelledCase(str(report.get("reason") or "Ventana QA cancelada: " + self.role))
             require(self.process.returncode == 0 and report.get("status") == "PASS", "El rol no termino PASS: " + self.role)
             if self.role == drop_role:
                 require(len(self.forced_drops) == 1 and len(self.attempts) == 2, "Falta corte abrupto y segundo intento: " + self.role)
@@ -239,6 +271,14 @@ class Child:
                 self.process.wait(timeout=5)
         if self.streams:
             self.close_attempt()
+        if self.report is None and self.output is not None and (self.output / "qa-report.json").is_file():
+            try:
+                report = read_json(self.output / "qa-report.json")
+                check_identity(report, self.run_id, self.role, self.scenario)
+                self.report = report
+            except (OSError, ValueError, RuntimeError, TypeError) as error:
+                self.attempts[-1]["cleanupWarning"] = "No se pudo recuperar el reporte final: " + str(error)
+                self.record()
 
 
 def cancel_guest(job, reason):
@@ -273,8 +313,9 @@ def run_case(scenario, mode, summary, rows, source, session_id=None, session_fol
         write_json(root / "ORQUESTACION.json", result)
         deadline = time.monotonic() + TIMEOUT + 15
         while time.monotonic() < deadline:
-            if (coord / "cancel.json").exists() or (coord / "CANCEL.json").exists():
-                raise RuntimeError("Cancelacion solicitada durante el escenario")
+            reason = cancellation_reason(coord, run_id)
+            if reason is not None:
+                raise CancelledCase(reason)
             for child in children:
                 child.poll()
             if job is not None:
@@ -286,6 +327,8 @@ def run_case(scenario, mode, summary, rows, source, session_id=None, session_fol
                     guest_result = read_json(path)
                     require(guest_result.get("schema") == 1 and guest_result.get("sessionId") == session_id and guest_result.get("jobId") == job["jobId"], "Resultado VM de otro job")
                     check_identity(guest_result, run_id, "client", scenario)
+                    if guest_result.get("status") == "CANCELLED":
+                        raise CancelledCase(str(guest_result.get("error") or (guest_result.get("report") or {}).get("reason") or "El ejecutor VM cancelo el escenario"))
                     require(guest_result.get("status") == "PASS", "La VM no termino PASS: " + str(guest_result.get("error")))
                     check_identity(guest_result["report"], run_id, "client", scenario)
                     require(guest_result["report"]["status"] == "PASS", "Reporte QA VM sin PASS")
@@ -298,7 +341,7 @@ def run_case(scenario, mode, summary, rows, source, session_id=None, session_fol
         else:
             raise RuntimeError("Tiempo agotado del escenario coordinado")
     except (Exception, KeyboardInterrupt) as error:
-        result["status"] = "CANCELLED" if isinstance(error, KeyboardInterrupt) else "FAIL"
+        result["status"] = "CANCELLED" if isinstance(error, (KeyboardInterrupt, CancelledCase)) else "FAIL"
         result["error"] = str(error) or "Interrupcion de teclado del coordinador"
         try:
             result["error"] = write_cancel(coord, run_id, result["error"])
@@ -360,13 +403,13 @@ def main():
         print(json.dumps(batch["scenarios"][-1], ensure_ascii=False), flush=True)
         if result["status"] != "PASS":
             break
-    batch["status"] = "PASS" if len(batch["scenarios"]) == len(args.scenario or SCENARIOS) and all(item["status"] == "PASS" for item in batch["scenarios"]) else "FAIL"
+    batch["status"] = batch_status(batch["scenarios"], len(args.scenario or SCENARIOS))
     batch["finishedUtc"] = utc()
     target = EVIDENCE / ("QA-BATCH-" + batch_id + ".json")
     write_json(target, batch)
     print(json.dumps({"status": batch["status"], "evidence": str(target)}), flush=True)
     if batch["status"] != "PASS":
-        raise SystemExit(1)
+        raise SystemExit(3 if batch["status"] == "CANCELLED" else 1)
 
 
 if __name__ == "__main__":

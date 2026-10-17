@@ -9,6 +9,7 @@ import io
 import json
 from pathlib import Path
 import subprocess
+import sys
 import threading
 import time
 import uuid
@@ -16,6 +17,7 @@ import zipfile
 from unittest.mock import patch
 
 import generate_lan_qa_vm as generator
+import run_lan_qa as coordinator
 from generate_lan_qa_vm import BUILD, LABEL, PROTOCOL, compile_runner, load_package, package_label, render, require, runner_destination
 from run_lan_qa import EVIDENCE, check_identity, check_job, write_cancel, write_json
 
@@ -129,11 +131,78 @@ def validate_interrupted_copy(folder, revisions):
     return {"status": "PASS", "hostExtractionRecovered": True, "zipTransferRecovered": True, "partialCopiesPreserved": True, "modifiedCopiesPreserved": True, "partialHost": str(partials[0]), "partialZip": str(partial_archives[0]), "gameExecuted": False}
 
 
+def validate_cancellation(revisions):
+    summary, rows = load_package(BUILD / (revisions["packagesVerified"][1] + "-summary.json"))
+    source = Path(summary["directory"])
+    results = []
+    for mode in ("report", "marker", "failure"):
+        status, exit_code = ("FAIL", 1) if mode == "failure" else ("CANCELLED", 3)
+        reason = "Fallo ordinario de control" if mode == "failure" else "Cancelacion original del proceso de control"
+
+        class ControlChild(coordinator.Child):
+            def start(self):
+                require(not self.attempts, "Se reinicio automaticamente un hijo de control cancelado")
+                self.output = self.run_folder / "attempt-1"
+                self.output.mkdir(parents=True, exist_ok=False)
+                report = {"schema": 1, "runId": self.run_id, "role": self.role, "scenario": self.scenario, "protocol": PROTOCOL, "status": status, "reason": reason, "controlFixture": True, "gameExecuted": False}
+                script = "import json,pathlib,sys,time;time.sleep(0.1);pathlib.Path(sys.argv[1]).write_text(sys.argv[2],encoding='utf-8');sys.exit(int(sys.argv[3]))"
+                self.streams = [(self.output / name).open("xb") for name in ("stdout.log", "stderr.log")]
+                self.process = subprocess.Popen([sys.executable, "-B", "-c", script, str(self.output / "qa-report.json"), json.dumps(report), str(exit_code)], stdin=subprocess.DEVNULL, stdout=self.streams[0], stderr=self.streams[1], creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+                self.attempts.append({"attempt": 1, "pid": self.process.pid, "startedUtc": coordinator.utc(), "exitCode": None, "forced": False, "output": str(self.output)})
+                self.record()
+                if mode == "marker" and self.role == "client":
+                    write_cancel(self.coord, self.run_id, reason)
+
+        with patch.object(coordinator, "Child", ControlChild):
+            result, evidence = coordinator.run_case("client-drop", "both-local", summary, rows, source)
+        require(result["status"] == status and (reason in result["error"] if mode != "failure" else "no termino PASS" in result["error"]), "Se perdio la clasificacion o el motivo del hijo de control")
+        require(len(result["roles"]) == 2 and all(len(role["attempts"]) == 1 and not role["forcedDrops"] for role in result["roles"].values()), "Una cancelacion provoco un reinicio o corte automatico")
+        require(all(role["report"] and role["report"]["status"] == status for role in result["roles"].values()), "No se recuperaron los reportes finales de ambos hijos")
+        require(coordinator.batch_status([result], 3) == status, "El lote no conserva la clasificacion del caso")
+        results.append({"source": mode, "status": status, "evidence": str(evidence), "singleAttemptPerRole": True, "automaticForcedDrops": 0})
+    require(coordinator.batch_status([{"status": "CANCELLED"}, {"status": "FAIL"}], 3) == "FAIL", "Una cancelacion oculto un fallo ordinario")
+    race = validate_ending_child()
+    return {"status": "PASS", "realChildProcessCases": results, "endingChildWithDropMarker": race, "gameExecuted": False, "vmChanged": False}
+
+
+def validate_ending_child():
+    folder = EVIDENCE / "QA-TOOLS-VALIDATION" / uuid.uuid4().hex
+    coord = folder / "coord"
+    output = folder / "attempt-1"
+    coord.mkdir(parents=True)
+    output.mkdir()
+    child = coordinator.Child.__new__(coordinator.Child)
+    child.role, child.scenario, child.run_id = "client", "client-drop", uuid.uuid4().hex
+    child.runtime, child.run_folder, child.coord, child.output, child.host = folder, folder, coord, output, "127.0.0.1"
+    child.attempts, child.forced_drops, child.report, child.finished = [], [], None, False
+    child.streams = [(output / name).open("xb") for name in ("stdout.log", "stderr.log")]
+    reason = "Escape durante la espera del corte de control"
+    report = {"schema": 1, "runId": child.run_id, "role": child.role, "scenario": child.scenario, "status": "CANCELLED", "reason": reason, "controlFixture": True, "gameExecuted": False}
+    script = "import pathlib,sys,time;pathlib.Path(sys.argv[1]).write_text(sys.argv[2],encoding='utf-8');time.sleep(0.6);sys.exit(3)"
+    child.process = subprocess.Popen([sys.executable, "-B", "-c", script, str(output / "qa-report.json"), json.dumps(report)], stdin=subprocess.DEVNULL, stdout=child.streams[0], stderr=child.streams[1], creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    child.attempts.append({"attempt": 1, "pid": child.process.pid, "startedUtc": coordinator.utc(), "exitCode": None, "forced": False, "output": str(output)})
+    write_json(coord / "client-drop-ready.json", {"schema": 1, "runId": child.run_id, "role": child.role, "scenario": child.scenario})
+    deadline = time.monotonic() + 2
+    while not (output / "qa-report.json").exists() and time.monotonic() < deadline:
+        time.sleep(0.01)
+    require(child.process.poll() is None and (output / "qa-report.json").is_file(), "El hijo de control no entro en su ventana de cierre")
+    cancelled = False
+    try:
+        child.poll()
+    except coordinator.CancelledCase as error:
+        cancelled = str(error) == reason
+    finally:
+        child.cancel()
+    require(cancelled and len(child.attempts) == 1 and not child.forced_drops and child.process.returncode == 3, "El marcador de corte reinicio un hijo que ya habia publicado CANCELLED")
+    return {"status": "PASS", "evidence": str(folder), "exitCode": child.process.returncode, "singleAttempt": True, "forcedDrops": 0, "originalReasonPreserved": True}
+
+
 def main():
     folder = BUILD / ("qa-tools-validation-" + uuid.uuid4().hex)
     folder.mkdir()
     revisions = validate_revisions(folder)
     interrupted_copy = validate_interrupted_copy(folder, revisions)
+    cancellation = validate_cancellation(revisions)
     summary = {"name": LABEL, "zip": "NO_TRACE_LAN-" + LABEL + ".zip", "zip_sha256": "A" * 64, "manifest_sha256": "B" * 64, "manifest_records": 109, "executables_sha256": {"NoTraceLanQa.exe": "C" * 64}}
     source = render(summary)
     job = {"schema": 1, "sessionId": "a" * 32, "jobId": "b" * 32, "runId": "c" * 32, "packageLabel": LABEL, "protocol": PROTOCOL, "role": "client", "scenario": "mission", "host": "192.168.56.1", "port": 55041, "timeoutSeconds": 360}
@@ -184,7 +253,7 @@ def main():
     files = list(Path(__file__).parent.glob("*lan_qa*.py"))
     for path in files:
         ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-    outcome = {"status": "PASS", "packageRevisions": revisions, "interruptedCopy": interrupted_copy, "pythonFilesParsed": [str(p) for p in files], "pythonMalformedJobsRejected": len(invalid), "crossRunReportRejected": True, "compiledSupervisor": result_cs, "lockedReaderRetry": {"status": "PASS", "seconds": duration, "originalCancellationPreserved": True, "evidence": str(locked_folder)}, "powerShellRequired": False, "evidence": str(folder), "gameExecuted": False, "vmChanged": False}
+    outcome = {"status": "PASS", "packageRevisions": revisions, "interruptedCopy": interrupted_copy, "cancellation": cancellation, "pythonFilesParsed": [str(p) for p in files], "pythonMalformedJobsRejected": len(invalid), "crossRunReportRejected": True, "compiledSupervisor": result_cs, "lockedReaderRetry": {"status": "PASS", "seconds": duration, "originalCancellationPreserved": True, "evidence": str(locked_folder)}, "powerShellRequired": False, "evidence": str(folder), "gameExecuted": False, "vmChanged": False}
     (folder / "RESULTADO.json").write_text(json.dumps(outcome, indent=2) + "\n", encoding="utf-8")
     (BUILD / "LAN-qa-tools-static-results.json").write_text(json.dumps(outcome, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(outcome, indent=2))
