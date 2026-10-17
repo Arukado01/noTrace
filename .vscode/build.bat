@@ -1,4 +1,6 @@
 @echo off
+chcp 65001 >nul
+rem Unifica la codificación de /showIncludes con el prefijo UTF-8 que compara Ninja.
 rem Entorno de build para VS Code: carga MSVC y compila con CMake+Ninja.
 rem Uso: build.bat [argumentos extra de cmake --build, p. ej. --clean-first]
 
