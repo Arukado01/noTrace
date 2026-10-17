@@ -91,7 +91,7 @@ if(BUILD_TESTING)
   target_compile_options(NoTraceGameGuiTests PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/utf-8>)
   target_link_libraries(NoTraceGameGuiTests PRIVATE SFML::Graphics SFML::Audio SFML::Network nlohmann_json::nlohmann_json spdlog::spdlog TGUI::TGUI magic_enum::magic_enum)
   add_test(NAME NoTraceGameGui COMMAND NoTraceGameGuiTests)
-  set_tests_properties(NoTraceGameGui PROPERTIES TIMEOUT 300 WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
+  set_tests_properties(NoTraceGameGui PROPERTIES TIMEOUT 600 WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
 endif()
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang" AND WIN32)

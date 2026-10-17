@@ -792,8 +792,9 @@ namespace EngineTests {
       const float horizontal = std::sin(angle) / PresentationConfig::GroundProjection.x, vertical = std::cos(angle) / PresentationConfig::GroundProjection.y;
       return CombatGeometry::Unit({horizontal + vertical, vertical - horizontal});
     };
-    WorldState matrix; matrix.phase = GamePhase::Base; matrix.size = {2000.f, 2000.f};
-    Agent matrixObserver; matrixObserver.id = 1; matrixObserver.position = {1000.f, 1000.f}; matrixObserver.hidden = true;
+    // El escenario cubre el viewport completo sin dibujar cuatro veces más suelo fuera de cámara.
+    WorldState matrix; matrix.phase = GamePhase::Base; matrix.size = {1000.f, 1000.f};
+    Agent matrixObserver; matrixObserver.id = 1; matrixObserver.position = {500.f, 500.f}; matrixObserver.hidden = true;
     for (const auto &clip : clips) for (std::size_t zoomIndex = 0; zoomIndex < zoomNames.size(); ++zoomIndex) {
       renderer.ResetZoom(); if (zoomIndex != 1) renderer.AdjustZoom(zoomIndex == 0 ? -100.f : 100.f);
       std::array<std::set<std::size_t>, 8> framesByDirection;
