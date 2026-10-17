@@ -69,6 +69,7 @@ namespace NoTrace {
     float lastHostMessage_ = 0.f;
     float commandAccumulator_ = 0.f;
     float snapshotAccumulator_ = 0.f;
+    bool snapshotPending_ = false;
     float simulationAccumulator_ = 0.f;
     std::uint64_t commandSequence_ = 0;
     std::uint64_t snapshotSequence_ = 0;
@@ -81,7 +82,7 @@ namespace NoTrace {
     void Reject(PeerId peer, const std::string &reason);
     void LoseHost(const std::string &reason);
     void RemoveParticipant(PeerId peer);
-    void SendSnapshots(bool force = true);
+    void SendSnapshots(bool force);
     void SendCommand();
     void StepSimulation(float deltaTime, bool localPaused);
     void ClearCommands();

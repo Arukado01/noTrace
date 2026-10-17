@@ -291,7 +291,33 @@ namespace {
           Case("client_rejoins_base_readiness_cleared"); Capture("04-base-rejoined"); Mark(options_.role + "-base-rejoined.json"); Stage("base_rejoin_barrier");
         }
       } else if (stage_ == "base_rejoin_barrier") {
-        if (Marker("host-base-rejoined.json").is_object() && Marker("client-base-rejoined.json").is_object()) Stage("prepare");
+        if (Marker("host-base-rejoined.json").is_object() && Marker("client-base-rejoined.json").is_object()) Stage("preparation_burst");
+      } else if (stage_ == "preparation_burst") {
+        if (!Host()) {
+          for (int change = 0; change < 8; ++change) { SessionState().SetLoadout({0, 12, 6, 6}); SessionState().SetReady(true); }
+          Mark("client-preparation-burst-queued.json", {{"validMessages", 16}});
+        }
+        Stage("preparation_burst_wait");
+      } else if (stage_ == "preparation_burst_wait") {
+        Require(Room(), "Una ráfaga válida de preparación desconectó la sala");
+        if (Marker("client-preparation-burst-queued.json").is_object() && StageSeconds() >= 2.f) {
+          const bool clientReady = std::ranges::any_of(SessionState().GetLobbyPlayers(), [](const LobbyPlayer &player) { return player.id != GameplayConfig::HostPlayerId && player.ready; });
+          if (!clientReady) { Require(StageSeconds() < 12.f, "No se recibió el estado final de preparación de la ráfaga"); return; }
+          Case("valid_preparation_burst_keeps_room", {{"validMessages", 16}, {"stableSeconds", StageSeconds()}});
+          Capture("04-valid-preparation-burst"); Mark(options_.role + "-preparation-burst-seen.json"); Stage("preparation_burst_barrier");
+        }
+      } else if (stage_ == "preparation_burst_barrier") {
+        if (Marker("host-preparation-burst-seen.json").is_object() && Marker("client-preparation-burst-seen.json").is_object()) {
+          if (!Host()) SessionState().SetReady(false);
+          Stage("preparation_burst_reset");
+        }
+      } else if (stage_ == "preparation_burst_reset") {
+        Require(Room(), "La sala no se conservó después de preparar el equipo");
+        if (std::ranges::none_of(SessionState().GetLobbyPlayers(), [](const LobbyPlayer &player) { return player.ready; })) {
+          Mark(options_.role + "-preparation-burst-reset.json"); Stage("preparation_burst_reset_barrier");
+        }
+      } else if (stage_ == "preparation_burst_reset_barrier") {
+        if (Marker("host-preparation-burst-reset.json").is_object() && Marker("client-preparation-burst-reset.json").is_object()) Stage("prepare");
       } else if (stage_ == "prepare") {
         Require(World().contract == ContractId::GhostArchive, "El contrato inicial no es Archivo Fantasma");
         SessionState().SetLoadout({0, 12, 6, 6});

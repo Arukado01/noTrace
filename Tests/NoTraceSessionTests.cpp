@@ -16,6 +16,7 @@
 #include <functional>
 #include <iostream>
 #include <limits>
+#include <memory>
 #include <stdexcept>
 
 namespace {
@@ -209,6 +210,69 @@ namespace {
     pair.host.ReturnToBase();
     currentCase = "LobbyAndAuthority/regreso a la base";
     Until([&] { return pair.client.GetWorld().phase == GamePhase::Base; }, [&] { pair.Tick(); Require(pair.client.IsConnected(), pair.client.GetStatus().c_str()); });
+  }
+
+  void SimultaneousPreparationKeepsFullLobbyConnected() {
+    NetworkManager hostNetwork;
+    RandomManager hostRandom;
+    Session host(hostNetwork, hostRandom);
+    Require(host.Host("Anfitrión", 0), "No se pudo crear la sala completa");
+    struct Client {
+      NetworkManager network;
+      RandomManager random;
+      Session session{network, random};
+    };
+    std::array<std::unique_ptr<Client>, NetworkConfig::MaxClients> clients;
+    for (std::size_t index = 0; index < clients.size(); ++index) {
+      clients[index] = std::make_unique<Client>();
+      Require(clients[index]->session.Join("127.0.0.1", hostNetwork.GetPort(), "Operador " + std::to_string(index)),
+              "No se pudo incorporar un agente a la sala completa");
+    }
+    const auto tick = [&] {
+      host.Tick(0.01f);
+      for (const auto &client : clients) client->session.Tick(0.01f);
+      sf::sleep(sf::milliseconds(1));
+    };
+    currentCase = "SimultaneousPreparation/incorporación";
+    Until([&] {
+      return host.GetLobbyPlayers().size() == GameplayConfig::MaximumPlayers &&
+             std::ranges::all_of(clients, [](const auto &client) {
+               return client->session.IsConnected() && client->session.GetLobbyPlayers().size() == GameplayConfig::MaximumPlayers;
+             });
+    }, tick);
+    for (int round = 0; round < 2; ++round) {
+      currentCase = "SimultaneousPreparation/equipo y preparación";
+      const int ammo = 12 - round;
+      host.SetReady(true);
+      for (const auto &client : clients) {
+        client->session.SetLoadout({ammo, ammo, 2, 2});
+        client->session.SetReady(true);
+        client->session.Tick(0.01f);
+      }
+      // Los seis cambios válidos pueden llegar juntos antes de que el anfitrión vacíe su cola.
+      sf::sleep(sf::milliseconds(20));
+      Until([&] {
+        return host.CanDeploy() && std::ranges::all_of(host.GetWorld().agents, [&](const Agent &agent) {
+          return agent.id == host.GetLocalPlayerId() || agent.operationLoadout.lethalAmmo == ammo;
+        }) && std::ranges::all_of(clients, [&](const auto &client) {
+          return std::ranges::all_of(client->session.GetLobbyPlayers(), [](const LobbyPlayer &player) { return player.ready; }) &&
+                 FindAgent(client->session.GetWorld(), client->session.GetLocalPlayerId()).operationLoadout.lethalAmmo == ammo;
+        });
+      }, [&] {
+        tick();
+        Require(host.GetLobbyPlayers().size() == GameplayConfig::MaximumPlayers &&
+                std::ranges::all_of(clients, [](const auto &client) { return client->session.IsConnected(); }),
+                "Preparar simultáneamente una sala completa desconectó agentes válidos");
+      });
+    }
+    host.Deploy();
+    currentCase = "SimultaneousPreparation/despliegue";
+    Until([&] {
+      return std::ranges::all_of(clients, [&](const auto &client) {
+        return client->session.IsConnected() && client->session.GetWorld().phase == GamePhase::Mission &&
+               client->session.GetWorld().seed == host.GetWorld().seed;
+      });
+    }, tick);
   }
 
   void PrivateSnapshotAndClientDoesNotSimulate() {
@@ -889,6 +953,7 @@ int main() {
     const auto run = [](const char *name, auto test) { currentCase = name; test(); };
     run("SoloPauseAndFiniteInput", SoloPauseAndFiniteInput);
     run("LobbyAndAuthority", LobbyAndAuthority);
+    run("SimultaneousPreparationKeepsFullLobbyConnected", SimultaneousPreparationKeepsFullLobbyConnected);
     run("PrivateSnapshotAndClientDoesNotSimulate", PrivateSnapshotAndClientDoesNotSimulate);
     run("PausedHostStillRunsRemoteAgent", PausedHostStillRunsRemoteAgent);
     run("SlowClientKeepsLobbyAndPhaseChanges", SlowClientKeepsLobbyAndPhaseChanges);

@@ -220,6 +220,7 @@ namespace NoTrace {
     lastHostMessage_ = 0.f;
     commandAccumulator_ = 0.f;
     snapshotAccumulator_ = 0.f;
+    snapshotPending_ = false;
     simulationAccumulator_ = 0.f;
     commandSequence_ = 0;
     snapshotSequence_ = 0;
@@ -308,7 +309,7 @@ namespace NoTrace {
         player.ready = ready;
       }
     }
-    SendSnapshots();
+    snapshotPending_ = true;
   }
 
   void Session::SetContract(ContractId contract) {
@@ -321,7 +322,7 @@ namespace NoTrace {
       for (auto &player : lobby_) {
         player.ready = role_ == NetworkRole::Offline;
       }
-      SendSnapshots();
+      snapshotPending_ = true;
     }
   }
 
@@ -339,7 +340,7 @@ namespace NoTrace {
     if (role_ != NetworkRole::Offline) {
       SetReady(false);
     }
-    SendSnapshots();
+    snapshotPending_ = true;
   }
 
   void Session::ClearCommands() {
@@ -361,7 +362,7 @@ namespace NoTrace {
     for (const auto &agent : GetWorld().agents) deploymentLoadouts_.emplace(agent.id, agent.operationLoadout);
     simulation_.Deploy(static_cast<std::uint32_t>(random_.Int(1, std::numeric_limits<int>::max())));
     status_ = "Operación en curso";
-    SendSnapshots();
+    snapshotPending_ = true;
   }
 
   void Session::ReturnToBase() {
@@ -375,7 +376,7 @@ namespace NoTrace {
       player.ready = role_ == NetworkRole::Offline;
     }
     status_ = role_ == NetworkRole::Offline ? "Base CIO: operación individual" : "Base CIO: esperando preparación";
-    SendSnapshots();
+    snapshotPending_ = true;
   }
 
   bool Session::RestartOperation() {
@@ -389,7 +390,7 @@ namespace NoTrace {
     for (const auto &[id, loadout] : deploymentLoadouts_) simulation_.SetLoadout(id, loadout);
     simulation_.Deploy(seed);
     status_ = "Operación reiniciada";
-    SendSnapshots();
+    snapshotPending_ = true;
     return true;
   }
 
@@ -510,7 +511,7 @@ namespace NoTrace {
       network_.Send(peer, Json{{"type", "welcome"}, {"version", GameplayConfig::ProtocolVersion},
                               {"player", peer}, {"epoch", epoch_}}.dump());
       status_ = "Agente " + name + " conectado; confirma la preparación del equipo";
-      SendSnapshots();
+      snapshotPending_ = true;
       return;
     }
 
@@ -547,7 +548,7 @@ namespace NoTrace {
           player.ready = message.at("ready").get<bool>();
         }
       }
-      SendSnapshots();
+      snapshotPending_ = true;
     } else if (type == "loadout" && GetWorld().phase == GamePhase::Base) {
       Loadout loadout;
       if (!ReadLoadout(message, loadout)) {
@@ -560,7 +561,7 @@ namespace NoTrace {
           player.ready = false;
         }
       }
-      SendSnapshots();
+      snapshotPending_ = true;
     }
   }
 
@@ -752,9 +753,13 @@ namespace NoTrace {
     StepSimulation(dt, localPaused);
     if (IsHost()) {
       snapshotAccumulator_ += dt;
-      if (snapshotAccumulator_ >= 1.f / GameplayConfig::SnapshotHz) {
+      const bool periodic = snapshotAccumulator_ >= 1.f / GameplayConfig::SnapshotHz;
+      if (periodic) {
         snapshotAccumulator_ = std::fmod(snapshotAccumulator_, 1.f / GameplayConfig::SnapshotHz);
-        SendSnapshots(false);
+      }
+      // Los cambios de sala del mismo ciclo comparten un estado final sin saturar la cola TCP.
+      if (periodic || snapshotPending_) {
+        SendSnapshots(std::exchange(snapshotPending_, false));
       }
     }
   }
