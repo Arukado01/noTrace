@@ -80,6 +80,7 @@ namespace NoTrace {
     float attackCooldown = 0.f;
     float attackTime = 0.f;
     bool meleeAttack = false;
+    int ammo = GameplayConfig::GuardAmmo;
     float incapacityRemaining = 0.f;
     bool bodyHidden = false;
     bool bodyReported = false;

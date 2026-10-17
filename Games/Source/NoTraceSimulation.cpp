@@ -604,7 +604,7 @@ namespace NoTrace {
           const auto aim = Unit(seen->position - guard.position);
           const float distance = Distance(guard.position, seen->position);
           guard.facing = aim;
-          if (distance <= GuardWeaponRange && guard.attackCooldown <= 0.f) {
+          if (distance <= GuardWeaponRange && guard.attackCooldown <= 0.f && (distance <= GuardAttackDistance || guard.ammo > 0)) {
             guard.attackCooldown = GuardAttackInterval; guard.attackTime = AttackAnimationDuration;
             guard.meleeAttack = distance <= GuardAttackDistance;
             bool blocked = false;
@@ -615,6 +615,7 @@ namespace NoTrace {
                 DamageAgent(*seen, GuardMeleeDamage, GuardMeleeStaminaDamage, 0, seen->id);
               }
             } else {
+              --guard.ammo;
               Agent *hit = nullptr;
               float closest = Distance(guard.position, impact);
               for (auto &agent : world_.agents) if (agent.connected && agent.alive && !agent.incapacitated && !agent.extracted) {
@@ -749,7 +750,7 @@ namespace NoTrace {
       snapshot["guards"].push_back({{"id", guard.id}, {"position", VectorJson(guard.position)}, {"facing", VectorJson(guard.facing)},
         {"state", static_cast<int>(guard.state)}, {"cqcState", static_cast<int>(guard.cqcState)}, {"patrol", patrol}, {"waypoint", guard.waypoint},
         {"lastKnown", VectorJson(guard.lastKnown)}, {"suspicion", guard.suspicion}, {"bodyHidden", guard.bodyHidden}, {"bodyReported", guard.bodyReported}, {"heldBy", guard.heldBy},
-        {"stateTime", guard.stateTime}, {"attackCooldown", guard.attackCooldown}, {"attackTime", guard.attackTime}, {"meleeAttack", guard.meleeAttack}, {"incapacityRemaining", guard.incapacityRemaining}});
+        {"stateTime", guard.stateTime}, {"attackCooldown", guard.attackCooldown}, {"attackTime", guard.attackTime}, {"meleeAttack", guard.meleeAttack}, {"ammo", guard.ammo}, {"incapacityRemaining", guard.incapacityRemaining}});
     }
     snapshot["obstacles"] = json::array();
     for (const auto &obstacle : world_.obstacles) snapshot["obstacles"].push_back({{"position", VectorJson(obstacle.bounds.position)},
@@ -849,6 +850,10 @@ namespace NoTrace {
         guard.bodyHidden = value.at("bodyHidden").get<bool>(); guard.bodyReported = value.at("bodyReported").get<bool>(); guard.heldBy = value.at("heldBy").get<PlayerId>();
         guard.stateTime = finite(value.at("stateTime"), 86400.f); guard.attackCooldown = finite(value.at("attackCooldown"), 60.f);
         guard.attackTime = finite(value.at("attackTime"), GameplayConfig::AttackAnimationDuration); guard.meleeAttack = value.at("meleeAttack").get<bool>();
+        if (!value.at("ammo").is_number_integer()) throw std::runtime_error("Munición de guardia inválida");
+        const auto ammo = value.at("ammo").get<std::int64_t>();
+        if (ammo < 0 || ammo > GameplayConfig::GuardAmmo) throw std::runtime_error("Munición de guardia inválida");
+        guard.ammo = static_cast<int>(ammo);
         guard.incapacityRemaining = finite(value.at("incapacityRemaining"), GameplayConfig::GuardIncapacityDuration);
         replacement.guards.push_back(guard);
       }

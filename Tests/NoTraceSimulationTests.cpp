@@ -257,11 +257,13 @@ namespace {
     simulation.Step(0.1f, {});
     const auto firstHealth = simulation.GetState().agents[0].health;
     Require(firstHealth == GameplayConfig::MaxHealth - GameplayConfig::GuardShotDamage && simulation.GetState().agents[0].alive, "Un guardia alerta dispara a distancia y aplica daño discreto");
+    Require(simulation.GetState().guards[0].ammo == GameplayConfig::GuardAmmo - 1, "El disparo del guardia consume una bala");
     Require(simulation.GetState().shots.size() == 1 && simulation.GetState().shots[0].guardId == 1 && simulation.GetState().shots[0].hit, "El tiro enemigo tiene origen, impacto e identidad autoritativos");
     Load(replica, simulation.SnapshotFor(1));
     Require(replica.GetState().agents[0].health == firstHealth && replica.GetState().guards[0].attackTime > 0.f && replica.GetState().shots[0].guardId == 1, "Salud y pose de ataque llegan al cliente");
     Advance(simulation, {}, 8);
     Require(simulation.GetState().agents[0].health == firstHealth, "El guardia respeta su intervalo entre ataques");
+    Require(simulation.GetState().guards[0].ammo == GameplayConfig::GuardAmmo - 1, "El cooldown del guardia impide gastar otra bala");
     Advance(simulation, {}, 14);
     Require(simulation.GetState().agents[0].health < firstHealth, "El guardia vuelve a atacar tras el cooldown");
     snapshot["obstacles"].push_back({{"position", {380.f, 470.f}}, {"size", {20.f, 60.f}}, {"cover", 2}, {"solid", true}, {"name", "Muro"}});
@@ -274,6 +276,7 @@ namespace {
     simulation.Step(0.1f, {});
     Require(simulation.GetState().agents[0].health == GameplayConfig::MaxHealth - GameplayConfig::GuardMeleeDamage && simulation.GetState().guards[0].meleeAttack, "El ataque cuerpo a cuerpo usa su daño y pose propios");
     Require(simulation.GetState().agents[0].stamina == GameplayConfig::MaxStamina - GameplayConfig::GuardMeleeStaminaDamage && simulation.GetState().shots.empty(), "El golpe consume resistencia sin inventar una bala");
+    Require(simulation.GetState().guards[0].ammo == GameplayConfig::GuardAmmo, "El golpe cuerpo a cuerpo no consume munición");
     Advance(simulation, {}, 43);
     Require(simulation.GetState().agents[0].alive && simulation.GetState().agents[0].incapacitated && simulation.GetState().phase == GamePhase::Mission, "Agotar resistencia incapacita temporalmente y permite que el último agente se recupere");
     snapshot = simulation.SnapshotFor(1);
@@ -293,6 +296,29 @@ namespace {
     Load(simulation, snapshot);
     Advance(simulation, {}, 2);
     Require(simulation.GetState().guards[0].state != GuardState::Incapacitated, "Un guardia no letal recupera consciencia al vencer su tiempo");
+
+    snapshot = EmptyMission(simulation, {300.f, 500.f});
+    guard["ammo"] = 1;
+    snapshot["guards"].push_back(guard);
+    Load(simulation, snapshot);
+    simulation.Step(0.1f, {});
+    Require(simulation.GetState().guards[0].ammo == 0 && simulation.GetState().agents[0].health == firstHealth, "El último disparo del guardia agota su munición finita");
+    Load(replica, simulation.SnapshotFor(1));
+    Require(replica.GetState().guards[0].ammo == 0, "El snapshot propaga la munición restante del guardia");
+    Advance(simulation, {}, 8);
+    Require(simulation.GetState().shots.empty() && simulation.GetState().agents[0].health == firstHealth, "Sin munición el guardia persigue sin inventar proyectiles");
+    Advance(simulation, {}, 14);
+    const auto &events = simulation.GetState().events;
+    Require(std::ranges::count_if(events, [](const MissionEvent &event) { return event.kind == EventKind::GuardShot; }) == 1 && std::ranges::any_of(events, [](const MissionEvent &event) { return event.kind == EventKind::GuardMelee; }), "Tras agotar su arma el guardia debe alcanzar al agente y continuar con melee");
+    Require(simulation.GetState().guards[0].ammo == 0 && simulation.GetState().agents[0].health < firstHealth, "La munición no puede quedar negativa ni impedir el ataque cuerpo a cuerpo");
+    auto invalid = simulation.SnapshotFor(1);
+    std::string error;
+    invalid["guards"][0]["ammo"] = -1;
+    Require(!replica.LoadSnapshot(invalid, error), "El snapshot rechaza munición negativa del guardia");
+    invalid["guards"][0]["ammo"] = GameplayConfig::GuardAmmo + 1;
+    Require(!replica.LoadSnapshot(invalid, error), "El snapshot rechaza munición de guardia superior al máximo");
+    invalid["guards"][0]["ammo"] = 0.5f;
+    Require(!replica.LoadSnapshot(invalid, error), "El snapshot rechaza munición fraccionaria de guardia");
   }
 
   void ScoringAndObjectives() {

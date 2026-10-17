@@ -55,6 +55,7 @@ namespace NoTrace::GameplayConfig {
   inline constexpr float CameraDistance = 220.f;
   inline constexpr float GuardAttackInterval = 2.f;
   inline constexpr float GuardAttackDistance = 45.f;
+  inline constexpr int GuardAmmo = 6;
   inline constexpr float GuardWeaponRange = 235.f;
   inline constexpr float GuardShotDamage = 24.f;
   inline constexpr float GuardShotStaminaDamage = 10.f;
