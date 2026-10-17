@@ -36,14 +36,28 @@ namespace NoTrace {
     bool Fire(Agent &agent, bool lethal);
     sf::Vector2f TraceWeapon(sf::Vector2f from, sf::Vector2f direction, float range, bool &blocked) const;
     void DamageAgent(Agent &agent, float healthDamage, float staminaDamage, PlayerId actor, std::uint32_t source);
+    void HitGuard(Guard &guard, HitZone zone, bool lethal, PlayerId actor);
     void Incapacitate(Agent &agent, PlayerId actor, std::uint32_t source);
     void Revive(Agent &agent, PlayerId actor);
     void EmitNoise(sf::Vector2f position, float radius, PlayerId actor, std::uint32_t guardId = 0);
+    void HandleDistractions(Agent &agent, const ActionCommand &command);
     void Record(EventKind kind, PlayerId actor, std::uint32_t target = 0);
     void Detect(Agent &agent, std::uint32_t observer);
     void Move(sf::Vector2f &position, sf::Vector2f displacement, float radius) const;
     bool Blocked(sf::Vector2f position, float radius) const;
     bool Occluded(sf::Vector2f from, sf::Vector2f to, Stance targetStance) const;
     void Navigate(Guard &guard, sf::Vector2f target, float speed, float dt);
+    void ResolvePenetration(sf::Vector2f &position, float radius) const;
+    void ToggleCover(Agent &agent);
+    bool UpdateCover(Agent &agent, const ActionCommand &command, sf::Vector2f direction, float dt);
+    bool CoverSurfaceValid(const AgentCover &cover) const;
+    bool CoverPeekTarget(const AgentCover &cover, PeekSide side, sf::Vector2f &target) const;
+    void ReleaseHideout(Agent &agent);
+    bool HideoutPathClear(const Interactable &object, sf::Vector2f from, sf::Vector2f to) const;
+    bool HideoutExit(const Agent &agent, const Interactable &object, sf::Vector2f &position) const;
+    bool UseHideout(Agent &agent, Interactable &object);
+    Guard *NearbyBody(const Agent &agent);
+    void UpdateBodyDrag(Agent &agent, bool held);
+    void MoveDraggedBody(Agent &agent, sf::Vector2f previous, float dt);
   };
 }

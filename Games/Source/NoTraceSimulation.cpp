@@ -1,10 +1,18 @@
 #include "NoTraceSimulation.h"
+#include "Config/NoTraceCombatConfig.h"
+#include "Config/NoTraceDistractionConfig.h"
 #include "Config/NoTraceGameplayConfig.h"
+#include "Config/NoTraceVisibilityConfig.h"
+#include "NoTraceCombatGeometry.h"
+#include "NoTraceDistractionGeometry.h"
+#include "NoTraceVisibility.h"
+#include "NoTraceWorldGeometry.h"
 #include <algorithm>
 #include <cmath>
 #include <limits>
 #include <queue>
 #include <stdexcept>
+#include <unordered_set>
 
 namespace NoTrace {
   namespace {
@@ -110,9 +118,10 @@ namespace NoTrace {
   }
 
   void Simulation::BuildBase() {
+    for (auto &agent : world_.agents) { agent.cover = {}; agent.decoyGuide = {}; agent.hideoutId = 0; agent.hideoutExit = {}; agent.hidden = false; agent.draggingGuard = -1; agent.actionPose = ActionPose::None; agent.actionPoseTime = 0.f; }
     world_.phase = GamePhase::Base;
     world_.size = {1000.f, 760.f};
-    world_.guards.clear(); world_.obstacles.clear(); world_.objects.clear(); world_.noises.clear(); world_.shots.clear();
+    world_.guards.clear(); world_.obstacles.clear(); world_.objects.clear(); world_.noises.clear(); world_.shots.clear(); world_.footsteps.clear();
     world_.objects = {
       {1, ObjectKind::Operations, {210.f, 210.f}, "OPERACIONES"},
       {2, ObjectKind::Armory, {720.f, 210.f}, "ARMERÍA"},
@@ -133,7 +142,7 @@ namespace NoTrace {
     world_.phase = GamePhase::Mission;
     world_.seed = seed;
     world_.tick = 0; world_.elapsed = 0.f; world_.alarm = false; world_.alarmCount = 0;
-    world_.objectives = 0; world_.secondary = 0; world_.events.clear(); world_.results.clear(); world_.noises.clear(); world_.shots.clear();
+    world_.objectives = 0; world_.secondary = 0; world_.events.clear(); world_.results.clear(); world_.noises.clear(); world_.shots.clear(); world_.footsteps.clear();
     nextEvent_ = 1; alarmRemaining_ = 0.f;
     std::size_t index = 0;
     const auto connected = std::ranges::count_if(world_.agents, [](const Agent &agent) { return agent.connected; });
@@ -153,7 +162,8 @@ namespace NoTrace {
   }
 
   void Simulation::BuildMission(std::uint32_t seed) {
-    world_.obstacles.clear(); world_.guards.clear(); world_.objects.clear();
+    for (auto &agent : world_.agents) { agent.cover = {}; agent.decoyGuide = {}; agent.hideoutId = 0; agent.hideoutExit = {}; agent.hidden = false; agent.draggingGuard = -1; agent.actionPose = ActionPose::None; agent.actionPoseTime = 0.f; }
+    world_.obstacles.clear(); world_.guards.clear(); world_.objects.clear(); world_.footsteps.clear();
     const float offset = static_cast<float>(seed % 3) * 38.f;
     // Los módulos mantienen corredores exteriores y accesos entre todas las zonas de objetivos.
     world_.obstacles = {
@@ -178,6 +188,11 @@ namespace NoTrace {
       {17, ObjectKind::Extraction, {105.f, 665.f}, "Extracción"},
       {18, ObjectKind::AlarmPanel, {350.f, 110.f}, "Central de seguridad"}
     };
+    for (auto &object : world_.objects) if (object.kind == ObjectKind::Hideout) object.hideoutKind = HideoutKind::TrashBin;
+    Interactable closet{19, ObjectKind::Hideout, {600.f, 650.f}, "Armario de mantenimiento"};
+    closet.hideoutKind = HideoutKind::Closet; world_.objects.push_back(closet);
+    Interactable table{20, ObjectKind::Hideout, {360.f, 650.f}, "Mesa de servicio"};
+    table.hideoutKind = HideoutKind::UnderTable; world_.objects.push_back(table);
     for (std::uint32_t index = 0; index < 3 + seed % 2; ++index) {
       Guard guard;
       guard.id = index + 1;
@@ -206,17 +221,34 @@ namespace NoTrace {
   }
 
   bool Simulation::Blocked(sf::Vector2f position, float radius) const {
-    if (position.x < radius || position.y < radius || position.x > world_.size.x - radius || position.y > world_.size.y - radius) return true;
-    for (const auto &obstacle : world_.obstacles) if (obstacle.solid) {
-      const sf::FloatRect expanded{obstacle.bounds.position - sf::Vector2f{radius, radius}, obstacle.bounds.size + sf::Vector2f{radius * 2.f, radius * 2.f}};
-      if (expanded.contains(position)) return true;
-    }
-    for (const auto &object : world_.objects) if (object.kind == ObjectKind::Door && !object.open && sf::FloatRect{{object.position.x - 12.f - radius, object.position.y - 30.f - radius}, {24.f + radius * 2.f, 60.f + radius * 2.f}}.contains(position)) return true;
-    return false;
+    return WorldGeometry::PositionBlocked(world_, position, radius);
+  }
+
+  void Simulation::ResolvePenetration(sf::Vector2f &position, float radius) const {
+    if (!std::isfinite(position.x) || !std::isfinite(position.y)) return;
+    position.x = std::clamp(position.x, radius, std::max(radius, world_.size.x - radius));
+    position.y = std::clamp(position.y, radius, std::max(radius, world_.size.y - radius));
+    if (!Blocked(position, radius)) return;
+    const auto origin = position;
+    float bestDistance = std::numeric_limits<float>::infinity();
+    const auto consider = [&](sf::Vector2f candidate) {
+      const float distance = (candidate - origin).lengthSquared();
+      if (distance < bestDistance && !Blocked(candidate, radius)) { bestDistance = distance; position = candidate; }
+    };
+    WorldGeometry::ForEachSolid(world_, [&](const sf::FloatRect &bounds) {
+      const auto expanded = WorldGeometry::Expanded(bounds, radius + SpatialConfig::CollisionSkin);
+      const auto minimum = expanded.position, maximum = expanded.position + expanded.size;
+      consider({minimum.x, origin.y}); consider({maximum.x, origin.y});
+      consider({origin.x, minimum.y}); consider({origin.x, maximum.y});
+      consider(minimum); consider(maximum); consider({minimum.x, maximum.y}); consider({maximum.x, minimum.y});
+    });
   }
 
   void Simulation::Move(sf::Vector2f &position, sf::Vector2f displacement, float radius) const {
-    const int steps = std::max(1, static_cast<int>(std::ceil(Length(displacement) / (radius * 0.5f))));
+    ResolvePenetration(position, radius);
+    if (!std::isfinite(displacement.x) || !std::isfinite(displacement.y)) return;
+    const float maximumStep = std::max(SpatialConfig::CollisionSkin, std::min(SpatialConfig::MaximumMovementStep, radius * 0.5f));
+    const int steps = std::max(1, static_cast<int>(std::ceil(Length(displacement) / maximumStep)));
     const auto increment = displacement / static_cast<float>(steps);
     for (int step = 0; step < steps; ++step) {
       const auto horizontal = position + sf::Vector2f{increment.x, 0.f};
@@ -228,10 +260,13 @@ namespace NoTrace {
 
   void Simulation::Navigate(Guard &guard, sf::Vector2f target, float speed, float dt) {
     using namespace GameplayConfig;
+    const auto previousPosition = guard.position;
+    ResolvePenetration(guard.position, AgentRadius);
+    if (guard.position != previousPosition) { guard.navigation.clear(); guard.navigationTimer = 0.f; }
     const auto rayBlocked = [this, &guard, target] {
-      for (const auto &obstacle : world_.obstacles) if (obstacle.solid && SegmentRect(guard.position, target, {obstacle.bounds.position - sf::Vector2f{AgentRadius, AgentRadius}, obstacle.bounds.size + sf::Vector2f{AgentRadius * 2.f, AgentRadius * 2.f}})) return true;
-      for (const auto &object : world_.objects) if (object.kind == ObjectKind::Door && !object.open && SegmentRect(guard.position, target, {{object.position.x - 12.f - AgentRadius, object.position.y - 30.f - AgentRadius}, {24.f + AgentRadius * 2.f, 60.f + AgentRadius * 2.f}})) return true;
-      return false;
+      bool blocked = false;
+      WorldGeometry::ForEachSolid(world_, [&](const sf::FloatRect &bounds) { blocked |= WorldGeometry::SegmentRect(guard.position, target, WorldGeometry::Expanded(bounds, AgentRadius)); });
+      return blocked;
     };
     sf::Vector2f destination = target;
     if (rayBlocked()) {
@@ -248,10 +283,14 @@ namespace NoTrace {
         previous[start] = start;
         std::queue<int> queue; queue.push(start);
         int finish = -1;
+        int closest = start;
+        float closestDistance = Distance(guard.position, target);
         while (!queue.empty()) {
           const int current = queue.front(); queue.pop();
           const int x = current % columns, y = current / columns;
           const sf::Vector2f point{(x + 0.5f) * NavigationCellSize, (y + 0.5f) * NavigationCellSize};
+          const float distance = Distance(point, target);
+          if (distance < closestDistance) { closestDistance = distance; closest = current; }
           if (Distance(point, target) <= NavigationCellSize) { finish = current; break; }
           for (const auto [dx, dy] : std::array<std::pair<int, int>, 4>{{{1, 0}, {-1, 0}, {0, 1}, {0, -1}}}) {
             const int nx = x + dx, ny = y + dy;
@@ -261,6 +300,7 @@ namespace NoTrace {
             previous[next] = current; queue.push(next);
           }
         }
+        if (finish < 0) finish = closest;
         for (int current = finish; current >= 0 && current != start; current = previous[current]) guard.navigation.push_back({(current % columns + 0.5f) * NavigationCellSize, (current / columns + 0.5f) * NavigationCellSize});
         std::ranges::reverse(guard.navigation);
       }
