@@ -9,6 +9,7 @@ from pathlib import Path, PurePosixPath
 import re
 import shutil
 import subprocess
+import uuid
 import zipfile
 
 
@@ -139,19 +140,44 @@ def compile_runner(source, destination):
     return executable
 
 
-def publish(summary, rows, source):
-    require(TRANSFER.is_dir() and EVIDENCE.is_dir(), "No existen las carpetas compartidas")
+def prepare_host_package(summary, rows):
     host = BUILD / ("lan-host-vm-" + package_label(summary))
     if not host.exists():
-        host.mkdir()
-        with zipfile.ZipFile(summary["zip"]) as zipped:
-            zipped.extractall(host)
+        staging = BUILD / (host.name + ".preparing-" + uuid.uuid4().hex)
+        staging.mkdir()
+        try:
+            with zipfile.ZipFile(summary["zip"]) as zipped:
+                zipped.extractall(staging)
+            verify_folder(staging, rows, summary)
+            try:
+                staging.rename(host)
+            except FileExistsError:
+                verify_folder(host, rows, summary)
+        except Exception as error:
+            raise RuntimeError("Copia incompleta conservada en " + str(staging) + ": " + str(error)) from error
     verify_folder(host, rows, summary)
+    return host
+
+
+def publish_archive(summary):
     target = TRANSFER / Path(summary["zip"]).name
     if not target.exists():
-        with Path(summary["zip"]).open("rb") as read, target.open("xb") as write:
+        temporary = target.with_name(target.name + ".preparing-" + uuid.uuid4().hex)
+        with Path(summary["zip"]).open("rb") as read, temporary.open("xb") as write:
             shutil.copyfileobj(read, write)
+        require(digest(temporary) == summary["zip_sha256"], "El ZIP compartido no termino de copiarse: " + str(temporary))
+        try:
+            temporary.rename(target)
+        except FileExistsError:
+            require(digest(target) == summary["zip_sha256"], "El ZIP publicado por otro proceso difiere")
     require(digest(target) == summary["zip_sha256"], "El ZIP compartido difiere")
+    return target
+
+
+def publish(summary, rows, source):
+    require(TRANSFER.is_dir() and EVIDENCE.is_dir(), "No existen las carpetas compartidas")
+    host = prepare_host_package(summary, rows)
+    target = publish_archive(summary)
     runner = compile_runner(source, runner_destination(source))
     transfer_runner = TRANSFER / "NoTraceLanQaVmRunner.exe"
     if transfer_runner.exists() and digest(transfer_runner) != digest(runner):

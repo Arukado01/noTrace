@@ -13,7 +13,9 @@ import threading
 import time
 import uuid
 import zipfile
+from unittest.mock import patch
 
+import generate_lan_qa_vm as generator
 from generate_lan_qa_vm import BUILD, LABEL, PROTOCOL, compile_runner, load_package, package_label, render, require, runner_destination
 from run_lan_qa import EVIDENCE, check_identity, check_job, write_cancel, write_json
 
@@ -67,10 +69,71 @@ def validate_revisions(folder):
     return result
 
 
+def validate_interrupted_copy(folder, revisions):
+    summary, rows = load_package(BUILD / (revisions["packagesVerified"][0] + "-summary.json"))
+    host = BUILD / ("lan-host-vm-" + summary["name"])
+
+    def interrupted_extract(archive, destination):
+        archive.extract(archive.infolist()[0], destination)
+        raise OSError("Corte de extraccion inyectado despues del primer archivo")
+
+    with patch.object(zipfile.ZipFile, "extractall", interrupted_extract):
+        try:
+            generator.prepare_host_package(summary, rows)
+        except RuntimeError:
+            pass
+        else:
+            raise RuntimeError("No se detecto la extraccion interrumpida")
+    partials = list(BUILD.glob(host.name + ".preparing-*"))
+    require(not host.exists() and len(partials) == 1, "Una extraccion incompleta publico el destino final")
+    partial_file = partials[0] / "NoTraceLanQa.exe"
+    original_partial = partial_file.read_bytes()
+    require(generator.prepare_host_package(summary, rows) == host and partial_file.read_bytes() == original_partial, "No se recupero la copia o se perdio su evidencia anterior")
+    modified = host / "NoTraceLanQa.exe"
+    modified.write_bytes(b"copia local modificada")
+    try:
+        generator.prepare_host_package(summary, rows)
+    except RuntimeError:
+        pass
+    else:
+        raise RuntimeError("Se acepto un destino local modificado")
+    require(modified.read_bytes() == b"copia local modificada", "Se sobrescribio la copia local modificada")
+    share = folder / "transfer-fixture"
+    share.mkdir()
+
+    def interrupted_copy(read, write):
+        write.write(read.read(12))
+        raise OSError("Corte de transferencia inyectado despues de doce bytes")
+
+    with patch.object(generator, "TRANSFER", share):
+        target = share / Path(summary["zip"]).name
+        with patch.object(generator.shutil, "copyfileobj", interrupted_copy):
+            try:
+                generator.publish_archive(summary)
+            except OSError:
+                pass
+            else:
+                raise RuntimeError("No se detecto la transferencia interrumpida")
+        partial_archives = list(share.glob(target.name + ".preparing-*"))
+        require(not target.exists() and len(partial_archives) == 1 and partial_archives[0].stat().st_size == 12, "Se publico o perdio el ZIP incompleto")
+        generator.publish_archive(summary)
+        require(partial_archives[0].stat().st_size == 12 and generator.digest(target) == summary["zip_sha256"], "La segunda transferencia no recupero el ZIP verificado")
+        target.write_bytes(b"ZIP local modificado")
+        try:
+            generator.publish_archive(summary)
+        except RuntimeError:
+            pass
+        else:
+            raise RuntimeError("Se acepto un ZIP compartido modificado")
+        require(target.read_bytes() == b"ZIP local modificado", "Se sobrescribio un ZIP compartido modificado")
+    return {"status": "PASS", "hostExtractionRecovered": True, "zipTransferRecovered": True, "partialCopiesPreserved": True, "modifiedCopiesPreserved": True, "partialHost": str(partials[0]), "partialZip": str(partial_archives[0]), "gameExecuted": False}
+
+
 def main():
     folder = BUILD / ("qa-tools-validation-" + uuid.uuid4().hex)
     folder.mkdir()
     revisions = validate_revisions(folder)
+    interrupted_copy = validate_interrupted_copy(folder, revisions)
     summary = {"name": LABEL, "zip": "NO_TRACE_LAN-" + LABEL + ".zip", "zip_sha256": "A" * 64, "manifest_sha256": "B" * 64, "manifest_records": 109, "executables_sha256": {"NoTraceLanQa.exe": "C" * 64}}
     source = render(summary)
     job = {"schema": 1, "sessionId": "a" * 32, "jobId": "b" * 32, "runId": "c" * 32, "packageLabel": LABEL, "protocol": PROTOCOL, "role": "client", "scenario": "mission", "host": "192.168.56.1", "port": 55041, "timeoutSeconds": 360}
@@ -96,6 +159,7 @@ def main():
     require(result.returncode == 0, "Fallo validacion C#: " + result.stdout + result.stderr)
     result_cs = json.loads(result.stdout)
     require(result_cs["malformedJobsRejected"] == len(invalid) and result_cs["status"] == "PASS", "Validacion C# incompleta")
+    require(all(result_cs.get(key) is True for key in ("interruptedCopyRecovered", "partialCopyPreserved", "modifiedDestinationPreserved")), "No se verifico la recuperacion de copia del supervisor")
     locked_folder = EVIDENCE / "QA-TOOLS-VALIDATION" / uuid.uuid4().hex
     locked_folder.mkdir(parents=True)
     locked_path = locked_folder / "cancel.json"
@@ -120,7 +184,7 @@ def main():
     files = list(Path(__file__).parent.glob("*lan_qa*.py"))
     for path in files:
         ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-    outcome = {"status": "PASS", "packageRevisions": revisions, "pythonFilesParsed": [str(p) for p in files], "pythonMalformedJobsRejected": len(invalid), "crossRunReportRejected": True, "compiledSupervisor": result_cs, "lockedReaderRetry": {"status": "PASS", "seconds": duration, "originalCancellationPreserved": True, "evidence": str(locked_folder)}, "powerShellRequired": False, "evidence": str(folder), "gameExecuted": False, "vmChanged": False}
+    outcome = {"status": "PASS", "packageRevisions": revisions, "interruptedCopy": interrupted_copy, "pythonFilesParsed": [str(p) for p in files], "pythonMalformedJobsRejected": len(invalid), "crossRunReportRejected": True, "compiledSupervisor": result_cs, "lockedReaderRetry": {"status": "PASS", "seconds": duration, "originalCancellationPreserved": True, "evidence": str(locked_folder)}, "powerShellRequired": False, "evidence": str(folder), "gameExecuted": False, "vmChanged": False}
     (folder / "RESULTADO.json").write_text(json.dumps(outcome, indent=2) + "\n", encoding="utf-8")
     (BUILD / "LAN-qa-tools-static-results.json").write_text(json.dumps(outcome, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(outcome, indent=2))

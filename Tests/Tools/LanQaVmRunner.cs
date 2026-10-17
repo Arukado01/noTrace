@@ -165,15 +165,24 @@ internal static class LanQaVmRunner {
       var seen=new HashSet<string>(StringComparer.OrdinalIgnoreCase);
       foreach(var entry in archive.Entries) { Require(SafeRelative(entry.FullName) && seen.Add(entry.FullName) && ((entry.ExternalAttributes>>16)&0xF000)!=0xA000,"Ruta o enlace no permitido en ZIP."); }
       Require(archive.Entries.Count==ManifestCount+1,"ZIP con recuento incorrecto.");
-      if(!Directory.Exists(Package)) {
-        Directory.CreateDirectory(Package);
+      PrepareDirectory(Package,delegate(string staging) {
         foreach(var entry in archive.Entries) {
-          var target=Inside(Package,entry.FullName); Directory.CreateDirectory(Path.GetDirectoryName(target));
+          var target=Inside(staging,entry.FullName); Directory.CreateDirectory(Path.GetDirectoryName(target));
           using(var read=entry.Open()) using(var write=new FileStream(target,FileMode.CreateNew,FileAccess.Write,FileShare.Read)) { read.CopyTo(write); }
         }
-      }
+      },delegate(string folder) { VerifyPackage(folder); });
     }
     Records=VerifyPackage(Package);
+  }
+  private static void PrepareDirectory(string destination,Action<string> populate,Action<string> verify) {
+    if(Directory.Exists(destination)) { verify(destination); return; }
+    var staging=destination+".preparing-"+Guid.NewGuid().ToString("N");
+    Directory.CreateDirectory(staging);
+    try {
+      populate(staging); verify(staging);
+      try { Directory.Move(staging,destination); }
+      catch(IOException) { if(!Directory.Exists(destination)) { throw; } verify(destination); }
+    } catch(Exception error) { throw new InvalidOperationException("Copia incompleta conservada en "+staging+": "+error.Message,error); }
   }
   private static void CheckJob(Dictionary<string,object> job) {
     var allowed=new[]{"schema","sessionId","jobId","runId","packageLabel","protocol","role","scenario","host","port","timeoutSeconds"};
@@ -286,7 +295,20 @@ internal static class LanQaVmRunner {
     Require(!Exportable(@"attempt-1\runtime\Content\Save.json") && !Exportable(@"runtime\Content\Config.json") && !Exportable(@"attempt-1\Save.json") && Exportable(@"attempt-1\captures\sala.png") && Exportable(@"attempt-1\qa-report.json"),"Exportacion de evidencia no aislada.");
     bool identityRejected=false; try { CheckIdentity(Map("schema",1,"runId",new string('d',32),"role","client","scenario","mission"),valid); } catch(InvalidOperationException) { identityRejected=true; }
     Require(identityRejected,"Se acepto un marcador de otra ejecucion.");
-    Console.WriteLine(Json.Serialize(Map("status","PASS","malformedJobsRejected",rejected,"unsafePathsRejected",true,"saveExportRejected",true,"crossRunReportRejected",true,"gameExecuted",false,"vmChanged",false))); return 0;
+    var copyRoot=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"copy-self-test-"+Guid.NewGuid().ToString("N")); Directory.CreateDirectory(copyRoot);
+    var destination=Path.Combine(copyRoot,"package"); bool interrupted=false;
+    Action<string> verify=delegate(string folder) { Require(File.ReadAllText(Path.Combine(folder,"payload.txt"))=="completo","Copia no verificada."); };
+    try { PrepareDirectory(destination,delegate(string folder) { File.WriteAllText(Path.Combine(folder,"payload.txt"),"parcial"); throw new IOException("Corte de copia inyectado"); },verify); }
+    catch(InvalidOperationException) { interrupted=true; }
+    var partials=Directory.GetDirectories(copyRoot,"package.preparing-*");
+    Require(interrupted && !Directory.Exists(destination) && partials.Length==1 && File.ReadAllText(Path.Combine(partials[0],"payload.txt"))=="parcial","Una copia interrumpida publico el destino final o perdio evidencia.");
+    PrepareDirectory(destination,delegate(string folder) { File.WriteAllText(Path.Combine(folder,"payload.txt"),"completo"); },verify); verify(destination);
+    Require(File.ReadAllText(Path.Combine(partials[0],"payload.txt"))=="parcial","Se sobrescribio la copia incompleta anterior.");
+    File.WriteAllText(Path.Combine(destination,"payload.txt"),"modificado"); bool preserved=false;
+    try { PrepareDirectory(destination,delegate(string folder) { throw new InvalidOperationException("No debe copiar sobre un destino existente"); },verify); }
+    catch(InvalidOperationException) { preserved=File.ReadAllText(Path.Combine(destination,"payload.txt"))=="modificado"; }
+    Require(preserved,"Se altero una copia local modificada.");
+    Console.WriteLine(Json.Serialize(Map("status","PASS","malformedJobsRejected",rejected,"unsafePathsRejected",true,"saveExportRejected",true,"crossRunReportRejected",true,"interruptedCopyRecovered",true,"partialCopyPreserved",true,"modifiedDestinationPreserved",true,"copyEvidence",copyRoot,"gameExecuted",false,"vmChanged",false))); return 0;
   }
   private static int Main(string[] args) {
     try {
