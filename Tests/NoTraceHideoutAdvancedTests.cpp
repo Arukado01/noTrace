@@ -21,6 +21,7 @@ namespace {
     auto object = snapshot["objects"][0]; object["id"] = 77; object["kind"] = static_cast<int>(ObjectKind::Hideout);
     object["position"] = {300.f, 300.f}; object["facing"] = {-1.f, 0.f}; object["hideoutKind"] = static_cast<int>(kind);
     object["footprint"] = {0.f, 0.f}; object["open"] = false; object["occupied"] = false; object["occupantAgent"] = 0; object["occupantGuard"] = 0;
+    object["locked"] = false; object["puzzleDevice"]["kind"] = static_cast<int>(PuzzleKind::None);
     object["hideoutAperture"] = SpatialConfig::ClosetDefaultAperture; object["lifted"] = false; object["inspectionProgress"] = 0.f;
     snapshot["objects"] = Json::array({object}); snapshot["guards"] = Json::array(); snapshot["obstacles"] = Json::array(); snapshot["events"] = Json::array();
     snapshot["agents"][0]["position"] = {entry.x, entry.y}; snapshot["agents"][0]["facing"] = {1.f, 0.f};
@@ -127,6 +128,31 @@ namespace {
     Step(simulation, opening);
     Require(simulation.SnapshotFor(1, true)["guards"].empty(), "Cerrar la puerta no retira las posiciones enemigas del snapshot LAN");
   }
+  void UnderTableExitFollowsFacing() {
+    for (const auto direction : std::array<sf::Vector2f, 8>{{{1.f, 0.f}, {-1.f, 0.f}, {0.f, 1.f}, {0.f, -1.f}, {1.f, 1.f}, {-1.f, 1.f}, {1.f, -1.f}, {-1.f, -1.f}}}) {
+      Simulation simulation; auto snapshot = Scenario(simulation, HideoutKind::UnderTable);
+      snapshot["phase"] = static_cast<int>(GamePhase::Base); Load(simulation, snapshot);
+      ActionCommand use; use.interact = true; Step(simulation, use);
+      Require(simulation.GetState().agents[0].hideoutId == 77, "La fixture no entra bajo la mesa");
+      ActionCommand look; look.aimX = direction.x; look.aimY = direction.y; Step(simulation, look); Step(simulation, use);
+      const auto &world = simulation.GetState(); const auto &agent = world.agents[0]; const auto offset = agent.position - sf::Vector2f{300.f, 300.f};
+      Require(!agent.hidden && agent.hideoutId == 0 && world.objects[0].occupantAgent == 0, "La salida orientada conserva una ocupación o un estado oculto obsoleto");
+      Require(offset.dot(direction) > 0.f && std::abs(offset.x * direction.y - offset.y * direction.x) < SpatialConfig::CollisionSkin, "Salir bajo la mesa usa el acceso anterior y no la dirección de visión actual");
+      Require(!WorldGeometry::PositionBlocked(world, agent.position, GameplayConfig::AgentRadius), "La salida orientada queda dentro del tablero o de otra huella sólida");
+    }
+    for (const auto direction : {sf::Vector2f{1.f, 0.f}, sf::Vector2f{0.f, -1.f}}) {
+      Simulation simulation; auto snapshot = Scenario(simulation, HideoutKind::UnderTable); snapshot["phase"] = static_cast<int>(GamePhase::Base); Load(simulation, snapshot);
+      ActionCommand use; use.interact = true; Step(simulation, use); ActionCommand look; look.aimX = direction.x; look.aimY = direction.y; Step(simulation, look);
+      snapshot = simulation.SnapshotFor(1);
+      const auto wall = direction.x > 0.f ? Json{{"position", {340.f, 250.f}}, {"size", {16.f, 100.f}}} : Json{{"position", {250.f, 260.f}}, {"size", {100.f, 16.f}}};
+      auto obstacle = wall; obstacle["cover"] = 2; obstacle["solid"] = true; obstacle["name"] = "Salida orientada bloqueada"; snapshot["obstacles"].push_back(obstacle); Load(simulation, snapshot); Step(simulation, use);
+      const auto &agent = simulation.GetState().agents[0];
+      Require(agent.hidden && agent.hideoutId == 77 && agent.position == sf::Vector2f{300.f, 300.f}, "Una salida frontal bloqueada fuerza la salida por el acceso anterior o atraviesa la pared");
+      Require(simulation.GetState().objects[0].occupantAgent == 1 && !simulation.GetState().message.empty(), "Rechazar la salida pierde la ocupación o no informa al jugador");
+      look.aimX = -direction.x; look.aimY = -direction.y; Step(simulation, look); Step(simulation, use);
+      Require(!simulation.GetState().agents[0].hidden, "Girar hacia un lado libre no permite salir después de un rechazo válido");
+    }
+  }
   void WitnessedInspection() {
     for (int witness = 0; witness < 5; ++witness) {
       Simulation simulation; auto snapshot = Scenario(simulation, HideoutKind::UnderTable);
@@ -184,7 +210,7 @@ namespace {
 
 int main() {
   try {
-    UnderTableSight(); ClosetSight(); ClosetEntranceAndExit(); HiddenOrientationAndNetworkPrivacy(); WitnessedInspection(); DifferentOccupantIsDetected();
+    UnderTableSight(); ClosetSight(); ClosetEntranceAndExit(); HiddenOrientationAndNetworkPrivacy(); UnderTableExitFollowsFacing(); WitnessedInspection(); DifferentOccupantIsDetected();
     std::cout << "PASS escondites avanzados: " << checks << " comprobaciones de visión, aberturas, accesos e inspección observada\n";
     return 0;
   } catch (const std::exception &error) { std::cerr << "FAIL escondites avanzados tras " << checks << ": " << error.what() << '\n'; return 1; }

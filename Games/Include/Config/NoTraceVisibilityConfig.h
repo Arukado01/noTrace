@@ -3,9 +3,13 @@
 #include <cstddef>
 
 namespace NoTrace::VisibilityConfig {
-  inline constexpr float StandingRange = 400.f;
-  inline constexpr float CrouchedRange = 330.f;
-  inline constexpr float ProneRange = 260.f;
+  inline constexpr float ReferenceStandingRange = 400.f;
+  inline constexpr float ReferenceCrouchedRange = 330.f;
+  inline constexpr float ReferenceProneRange = 260.f;
+  inline constexpr float PlayerRangeScale = 0.875f;
+  inline constexpr float StandingRange = ReferenceStandingRange * PlayerRangeScale;
+  inline constexpr float CrouchedRange = ReferenceCrouchedRange * PlayerRangeScale;
+  inline constexpr float ProneRange = ReferenceProneRange * PlayerRangeScale;
   inline constexpr float CloseRange = 32.f;
   inline constexpr float CosHalfAngle = -0.34202014f;
   inline constexpr float CellSize = 24.f;

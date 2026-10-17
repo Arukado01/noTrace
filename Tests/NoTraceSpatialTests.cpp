@@ -1,5 +1,6 @@
 #include "NoTraceSimulation.h"
 #include "NoTraceWorldGeometry.h"
+#include "Config/NoTraceNavigationConfig.h"
 #include <cmath>
 #include <iostream>
 #include <stdexcept>
@@ -22,6 +23,7 @@ namespace {
   Json Empty(Simulation &simulation, sf::Vector2f position = {120.f, 200.f}) {
     simulation.ResetBase();
     auto snapshot = simulation.SnapshotFor(1);
+    snapshot["mode"] = static_cast<int>(SimulationMode::Operation);
     snapshot["obstacles"] = Json::array(); snapshot["objects"] = Json::array(); snapshot["guards"] = Json::array();
     snapshot["agents"][0]["position"] = {position.x, position.y};
     return snapshot;
@@ -148,6 +150,45 @@ namespace {
     RequireClear(simulation, simulation.GetState().guards[0].position);
   }
 
+  void GuardCornerRecovery() {
+    for (const auto state : {GuardState::Patrol, GuardState::Investigate, GuardState::Search, GuardState::Alert}) {
+      Simulation simulation, donor;
+      auto snapshot = Empty(simulation, {100.f, 650.f}); snapshot["phase"] = static_cast<int>(GamePhase::Mission); snapshot["agents"][0]["hidden"] = true;
+      donor.ResetBase(); donor.Deploy(0); auto guard = donor.SnapshotFor(1)["guards"][0];
+      guard["position"] = {160.f, 220.f}; guard["patrol"] = Json::array({{450.f, 220.f}}); guard["waypoint"] = 0;
+      guard["facing"] = {1.f, 0.f}; guard["state"] = static_cast<int>(state); guard["lastKnown"] = {450.f, 220.f};
+      snapshot["guards"] = Json::array({guard});
+      snapshot["obstacles"] = Json::array({Wall({{230.f, 150.f}, {24.f, 220.f}}), Wall({{230.f, 150.f}, {150.f, 20.f}})});
+      Load(simulation, snapshot);
+      for (unsigned int frame = 0; frame < 180; ++frame) {
+        const auto previous = simulation.GetState().guards[0].position; Advance(simulation);
+        const auto position = simulation.GetState().guards[0].position;
+        RequireClear(simulation, position);
+        Require((position - previous).length() <= GameplayConfig::GuardAlertSpeed * 0.1f + SpatialConfig::CollisionSkin, "La recuperación de esquina teletransporta al guardia");
+      }
+      Require(simulation.GetState().guards[0].position.x > 420.f, "La patrulla, búsqueda o investigación queda oscilando antes de una esquina");
+    }
+    Simulation simulation, donor;
+    auto snapshot = Empty(simulation, {100.f, 650.f}); snapshot["phase"] = static_cast<int>(GamePhase::Mission); snapshot["agents"][0]["hidden"] = true;
+    donor.ResetBase(); donor.Deploy(0); auto guard = donor.SnapshotFor(1)["guards"][0];
+    guard["position"] = {140.f, 300.f}; guard["patrol"] = Json::array({{300.f, 300.f}, {140.f, 500.f}}); guard["waypoint"] = 0;
+    guard["facing"] = {1.f, 0.f}; guard["state"] = static_cast<int>(GuardState::Patrol);
+    snapshot["guards"] = Json::array({guard}); snapshot["obstacles"] = Json::array({Wall({{250.f, 250.f}, {100.f, 100.f}})}); Load(simulation, snapshot);
+    bool rejected = false, alternative = false;
+    for (unsigned int frame = 0; frame < 160; ++frame) {
+      const auto previous = simulation.GetState().guards[0].position; Advance(simulation); const auto &current = simulation.GetState().guards[0];
+      RequireClear(simulation, current.position);
+      Require((current.position - previous).length() <= GameplayConfig::GuardAlertSpeed * 0.1f + SpatialConfig::CollisionSkin, "Rechazar un destino inaccesible cambia instantáneamente la posición");
+      rejected |= current.navigationRejectTime > 0.f && current.navigationFailures >= NavigationConfig::RejectFailure;
+      alternative |= current.position.y > 470.f;
+    }
+    Require(rejected && alternative, "El destino dentro de una pared no se rechaza temporalmente ni permite continuar la patrulla");
+    snapshot["obstacles"] = Json::array({Wall({{200.f, 200.f}, {100.f, 100.f}})});
+    snapshot["guards"][0]["position"] = {190.f, 190.f}; snapshot["guards"][0]["patrol"] = Json::array({{350.f, 160.f}}); Load(simulation, snapshot);
+    for (unsigned int frame = 0; frame < 60; ++frame) { Advance(simulation); RequireClear(simulation, simulation.GetState().guards[0].position); }
+    Require(simulation.GetState().guards[0].position.x > 320.f, "La huella circular válida junto a una esquina queda atrapada por una expansión rectangular ficticia");
+  }
+
   void WallCoverAndPeek() {
     Simulation simulation;
     auto snapshot = Empty(simulation, {175.f, 180.f});
@@ -217,7 +258,7 @@ namespace {
 
 int main() {
   try {
-    PropertiesAndFootprints(); SolidMovement(); GuardNavigation(); WallCoverAndPeek(); MalformedCoverSnapshots();
+    PropertiesAndFootprints(); SolidMovement(); GuardNavigation(); GuardCornerRecovery(); WallCoverAndPeek(); MalformedCoverSnapshots();
     std::cout << "PASS spatial: " << checks << " comprobaciones de huellas, colisiones, navegación, cobertura y asomado físico\n";
     return 0;
   } catch (const std::exception &error) {

@@ -19,6 +19,7 @@ namespace {
   Json Empty(Simulation &simulation, sf::Vector2f position = {150.f, 180.f}, bool second = false) {
     simulation.ResetBase(second ? std::vector<PlayerProfile>{{1, "Uno"}, {2, "Dos"}} : std::vector<PlayerProfile>{{1, "Uno"}});
     auto snapshot = simulation.SnapshotFor(1);
+    snapshot["mode"] = static_cast<int>(SimulationMode::Operation);
     snapshot["objects"] = Json::array(); snapshot["obstacles"] = Json::array(); snapshot["guards"] = Json::array(); snapshot["events"] = Json::array();
     for (auto &agent : snapshot["agents"]) agent["position"] = {position.x, position.y};
     return snapshot;
@@ -61,7 +62,10 @@ namespace {
       Step(simulation, use);
       Require(!AgentAt(simulation).hidden && AgentAt(simulation).hideoutId == 0 && simulation.GetState().objects[0].occupantAgent == 0, "E no libera la ocupación del escondite");
       Require(!WorldGeometry::HideoutOccupied(simulation.GetState().objects[0]), "Recargar el estado completo deja ocupación residual tras salir");
-      Require(AgentAt(simulation).position == entry && !WorldGeometry::PositionBlocked(simulation.GetState(), AgentAt(simulation).position, GameplayConfig::AgentRadius), "La salida no devuelve a una posición exterior válida");
+      const auto exitOffset = AgentAt(simulation).position - hiddenPosition;
+      const bool expectedExit = kind == HideoutKind::UnderTable ? exitOffset.dot(AgentAt(simulation).facing) > 0.f &&
+          std::abs(exitOffset.x * AgentAt(simulation).facing.y - exitOffset.y * AgentAt(simulation).facing.x) < SpatialConfig::CollisionSkin : AgentAt(simulation).position == entry;
+      Require(expectedExit && !WorldGeometry::PositionBlocked(simulation.GetState(), AgentAt(simulation).position, GameplayConfig::AgentRadius), "La salida no respeta la orientación actual de la mesa o deja una huella exterior bloqueada");
       simulation.Step(0.1f, {{2, use}});
       Require(AgentAt(simulation, 1).hidden && simulation.GetState().objects[0].occupantAgent == 2, "Otro agente no puede reutilizar el escondite liberado tras recargar");
       simulation.Step(0.1f, {{2, use}});
