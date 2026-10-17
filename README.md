@@ -29,19 +29,23 @@ El archivo secundario y el repetidor pueden añadir recompensas u órdenes priva
 
 ## Sigilo y entorno
 
-Caminar, correr, agacharse y tumbarse cambian la velocidad, el ruido y la distancia a la que pueden verte. Pulsa **Z** para tumbarte: al introducir una dirección te arrastras automáticamente; al soltarla permaneces tumbado. Pulsa Z otra vez para levantarte. La cobertura baja protege a quien está agachado o tumbado; la alta interrumpe la visión. Solo los escondites señalados permiten ocultarse explícitamente.
+Caminar, correr, agacharse y tumbarse cambian la velocidad, el ruido y la distancia a la que pueden verte. Pulsa **Z** para tumbarte: al introducir una dirección te arrastras automáticamente; al soltarla permaneces tumbado. Pulsa Z otra vez para levantarte. Los muebles sólidos bloquean el movimiento según su huella en el suelo. La cobertura baja protege a quien está agachado o tumbado; la alta interrumpe la visión. **F** permite adherirse a una cobertura alta y deslizarse por ella; mantén **Alt + dirección lateral** cerca de un extremo para asomarte y suelta para volver.
+
+La niebla de guerra oculta enemigos, objetos e indicadores fuera de tu campo de visión o detrás de una superficie opaca. Los pasos de una patrulla cercana pueden producir pistas breves y aproximadas en el suelo, sin revelar su cuerpo, identidad ni equipo. Los personajes utilizan sprites 2D de pixel art con fotogramas de movimiento.
 
 Los guardias distinguen patrulla, sospecha, investigación, alerta y búsqueda. Sus conos de observación, los obstáculos y tu postura afectan a la detección. Un ruido los atrae a su origen; no les revela automáticamente dónde estás. Después de perderte buscan en la última posición que pudieron observar.
 
-Lanza señuelos, golpea una pared, abre puertas, recupera archivos y usa herramientas para desactivar cámaras o sabotear la central. El repetidor necesita agentes próximos: en cooperación se opera más rápido; también puede completarse individualmente.
+Mantén **G** para preparar un señuelo: la guía muestra su recorrido y destino, hasta 340 unidades, limitado por obstáculos y bordes. Suelta G para lanzarlo; clic derecho o Escape cancela. Pulsa **Q** mirando hacia una pared cercana para golpearla y atraer a los guardias que puedan oírla. Abre puertas, recupera archivos y usa herramientas para desactivar cámaras o sabotear la central. El repetidor necesita agentes próximos: en cooperación se opera más rápido; también puede completarse individualmente.
+
+Los botes de basura y armarios compatibles admiten un único ocupante: agente o cuerpo neutralizado. **E** entra y sale por un acceso libre; dentro no puedes moverte ni disparar. Las mesas señaladas permiten ocultarte tumbado y no almacenan cuerpos. Una patrulla no descubre un cuerpo almacenado simplemente por pasar junto al contenedor.
 
 ## CQC y armas
 
-Acércate a un guardia y pulsa **Q** en cuatro acciones separadas: agarre, derribo, inmovilización e incapacitación. Las armas letales eliminan; las no letales y el CQC dejan inconsciente al guardia temporalmente. Apunta con el cursor táctico. Cada disparo consume munición y queda registrado aunque no impacte; las superficies sólidas detienen su trayectoria.
+Acércate a un guardia y pulsa **R** en cuatro acciones separadas: agarre, derribo, inmovilización e incapacitación. Apunta con el cursor táctico a cabeza, torso o extremidades: un impacto letal en la cabeza elimina inmediatamente y uno no letal deja inconsciente. Los impactos en otras zonas acumulan daño o aturdimiento. Cada disparo consume munición y queda registrado aunque no impacte; las superficies sólidas detienen su trayectoria según su altura.
 
-Los guardias que te detectan pueden disparar cuando tienen línea de visión y atacar cuerpo a cuerpo a corta distancia. Su munición es finita; al agotarla intentan acercarse para atacar. El HUD muestra únicamente la vida y la resistencia de tu agente. Correr y ejecutar CQC consumen resistencia; descansar permite recuperarla. La salud agotada por daño letal elimina al agente. La incapacitación temporal permite recuperarse o recibir ayuda de un compañero.
+Los guardias que te detectan pueden disparar cuando tienen línea de visión y atacar cuerpo a cuerpo a corta distancia. Estar tumbado evita el daño directo de sus balas; sus ataques cuerpo a cuerpo siguen siendo peligrosos. Su munición es finita; al agotarla intentan acercarse para atacar. Los iconos distinguen sospecha, detección confirmada, combate e inconsciencia cuando puedes ver al guardia. El HUD muestra únicamente la vida y la resistencia de tu agente. Correr y ejecutar CQC consumen resistencia; descansar permite recuperarla. La salud agotada por daño letal elimina al agente. La incapacitación temporal permite recuperarse o recibir ayuda de un compañero.
 
-Pulsa **B** cerca de un guardia neutralizado para arrastrarlo; pulsa **E** junto a un escondite para ocultar el cuerpo. Las patrullas reaccionan a los cuerpos que encuentran. En Doble filo un agente incapacitado puede ser reanimado por un compañero con E; incapacitar no satisface la orden de eliminar.
+Mantén **E** cerca de un guardia neutralizado para arrastrar un solo cuerpo y suelta para dejarlo. Acércalo a un contenedor vacío compatible y pulsa E para almacenarlo. Las paredes y los muebles bloquean tanto al agente como al cuerpo. Las patrullas reaccionan a los cuerpos expuestos que encuentran. En Doble filo un agente incapacitado puede ser reanimado por un compañero con E; incapacitar no satisface la orden de eliminar.
 
 ## Órdenes privadas y traición
 
@@ -65,13 +69,17 @@ Maestro exige completar los objetivos obligatorios, extraerse y terminar sin arm
 | Tumbarse / levantarse | Z |
 | Arrastrarse tumbado | Moverse tras tumbarse con Z |
 | Interactuar / extraerse / reanimar | E |
-| CQC por etapas | Q |
+| CQC por etapas | R |
 | Apuntar | Cursor táctico |
 | Acercar / alejar la vista | Rueda del ratón |
 | Disparo letal / no letal | Clic izquierdo / derecho |
-| Lanzar señuelo | G |
-| Golpear pared | K |
-| Arrastrar / soltar cuerpo | B |
+| Preparar / lanzar señuelo | Mantener / soltar G |
+| Cancelar preparación del señuelo | Clic derecho o Escape |
+| Golpear pared cercana | Q |
+| Arrastrar / soltar cuerpo | Mantener / soltar E |
+| Entrar / salir de un escondite o almacenar cuerpo | E contextual |
+| Adherirse / salir de cobertura alta | F |
+| Asomarse desde un extremo de cobertura | Alt + dirección lateral |
 | Herramienta contextual | T |
 | Mostrar orden privada | Tab |
 | Sala de despliegue en la base | F2 |

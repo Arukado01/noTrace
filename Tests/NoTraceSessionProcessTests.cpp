@@ -1,4 +1,5 @@
 #include "NoTraceSession.h"
+#include "NoTraceCombatGeometry.h"
 
 #include <SFML/System/Clock.hpp>
 #include <SFML/System/Sleep.hpp>
@@ -71,12 +72,15 @@ namespace {
       if (world.phase == GamePhase::Mission && world.elapsed >= 0.65f && local.privateOrder == PrivateOrder::Traitor) {
         const auto other = std::ranges::find_if(world.agents, [&](const Agent &agent) { return agent.id != local.id && agent.connected && agent.alive; });
         Require(other != world.agents.end(), "El traidor no encontró otro agente");
-        auto direction = other->position - local.position;
+        const auto head = CombatGeometry::ActorVolumes(other->position, other->facing, other->stance).front().center;
+        auto direction = head - local.position;
         const float length = std::hypot(direction.x, direction.y);
         Require(length > 0.f, "Los agentes ocuparon exactamente la misma posición");
         direction /= length;
         command.aimX = direction.x;
         command.aimY = direction.y;
+        const float headHeight = CombatGeometry::HeadCenterHeight(other->stance) + (other->stance == Stance::Prone ? 0.f : CombatConfig::HeadHeight * 0.25f);
+        command.aimSlope = (headHeight - CombatGeometry::WeaponHeight(local.stance)) / length;
         if (!fired) {
           command.fireLethal = true;
           fired = true;

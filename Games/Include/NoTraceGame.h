@@ -26,7 +26,7 @@ namespace NoTrace {
 
   private:
     friend struct EngineTests::GuiAccess;
-    enum Action { Left, Right, Up, Down, Run, Crouch, Prone, Interact, Cqc, Lethal, NonLethal, Decoy, Knock, Drag, Tool, Orders, Lobby, Count };
+    enum Action { Left, Right, Up, Down, Run, Crouch, Prone, Interact, Cqc, Lethal, NonLethal, Decoy, Knock, Drag, Tool, Orders, Lobby, WallCover, Peek, Count };
     enum class Page { Connection, Operations, Armory, Intelligence, Deployment, Results, Pause, Options, None };
     Session session_;
     WorldRenderer worldRenderer_;
@@ -54,6 +54,8 @@ namespace NoTrace {
     bool paused_ = false;
     bool showOrders_ = false;
     bool ready_ = false;
+    bool preparingDecoy_ = false;
+    bool cancelledDecoy_ = false;
     std::uint64_t lastAudioEvent_ = 0;
     std::unique_ptr<sf::Sound> cue_;
 

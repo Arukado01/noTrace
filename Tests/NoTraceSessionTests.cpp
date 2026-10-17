@@ -1,5 +1,8 @@
 #include "NoTraceSession.h"
 #include "Config/NoTraceGameplayConfig.h"
+#include "NoTraceCombatGeometry.h"
+#include "NoTraceWorldGeometry.h"
+#include "Config/NoTraceDistractionConfig.h"
 
 #include <SFML/System/Clock.hpp>
 #include <SFML/System/Sleep.hpp>
@@ -130,7 +133,7 @@ namespace {
 
     void Command(std::uint64_t sequence, float x, float y, std::uint32_t flags = 0, bool oldEpoch = false) {
       const Json message{{"type", "command"}, {"seq", sequence}, {"epoch", oldEpoch ? epoch + 1 : epoch},
-                         {"move", {x, y}}, {"aim", {0, 0}}, {"flags", flags}, {"player", 1},
+                         {"move", {x, y}}, {"aim", {0, 0}}, {"slope", 0.f}, {"decoyDistance", 340.f}, {"flags", flags}, {"player", 1},
                          {"objectives", 99}, {"score", 999999}, {"guards", Json::array()}};
       Require(clientNetwork.Send(NetworkConfig::HostId, message.dump()), "No se pudo enviar mando de protocolo");
     }
@@ -278,6 +281,7 @@ namespace {
       const auto direction = (FindAgent(pair.host.GetWorld(), 2).position - FindAgent(pair.host.GetWorld(), 1).position).normalized();
       ActionCommand fire;
       fire.aimX = direction.x; fire.aimY = direction.y;
+      fire.aimSlope = (CombatGeometry::HeadCenterHeight(Stance::Standing) + CombatConfig::HeadHeight * 0.25f - CombatGeometry::WeaponHeight(Stance::Standing)) / Distance(FindAgent(pair.host.GetWorld(), 1).position, FindAgent(pair.host.GetWorld(), 2).position);
       fire.fireLethal = true;
       pair.host.Submit(fire);
       ActionCommand pointerMoved;
@@ -293,6 +297,7 @@ namespace {
       const auto direction = (FindAgent(pair.host.GetWorld(), 1).position - FindAgent(pair.host.GetWorld(), 2).position).normalized();
       ActionCommand fire;
       fire.aimX = direction.x; fire.aimY = direction.y;
+      fire.aimSlope = (CombatGeometry::HeadCenterHeight(Stance::Standing) + CombatConfig::HeadHeight * 0.25f - CombatGeometry::WeaponHeight(Stance::Standing)) / Distance(FindAgent(pair.host.GetWorld(), 1).position, FindAgent(pair.host.GetWorld(), 2).position);
       fire.fireLethal = true;
       pair.client.Submit(fire);
       ActionCommand pointerMoved;
@@ -311,9 +316,9 @@ namespace {
       pair.Tick();
       const auto direction = (FindAgent(pair.host.GetWorld(), 1).position - FindAgent(pair.host.GetWorld(), 2).position).normalized();
       const Json fire{{"type", "command"}, {"seq", 1}, {"epoch", pair.epoch},
-                      {"move", {0, 0}}, {"aim", {direction.x, direction.y}}, {"flags", 64}};
+                      {"move", {0, 0}}, {"aim", {direction.x, direction.y}}, {"slope", (CombatGeometry::HeadCenterHeight(Stance::Standing) + CombatConfig::HeadHeight * 0.25f - CombatGeometry::WeaponHeight(Stance::Standing)) / Distance(FindAgent(pair.host.GetWorld(), 1).position, FindAgent(pair.host.GetWorld(), 2).position)}, {"decoyDistance", 340.f}, {"flags", 64}};
       const Json pointerMoved{{"type", "command"}, {"seq", 2}, {"epoch", pair.epoch},
-                              {"move", {0, 0}}, {"aim", {-direction.x, -direction.y}}, {"flags", 0}};
+                              {"move", {0, 0}}, {"aim", {-direction.x, -direction.y}}, {"slope", 0.f}, {"decoyDistance", 340.f}, {"flags", 0}};
       Require(pair.clientNetwork.Send(1, fire.dump()) && pair.clientNetwork.Send(1, pointerMoved.dump()), "No se enviaron ambos mandos de regresión");
       pair.Advance(8);
       Require(!FindAgent(pair.host.GetWorld(), 1).alive, "La recepción de varios mandos cambió la dirección del disparo pendiente");
@@ -358,6 +363,125 @@ namespace {
     Require(incompatible.id == 0 && (incompatible.rejected || incompatible.disconnected), "Se aceptó una versión incompatible");
   }
 
+  void VisibilityAndCoverOnTheWire() {
+    Pair pair;
+    pair.Deploy();
+    auto &world = const_cast<WorldState &>(pair.host.GetWorld());
+    world.objects.clear(); world.guards.clear(); world.noises.clear(); world.shots.clear(); world.events.clear();
+    world.obstacles = {{{{220.f, 80.f}, {20.f, 220.f}}, CoverKind::High, true, "Separacion"}};
+    world.agents[0].position = {120.f, 180.f}; world.agents[0].facing = {1.f, 0.f};
+    world.agents[1].position = {252.1f, 180.f}; world.agents[1].facing = {1.f, 0.f};
+    Guard visible; visible.id = 31; visible.position = {350.f, 180.f}; visible.facing = {1.f, 0.f};
+    Guard hidden; hidden.id = 32; hidden.position = {165.f, 180.f}; hidden.facing = {-1.f, 0.f};
+    world.guards = {visible, hidden};
+    Until([&] {
+      return pair.client.GetWorld().visibility.observer == 2 && pair.client.GetWorld().guards.size() == 1 && pair.client.GetWorld().guards[0].id == 31;
+    }, [&] { pair.Tick(true); });
+    Require(pair.host.GetWorld().guards.size() == 2, "El filtro de red modifico el mundo autoritativo");
+    Require(pair.client.GetWorld().agents.size() == 1 && pair.client.GetWorld().agents[0].id == 2, "La red revela un agente tras pared");
+    ActionCommand cover; cover.coverToggle = true; cover.aimX = 1.f; cover.aimSlope = 0.25f;
+    pair.client.Submit(cover); pair.client.Submit({});
+    Until([&] { return FindAgent(pair.host.GetWorld(), 2).cover.active && FindAgent(pair.client.GetWorld(), 2).cover.active; }, [&] { pair.Tick(true); });
+    Require(FindAgent(pair.host.GetWorld(), 2).cover.anchor == FindAgent(pair.client.GetWorld(), 2).cover.anchor, "La cobertura LAN no comparte el ancla del anfitrion");
+    cover.coverToggle = true; cover.aimSlope = -0.5f;
+    pair.client.Submit(cover); pair.Advance(12, true);
+    Require(!FindAgent(pair.host.GetWorld(), 2).cover.active && !FindAgent(pair.client.GetWorld(), 2).cover.active, "La salida de cobertura no se sincroniza");
+    Require(std::abs(FindAgent(pair.host.GetWorld(), 2).aimSlope + 0.5f) < 0.001f, "La red perdio la elevacion del apuntado");
+  }
+
+  void HideoutsDraggingAndDistractionsOnTheWire() {
+    Pair pair; pair.Deploy();
+    auto &world = const_cast<WorldState &>(pair.host.GetWorld());
+    world.objects.clear(); world.obstacles.clear(); world.guards.clear(); world.noises.clear(); world.events.clear(); world.footsteps.clear();
+    world.agents[0].position = {800.f, 650.f};
+    auto &remote = world.agents[1]; remote.position = {150.f, 180.f}; remote.facing = {1.f, 0.f}; remote.actionCooldown = 0.f;
+    Interactable closet; closet.id = 90; closet.kind = ObjectKind::Hideout; closet.hideoutKind = HideoutKind::Closet;
+    closet.position = {210.f, 180.f}; closet.name = "Armario"; world.objects.push_back(closet);
+    ActionCommand interact; interact.interact = true; interact.dragBody = true;
+    pair.client.Submit(interact);
+    Until([&] { return FindAgent(pair.host.GetWorld(), 2).hidden && FindAgent(pair.client.GetWorld(), 2).hidden; }, [&] { pair.Tick(true); });
+    const auto inside = FindAgent(pair.host.GetWorld(), 2).position;
+    const int ammo = FindAgent(pair.host.GetWorld(), 2).loadout.lethalAmmo;
+    ActionCommand incompatible; incompatible.moveX = 1.f; incompatible.fireLethal = true;
+    pair.client.Submit(incompatible); pair.Advance(12, true);
+    Require(FindAgent(pair.host.GetWorld(), 2).position == inside && FindAgent(pair.host.GetWorld(), 2).loadout.lethalAmmo == ammo, "Mover o disparar dentro del armario no fue rechazado por el host");
+    pair.client.Submit(interact);
+    Until([&] { return !FindAgent(pair.host.GetWorld(), 2).hidden && !FindAgent(pair.client.GetWorld(), 2).hidden; }, [&] { pair.Tick(true); });
+    pair.client.Submit({}); pair.Advance(8, true);
+    Require(!WorldGeometry::PositionBlocked(world, FindAgent(world, 2).position, GameplayConfig::AgentRadius), "La salida LAN del escondite penetra su volumen");
+    Guard body; body.id = 77; body.position = FindAgent(world, 2).position + sf::Vector2f{20.f, 0.f};
+    body.state = GuardState::Incapacitated; body.stun = 100.f; body.incapacityRemaining = 80.f; world.guards.push_back(body);
+    ActionCommand drag; drag.dragBody = true; pair.client.Submit(drag);
+    Until([&] { return FindAgent(world, 2).draggingGuard == 77; }, [&] { pair.Tick(true); });
+    drag.moveY = 1.f; pair.client.Submit(drag); pair.Advance(15, true);
+    Require(Distance(world.guards[0].position, FindAgent(world, 2).position) <= GameplayConfig::BodyDragOffset + 1.f, "El cuerpo LAN no sigue al agente");
+    pair.client.Submit({});
+    Until([&] { return FindAgent(world, 2).draggingGuard < 0; }, [&] { pair.Tick(true); });
+    const auto released = world.guards[0].position;
+    pair.Advance(8, true);
+    Require(world.guards[0].position == released, "Soltar E dejó un cuerpo LAN bloqueado en arrastre");
+    pair.client.Submit(interact);
+    Until([&] { return world.guards[0].bodyHidden; }, [&] { pair.Tick(true); });
+    pair.client.Submit({}); pair.Advance(10, true);
+    Require(world.objects[0].occupantGuard == 77 && world.guards[0].storedIn == 90, "El host no conserva la ocupación del cuerpo almacenado");
+    Require(pair.client.GetWorld().guards.empty(), "La instantánea reveló el cuerpo almacenado");
+    Require(!pair.client.GetWorld().objects.empty() && pair.client.GetWorld().objects[0].occupied && pair.client.GetWorld().objects[0].occupantGuard == 0, "El cliente no distingue un contenedor ocupado o recibe la identidad del cuerpo");
+    world.objects.clear(); world.guards.clear(); world.noises.clear(); remote.position = {150.f, 350.f}; remote.actionCooldown = 0.f; remote.hideoutId = 0; remote.hidden = false;
+    ActionCommand decoy; decoy.aimX = 1.f; decoy.throwDecoy = true; decoy.decoyDistance = 300.f;
+    const int decoys = remote.loadout.decoys;
+    pair.client.Submit(decoy); pair.client.Submit({});
+    Until([&] { return remote.loadout.decoys == decoys - 1; }, [&] { pair.Tick(true); });
+    Require(!world.noises.empty() && std::abs(world.noises.back().position.x - 450.f) < 1.f, "Un señuelo pendiente perdió su dirección o distancia en la red");
+    pair.Advance(50, true); world.noises.clear(); remote.position = {150.f, 180.f}; remote.facing = {1.f, 0.f}; remote.actionCooldown = 0.f;
+    world.obstacles.push_back({{{170.f, 100.f}, {20.f, 160.f}}, CoverKind::High, true, "Pared"});
+    ActionCommand knock; knock.knock = true; knock.aimX = 1.f; pair.client.Submit(knock);
+    Until([&] { return !world.noises.empty(); }, [&] { pair.Tick(true); });
+    Require(std::abs(world.noises.back().position.x - 170.f) < 0.1f && world.noises.back().actor == 2, "El golpe LAN no nace en la pared validada");
+  }
+
+  void AuthoritativeDecoyGuideOnTheWire() {
+    Pair pair; pair.Deploy();
+    auto &world = const_cast<WorldState &>(pair.host.GetWorld());
+    world.objects.clear(); world.obstacles.clear(); world.guards.clear(); world.noises.clear(); world.events.clear(); world.footsteps.clear();
+    world.agents[0].position = {150.f, 450.f}; world.agents[0].facing = {1.f, 0.f};
+    auto &remote = world.agents[1]; remote.position = {150.f, 350.f}; remote.facing = {1.f, 0.f}; remote.stance = Stance::Prone;
+    Interactable furniture; furniture.id = 99; furniture.kind = ObjectKind::Terminal; furniture.position = {450.f, 350.f}; furniture.name = "Mueble fuera de visión";
+    world.objects.push_back(furniture);
+    ActionCommand prepare; prepare.prepareDecoy = true; prepare.aimX = 1.f; prepare.decoyDistance = DistractionConfig::MaximumDecoyDistance;
+    const int decoys = remote.loadout.decoys;
+    remote.actionCooldown = 0.5f;
+    pair.host.Submit(prepare);
+    pair.client.Submit(prepare);
+    pair.Advance(8);
+    Require(!remote.decoyGuide.active && remote.loadout.decoys == decoys, "El host publica una guía disponible durante una acción incompatible");
+    remote.actionCooldown = 0.f;
+    Until([&] { return FindAgent(pair.client.GetWorld(), 2).decoyGuide.active; }, [&] { pair.Tick(); });
+    const auto destination = remote.decoyGuide.destination;
+    Require(remote.decoyGuide.blocked && destination.x < furniture.position.x && pair.client.GetWorld().objects.empty(), "La guía LAN no valida el mueble que el cliente no conoce");
+    Require(FindAgent(pair.client.GetWorld(), 2).decoyGuide.destination == destination && remote.loadout.decoys == decoys, "Preparar un señuelo consume inventario o altera el destino autoritativo");
+    Require(FindAgent(world, 1).decoyGuide.active && !FindAgent(pair.client.GetWorld(), 1).decoyGuide.active, "Se filtró una guía de lanzamiento ajena");
+    pair.host.Submit({});
+    ActionCommand launch; launch.throwDecoy = true; launch.aimX = 1.f; launch.decoyDistance = prepare.decoyDistance;
+    pair.client.Submit(launch); pair.client.Submit({});
+    Until([&] { return remote.loadout.decoys == decoys - 1 && !FindAgent(pair.client.GetWorld(), 2).decoyGuide.active; }, [&] { pair.Tick(true); });
+    Require(!world.noises.empty() && world.noises.back().position == destination, "El lanzamiento LAN difiere de su guía validada por el host");
+  }
+
+  void HiddenFootstepsOnTheWire() {
+    Pair pair; pair.Deploy();
+    auto &world = const_cast<WorldState &>(pair.host.GetWorld());
+    world.objects.clear(); world.guards.clear(); world.obstacles.clear(); world.events.clear();
+    world.agents[0].position = {800.f, 650.f}; world.agents[1].position = {150.f, 180.f}; world.agents[1].facing = {1.f, 0.f};
+    world.obstacles.push_back({{{240.f, 80.f}, {20.f, 220.f}}, CoverKind::High, true, "Pared"});
+    Guard guard; guard.id = 91; guard.position = {320.f, 180.f}; guard.facing = {1.f, 0.f}; world.guards.push_back(guard);
+    FootstepCue cue; cue.position = {320.f, 192.f}; cue.direction = 2; cue.remaining = DistractionConfig::FootstepLifetime; cue.sourceGuard = 91;
+    world.footsteps.push_back(cue);
+    Until([&] { return !pair.client.GetWorld().footsteps.empty(); }, [&] { pair.Tick(true); });
+    Require(pair.client.GetWorld().guards.empty() && pair.client.GetWorld().footsteps[0].sourceGuard == 0, "Los pasos LAN revelaron el cuerpo o la identidad oculta");
+    pair.Advance(110, true);
+    Require(pair.client.GetWorld().footsteps.empty(), "Los pasos LAN no caducaron");
+  }
+
   void RejectInvalidCommandAndFlood() {
     RawPeer invalid;
     const std::string malformed = "{\"type\":\"command\",\"seq\":1,\"epoch\":" + std::to_string(invalid.epoch) +
@@ -383,6 +507,10 @@ int main() {
     AimDirectionAndRestartAuthority();
     DisconnectAndRejoin();
     RejectMidMissionAndVersion();
+    VisibilityAndCoverOnTheWire();
+    HideoutsDraggingAndDistractionsOnTheWire();
+    AuthoritativeDecoyGuideOnTheWire();
+    HiddenFootstepsOnTheWire();
     RejectInvalidCommandAndFlood();
     std::cout << "PASS sesión: sala, autoridad, privacidad, mandos, pausa, desconexión y loopback de dos participantes\n";
     return 0;

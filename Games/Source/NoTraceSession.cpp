@@ -1,5 +1,7 @@
 #include "NoTraceSession.h"
 #include "Config/NoTraceGameplayConfig.h"
+#include "Config/NoTraceCombatConfig.h"
+#include "Config/NoTraceDistractionConfig.h"
 
 #include <algorithm>
 #include <array>
@@ -70,6 +72,8 @@ namespace NoTrace {
       };
       normalize(command.moveX, command.moveY);
       normalize(command.aimX, command.aimY);
+      command.aimSlope = std::isfinite(command.aimSlope) ? std::clamp(command.aimSlope, -CombatConfig::MaximumAimSlope, CombatConfig::MaximumAimSlope) : 0.f;
+      command.decoyDistance = std::isfinite(command.decoyDistance) ? std::clamp(command.decoyDistance, 0.f, DistractionConfig::MaximumDecoyDistance) : 0.f;
       return command;
     }
 
@@ -79,14 +83,15 @@ namespace NoTrace {
              (command.interact ? 16u : 0u) | (command.cqc ? 32u : 0u) |
              (command.fireLethal ? 64u : 0u) | (command.fireNonLethal ? 128u : 0u) |
              (command.throwDecoy ? 256u : 0u) | (command.knock ? 512u : 0u) |
-             (command.dragBody ? 1024u : 0u) | (command.tool ? 2048u : 0u);
+             (command.dragBody ? 1024u : 0u) | (command.tool ? 2048u : 0u) |
+             (command.coverToggle ? 4096u : 0u) | (command.peekLeft ? 8192u : 0u) | (command.peekRight ? 16384u : 0u) | (command.prepareDecoy ? 32768u : 0u);
     }
 
     bool ReadCommand(const Json &message, ActionCommand &command) {
       std::uint64_t flags = 0;
       if (!ReadVector(message.at("move"), command.moveX, command.moveY) ||
           !ReadVector(message.at("aim"), command.aimX, command.aimY) ||
-          !ReadUnsigned(message.at("flags"), flags) || flags > 4095) {
+          !ReadUnsigned(message.at("flags"), flags) || flags > 65535 || !message.at("slope").is_number() || !message.at("decoyDistance").is_number()) {
         return false;
       }
       command.run = (flags & 1) != 0;
@@ -101,6 +106,14 @@ namespace NoTrace {
       command.knock = (flags & 512) != 0;
       command.dragBody = (flags & 1024) != 0;
       command.tool = (flags & 2048) != 0;
+      command.coverToggle = (flags & 4096) != 0;
+      command.peekLeft = (flags & 8192) != 0;
+      command.peekRight = (flags & 16384) != 0;
+      command.prepareDecoy = (flags & 32768) != 0;
+      command.aimSlope = message.at("slope").get<float>();
+      if (!std::isfinite(command.aimSlope) || std::abs(command.aimSlope) > CombatConfig::MaximumAimSlope) return false;
+      command.decoyDistance = message.at("decoyDistance").get<float>();
+      if (!std::isfinite(command.decoyDistance) || command.decoyDistance < 0.f || command.decoyDistance > DistractionConfig::MaximumDecoyDistance) return false;
       return true;
     }
 
@@ -114,7 +127,7 @@ namespace NoTrace {
       command.throwDecoy = false;
       command.knock = false;
       command.tool = false;
-      command.dragBody = false;
+      command.coverToggle = false;
     }
 
     void MergePulses(ActionCommand &command, const ActionCommand &previous) {
@@ -122,6 +135,11 @@ namespace NoTrace {
         // El disparo pendiente conserva la dirección capturada al pulsar.
         command.aimX = previous.aimX;
         command.aimY = previous.aimY;
+        command.aimSlope = previous.aimSlope;
+      }
+      if (previous.throwDecoy && !command.throwDecoy) {
+        command.aimX = previous.aimX; command.aimY = previous.aimY;
+        command.decoyDistance = previous.decoyDistance;
       }
       command.crouch |= previous.crouch;
       command.prone |= previous.prone;
@@ -132,7 +150,7 @@ namespace NoTrace {
       command.throwDecoy |= previous.throwDecoy;
       command.knock |= previous.knock;
       command.tool |= previous.tool;
-      command.dragBody |= previous.dragBody;
+      command.coverToggle |= previous.coverToggle;
     }
 
     Loadout ClampLoadout(Loadout loadout) {
@@ -613,7 +631,7 @@ namespace NoTrace {
       if (participant.accepted && !participant.rejected) {
         // Cada destinatario recibe únicamente su propia orden privada.
         const Json message{{"type", "snapshot"}, {"seq", sequence}, {"epoch", epoch_},
-                           {"lobby", lobby}, {"world", simulation_.SnapshotFor(id)}};
+                           {"lobby", lobby}, {"world", simulation_.SnapshotFor(id, true)}};
         if (!network_.Send(id, message.dump())) {
           status_ = "No se pudo enviar una instantánea LAN";
         }
@@ -624,7 +642,7 @@ namespace NoTrace {
   void Session::SendCommand() {
     const Json message{{"type", "command"}, {"seq", ++commandSequence_}, {"epoch", epoch_},
                        {"move", {localCommand_.moveX, localCommand_.moveY}},
-                       {"aim", {localCommand_.aimX, localCommand_.aimY}}, {"flags", CommandFlags(localCommand_)}};
+                       {"aim", {localCommand_.aimX, localCommand_.aimY}}, {"slope", localCommand_.aimSlope}, {"decoyDistance", localCommand_.decoyDistance}, {"flags", CommandFlags(localCommand_)}};
     network_.Send(NetworkConfig::HostId, message.dump());
     ClearPulses(localCommand_);
   }

@@ -6,6 +6,7 @@
 #include "Core/EngineConfig.h"
 #include "Core/Overlay.h"
 #include "NoTraceWorldGuiFixtures.h"
+#include "NoTraceWorldGeometry.h"
 #include <SFML/Graphics/Image.hpp>
 #include <SFML/System/Sleep.hpp>
 #include <TGUI/Text.hpp>
@@ -20,6 +21,7 @@
 namespace EngineTests {
   using namespace NoTrace;
   struct GuiAccess {
+    static void UseSyntheticInput(EngineContext &context) { context.input.hardwarePolling_ = false; }
     static Session &GetSession(Game &game) { return game.session_; }
     static void Require(bool condition, const std::string &message) {
       if (!condition) throw std::runtime_error(message);
@@ -124,6 +126,64 @@ namespace EngineTests {
       game.Update(); Step(game); context.input.BeginFrame();
       Key(game, context, sf::Keyboard::Scan::Z);
       Require(game.LocalAgent()->stance == Stance::Standing, "Z no permite levantarse después del arrastre");
+    }
+    static void VerifyTacticalControls(Game &game, EngineContext &context) {
+      auto &world = const_cast<WorldState &>(game.session_.GetWorld());
+      const auto saved = world;
+      world.objects.clear(); world.obstacles.clear(); world.guards.clear(); world.noises.clear(); world.shots.clear(); world.events.clear();
+      auto &agent = world.agents[0]; agent.position = {150.f, 350.f}; agent.facing = {1.f, 0.f}; agent.actionCooldown = 0.f;
+      context.cursor.SetPosition({1050.f, 480.f});
+      const auto press = [&](sf::Keyboard::Scan scan) {
+        context.input.BeginFrame(); sf::Event::KeyPressed event; event.scancode = scan; context.input.CaptureEvent(event); game.Update(); Step(game);
+      };
+      const auto release = [&](sf::Keyboard::Scan scan) {
+        context.input.BeginFrame(); sf::Event::KeyReleased event; event.scancode = scan; context.input.CaptureEvent(event); game.Update(); Step(game);
+      };
+      const int initialDecoys = agent.loadout.decoys;
+      agent.actionCooldown = 0.5f;
+      press(sf::Keyboard::Scan::G);
+      Require(!game.preparingDecoy_, "G ofrece un lanzamiento disponible durante el tiempo de otra acción");
+      release(sf::Keyboard::Scan::G); agent.actionCooldown = 0.f;
+      press(sf::Keyboard::Scan::G);
+      Require(game.preparingDecoy_ && agent.loadout.decoys == initialDecoys, "Mantener G no prepara el señuelo antes de consumirlo");
+      release(sf::Keyboard::Scan::G);
+      Require(!game.preparingDecoy_ && agent.loadout.decoys == initialDecoys - 1 && !world.noises.empty(), "Soltar G no envía el lanzamiento previsto");
+      agent.actionCooldown = 0.f; press(sf::Keyboard::Scan::G); Escape(game);
+      Require(!game.preparingDecoy_ && game.page_ == Game::Page::None, "Esc no cancela primero la preparación del señuelo");
+      release(sf::Keyboard::Scan::G);
+      Require(agent.loadout.decoys == initialDecoys - 1, "Cancelar y soltar G lanzó un señuelo involuntario");
+      const int nonLethalAmmo = agent.loadout.nonLethalAmmo;
+      context.input.BeginFrame();
+      sf::Event::KeyPressed prepare; prepare.scancode = sf::Keyboard::Scan::G; context.input.CaptureEvent(prepare);
+      context.input.CaptureEvent(sf::Event::MouseButtonPressed{sf::Mouse::Button::Right, {1050, 480}});
+      game.Update(); Step(game); release(sf::Keyboard::Scan::G);
+      Require(!game.preparingDecoy_ && agent.loadout.nonLethalAmmo == nonLethalAmmo, "Cancelar G con clic derecho en el mismo frame disparó el arma");
+      press(sf::Keyboard::Scan::G); game.Open(Game::Page::Pause); game.ClosePanel();
+      press(sf::Keyboard::Scan::G);
+      Require(!game.preparingDecoy_, "Reanudar con G mantenida prepara otro lanzamiento sin pulsación nueva");
+      release(sf::Keyboard::Scan::G);
+      Require(agent.loadout.decoys == initialDecoys - 1, "Abrir la pausa y soltar G conservó un lanzamiento cancelado");
+      world.noises.clear(); agent.actionCooldown = 0.f;
+      press(sf::Keyboard::Scan::Q); release(sf::Keyboard::Scan::Q);
+      Require(world.noises.empty() && world.guards.empty(), "Q generó ruido sin pared válida o conservó la acción CQC");
+      Guard body; body.id = 77; body.position = agent.position + sf::Vector2f{20.f, 0.f}; body.state = GuardState::Incapacitated; body.incapacityRemaining = 60.f; world.guards.push_back(body);
+      press(sf::Keyboard::Scan::E);
+      Require(agent.draggingGuard == 77, "E mantenida no inicia arrastre contextual");
+      press(sf::Keyboard::Scan::E);
+      Require(agent.draggingGuard == 77, "Mantener E alterna o interrumpe el arrastre");
+      release(sf::Keyboard::Scan::E);
+      Require(agent.draggingGuard < 0, "Soltar E no termina el arrastre");
+      world.guards.clear(); world.obstacles.push_back({{{200.f, 150.f}, {40.f, 100.f}}, CoverKind::High, true, "Pared"});
+      agent.position = {187.99f, 155.f}; agent.cover = {};
+      press(sf::Keyboard::Scan::F); release(sf::Keyboard::Scan::F);
+      Require(agent.cover.active, "F no activa la cobertura desde la entrada del juego");
+      const float anchorY = agent.cover.anchor.y;
+      context.input.BeginFrame();
+      sf::Event::KeyPressed alt; alt.scancode = sf::Keyboard::Scan::LAlt; context.input.CaptureEvent(alt);
+      sf::Event::KeyPressed right; right.scancode = sf::Keyboard::Scan::D; context.input.CaptureEvent(right);
+      game.Update(); Step(game);
+      Require(agent.cover.peekSide == PeekSide::Left && agent.position.y < anchorY, "Alt + dirección asoma al extremo opuesto de la pared");
+      context.input.Clear(); game.held_.fill(false); world = saved;
     }
     static tgui::Button::Ptr FindButton(Game &game, const std::string &text) {
       for (const auto &widget : game.panel_->getWidgets()) {
@@ -330,6 +390,13 @@ namespace {
 
   void Walk(Game &game, sf::Vector2f target) {
     auto &session = Access::GetSession(game);
+    for (const auto &object : session.GetWorld().objects) {
+      if (!WorldGeometry::BlocksMovement(object) || !WorldGeometry::ObjectFootprint(object).contains(target)) continue;
+      const auto closest = WorldGeometry::ClosestPoint(Local(game).position, WorldGeometry::ObjectFootprint(object));
+      const auto approach = Local(game).position - closest;
+      if (approach.lengthSquared() > 0.f) target = closest + approach.normalized() * (GameplayConfig::AgentRadius + 2.f);
+      break;
+    }
     unsigned int stationary = 0;
     for (unsigned int frame = 0; frame < 3600; ++frame) {
       const auto origin = Local(game).position;
@@ -359,6 +426,7 @@ namespace {
     window.setVisible(false);
     window.setKeyRepeatEnabled(false);
     EngineContext context(window);
+    Access::UseSyntheticInput(context);
     context.audio.SetGlobalVolume(0.f);
     Access::Sync(context);
     Access::VerifyOverlay(context);
@@ -404,7 +472,7 @@ namespace {
     capture("01-operations");
     Access::Press(game, "RECORRER LA BASE");
 
-    for (const auto waypoint : {sf::Vector2f{300.f, 300.f}, {620.f, 300.f}, {720.f, 210.f}}) Walk(game, waypoint);
+    for (const auto waypoint : {sf::Vector2f{150.f, 280.f}, {300.f, 300.f}, {620.f, 300.f}, {720.f, 210.f}}) Walk(game, waypoint);
     Access::Interact(game, context);
     Access::RequirePage(game, "armory");
     capture("02-armory");
@@ -432,6 +500,7 @@ namespace {
     Access::Capture(game, context, window, output / "05-mission.png");
     Access::VerifyFireInput(game, context);
     Access::VerifyAutomaticCrawl(game, context);
+    Access::VerifyTacticalControls(game, context);
     Access::Escape(game);
     Access::Require(Access::HasButton(game, "REINICIAR") && Access::HasButton(game, "VOLVER A LA BASE"), "La misión individual no ofrece las acciones de pausa correspondientes");
     capture("09-mission-pause");
