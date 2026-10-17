@@ -41,15 +41,22 @@ def assert_regular(path, root):
             break
 
 
+def package_label(summary):
+    label = summary.get("name")
+    require(type(label) is str and re.fullmatch("[a-z0-9][a-z0-9-]{0,95}", label), "Etiqueta de entrega no valida")
+    return label
+
+
 def load_package(summary_path):
     summary_path = Path(summary_path).resolve()
     require(summary_path.parent == BUILD.resolve(), "El resumen debe estar directamente en build")
     summary = json.loads(summary_path.read_text(encoding="utf-8-sig"))
-    require(summary["name"] == LABEL and summary["metadata"]["Protocol"] == PROTOCOL, "Entrega o protocolo incompatible")
+    label = package_label(summary)
+    require(type(summary["metadata"]["Protocol"]) is int and summary["metadata"]["Protocol"] == PROTOCOL, "Protocolo incompatible")
     archive = Path(summary["zip"]).resolve()
     folder = Path(summary["directory"]).resolve()
-    require(archive == BUILD / ("NO_TRACE_LAN-" + LABEL + ".zip"), "ZIP inesperado")
-    require(folder == BUILD / ("NO_TRACE_LAN-" + LABEL), "Carpeta inesperada")
+    require(archive == BUILD / ("NO_TRACE_LAN-" + label + ".zip"), "ZIP inesperado")
+    require(folder == BUILD / ("NO_TRACE_LAN-" + label), "Carpeta inesperada")
     assert_regular(archive, BUILD)
     require(digest(archive) == summary["zip_sha256"], "SHA256 del ZIP incorrecto")
     with zipfile.ZipFile(archive) as zipped:
@@ -91,7 +98,7 @@ def verify_folder(folder, rows, summary):
 def render(summary):
     source = TEMPLATE.read_text(encoding="utf-8")
     replacements = {
-        "@@LABEL@@": LABEL,
+        "@@LABEL@@": package_label(summary),
         "@@PROTOCOL@@": str(PROTOCOL),
         "@@ZIP_NAME@@": Path(summary["zip"]).name,
         "@@ZIP_SHA@@": summary["zip_sha256"],
@@ -105,6 +112,10 @@ def render(summary):
     require(not re.search(r"@@[A-Z_]+@@", source), "Tokens pendientes")
     source.encode("ascii")
     return source
+
+
+def runner_destination(source):
+    return BUILD / ("qa-vm-runner-" + hashlib.sha256(source.encode("ascii")).hexdigest()[:24])
 
 
 def compile_runner(source, destination):
@@ -130,7 +141,7 @@ def compile_runner(source, destination):
 
 def publish(summary, rows, source):
     require(TRANSFER.is_dir() and EVIDENCE.is_dir(), "No existen las carpetas compartidas")
-    host = BUILD / ("lan-host-vm-" + LABEL)
+    host = BUILD / ("lan-host-vm-" + package_label(summary))
     if not host.exists():
         host.mkdir()
         with zipfile.ZipFile(summary["zip"]) as zipped:
@@ -141,7 +152,7 @@ def publish(summary, rows, source):
         with Path(summary["zip"]).open("rb") as read, target.open("xb") as write:
             shutil.copyfileobj(read, write)
     require(digest(target) == summary["zip_sha256"], "El ZIP compartido difiere")
-    runner = compile_runner(source, BUILD / ("qa-vm-runner-" + summary["executables_sha256"]["NoTraceLanQa.exe"][:16]))
+    runner = compile_runner(source, runner_destination(source))
     transfer_runner = TRANSFER / "NoTraceLanQaVmRunner.exe"
     if transfer_runner.exists() and digest(transfer_runner) != digest(runner):
         backup = BUILD / ("vm-qa-runner-backup-" + digest(transfer_runner)[:16] + ".exe")
@@ -159,7 +170,7 @@ def publish(summary, rows, source):
     helper.write_bytes(wrapper.replace("\n", "\r\n").encode("ascii"))
     (TRANSFER / "QA-JOBS").mkdir(exist_ok=True)
     (TRANSFER / "QA-CANCEL").mkdir(exist_ok=True)
-    return {"Status": "PUBLICADO_SIN_EJECUTAR", "Label": LABEL, "Protocol": PROTOCOL, "HostPackage": str(host), "TransferZip": str(target), "Bootstrap": str(helper), "BootstrapSHA256": digest(helper), "Supervisor": str(transfer_runner), "SupervisorSHA256": digest(transfer_runner), "SupervisorSourceSHA256": hashlib.sha256(source.encode("ascii")).hexdigest().upper(), "PowerShellRequired": False, "ManifestRecords": len(rows), "QaSHA256": summary["executables_sha256"]["NoTraceLanQa.exe"], "VmExecuted": False}
+    return {"Status": "PUBLICADO_SIN_EJECUTAR", "Label": package_label(summary), "Protocol": PROTOCOL, "HostPackage": str(host), "TransferZip": str(target), "Bootstrap": str(helper), "BootstrapSHA256": digest(helper), "Supervisor": str(transfer_runner), "SupervisorSHA256": digest(transfer_runner), "SupervisorSourceSHA256": hashlib.sha256(source.encode("ascii")).hexdigest().upper(), "PowerShellRequired": False, "ManifestRecords": len(rows), "QaSHA256": summary["executables_sha256"]["NoTraceLanQa.exe"], "VmExecuted": False}
 
 
 def main():
@@ -172,7 +183,7 @@ def main():
     if args.apply:
         result = publish(summary, rows, source)
     else:
-        runner = compile_runner(source, BUILD / ("qa-vm-runner-" + summary["executables_sha256"]["NoTraceLanQa.exe"][:16]))
+        runner = compile_runner(source, runner_destination(source))
         result = {"Status": "VALIDADO_SIN_APLICAR", "ManifestRecords": len(rows), "SupervisorCompiled": str(runner), "PowerShellRequired": False}
     if args.apply:
         (BUILD / "LAN-qa-runner-publish-results.json").write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")

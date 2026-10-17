@@ -11,7 +11,7 @@ import subprocess
 import time
 import uuid
 
-from generate_lan_qa_vm import BUILD, EVIDENCE, LABEL, PROTOCOL, TRANSFER, assert_regular, digest, load_package, require, verify_folder
+from generate_lan_qa_vm import BUILD, EVIDENCE, LABEL, PROTOCOL, TRANSFER, assert_regular, digest, load_package, package_label, require, verify_folder
 
 
 SCENARIOS = ("mission", "client-drop", "host-drop")
@@ -104,11 +104,11 @@ def check_identity(value, run_id, role, scenario):
     require(value.get("schema") == 1 and value.get("runId") == run_id and value.get("role") == role and value.get("scenario") == scenario, "Identidad de reporte o marcador incorrecta")
 
 
-def check_job(job, session_id):
+def check_job(job, session_id, label=LABEL):
     allowed = {"schema", "sessionId", "jobId", "runId", "packageLabel", "protocol", "role", "scenario", "host", "port", "timeoutSeconds"}
     require(set(job) == allowed and all(type(job[key]) is int for key in ("schema", "protocol", "port", "timeoutSeconds")) and all(type(job[key]) is str for key in allowed - {"schema", "protocol", "port", "timeoutSeconds"}), "Tipos del job incorrectos")
     require(job["schema"] == 1 and job["sessionId"] == session_id and re.fullmatch("[a-f0-9]{32}", job["jobId"]) and re.fullmatch("[a-f0-9]{32}", job["runId"]), "Job no valido")
-    require(job["packageLabel"] == LABEL and job["protocol"] == PROTOCOL and job["role"] == "client" and job["scenario"] in SCENARIOS and job["host"] == "192.168.56.1" and job["port"] == PORT and job["timeoutSeconds"] == TIMEOUT, "Job fuera de la lista cerrada")
+    require(job["packageLabel"] == label and job["protocol"] == PROTOCOL and job["role"] == "client" and job["scenario"] in SCENARIOS and job["host"] == "192.168.56.1" and job["port"] == PORT and job["timeoutSeconds"] == TIMEOUT, "Job fuera de la lista cerrada")
 
 
 def find_session(summary, requested=None, require_idle=True):
@@ -122,7 +122,7 @@ def find_session(summary, requested=None, require_idle=True):
             ready = read_json(folder / "READY.json")
             heartbeat = read_json(folder / "HEARTBEAT.json")
             require(ready.get("schema") == 1 and re.fullmatch("[a-f0-9]{32}", ready["sessionId"]) and folder.name == "QA-RUNNER-" + ready["sessionId"], "Sesion no valida")
-            require(ready["packageLabel"] == LABEL and ready["protocol"] == PROTOCOL and ready["qaSha256"] == summary["executables_sha256"]["NoTraceLanQa.exe"] and ready["manifestVerified"] == summary["manifest_records"], "Paquete VM incompatible")
+            require(ready["packageLabel"] == package_label(summary) and ready["protocol"] == PROTOCOL and ready["qaSha256"] == summary["executables_sha256"]["NoTraceLanQa.exe"] and ready["manifestVerified"] == summary["manifest_records"], "Paquete VM incompatible")
             require(heartbeat["sessionId"] == ready["sessionId"] and heartbeat["state"] in (("IDLE",) if require_idle else ("IDLE", "RUNNING")), "El ejecutor VM no esta disponible")
             age = (datetime.now(timezone.utc) - datetime.fromisoformat(heartbeat["utc"].replace("Z", "+00:00"))).total_seconds()
             require(-5 <= age <= 15, "Heartbeat VM no vigente")
@@ -266,8 +266,8 @@ def run_case(scenario, mode, summary, rows, source, session_id=None, session_fol
             children.append(Child("client", scenario, run_id, client_runtime, root / "client", coord, "127.0.0.1"))
         else:
             job_id = uuid.uuid4().hex
-            job = {"schema": 1, "sessionId": session_id, "jobId": job_id, "runId": run_id, "packageLabel": LABEL, "protocol": PROTOCOL, "role": "client", "scenario": scenario, "host": "192.168.56.1", "port": PORT, "timeoutSeconds": TIMEOUT}
-            check_job(job, session_id)
+            job = {"schema": 1, "sessionId": session_id, "jobId": job_id, "runId": run_id, "packageLabel": package_label(summary), "protocol": PROTOCOL, "role": "client", "scenario": scenario, "host": "192.168.56.1", "port": PORT, "timeoutSeconds": TIMEOUT}
+            check_job(job, session_id, package_label(summary))
             write_json(TRANSFER / "QA-JOBS" / (job_id + ".json"), job)
             result["guestJob"] = job
         write_json(root / "ORQUESTACION.json", result)
@@ -337,7 +337,7 @@ def main():
         summary, rows, source = development_package(args.development_root)
     else:
         summary, rows = load_package(args.summary)
-        source = BUILD / ("lan-host-vm-" + LABEL)
+        source = BUILD / ("lan-host-vm-" + package_label(summary))
         verify_folder(source, rows, summary)
     session_id = session_folder = None
     if args.mode == "host-vm":
