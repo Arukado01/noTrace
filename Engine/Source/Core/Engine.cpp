@@ -1,185 +1,213 @@
 #include "Core/Engine.h"
 #include "Core/EngineConfig.h"
-#include "Core/Overlay.h"
 #include "Utils/Log.h"
+#include <cassert>
 
-/** Constructor */
-Engine::Engine() : window_(sf::VideoMode(sf::Vector2u(gConfig.windowSize)),
-                           gConfig.windowTitle),
-                   context_(window_),
-                   scenes_(SceneFactory::CreateScenes(context_)),
-                   currentScene_(nullptr),
-                   overlay_(context_.gui),
-                   cursorWasVisible_(true) {
+Engine::Engine(std::string_view initialScene)
+    : window_(sf::VideoMode(gConfig.windowResolution), gConfig.windowTitle),
+      context_(window_),
+      currentScene_(nullptr),
+      overlay_(context_.gui),
+      cursorWasVisible_(true) {
+  context_.window.Initialize();
+  SyncWindowPresentation();
+  scenes_ = SceneFactory::CreateScenes(context_);
 
-  /**  Configuración inicial de la ventana */
-  window_.setIcon(sf::Image("Content/Textures/Icon.png"));
-  window_.setMinimumSize(window_.getSize() / 2u); // Mitad del tamaño actual como mínimo
-  window_.setKeyRepeatEnabled(false); // Evita repetición de teclas al mantener presionadas
-  window_.setMouseCursorVisible(false); // Oculta el cursor del sistema (AwesomeEngine dibuja el suyo)
-
-  if (gConfig.disableSfmlLogs) { // Si disableSfmlLogs es true, silencia los logs propios de SFML (redirige el stream de errores a null para usar el sistema propio de logs)
+  if (gConfig.disableSfmlLogs) {
     sf::err().rdbuf(nullptr);
   }
-
+  context_.audio.SetGlobalVolume(gConfig.globalVolume);
+  const std::string sceneName(initialScene);
+  context_.scenes.ChangeScene(scenes_.contains(sceneName) ? sceneName : "Menu");
   LOG_INFO("Window created");
-
-  context_.audio.SetGlobalVolume(gConfig.globalVolume); // Aplica el volumen global de audio definido en la configuración
-  context_.scenes.ChangeScene("Clicker");
 }
 
-/** Indica si el bucle principal debe seguir ejecutándose */
 bool Engine::IsRunning() const { return window_.isOpen(); }
 
-/** Devuelve verdadero si la ventana tiene el focus actualmente. */
-bool Engine::HasFocus() const {
-  return window_.hasFocus();
+bool Engine::HasFocus() const { return window_.hasFocus(); }
+
+void Engine::SyncWindowPresentation() {
+  if (context_.window.ConsumeWindowRecreated()) {
+    context_.gui.RebindWindow();
+  }
+  if (context_.window.ConsumePresentationChange()) {
+    context_.gui.SyncPresentation(context_.window.GetLogicalSize(), context_.window.GetViewport());
+  }
 }
 
-/** Procesa todos los eventos de la ventana pendientes en este frame */
-void Engine::ProcessEvent() {
-  if (const auto nextScene = context_.scenes.FetchNextScene()) { // Si hay un cambio de escena pendiente, lo aplica antes de procesar eventos
-    EventSceneChange(*nextScene);
+void Engine::UpdateWindowServices() {
+  if (const auto decision = context_.gui.FetchDisplayDecision()) {
+    context_.window.ResolveDisplayChange(*decision);
   }
+  const bool wasPending = context_.window.IsDisplayConfirmationPending();
+  context_.window.Update();
+  SyncWindowPresentation();
+  const bool pending = context_.window.IsDisplayConfirmationPending();
 
-  while (const auto event = window_.pollEvent()) { // Extrae y reparte cada evento de la cola de la ventana
+  if (pending && !wasPending && currentScene_) {
+    currentScene_->OnPause(true);
+  }
+  context_.gui.SetDisplayConfirmation(pending, context_.window.GetConfirmationRemaining());
+  if (pending != wasPending) {
+    context_.cursor.SetModalVisible(pending);
+  }
+  if (!pending && wasPending && currentScene_) {
+    currentScene_->OnPause(overlay_.IsVisible() || !window_.hasFocus());
+    if (overlay_.IsVisible()) {
+      overlay_.SetVisible(true);
+    }
+  }
+}
 
-    event->visit(EngineVisitor{*this}); // El visitor maneja eventos globales del motor (cerrar, redimensionar, etc.)
-    context_.gui.ProcessEvent(*event); // La GUI procesa el evento para sus propios widgets
-
-    if (!overlay_.IsVisible()) { // Reenviamos los eventos a la escena actual solo si el overlay está oculto (durante la pausa la GUI consume la interacción)
-      currentScene_->OnEvent(*event); // La escena actual reacciona al evento
+void Engine::ProcessEvent() {
+  UpdateWindowServices();
+  if (!window_.isOpen()) {
+    return;
+  }
+  if (!context_.window.IsDisplayConfirmationPending()) {
+    if (const auto nextScene = context_.scenes.FetchNextScene()) {
+      EventSceneChange(*nextScene);
     }
   }
 
-  if (const auto selection = overlay_.FetchSelection()) { // Si el usuario seleccionó una opción del overlay de pausa, la consume y la procesa (FetchSelection devuelve vacío tras leerla)
-    EventOverlaySelect(*selection);
+  while (const auto event = window_.pollEvent()) {
+    const GlobalShortcut shortcut = context_.input.HandleGlobalEvent(
+        *event, context_.window.IsDisplayConfirmationPending());
+    if (shortcut != GlobalShortcut::None) {
+      if (shortcut == GlobalShortcut::ToggleFullscreen) {
+        context_.window.ToggleFullscreen();
+      } else if (shortcut == GlobalShortcut::RevertDisplay) {
+        context_.window.ResolveDisplayChange(false);
+      }
+      continue;
+    }
+
+    event->visit(EngineVisitor{*this});
+    if (!window_.isOpen()) {
+      break;
+    }
+    SyncWindowPresentation();
+    context_.gui.ProcessEvent(*event);
+    if (!overlay_.IsVisible() && !context_.window.IsDisplayConfirmationPending()) {
+      currentScene_->OnEvent(*event);
+    }
+  }
+
+  if (!context_.window.IsDisplayConfirmationPending()) {
+    if (const auto selection = overlay_.FetchSelection()) {
+      EventOverlaySelect(*selection);
+    }
+  }
+  if (context_.scenes.FetchQuitRequest()) {
+    EventWindowClose();
+  }
+  if (window_.isOpen()) {
+    // La recreación espera a que terminen todos los eventos y callbacks de esta iteración.
+    UpdateWindowServices();
   }
 }
 
-/** Actualiza la lógica del juego una vez por frame */
 void Engine::Update() {
-
-  context_.time.Update(); // Actualiza el tiempo con el delta time del frame
-  context_.cursor.Update(context_.time.GetDeltaTime()); // Actualiza el cursor con el delta time del frame
-
-  if (!overlay_.IsVisible()) { // Actualizamos la escena solo si el overlay está oculto (con la pausa abierta el juego se congela)
-    currentScene_->Update(); // Actualiza la lógica de la escena actual
+  context_.time.Update();
+  context_.cursor.Update(context_.time.GetDeltaTime());
+  if (!overlay_.IsVisible() && !context_.window.IsDisplayConfirmationPending()) {
+    currentScene_->Update();
   }
 }
 
-/** Dibuja el frame completo en la ventana */
 void Engine::Render() {
-  window_.clear(); // Limpia el frame anterior
-
-  context_.renderer.BeginDrawing(); // Renderiza la escena a un buffer intermedio ->
+  window_.setView(context_.window.GetPresentationView());
+  window_.clear();
+  context_.renderer.BeginDrawing();
   currentScene_->Render();
-  window_.draw(sf::Sprite(context_.renderer.FinishDrawing())); // -> y luego lo dibuja en la ventana
-
-  context_.gui.Render(); // Encima de la escena se dibuja la GUI
-  context_.cursor.Render(); // y también el cursor personalizado
-
-  window_.display(); // Muestra el frame terminado
+  window_.draw(sf::Sprite(context_.renderer.FinishDrawing()));
+  context_.gui.Render();
+  window_.setView(context_.window.GetPresentationView());
+  context_.cursor.Render();
+  window_.display();
 }
 
-/** Evento: el usuario cerró la ventana */
 void Engine::EventWindowClose() {
   window_.close();
   LOG_INFO("Window closed");
 }
 
-/** Evento: la ventana cambió de tamaño */
 void Engine::EventWindowResized(sf::Vector2u size) {
+  context_.window.HandleResize(size);
   LOG_INFO("Window resized to: {}x{}", size.x, size.y);
 }
 
-/** Evento: la ventana perdió el foco (la escena se pausa) */
 void Engine::EventWindowFocusLost() {
-  currentScene_->OnPause(true);
+  if (currentScene_) {
+    currentScene_->OnPause(true);
+  }
   LOG_INFO("Window focus lost");
 }
 
-/** Evento: la ventana recuperó el foco (la escena se reanuda, salvo que el overlay esté abierto, en cuyo caso sigue pausada) */
 void Engine::EventWindowFocusGained() {
-  currentScene_->OnPause(overlay_.IsVisible());
+  context_.window.RefreshPresentation();
+  if (currentScene_) {
+    currentScene_->OnPause(overlay_.IsVisible() || context_.window.IsDisplayConfirmationPending());
+  }
   LOG_INFO("Window focus gained");
 }
 
-/** Evento: se conectó un gamepad */
 void Engine::EventGamepadConnected(int id) {
   LOG_INFO("Gamepad {} connected", id);
 }
 
-/** Evento: se desconectó un gamepad */
 void Engine::EventGamepadDisconnected(int id) {
   LOG_INFO("Gamepad {} disconnected", id);
 }
 
-/** Evento: el usuario pidió una captura de pantalla */
 void Engine::EventWindowScreenshot() const { context_.screenshot.Take(); }
 
-/** Evento: cambio de escena por nombre */
 void Engine::EventSceneChange(const std::string &name) {
-
-  assert(scenes_.contains(name)); // En debug, aborta si el nombre no existe en el registro de escenas
-
-  Scene *nextScene = scenes_.at(name).get(); // Obtiene el puntero crudo de la nueva escena (el mapa conserva el ownership)
-
-  // Limpia la escena actual antes de salir (si existe)
+  assert(scenes_.contains(name));
+  Scene *nextScene = scenes_.at(name).get();
   if (currentScene_) {
     currentScene_->OnCleanup();
   }
-
-  context_.input.Clear(); // Reinicia el estado de entrada para que la nueva escena empiece limpia
-
-  currentScene_ = nextScene; // Cambia a la nueva escena e inicializa su estado
+  context_.input.Clear();
+  currentScene_ = nextScene;
   currentScene_->Start();
 }
 
-/** Evento: reiniciar la escena actual */
 void Engine::EventSceneRestart() {
   overlay_.SetVisible(false);
   context_.scenes.RestartCurrentScene();
 }
 
-/** Evento: volver al menú principal */
 void Engine::EventSceneMenuReturn() {
-  // Cierra el overlay de pausa antes de cambiar de escena
   overlay_.SetVisible(false);
   context_.scenes.ChangeScene("Menu");
-
-  // Restaura el cursor del juego para navegar el menú
   context_.cursor.SetVisible(true);
-  context_.cursor.SetSpeed(gConfig.cursorSpeed); // Restablece su velocidad por defecto
+  context_.cursor.SetSpeed(gConfig.cursorSpeed);
 }
 
-/** Evento: alterna el estado de pausa (muestra/oculta el overlay de pausa) y pausa/reanuda la escena en consecuencia */
 void Engine::EventOverlayPauseToggle() {
-
-  const bool overlayVisible = !overlay_.IsVisible(); // Calcula el nuevo estado: si estaba oculto, ahora se muestra (y viceversa)
-  overlay_.SetVisible(overlayVisible);
-
-  const bool cursorVisible = context_.cursor.IsVisible(); // Cursor: guarda su visibilidad actual antes de modificarla
-  context_.cursor.SetVisible(overlayVisible || cursorWasVisible_); // Con el overlay abierto el cursor siempre se muestra (para navegar la GUI); al cerrarlo se recupera la visibilidad previa a la pausa
-  cursorWasVisible_ = cursorVisible; // Recuerda el estado para restaurarlo luego
-
-  currentScene_->OnPause(overlayVisible); // Pausa la escena al abrir el overlay; la reanuda al cerrarlo
-  LOG_INFO(overlayVisible ? "Game paused" : "Game resumed");
+  const bool visible = !overlay_.IsVisible();
+  overlay_.SetVisible(visible);
+  if (visible) {
+    cursorWasVisible_ = context_.cursor.IsVisible();
+  }
+  context_.cursor.SetVisible(visible || cursorWasVisible_);
+  currentScene_->OnPause(visible);
+  LOG_INFO(visible ? "Game paused" : "Game resumed");
 }
 
-/** Evento: el usuario eligió una opción del overlay de pausa. Redirige la elección al evento del motor correspondiente */
 void Engine::EventOverlaySelect(OverlaySelection selection) {
   switch (selection) {
-  case OverlaySelection::Resume: // Continuar el juego (cierra el overlay)
+  case OverlaySelection::Resume:
     EventOverlayPauseToggle();
     break;
-  case OverlaySelection::Restart: // Reiniciar la escena actual
+  case OverlaySelection::Restart:
     EventSceneRestart();
     break;
-  case OverlaySelection::Menu: // Volver al menú principal
+  case OverlaySelection::Menu:
     EventSceneMenuReturn();
     break;
-  case OverlaySelection::Quit: // Cerrar la ventana y salir
+  case OverlaySelection::Quit:
     EventWindowClose();
     break;
   default:

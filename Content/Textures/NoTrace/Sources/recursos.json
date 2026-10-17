@@ -1,0 +1,78 @@
+{
+  "autor": "Carlos Cortina",
+  "proyecto": "NO TRACE — CIO",
+  "fase": "1.1",
+  "recursos": [
+    {
+      "archivo": "Backgrounds/MenuBackground.png",
+      "dimensiones": [
+        1672,
+        941
+      ],
+      "canales": "RGB",
+      "produccion": "ImageGen integrado",
+      "prompt": "Use case: stylized-concept\nAsset type: original wide 16:9 pixel-art videogame main menu background, full bleed, illustration only.\nPrimary request: Create an espionage thriller rainy-night scene for NO TRACE. A special operations agent with realistic tactical gear stands at the right third facing left toward a clandestine industrial compound. Three-quarter back view, head and full body readable, natural infiltration stance, arms holding a coherent compact rifle low across his side, muzzle pointing left-down. Fine chunky pixel art with crisp visible pixels, thoughtful pixel clusters, atmospheric depth.\nScene/backdrop: dark blue-black industrial base, concrete guard tower near center, rain-slick pavement, sparse warm windows, red security signal lamps, moody cold spotlights. Perspective follows isometric/axonometric game art direction subtly while preserving convincing anatomy.\nComposition/framing: WIDE 16:9 horizontal image. Left 40 percent nearly black empty negative space with minimal indistinct texture for UI; no agent or bright structures on left. Buildings occupy center, agent entirely in right 35 percent. Leave ample dark lower edge and upper left. Camera eye level.\nLighting/mood: midnight covert operation, restrained blue-gray moonlight, thin muted red rim lighting on agent, wet reflections center-right, dark overall but readable. High craft pixel-art game key art.\nConstraints: No lettering, no logos, no watermark, no interface elements, no buttons, no borders, no cursors. This is a single illustrated background, not a sprite sheet. Do not imitate a known franchise. Need original composition.",
+      "nota": "Ilustración original estática, presentada sin movimiento ni lluvia animada en NO TRACE; no contiene fotogramas de personaje."
+    },
+    {
+      "archivo": "Branding/Logo.png",
+      "dimensiones": [
+        1947,
+        808
+      ],
+      "canales": "RGBA",
+      "produccion": "ImageGen integrado",
+      "prompt": "Use case: logo-brand\nAsset type: original typographic title logo for a tactical infiltration videogame named NO TRACE. One isolated horizontal logo, transparent background.\nPrimary request: Render exactly the two words \"NO TRACE\" in ALL CAPITALS. Custom drawn powerful condensed extended military techno lettering, forward slanted, strongly shaped engineered letterforms with angular cutouts and stencil breaks; premium original gaming identity, NOT just text set in a generic typeface.\nComposition: Wide horizontal wordmark about 4.4:1 width to height. Letters bright off-white and restrained light-gray wear, subtle distressed small missing pixels and tiny speedline interruptions integrated into selected edges without compromising readability. A single narrow red diagonal cut/slash through the space between NO and TRACE, restrained red accent.\nText (verbatim): \"NO TRACE\". N O space T R A C E. No other letters, no subtitle.\nConstraints: Genuine alpha transparency, no backdrop, no gradients behind the logo, no checkerboard, no framing box, no border, no cast shadow, no watermark, no mockup presentation, no icon/emblem. Transparent empty margins modest about 4 percent. Logo will be drawn over a near-black pixel art background. Must be crisp and legible at 450-pixel width. Original lettering design.",
+      "rectanguloVisibleAlfa64": {
+        "x": 26,
+        "y": 146,
+        "ancho": 1896,
+        "alto": 462
+      },
+      "nota": "PNG original sin edición posterior. El área transparente exterior contiene alfa residual menor a 64."
+    },
+    {
+      "archivo": "Branding/WindowIcon.png",
+      "dimensiones": [
+        128,
+        128
+      ],
+      "canales": "RGBA",
+      "produccion": "SVG original convertido mediante sharp",
+      "fuente": "Branding/WindowIcon.svg"
+    },
+    {
+      "archivo": "Interface/Cursor.png",
+      "dimensiones": [
+        48,
+        48
+      ],
+      "canales": "RGBA",
+      "produccion": "SVG original convertido mediante sharp",
+      "fuente": "Interface/Cursor.svg",
+      "puntoActivo": [
+        0,
+        0
+      ]
+    },
+    {
+      "archivo": "Interface/CursorActive.png",
+      "dimensiones": [
+        48,
+        48
+      ],
+      "canales": "RGBA",
+      "produccion": "SVG original convertido mediante sharp",
+      "fuente": "Interface/CursorActive.svg",
+      "puntoActivo": [
+        0,
+        0
+      ]
+    }
+  ],
+  "conversionVectorial": {
+    "script": "Sources/rasterizar.cjs",
+    "dependencia": "sharp",
+    "comando": "node Content/Textures/NoTrace/Sources/rasterizar.cjs"
+  }
+}

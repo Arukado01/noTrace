@@ -15,6 +15,7 @@ class Overlay {
 private:
   std::optional<OverlaySelection> selection_;
   tgui::Group::Ptr group_;
+  tgui::Button::Ptr resumeButton_;
 
 public:
   Overlay(GuiManager &gui);

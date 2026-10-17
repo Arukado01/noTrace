@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <title>Emblema táctico de NO TRACE</title>
+  <metadata>Autor: Carlos Cortina. Diseño vectorial original para NO TRACE, CIO.</metadata>
+  <path d="M20 8H108L120 20V108L108 120H20L8 108V20Z" fill="#080e16" stroke="#e6e8e7" stroke-width="5"/>
+  <path d="M64 23L87 48L64 101L41 48Z" fill="#e6e8e7"/>
+  <path d="M64 38L75 50L64 74L53 50Z" fill="#101a27"/>
+  <path d="M19 43L44 48L51 62L25 55Z M109 43L84 48L77 62L103 55Z" fill="#e6e8e7"/>
+  <path d="M27 65L52 72L56 83L34 76Z M101 65L76 72L72 83L94 76Z" fill="#8796a5"/>
+  <path d="M73 17L61 49H68L55 84L75 47H69L84 17Z" fill="#dc3044"/>
+  <path d="M15 26V15H26M102 15H113V26M113 102V113H102M26 113H15V102" fill="none" stroke="#dc3044" stroke-width="3"/>
+</svg>

@@ -20,6 +20,7 @@ add_executable(AwesomeEngine ${SOURCES})
 
 target_include_directories(AwesomeEngine PRIVATE Engine/Include Games/Include)
 target_compile_features(AwesomeEngine PRIVATE cxx_std_20)
+target_compile_options(AwesomeEngine PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/utf-8>)
 target_compile_options(AwesomeEngine PRIVATE $<IF:$<CXX_COMPILER_ID:MSVC>, /W4, -Wall -Wextra>)
 target_link_libraries(AwesomeEngine PRIVATE SFML::Graphics SFML::Audio nlohmann_json::nlohmann_json spdlog::spdlog TGUI::TGUI magic_enum::magic_enum)
 

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+  <title>Cursor táctico de NO TRACE; punto activo 0,0</title>
+  <metadata>Autor: Carlos Cortina. Diseño vectorial original. Punto activo en la punta superior izquierda: 0,0.</metadata>
+  <path d="M0 0L39 22L25 27L20 43Z" fill="#060b12"/>
+  <path d="M2 2L34 21L22 25L19 37Z" fill="#ecefec"/>
+  <path d="M6 7L27 20L20 22L18 29Z" fill="#b22a3c"/>
+  <path d="M27 31H35V39" fill="none" stroke="#080e16" stroke-width="5"/>
+  <path d="M27 31H35V39" fill="none" stroke="#ecefec" stroke-width="2"/>
+</svg>

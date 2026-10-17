@@ -1,11 +1,18 @@
 #pragma once
 #include <TGUI/Backend/SFML-Graphics.hpp>
 #include <TGUI/TGUI.hpp>
+#include <optional>
+#include <vector>
 
 class GuiManager {
 private:
   sf::RenderWindow &window_;
   tgui::Gui gui_;
+  std::vector<tgui::Widget::Ptr> modalDisabledWidgets_;
+  tgui::Group::Ptr displayConfirmationGroup_;
+  tgui::Label::Ptr displayConfirmationLabel_;
+  tgui::Button::Ptr keepDisplayButton_;
+  std::optional<bool> displayDecision_;
 
 public:
   GuiManager(sf::RenderWindow &window);
@@ -17,9 +24,15 @@ private:
   friend class Engine;
   void ProcessEvent(const sf::Event &);
   void Render();
+  void RebindWindow();
+  void SyncPresentation(sf::Vector2f logicalSize, const sf::FloatRect &viewport);
+  void BeginModal(const tgui::Widget::Ptr &widget);
+  void EndModal();
+  void SetDisplayConfirmation(bool visible, float remaining);
+  std::optional<bool> FetchDisplayDecision();
 
 private:
-  void HandleEvent(const sf::Event::Resized &);
+  void InitializeDisplayConfirmation();
   void HandleEvent(const sf::Event::JoystickButtonPressed &);
   void HandleEvent(const sf::Event::JoystickButtonReleased &);
   void HandleEvent(const auto &) {}

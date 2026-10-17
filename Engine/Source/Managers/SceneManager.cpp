@@ -26,3 +26,7 @@ void SceneManager::ChangeScene(std::string_view name) {
 }
 
 void SceneManager::RestartCurrentScene() { ChangeScene(currentScene_); }
+
+void SceneManager::RequestQuit() { quitRequested_ = true; }
+
+bool SceneManager::FetchQuitRequest() { return std::exchange(quitRequested_, false); }

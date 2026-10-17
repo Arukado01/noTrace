@@ -4,7 +4,15 @@
 
 **Organización ficticia de espionaje:** CIO — Clandestine Intelligence Organization.
 
-NO TRACE es un proyecto de infiltración táctica en pixel art con cámara axonométrica, concebido a escala viable para el Caribe Game Jam. Este documento presenta el diseño previsto: las mecánicas descritas aún no están implementadas y no constituyen una experiencia jugable disponible.
+NO TRACE es un proyecto de infiltración táctica en pixel art con cámara axonométrica, concebido a escala viable para el Caribe Game Jam. La presentación incorpora un menú con identidad propia, una recepción informativa de CIO y opciones de pantalla y volumen. Las mecánicas de infiltración descritas a continuación siguen siendo diseño previsto.
+
+## Presentación disponible
+
+Al abrir el proyecto aparece el logotipo de NO TRACE sobre un fondo estático de una instalación nocturna con un agente armado. «Nueva operación» lleva a la recepción de CIO, desde donde se puede volver al menú. «Opciones» permite elegir una resolución compatible, alternar ventana y pantalla completa, ajustar volumen y velocidad del cursor con mando, y restaurar los valores predeterminados. «Salir» cierra el juego.
+
+Se puede usar el cursor táctico o recorrer los controles con Tab y activarlos con Enter o Espacio. En Opciones, las flechas ajustan el deslizador enfocado. F11 y Alt + Enter alternan el modo de pantalla. Los cambios de pantalla se confirman antes de guardarse; si no se conservan a tiempo, se restaura el modo anterior. Escape abre la pausa o revierte un cambio de pantalla pendiente; M regresa al menú desde las escenas disponibles.
+
+La recepción presenta el acceso inicial a la organización. La base recorrible, el equipo y las misiones se desarrollarán en las siguientes fases.
 
 ## Identidad del juego
 

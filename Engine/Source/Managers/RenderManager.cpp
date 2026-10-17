@@ -36,6 +36,10 @@ void RenderManager::SetView(const sf::View &view) { target_.setView(view); }
 
 void RenderManager::ResetView() { SetView(target_.getDefaultView()); }
 
+void RenderManager::SetPostProcessingEnabled(bool enabled) {
+  postProcessingEnabled_ = enabled;
+}
+
 void RenderManager::BeginDrawing() {
   target_.clear();
   Draw(background_);
@@ -43,6 +47,10 @@ void RenderManager::BeginDrawing() {
 
 const sf::Texture &RenderManager::FinishDrawing() {
   target_.display();
+
+  if (!postProcessingEnabled_) {
+    return target_.getTexture();
+  }
 
   sf::RenderTexture *input = &target_;
   sf::RenderTexture *output = &effectsTarget_;

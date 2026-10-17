@@ -5,6 +5,7 @@
 #include "Core/Overlay.h"
 #include "Scene/SceneFactory.h"
 #include <SFML/Graphics.hpp>
+#include <string_view>
 
 class Engine {
 private:
@@ -18,7 +19,7 @@ private:
   bool cursorWasVisible_;
 
 public:
-  Engine();
+  explicit Engine(std::string_view initialScene = "Menu");
 
   bool IsRunning() const;
   bool HasFocus() const;
@@ -29,6 +30,8 @@ public:
 
 private:
   friend EngineVisitor;
+  void SyncWindowPresentation();
+  void UpdateWindowServices();
   void EventWindowClose();
   void EventWindowResized(sf::Vector2u size);
   void EventWindowFocusLost();

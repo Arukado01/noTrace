@@ -14,6 +14,7 @@ private:
 
   std::vector<std::unique_ptr<Effect>> effects_;
   sf::RenderTexture effectsTarget_;
+  bool postProcessingEnabled_ = true;
 
 public:
   RenderManager();
@@ -21,6 +22,7 @@ public:
 
   void SetView(const sf::View &view);
   void ResetView();
+  void SetPostProcessingEnabled(bool enabled);
 
 private:
   friend class Engine;

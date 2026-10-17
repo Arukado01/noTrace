@@ -66,3 +66,9 @@ Content/Screenshots
 *.cache
 
 Save.json
+
+/docs/
+/.agents/skills/no-trace-architecture/
+/.agents/skills/no-trace-phase-workflow/
+/.agents/skills/no-trace-code-style/
+/.agents/skills/no-trace-use-managers/

@@ -10,6 +10,12 @@ EngineConfig::EngineConfig() {
   nlohmann::json json = nlohmann::json::parse(file);
   windowTitle = json["windowTitle"];
   windowSize = {json["windowSize"][0], json["windowSize"][1]};
+  windowResolution = {json["windowResolution"][0], json["windowResolution"][1]};
+  minimumWindowSize = {json["minimumWindowSize"][0], json["minimumWindowSize"][1]};
+  windowIcon = json["windowIcon"];
+  fullscreen = json["fullscreen"];
+  framerateLimit = json["framerateLimit"];
+  displayConfirmationSeconds = json["displayConfirmationSeconds"];
   disableSfmlLogs = json["disableSfmlLogs"];
   maximumDeltaTime = sf::seconds(json["maximumDeltaTime"]);
   globalVolume = json["globalVolume"];
@@ -20,6 +26,9 @@ EngineConfig::EngineConfig() {
   };
   cursorRadius = json["cursorRadius"];
   cursorSpeed = json["cursorSpeed"];
+  cursorTexture = json["cursorTexture"];
+  cursorHoverTexture = json["cursorHoverTexture"];
+  cursorSize = json["cursorSize"];
   cursorColor = {json["cursorColor"][0], json["cursorColor"][1],
                  json["cursorColor"][2]};
   joystickDeadzone = json["joystickDeadzone"];

@@ -19,7 +19,13 @@ std::optional<OverlaySelection> Overlay::FetchSelection() {
 }
 
 void Overlay::SetVisible(bool visible) {
+  if (visible) {
+    group_->moveToFront();
+  }
   group_->setVisible(visible);
+  if (visible) {
+    resumeButton_->setFocused(true);
+  }
 }
 
 bool Overlay::IsVisible() const {
@@ -47,6 +53,10 @@ void Overlay::InitButtons() {
     button->setTextSize(30);
     // Captura selection POR VALOR: cada botón guarda su propio valor
     button->onPress([this, selection] { this->selection_ = selection; });
+
+    if (selection == OverlaySelection::Resume) {
+      resumeButton_ = button;
+    }
 
     // Apila los botones verticalmente en el layout
     layout->add(button);
