@@ -1,5 +1,7 @@
 # Biblioteca de grabaciones de NO TRACE
 
+La música original tiene su partitura, síntesis reproducible y verificador independientes en `Music/README.md`; sus cuatro Ogg están en `Content/Musics/NoTrace`. No utiliza grabaciones de esta biblioteca ni efectos anteriores. Las herramientas descritas a continuación preparan exclusivamente los efectos y ambientes grabados.
+
 `Sources.json` declara las grabaciones nuevas verificadas con CC0 y los hashes de sus descargas. `Library.json` asigna tomas e intervalos concretos a acciones y materiales. Los archivos antiguos y las primeras selecciones rechazadas no son entradas de estas herramientas.
 
 Las fuentes originales se conservan en una carpeta QA ignorada por Git. Para obtener las fuentes que falten desde sus páginas primarias y verificar los hashes:

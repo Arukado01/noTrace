@@ -1,0 +1,2 @@
+Tools/Audio/Music/Compose.py -text
+Tools/Audio/Music/Score.json -text whitespace=cr-at-eol

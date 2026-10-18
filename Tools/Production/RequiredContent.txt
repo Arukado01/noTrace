@@ -189,6 +189,14 @@ Content/Audio/NoTrace/manifest.json
 Content/Config.json
 Content/Fonts/Relidux.otf
 Content/Musics/Music.mp3
+Content/Musics/NoTrace/gallery.html
+Content/Musics/NoTrace/InfiltracionActiva.ogg
+Content/Musics/NoTrace/InfiltracionTension.ogg
+Content/Musics/NoTrace/LICENSE.txt
+Content/Musics/NoTrace/manifest.json
+Content/Musics/NoTrace/OperacionEncubierta.ogg
+Content/Musics/NoTrace/PreparacionTactica.ogg
+Content/Musics/NoTrace/verification.json
 Content/Musics/Space.mp3
 Content/Shaders/Additive.frag
 Content/Shaders/Blur.frag

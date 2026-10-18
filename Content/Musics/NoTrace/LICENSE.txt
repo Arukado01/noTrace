@@ -1,0 +1,9 @@
+NO TRACE — MÚSICA ORIGINAL
+Copyright (c) 2026 Carlos Cortina
+Todos los derechos reservados conforme a LICENSE.md del proyecto.
+
+Operación encubierta; Preparación táctica; Infiltración activa; Infiltración activa — tensión.
+Composición y síntesis procedimental originales creadas para este proyecto.
+No se han utilizado muestras, grabaciones, melodías importadas ni modelos externos de generación musical.
+NumPy, SciPy y libsndfile/soundfile son herramientas de cálculo y codificación; sus licencias no sustituyen la licencia del audio creado.
+El manifiesto identifica los archivos y sus hashes; Tools/Audio/Music contiene la partitura y el proceso reproducible.

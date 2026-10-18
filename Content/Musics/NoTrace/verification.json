@@ -1,0 +1,262 @@
+{
+  "passed": true,
+  "method": "Decodificación real Vorbis con libsndfile; loudness estimada mediante dos filtros K, ventanas de400 ms/100 ms y puertas absoluta/relativa; pico intersample aproximado4x; no es un medidor certificado.",
+  "auditoryReview": "No se afirma escucha humana. Esta verificación detecta errores técnicos, no acepta por sí sola timbre, composición, fatiga, mezcla de efectos ni transiciones en ejecución.",
+  "loopReview": "Un salto de muestra pequeño y energía compatible son condiciones técnicas necesarias; la naturalidad musical requiere escuchar al menos un cierre completo en el juego.",
+  "adaptiveGridAligned": true,
+  "assets": [
+    {
+      "file": "OperacionEncubierta.ogg",
+      "frames": 9216000,
+      "durationSeconds": 192.0,
+      "sampleRate": 48000,
+      "channels": 2,
+      "format": "OGG",
+      "subtype": "VORBIS",
+      "sha256": "11babb81a977e359ef464cd236a1f8c49388c51ca8a4154dbf370f339cae7f6b",
+      "decodedPcm16Sha256": "a121b9d388f3710024b2dc79e332d97d00f02e8b8930ed84f3f667b5397ea578",
+      "estimatedIntegratedLufs": -23.058,
+      "peakDbfs": -11.359,
+      "estimatedTruePeak4xDbfs": -11.353,
+      "clippedSamples": 0,
+      "dcOffset": [
+        -1.3989530998514965e-05,
+        2.8396803486430144e-07
+      ],
+      "stereoCorrelation": 0.39982,
+      "loopSampleStep": 0.004088869318366051,
+      "derivative99Percentile": 0.004632970318198204,
+      "loopEdgeRmsDifferenceDb": 0.187,
+      "quietestQuarterSecondDbfs": -28.173,
+      "longestSilenceBelowMinus65DbfsSeconds": 0,
+      "sectionSpectralVariation": 0.61138,
+      "sectionRmsDbfs": [
+        -24.3,
+        -22.89,
+        -22.26,
+        -23.36,
+        -26.44,
+        -24.7,
+        -25.52,
+        -26.78,
+        -22.78,
+        -23.68,
+        -23.94,
+        -24.51
+      ],
+      "checks": {
+        "hash": true,
+        "uniquePcm": true,
+        "longForm": true,
+        "exactGrid": true,
+        "vorbis": true,
+        "noClipping": true,
+        "containedLevel": true,
+        "noLongSilence": true,
+        "continuousSampleJoin": true,
+        "continuousEdgeEnergy": true,
+        "stereo": true,
+        "sectionVariation": true,
+        "dc": true
+      }
+    },
+    {
+      "file": "PreparacionTactica.ogg",
+      "frames": 9216000,
+      "durationSeconds": 192.0,
+      "sampleRate": 48000,
+      "channels": 2,
+      "format": "OGG",
+      "subtype": "VORBIS",
+      "sha256": "111ba0a79d2120fb9292fce413d0021cd65e577396f00f2426e6d581a2ef7c70",
+      "decodedPcm16Sha256": "049d9987db1b00d303e6fb8f1eddad85f4c7656d0d53b9a62228eb9cda318ac7",
+      "estimatedIntegratedLufs": -24.069,
+      "peakDbfs": -12.196,
+      "estimatedTruePeak4xDbfs": -12.19,
+      "clippedSamples": 0,
+      "dcOffset": [
+        2.7311616577208042e-05,
+        1.4005676348460838e-05
+      ],
+      "stereoCorrelation": 0.5244,
+      "loopSampleStep": 0.0015959888696670532,
+      "derivative99Percentile": 0.0046314955689013,
+      "loopEdgeRmsDifferenceDb": 0.497,
+      "quietestQuarterSecondDbfs": -30.475,
+      "longestSilenceBelowMinus65DbfsSeconds": 0,
+      "sectionSpectralVariation": 0.63052,
+      "sectionRmsDbfs": [
+        -27.36,
+        -25.58,
+        -23.46,
+        -25.19,
+        -27.86,
+        -25.29,
+        -25.75,
+        -26.83,
+        -24.3,
+        -24.84,
+        -25.77,
+        -27.07
+      ],
+      "checks": {
+        "hash": true,
+        "uniquePcm": true,
+        "longForm": true,
+        "exactGrid": true,
+        "vorbis": true,
+        "noClipping": true,
+        "containedLevel": true,
+        "noLongSilence": true,
+        "continuousSampleJoin": true,
+        "continuousEdgeEnergy": true,
+        "stereo": true,
+        "sectionVariation": true,
+        "dc": true
+      }
+    },
+    {
+      "file": "InfiltracionActiva.ogg",
+      "frames": 9216000,
+      "durationSeconds": 192.0,
+      "sampleRate": 48000,
+      "channels": 2,
+      "format": "OGG",
+      "subtype": "VORBIS",
+      "sha256": "4f582f5dc91edc33f5e490754504290e06292cdd56414145b3b439dafdfe0324",
+      "decodedPcm16Sha256": "ac23ffafea35d4d3ca2d124ebf9a5896dfea7c9b8706712859bd714f19191a4a",
+      "estimatedIntegratedLufs": -27.084,
+      "peakDbfs": -15.058,
+      "estimatedTruePeak4xDbfs": -15.053,
+      "clippedSamples": 0,
+      "dcOffset": [
+        1.3631694855575915e-05,
+        1.1931989320146386e-05
+      ],
+      "stereoCorrelation": 0.6874,
+      "loopSampleStep": 0.0012174828443676233,
+      "derivative99Percentile": 0.0027583041228353977,
+      "loopEdgeRmsDifferenceDb": 1.638,
+      "quietestQuarterSecondDbfs": -34.924,
+      "longestSilenceBelowMinus65DbfsSeconds": 0,
+      "sectionSpectralVariation": 0.59592,
+      "sectionRmsDbfs": [
+        -30.45,
+        -28.39,
+        -26.27,
+        -27.52,
+        -31.12,
+        -28.87,
+        -29.45,
+        -30.2,
+        -27.07,
+        -25.67,
+        -26.57,
+        -30.1
+      ],
+      "checks": {
+        "hash": true,
+        "uniquePcm": true,
+        "longForm": true,
+        "exactGrid": true,
+        "vorbis": true,
+        "noClipping": true,
+        "containedLevel": true,
+        "noLongSilence": true,
+        "continuousSampleJoin": true,
+        "continuousEdgeEnergy": true,
+        "stereo": true,
+        "sectionVariation": true,
+        "dc": true
+      }
+    },
+    {
+      "file": "InfiltracionTension.ogg",
+      "frames": 9216000,
+      "durationSeconds": 192.0,
+      "sampleRate": 48000,
+      "channels": 2,
+      "format": "OGG",
+      "subtype": "VORBIS",
+      "sha256": "19d9fb370b8f6d64528a4bb6213644109386f09442fc28745deb5ffe402dae25",
+      "decodedPcm16Sha256": "d948f2946ab18b15bb9bac8f323ba342d539e12111cb5ca6fead0a16756d9c9f",
+      "estimatedIntegratedLufs": -29.041,
+      "peakDbfs": -15.544,
+      "estimatedTruePeak4xDbfs": -15.539,
+      "clippedSamples": 0,
+      "dcOffset": [
+        -3.520888276398182e-05,
+        -2.665169449755922e-05
+      ],
+      "stereoCorrelation": 0.52562,
+      "loopSampleStep": 0.00446173595264554,
+      "derivative99Percentile": 0.0014339133631438017,
+      "loopEdgeRmsDifferenceDb": 0.295,
+      "quietestQuarterSecondDbfs": -37.228,
+      "longestSilenceBelowMinus65DbfsSeconds": 0,
+      "sectionSpectralVariation": 0.52307,
+      "sectionRmsDbfs": [
+        -31.4,
+        -30.22,
+        -29.09,
+        -31.23,
+        -30.67,
+        -29.56,
+        -31.83,
+        -31.15,
+        -29.86,
+        -29.55,
+        -31.35,
+        -30.69
+      ],
+      "checks": {
+        "hash": true,
+        "uniquePcm": true,
+        "longForm": true,
+        "exactGrid": true,
+        "vorbis": true,
+        "noClipping": true,
+        "containedLevel": true,
+        "noLongSilence": true,
+        "continuousSampleJoin": true,
+        "continuousEdgeEnergy": true,
+        "stereo": true,
+        "sectionVariation": true,
+        "dc": true
+      }
+    }
+  ],
+  "pairwiseDiversity": [
+    {
+      "first": "OperacionEncubierta.ogg",
+      "second": "PreparacionTactica.ogg",
+      "sampledWaveformCorrelation": 0.066101
+    },
+    {
+      "first": "OperacionEncubierta.ogg",
+      "second": "InfiltracionActiva.ogg",
+      "sampledWaveformCorrelation": -0.02506
+    },
+    {
+      "first": "OperacionEncubierta.ogg",
+      "second": "InfiltracionTension.ogg",
+      "sampledWaveformCorrelation": 0.002123
+    },
+    {
+      "first": "PreparacionTactica.ogg",
+      "second": "InfiltracionActiva.ogg",
+      "sampledWaveformCorrelation": -0.000619
+    },
+    {
+      "first": "PreparacionTactica.ogg",
+      "second": "InfiltracionTension.ogg",
+      "sampledWaveformCorrelation": 0.007894
+    },
+    {
+      "first": "InfiltracionActiva.ogg",
+      "second": "InfiltracionTension.ogg",
+      "sampledWaveformCorrelation": -8e-06
+    }
+  ],
+  "failures": []
+}
