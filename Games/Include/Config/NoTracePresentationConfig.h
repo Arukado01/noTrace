@@ -53,6 +53,7 @@ namespace NoTrace::PresentationConfig {
   inline constexpr int NoiseWaveCount = 2;
   inline constexpr float NoiseWaveLag = 0.22f;
   inline constexpr float FootstepVisualOffset = GameplayConfig::AgentRadius * 0.5f;
+  inline constexpr float IntelligenceFeedbackDuration = 8.f;
   inline constexpr int VisionSegments = 14;
   inline constexpr float IconOffset = 12.f;
   inline constexpr float IconHalfSize = 9.f;

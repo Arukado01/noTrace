@@ -4,6 +4,7 @@
 #include "NoTraceSession.h"
 #include "NoTraceWorldRenderer.h"
 #include "NoTraceOptionsUi.h"
+#include "Config/NoTraceControlsConfig.h"
 #include "Types/DisplayTypes.h"
 #include <SFML/Audio/Sound.hpp>
 #include <array>
@@ -27,12 +28,14 @@ namespace NoTrace {
 
   private:
     friend struct EngineTests::GuiAccess;
-    enum Action { Left, Right, Up, Down, Run, Crouch, Prone, Interact, Cqc, Lethal, NonLethal, Decoy, Knock, Drag, Tool, Orders, Lobby, WallCover, Peek, Shove, Reload, SelectPistol, SelectNonLethal, Dive, Roll, Suppressor, WeaponMenu, Count };
+    using Action = ControlsConfig::Action;
+    using enum ControlsConfig::Action;
     enum class Page { Connection, Operations, Armory, Intelligence, Deployment, Results, Pause, Options, Puzzle, Weapons, Controls, None };
     Session session_;
     WorldRenderer worldRenderer_;
     tgui::Group::Ptr root_;
     tgui::Panel::Ptr panel_;
+    tgui::Panel::Ptr footer_;
     tgui::Label::Ptr title_;
     tgui::Label::Ptr mission_;
     tgui::Label::Ptr agent_;
@@ -66,6 +69,9 @@ namespace NoTrace {
     MissionEvent puzzleFailure_;
     float puzzleFailureUntil_ = 0.f;
     GamePhase puzzleFailurePhase_ = GamePhase::Base;
+    MissionEvent puzzleSuccess_;
+    float puzzleSuccessUntil_ = 0.f;
+    std::string puzzleSuccessText_;
     int pendingPuzzleInput_ = -1;
     bool pendingPuzzleHeld_ = false;
     int pendingWeaponChoice_ = -1;

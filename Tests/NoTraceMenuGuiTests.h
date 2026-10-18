@@ -130,7 +130,7 @@ namespace EngineTests {
     capture(menu, output / "main-menu-options.png");
     require(std::filesystem::is_regular_file(output / "main-menu-options.png"), "El menú real produce una captura de sus opciones");
     measure("main-menu-options");
-    press("CONTROLES Y TECLAS ASIGNADAS");
+    press("Controles");
     require(findButton("GUARDAR CONTROLES") && !findButton("APLICAR PANTALLA"), "El menú abre su panel real de controles sin cambiar de escena");
     capture(menu, output / "main-menu-controls.png");
     require(std::filesystem::is_regular_file(output / "main-menu-controls.png"), "El menú real produce una captura de sus controles");
@@ -141,10 +141,10 @@ namespace EngineTests {
     combos[0]->setSelectedItemByIndex(4); combos[1]->setSelectedItemByIndex(3); press("GUARDAR CONTROLES");
     require(findButton("APLICAR PANTALLA") && context.save.Get("NoTrace:DiveKey", -1) == 4 && context.save.Get("NoTrace:RollKey", -1) == 3,
             "Guardar controles desde el menú conserva las teclas y regresa a opciones");
-    press("CONTROLES Y TECLAS ASIGNADAS"); press("RESTAURAR CONTROLES");
+    press("Controles"); press("RESTAURAR CONTROLES");
     require(context.save.Get("NoTrace:DiveKey", -1) == 0 && context.save.Get("NoTrace:RollKey", -1) == 1 && findButton("APLICAR PANTALLA"),
             "El menú restaura los controles predeterminados y regresa a opciones");
-    press("CONTROLES Y TECLAS ASIGNADAS"); escape();
+    press("Controles"); escape();
     require(findButton("APLICAR PANTALLA") != nullptr, "Escape regresa de controles a opciones");
     escape(); require(findButton("NUEVA OPERACIÓN") != nullptr, "Escape regresa de opciones al menú principal");
     press("OPCIONES"); press("VOLVER"); require(findButton("NUEVA OPERACIÓN") != nullptr, "Volver del menú de opciones conserva la navegación principal");

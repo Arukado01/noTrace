@@ -16,6 +16,8 @@
 #include "NoTraceSecurityGuiTests.h"
 #include "NoTraceAlertHudGuiTests.h"
 #include "NoTraceTableGuiTests.h"
+#include "NoTraceCleanHudGuiTests.h"
+#include "NoTraceInteraction.h"
 #include "NoTraceWorldGeometry.h"
 #include <SFML/Graphics/Image.hpp>
 #include <SFML/System/Sleep.hpp>
@@ -175,6 +177,58 @@ namespace EngineTests {
       sf::Event::KeyPressed pressed; pressed.scancode = scan; context.input.CaptureEvent(pressed);
       sf::Event::KeyReleased released; released.scancode = scan; context.input.CaptureEvent(released);
       game.Update(); Step(game); context.input.BeginFrame();
+    }
+    static void VerifyCleanHudInput(Game &game, EngineContext &context) {
+      auto &world = const_cast<WorldState &>(game.session_.GetWorld());
+      const auto saved = world;
+      const auto previousPhase = game.previousPhase_;
+      world.phase = GamePhase::Mission; world.mode = SimulationMode::Operation;
+      world.obstacles.clear(); world.objects.clear(); world.guards.clear(); world.events.clear(); world.noises.clear(); world.sounds.clear(); world.securityEntries.clear();
+      auto &agent = world.agents.front(); agent.position = {300.f, 300.f}; agent.facing = {1.f, 0.f}; agent.name = "NOMBRE_RESERVADO_TAB";
+      agent.alive = true; agent.incapacitated = false; agent.hidden = false; agent.stance = Stance::Standing; agent.actionCooldown = 0.f;
+      game.previousPhase_ = world.phase; game.ClosePanel(); context.input.Clear(); game.BindInputs(); game.held_.fill(false);
+      context.cursor.SetPosition({1000.f, 480.f});
+      game.Update(); game.RefreshHud();
+      Require(!game.worldRenderer_.NamesVisible() && !game.private_->isVisible() && game.agent_->getText().toStdString().find(agent.name) == std::string::npos,
+        "El nombre o la orden privada aparecen sin mantener TAB");
+      Require(!game.hint_->isVisible() && !game.message_->isVisible() && !game.footer_->isVisible(), "El HUD conserva instrucciones o carteles sin acción contextual");
+      for (const auto &widget : game.root_->getWidgets()) if (const auto label = std::dynamic_pointer_cast<tgui::Label>(widget)) {
+        const auto text = label->getText().toStdString();
+        Require(!text.starts_with("WASD mover") && !text.starts_with("Izq disparar"), "Persisten tutoriales permanentes en el HUD");
+      }
+      const auto key = [&](sf::Keyboard::Scan scan, bool down) {
+        context.input.BeginFrame();
+        if (down) { sf::Event::KeyPressed event; event.scancode = scan; context.input.CaptureEvent(event); }
+        else { sf::Event::KeyReleased event; event.scancode = scan; context.input.CaptureEvent(event); }
+        game.Update(); Step(game); game.RefreshHud();
+      };
+      key(sf::Keyboard::Scan::Tab, true);
+      Require(game.worldRenderer_.NamesVisible() && game.private_->isVisible(), "TAB mantenida no muestra nombres y orden local");
+      key(sf::Keyboard::Scan::Tab, true);
+      Require(game.worldRenderer_.NamesVisible(), "El auto-repeat de TAB alterna los nombres");
+      const auto beforeMovement = agent.position;
+      key(sf::Keyboard::Scan::D, true);
+      Require(agent.position != beforeMovement && game.worldRenderer_.NamesVisible(), "TAB bloquea el movimiento");
+      key(sf::Keyboard::Scan::D, false); key(sf::Keyboard::Scan::Tab, false);
+      Require(!game.worldRenderer_.NamesVisible() && !game.private_->isVisible(), "Soltar TAB no oculta inmediatamente nombres y orden");
+      agent.position = {300.f, 300.f}; agent.facing = {1.f, 0.f}; agent.actionCooldown = 0.f;
+      Guard target; target.id = 81; target.position = {330.f, 300.f}; target.facing = {1.f, 0.f}; target.attackCooldown = 1000.f; world.guards.push_back(target);
+      game.RefreshHud();
+      Require(game.hint_->getText().toStdString() == "V · Empujar", "El HUD no anuncia el empujón realmente disponible");
+      key(sf::Keyboard::Scan::V, true);
+      const auto pushes = [&] { return std::ranges::count_if(world.events, [](const MissionEvent &event) { return event.kind == EventKind::Cqc && event.actor == 1; }); };
+      Require(world.guards[0].position.x > target.position.x && pushes() == 1, "V no llega al empujón autoritativo desde la entrada real");
+      for (unsigned int repeat = 0; repeat < 3; ++repeat) {
+        agent.actionCooldown = 0.f; world.guards[0].position = target.position;
+        key(sf::Keyboard::Scan::V, true);
+        Require(pushes() == 1, "El auto-repeat de V registra otro empujón sin liberación física");
+      }
+      key(sf::Keyboard::Scan::V, false); agent.actionCooldown = 0.f; world.guards[0].position = target.position;
+      key(sf::Keyboard::Scan::V, true);
+      Require(pushes() == 2, "Soltar y volver a pulsar V no permite un segundo empujón válido");
+      key(sf::Keyboard::Scan::V, false);
+      world = saved; game.previousPhase_ = previousPhase;
+      context.input.Clear(); game.BindInputs(); game.held_.fill(false); game.showOrders_ = false; game.worldRenderer_.SetNamesVisible(false); game.RefreshHud();
     }
     static void VerifyAutomaticCrawl(Game &game, EngineContext &context) {
       Key(game, context, sf::Keyboard::Scan::Z);
@@ -469,7 +523,7 @@ namespace EngineTests {
         for (int frame = 0; frame < frames; ++frame) { context.input.BeginFrame(); game.Update(); Step(game); }
       };
       const auto controls = [&] {
-        Escape(game); Press(game, "OPCIONES"); Press(game, "CONTROLES Y TECLAS ASIGNADAS");
+        Escape(game); Press(game, "OPCIONES"); Press(game, "Controles");
         std::vector<tgui::ComboBox::Ptr> selectors;
         for (const auto &widget : game.panel_->getWidgets()) if (const auto box = std::dynamic_pointer_cast<tgui::ComboBox>(widget)) selectors.push_back(box);
         Require(game.page_ == Game::Page::Controls && selectors.size() == 2, "Las opciones no exponen un selector independiente para cada maniobra");
@@ -720,7 +774,7 @@ namespace EngineTests {
       authority.Step(0.1f, {{2, foreignError}}); receive();
       Require(std::ranges::any_of(world.objects, [](const Interactable &object) { return object.id == 201 && object.puzzle.state == PuzzleState::Failed; }),
         "La fixture no incluye el dispositivo visible con fallo ajeno");
-      Require(game.message_->getText().toStdString() == "Operación en curso.", "El HUD atribuye al jugador local un fallo de otro actor");
+      Require(game.message_->getText().empty(), "El HUD atribuye al jugador local un fallo de otro actor");
       ActionCommand localError; localError.puzzleTarget = 200; localError.puzzleInput = host.agents[0].puzzle.sequence.front() % 4 + 1;
       authority.Step(0.1f, {{1, localError}}); receive();
       Require(game.message_->getText().toStdString().find("Intervención fallida. Reintento en 3 s") != std::string::npos &&
@@ -731,10 +785,10 @@ namespace EngineTests {
         "El HUD pierde el fallo recibido al avanzar la ventana de eventos o no actualiza el cooldown");
       for (int frame = 0; frame < 14; ++frame) authority.Step(0.1f, {});
       receive();
-      Require(host.objects[0].puzzle.state == PuzzleState::Ready && game.message_->getText().toStdString() == "Operación en curso.",
+      Require(host.objects[0].puzzle.state == PuzzleState::Ready && game.message_->getText().empty(),
         "El aviso privado de fallo continúa después de habilitar el reintento");
       authority.Step(0.1f, {{1, interact}}); receive();
-      Require(host.agents[0].puzzle.target == 200 && host.objects[0].locked && game.message_->getText().toStdString() == "Operación en curso.",
+      Require(host.agents[0].puzzle.target == 200 && host.objects[0].locked && game.message_->getText().empty(),
         "El reintento real conserva un error antiguo o desbloquea el dispositivo sin resolver");
       localError.puzzleInput = host.agents[0].puzzle.sequence.front() % 4 + 1;
       authority.Step(0.1f, {{1, localError}}); receive();
@@ -742,6 +796,29 @@ namespace EngineTests {
       authority.ReturnToBase(); receive();
       Require(game.puzzleFailure_.target == 0 && game.message_->getText().toStdString().find("Intervención fallida") == std::string::npos,
         "Regresar a la base conserva un fallo de la operación anterior");
+      authority.Deploy(17);
+      host.objects.clear(); host.obstacles.clear(); host.guards.clear(); host.securityEntries.clear();
+      host.agents[0].position = {200.f, 300.f}; host.agents[0].facing = {1.f, 0.f};
+      Interactable remoteComputer{210, ObjectKind::Computer, {240.f, 300.f}, "Inteligencia remota"};
+      remoteComputer.footprint = {24.f, 24.f}; remoteComputer.puzzle.kind = PuzzleKind::Computer; remoteComputer.puzzle.family = PuzzleFamily::Arrows;
+      remoteComputer.puzzle.difficulty = 2; remoteComputer.puzzle.intelligence = "INTELIGENCIA: resultado privado del dispositivo remoto."; host.objects.push_back(remoteComputer);
+      authority.Step(0.1f, {{1, interact}});
+      for (int stage = 0; stage < 2; ++stage) {
+        ActionCommand answer; answer.puzzleTarget = 210; answer.puzzleInput = host.agents[0].puzzle.sequence.at(host.agents[0].puzzle.stage);
+        authority.Step(0.1f, {{1, answer}});
+      }
+      host.agents[0].position = {800.f, 650.f};
+      auto intelligence = authority.SnapshotFor(1, true);
+      Require(intelligence.at("message") == remoteComputer.puzzle.intelligence && authority.SnapshotFor(2, true).at("message") == "Operación en curso." &&
+          std::ranges::none_of(intelligence.at("objects"), [](const auto &object) { return object.at("id") == 210; }),
+        "La inteligencia propia desaparece fuera de la visión del dispositivo o se filtra a otro destinatario");
+      std::string intelligenceError; Require(replica.LoadSnapshot(intelligence, intelligenceError), "La réplica rechaza la inteligencia propia: " + intelligenceError);
+      world = replica.GetState(); game.RefreshHud();
+      Require(game.message_->getText().toStdString() == remoteComputer.puzzle.intelligence, "El HUD pierde el resultado remoto recibido por LAN");
+      for (int frame = 0; frame < 82; ++frame) authority.Step(0.1f, {});
+      Require(replica.LoadSnapshot(authority.SnapshotFor(1, true), intelligenceError), "La réplica rechaza la caducidad del aviso: " + intelligenceError);
+      world = replica.GetState(); game.RefreshHud();
+      Require(game.message_->getText().empty() && !game.footer_->isVisible(), "La inteligencia resuelta deja un aviso permanente en el HUD");
       world = saved; game.puzzleFailure_ = savedFailure; game.puzzleFailureUntil_ = savedUntil; game.puzzleFailurePhase_ = savedPhase; game.RefreshHud();
     }
     static void Close(Game &game) { game.ClosePanel(); }
@@ -832,9 +909,9 @@ namespace EngineTests {
       Require(std::abs(GameplayConfig::RunningNoiseRadius - 340.f * 0.9f) < 0.001f, "El radio de carrera no equivale al noventa por ciento del valor anterior");
       const auto quiet=CaptureWorld(renderer,demo,context,window,output/"final-noise-silent.png",false);
       const auto noiseOrigin=demo.agents[0].position+sf::Vector2f{100.f,0.f};
-      demo.noises={{noiseOrigin,GameplayConfig::RunningNoiseRadius,GameplayConfig::NoiseDuration,1,0,SoundKind::StepRunHard}};
+      demo.noises={{noiseOrigin,GameplayConfig::RunningNoiseRadius,GameplayConfig::NoiseDuration * 0.25f,1,0,SoundKind::StepRunHard,GameplayConfig::NoiseDuration}};
       const auto loud=CaptureWorld(renderer,demo,context,window,output/"final-noise-running-radius.png",false);
-      const auto screen=WorldRenderer::ProjectGround(noiseOrigin-sf::Vector2f{GameplayConfig::RunningNoiseRadius,0.f},demo.agents[0].position,context.window.GetLogicalSize(),renderer.GetZoom());
+      const auto screen=WorldRenderer::ProjectGround(noiseOrigin-sf::Vector2f{GameplayConfig::RunningNoiseRadius * 0.75f,0.f},demo.agents[0].position,context.window.GetLogicalSize(),renderer.GetZoom());
       const auto pixel=screen.componentWiseDiv(context.window.GetLogicalSize()).componentWiseMul(sf::Vector2f(loud.getSize()));
       bool edge=false;
       for(int y=-4;y<=4;++y) for(int x=-4;x<=4;++x) {
@@ -842,7 +919,7 @@ namespace EngineTests {
         if(sample.x>=0 && sample.y>=0 && sample.x<static_cast<int>(loud.getSize().x) && sample.y<static_cast<int>(loud.getSize().y))
           edge|=loud.getPixel(sf::Vector2u(sample))!=quiet.getPixel(sf::Vector2u(sample));
       }
-      Require(edge,"El anillo visible recorta el radio acústico utilizado por la IA");
+      Require(edge,"La onda expansiva no alcanza tres cuartos del radio al completar tres cuartos de su duración");
     }
     static void CaptureExample(const Scene &scene, EngineContext &context, sf::RenderWindow &window, const std::filesystem::path &file) {
       window.setView(context.window.GetPresentationView());
@@ -987,14 +1064,26 @@ namespace {
     context.window.Initialize();
     Access::Sync(context);
     context.renderer.SetPostProcessingEnabled(false); context.renderer.SetTextureSmoothing(false);
+    if (visualSuite == "--interaction-fixes-only") {
+      EngineTests::VerifyOptionsPreferences(window, output);
+      Game game(context); game.Start(); Access::Click(game, context, window, "OPERACIÓN INDIVIDUAL");
+      Access::VerifyCleanHudInput(game, context);
+      Access::Capture(game, context, window, output / "clean-hud-game-input.png");
+      const auto captureWorld=[&](WorldRenderer &renderer,const WorldState &world,const std::filesystem::path &file,bool hudVisible=true) { return Access::CaptureWorld(renderer,world,context,window,file,hudVisible); };
+      EngineTests::RunCleanHudRenderFixtures(context,window,output,captureWorld);
+      EngineTests::RunSecurityRenderFixtures(context,output,captureWorld);
+      EngineTests::RunAlertHudRenderFixtures(context,window,output,captureWorld);
+      game.OnCleanup(); window.close(); return nlohmann::json::array();
+    }
     if (visualSuite == "--alert-hud-visuals-only" || visualSuite == "--security-visuals-only" ||
-        visualSuite == "--orientation-visuals-only" || visualSuite == "--table-visuals-only" || visualSuite == "--world-visuals-only" || visualSuite == "--tactical-fixes-visuals-only") {
+        visualSuite == "--orientation-visuals-only" || visualSuite == "--table-visuals-only" || visualSuite == "--world-visuals-only" || visualSuite == "--tactical-fixes-visuals-only" || visualSuite == "--clean-hud-visuals-only") {
       const auto captureWorld=[&](WorldRenderer &renderer,const WorldState &world,const std::filesystem::path &file,bool hudVisible=true) { return Access::CaptureWorld(renderer,world,context,window,file,hudVisible); };
       if (visualSuite == "--alert-hud-visuals-only" || visualSuite == "--tactical-fixes-visuals-only") EngineTests::RunAlertHudRenderFixtures(context,window,output,captureWorld);
       if (visualSuite == "--security-visuals-only" || visualSuite == "--tactical-fixes-visuals-only") EngineTests::RunSecurityRenderFixtures(context,output,captureWorld);
       if (visualSuite == "--orientation-visuals-only") EngineTests::RunOrientationRenderFixtures(context,output,captureWorld);
       if (visualSuite == "--table-visuals-only" || visualSuite == "--tactical-fixes-visuals-only") EngineTests::RunTableRenderFixtures(context,output,captureWorld);
       if (visualSuite == "--world-visuals-only") EngineTests::RunWorldRenderFixtures(context,output,captureWorld);
+      if (visualSuite == "--clean-hud-visuals-only") EngineTests::RunCleanHudRenderFixtures(context,window,output,captureWorld);
       if (visualSuite == "--tactical-fixes-visuals-only") Access::VerifyFinalVisuals(context,window,output);
       window.close(); return nlohmann::json::array();
     }
@@ -1035,6 +1124,7 @@ namespace {
     };
 
     Access::VerifyHud(game);
+    Access::VerifyCleanHudInput(game, context);
     Access::Escape(game);
     Access::Require(!Access::HasButton(game, "REINICIAR") && !Access::HasButton(game, "VOLVER A LA BASE"), "La pausa de la base muestra acciones de una misión inexistente");
     capture("07-base-pause");
@@ -1114,6 +1204,7 @@ namespace {
     EngineTests::RunSecurityRenderFixtures(context,output,captureWorld);
     EngineTests::RunAlertHudRenderFixtures(context,window,output,captureWorld);
     EngineTests::RunTableRenderFixtures(context,output,captureWorld);
+    EngineTests::RunCleanHudRenderFixtures(context,window,output,captureWorld);
     EngineTests::RunWorldRenderFixtures(context, output, [&](WorldRenderer &renderer, const WorldState &world, const std::filesystem::path &file, bool hudVisible = true) {
       return Access::CaptureWorld(renderer, world, context, window, file, hudVisible);
     });
@@ -1150,7 +1241,7 @@ int main(int argc, char **argv) {
   try {
     const std::string visualSuite = argc == 2 ? argv[1] : "";
     const bool focused = visualSuite == "--final-visuals-only" || visualSuite == "--alert-hud-visuals-only" || visualSuite == "--security-visuals-only" ||
-      visualSuite == "--orientation-visuals-only" || visualSuite == "--table-visuals-only" || visualSuite == "--world-visuals-only" || visualSuite == "--tactical-fixes-visuals-only";
+      visualSuite == "--orientation-visuals-only" || visualSuite == "--table-visuals-only" || visualSuite == "--world-visuals-only" || visualSuite == "--tactical-fixes-visuals-only" || visualSuite == "--clean-hud-visuals-only" || visualSuite == "--interaction-fixes-only";
     const auto project = std::filesystem::current_path();
     const auto userSave = ReadFile(project / "Content/Save.json");
     const auto sandbox = project / "build/gui-test-sandbox";

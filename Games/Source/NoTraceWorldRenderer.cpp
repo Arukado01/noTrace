@@ -15,6 +15,7 @@
 #include <numbers>
 #include <fstream>
 #include <format>
+#include <limits>
 #include <stdexcept>
 
 namespace NoTrace {
@@ -351,7 +352,7 @@ namespace NoTrace {
     }
   }
 
-  void WorldRenderer::ObjectArt(const Interactable &object, sf::Vector2f camera, bool nearby) const {
+  void WorldRenderer::ObjectArt(const Interactable &object, sf::Vector2f camera, bool) const {
     using namespace PresentationConfig;
     const auto feet = GroundToScreen(object.position, camera);
     const bool tactical = !WorldGeometry::Properties(object).decorative;
@@ -539,10 +540,6 @@ namespace NoTrace {
       break;
     }
     }
-    if (tactical && (nearby || object.kind == ObjectKind::Deployment || object.kind == ObjectKind::Extraction)) {
-      const auto occupied = WorldGeometry::HideoutType(object) != HideoutKind::None && WorldGeometry::HideoutOccupied(object) ? " / OCUPADO" : "";
-      Label((object.completed ? "[OK] " : "") + object.name + occupied, feet + sf::Vector2f{0.f, 24.f}, accent);
-    }
   }
 
   WorldRenderer::SpriteFrame WorldRenderer::AgentFrame(const Agent &agent, const WorldState &world, bool local) const {
@@ -661,9 +658,6 @@ namespace NoTrace {
     }
     if (!deferCqc && agent.alive && !agent.incapacitated) CqcArt(agent, world, camera, feet, uniform);
     BodyStatus(agent,camera);
-    if (local || agent.hidden || !agent.connected) {
-      Label(!agent.connected ? "SIN CONEXIÓN" : (agent.hidden ? "OCULTO" : agent.name), feet - sf::Vector2f{0.f, 72.f}, local ? Green : Light);
-    }
     if (agent.draggingGuard >= 0) PixelLine(feet, feet - sf::Vector2f{18.f, 8.f}, Amber, 2.f);
   }
 
@@ -1057,7 +1051,7 @@ namespace NoTrace {
       const std::string shortName(unicodeName.begin(), unicodeName.end());
       const float nameX = std::clamp(point.x, origin.x + 35.f, origin.x + MinimapGroundSize.x - 35.f);
       const float nameY = std::clamp(point.y - 15.f - (agent.id % 4) * 11.f, origin.y, origin.y + MinimapGroundSize.y - 18.f);
-      Label(std::to_string(agent.id) + " " + shortName, {nameX, nameY}, color, MinimapTextSize);
+      if (namesVisible_) Label(std::to_string(agent.id) + " " + shortName, {nameX, nameY}, color, MinimapTextSize);
     }
     const bool base = world.phase == GamePhase::Base;
     const std::array colors{Cyan, Amber, Violet, Green};
@@ -1124,6 +1118,35 @@ namespace NoTrace {
       const auto tip = center + direction * edge;
       Polygon({tip, tip - direction * 28.f + side * 13.f, tip - direction * 20.f, tip - direction * 28.f - side * 13.f}, PresentationConfig::Amber);
       Label(std::format("{}  /  {:.0f} s", signal.agent, std::ceil(signal.remaining)), tip + side * 42.f, PresentationConfig::Amber, 18);
+    }
+  }
+
+  void WorldRenderer::NameIndicators(const WorldState &world, const Agent *observer, sf::Vector2f camera) const {
+    if (!namesVisible_ || !observer) return;
+    const auto logical = ctx_.window.GetLogicalSize();
+    const auto minimum = sf::Vector2f{48.f, 142.f}, maximum = logical - sf::Vector2f{48.f, 100.f};
+    const auto center = logical.componentWiseMul(PresentationConfig::CameraFocusRatio);
+    for (const auto &ally : world.agents) {
+      if (!ally.connected || ally.extracted || (ally.id != observer->id && (ally.hidden || ally.incapacitated ||
+          (world.phase == GamePhase::Mission && !Visibility::IsVisible(world, *observer, ally.position, ally.stance))))) continue;
+      const auto ground = ProjectGround(ally.position, camera, logical, zoom_);
+      const bool offscreen = ground.x < minimum.x || ground.x > maximum.x || ground.y < minimum.y || ground.y > maximum.y;
+      auto label = ground - sf::Vector2f{0.f, 72.f * zoom_};
+      if (offscreen) {
+        auto direction = ground - center;
+        if (direction.lengthSquared() <= 0.001f) continue;
+        direction = direction.normalized();
+        const sf::Vector2f side{-direction.y, direction.x};
+        const float horizontal = direction.x > 0.f ? (maximum.x - center.x) / direction.x : direction.x < 0.f ? (minimum.x - center.x) / direction.x : std::numeric_limits<float>::infinity();
+        const float vertical = direction.y > 0.f ? (maximum.y - center.y) / direction.y : direction.y < 0.f ? (minimum.y - center.y) / direction.y : std::numeric_limits<float>::infinity();
+        const auto tip = center + direction * std::min(horizontal, vertical);
+        Polygon({tip, tip - direction * 24.f + side * 10.f, tip - direction * 17.f, tip - direction * 24.f - side * 10.f}, PresentationConfig::Cyan);
+        label = tip - direction * 35.f;
+      }
+      const float margin = std::min(220.f, logical.x * 0.2f);
+      label.x = std::clamp(label.x, margin, logical.x - margin);
+      label.y = std::clamp(label.y, minimum.y, maximum.y - 24.f);
+      Label(ally.name, label, ally.id == observer->id ? PresentationConfig::Green : PresentationConfig::Cyan, 18);
     }
   }
 
@@ -1247,5 +1270,6 @@ namespace NoTrace {
     Minimap(world, localPlayer, visibility);
     if (hudVisible) DetectionEye(world, observer);
     RescueIndicators(world, observer);
+    NameIndicators(world, observer, camera);
   }
 }

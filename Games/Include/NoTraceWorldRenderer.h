@@ -51,6 +51,7 @@ namespace NoTrace {
     mutable std::unordered_map<PlayerId, std::size_t> agentSpriteDirections_;
     mutable std::unordered_map<std::uint32_t, std::size_t> guardSpriteDirections_;
     float zoom_ = PresentationConfig::DefaultZoom;
+    bool namesVisible_ = false;
     bool decoyPreviewActive_ = false;
     sf::Vector2f decoyPreviewDirection_;
     float decoyPreviewDistance_ = 0.f;
@@ -74,6 +75,7 @@ namespace NoTrace {
     void Floor(const WorldState &world, sf::Vector2f camera) const;
     void Fog(const WorldState &world, sf::Vector2f camera, const VisibilityGrid &visibility) const;
     void RescueIndicators(const WorldState &world, const Agent *observer) const;
+    void NameIndicators(const WorldState &world, const Agent *observer, sf::Vector2f camera) const;
     void ObstacleArt(const Obstacle &obstacle, sf::Vector2f camera) const;
     void ObjectArt(const Interactable &object, sf::Vector2f camera, bool nearby) const;
     SpriteFrame AgentFrame(const Agent &agent, const WorldState &world, bool local) const;
@@ -114,6 +116,8 @@ namespace NoTrace {
       decoyPreviewDistance_ = std::isfinite(distance) ? std::max(0.f, distance) : 0.f;
     }
     void Render(const WorldState &world, PlayerId localPlayer, bool hudVisible = true) const;
+    void SetNamesVisible(bool visible) { namesVisible_ = visible; }
+    bool NamesVisible() const { return namesVisible_; }
     sf::Vector2f ScreenToGround(sf::Vector2f logical, const WorldState &world, PlayerId localPlayer) const;
     sf::Vector2f AimToGround(sf::Vector2f logical, const WorldState &world, PlayerId localPlayer) const;
     AimSolution AimAt(sf::Vector2f logical, const WorldState &world, PlayerId localPlayer) const;

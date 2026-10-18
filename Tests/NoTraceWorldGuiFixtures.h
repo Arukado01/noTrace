@@ -870,6 +870,9 @@ namespace EngineTests {
         clean.agents = {local};
         const auto name = "world-clean-local-" + std::to_string(static_cast<int>(stance)) + "-" + zoomNames[zoomIndex] + ".png";
         const auto pixels = capture(renderer, clean, output / name);
+        renderer.SetNamesVisible(true);
+        const auto named = capture(renderer, clean, output / ("world-tab-local-" + std::to_string(static_cast<int>(stance)) + "-" + zoomNames[zoomIndex] + ".png"));
+        renderer.SetNamesVisible(false);
         const auto logical = context.window.GetLogicalSize();
         const auto feet = WorldRenderer::ProjectGround(local.position, local.position, logical, renderer.GetZoom());
         const auto scale = sf::Vector2f(pixels.getSize()).componentWiseDiv(logical);
@@ -880,11 +883,11 @@ namespace EngineTests {
         }
         for (float y = -82.f; y <= -44.f; y += 0.5f) for (float x = -50.f; x <= 50.f; x += 0.5f) {
           const auto point = sf::Vector2u((feet + sf::Vector2f{x, y} * renderer.GetZoom()).componentWiseMul(scale));
-          if (point.x < pixels.getSize().x && point.y < pixels.getSize().y && pixels.getPixel(point) == PresentationConfig::Green) ++statusPixels;
+          if (point.x < named.getSize().x && point.y < named.getSize().y && named.getPixel(point) == PresentationConfig::Green) ++statusPixels;
         }
         if (selectionPixels != 0) throw std::runtime_error("Reaparecen los cuadrados verdes de selección bajo el agente local en " + name);
-        if (statusPixels == 0) throw std::runtime_error("Eliminar la selección desactiva también el indicador verde legítimo del agente en " + name);
-        metadata.push_back({{"file", name}, {"localSelectionPixels", selectionPixels}, {"preservedStatusPixels", statusPixels}, {"stance", static_cast<int>(stance)}, {"zoom", renderer.GetZoom()}});
+        if (statusPixels == 0) throw std::runtime_error("TAB no conserva el nombre verde del agente local en " + name);
+        metadata.push_back({{"file", name}, {"localSelectionPixels", selectionPixels}, {"tabNamePixels", statusPixels}, {"stance", static_cast<int>(stance)}, {"zoom", renderer.GetZoom()}});
       }
     }
     renderer.ResetZoom();

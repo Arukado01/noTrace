@@ -3,11 +3,13 @@
 #include "NoTraceOptionsUi.h"
 #include "Config/NoTraceConfig.h"
 #include "Config/NoTraceOptionsConfig.h"
+#include "Config/NoTraceControlsConfig.h"
 #include "Core/EngineConfig.h"
 #include "Core/EngineContext.h"
 #include <SFML/Audio/Listener.hpp>
 #include <SFML/Audio/Sound.hpp>
 #include <SFML/Audio/SoundBuffer.hpp>
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdlib>
@@ -60,7 +62,7 @@ namespace EngineTests {
       require(widgets.framerate->isEnabled(), "Desactivar VSync recupera el límite de FPS");
       press(panel, "APLICAR PANTALLA");
       require(widgets.status->getText().toStdString().starts_with("Selecciona una resolución"), "Las opciones rechazan una resolución ausente sin modificar la ventana");
-      press(panel, "CONTROLES Y TECLAS ASIGNADAS"); press(panel, "VOLVER");
+      press(panel, "Controles"); press(panel, "VOLVER");
       require(openedControls == 1 && back == 1, "Las opciones mantienen navegación funcional hacia controles y retorno");
       std::array<std::int16_t, 22050> silence{};
       sf::SoundBuffer buffer;
@@ -82,6 +84,14 @@ namespace EngineTests {
       auto controls = tgui::Panel::create({780.f, 596.f});
       int applied = 0;
       NoTrace::BuildControlsUi(context, controls, [&] { ++applied; }, [] {});
+      std::size_t categories = 0;
+      std::string controlText;
+      for (const auto &widget : controls->getWidgets()) if (const auto label = std::dynamic_pointer_cast<tgui::Label>(widget)) {
+        const auto text = label->getText().toStdString(); controlText += text + "\n";
+        categories += std::ranges::count(NoTrace::ControlsConfig::Categories, std::string_view(text));
+      }
+      require(categories == NoTrace::ControlsConfig::Categories.size() && controlText.find("nombres y orden privada") != std::string::npos,
+              "Controles muestra las seis categorías reales y describe TAB mantenida para nombres y orden privada");
       std::vector<tgui::ComboBox::Ptr> selectors;
       for (const auto &widget : controls->getWidgets()) if (auto choice = std::dynamic_pointer_cast<tgui::ComboBox>(widget)) selectors.push_back(choice);
       require(selectors.size() == 2, "El panel presenta únicamente las dos acciones que admiten reasignación");
@@ -96,6 +106,14 @@ namespace EngineTests {
       require(applied == 2 && context.save.Get("NoTrace:DiveKey", -1) == 0 && context.save.Get("NoTrace:RollKey", -1) == 1,
               "Restaurar controles recupera Espacio y Ctrl y notifica su aplicación");
       selectors[0]->setSelectedItemByIndex(2); selectors[1]->setSelectedItemByIndex(3); press(controls, "GUARDAR CONTROLES");
+      auto remapped = tgui::Panel::create({780.f, 596.f});
+      NoTrace::BuildControlsUi(context, remapped, [] {}, [] {});
+      bool currentKeys = false;
+      for (const auto &widget : remapped->getWidgets()) if (const auto label = std::dynamic_pointer_cast<tgui::Label>(widget)) {
+        const auto text = label->getText().toStdString();
+        currentKeys |= text.find("X: zambullida") != std::string::npos && text.find("J: rodada") != std::string::npos;
+      }
+      require(currentKeys, "Reabrir Controles informa las teclas de maniobra guardadas en lugar de las predeterminadas");
     }
     require(std::filesystem::is_regular_file(saveFile), "Cerrar el primer contexto escribe las preferencias en una ruta Unicode aislada");
     {

@@ -6,6 +6,7 @@
 #include "Config/NoTraceDistractionConfig.h"
 #include "NoTraceVisibility.h"
 #include "NoTraceWorldGeometry.h"
+#include "NoTraceInteraction.h"
 #include "Core/EngineConfig.h"
 #include "Utils/Log.h"
 #include "Utils/InputBindings.h"
@@ -19,7 +20,7 @@ namespace NoTrace {
     std::string StanceName(Stance stance) {
       switch (stance) {
       case Stance::Crouched: return "AGACHADO";
-      case Stance::Prone: return "TUMBADO / ARRASTRE AUTOMÁTICO";
+      case Stance::Prone: return "TUMBADO";
       default: return "DE PIE";
       }
     }
@@ -60,13 +61,11 @@ namespace NoTrace {
     health_ = indicator(16.f, {148, 44, 59});
     stamina_ = indicator(56.f, {37, 103, 97});
     suppressor_ = indicator(87.f, {84, 99, 111}); suppressor_->setSize({220.f, 22.f}); suppressor_->setTextSize(13);
-    auto footer = tgui::Panel::create({"100%", 150.f});
-    footer->setPosition({0.f, 750.f}); footer->getRenderer()->setBackgroundColor({5, 12, 20, 235});
-    footer->getRenderer()->setBorders(0); root_->add(footer);
-    hint_ = label("", 30.f, 758.f, 1530.f, 22);
-    message_ = label("", 30.f, 798.f, 1530.f, 18);
-    label("WASD mover / arrastrarse tumbado · Mayús correr · C agacharse · Z tumbarse · E interactuar / mantener para cuerpo", 30.f, 832.f, 1530.f, 16);
-    label("Izq disparar · Der apuntar · R recargar · Alt cubrir · F CQC/pared · Q armas · G disco · H silenciador · Espacio zambullida · Ctrl rodada", 30.f, 863.f, 1550.f, 16);
+    footer_ = tgui::Panel::create({"100%", 80.f});
+    footer_->setPosition({0.f, 820.f}); footer_->getRenderer()->setBackgroundColor({5, 12, 20, 215});
+    footer_->getRenderer()->setBorders(0); root_->add(footer_);
+    hint_ = label("", 30.f, 828.f, 1530.f, 20);
+    message_ = label("", 30.f, 864.f, 1530.f, 17);
     private_ = tgui::Label::create(); private_->setPosition({34.f, 140.f}); private_->setSize({620.f, 115.f});
     private_->setTextSize(19); private_->getRenderer()->setTextColor({239, 203, 117});
     private_->setIgnoreMouseEvents(true); private_->setVisible(false); root_->add(private_);
@@ -95,20 +94,12 @@ namespace NoTrace {
   }
 
   void Game::BindInputs() {
-    const std::array<sf::Keyboard::Scan, Count> keys{
-      sf::Keyboard::Scan::A, sf::Keyboard::Scan::D, sf::Keyboard::Scan::W, sf::Keyboard::Scan::S,
-      sf::Keyboard::Scan::LShift, sf::Keyboard::Scan::C, sf::Keyboard::Scan::Z,
-      sf::Keyboard::Scan::E, sf::Keyboard::Scan::F, sf::Keyboard::Scan::Unknown, sf::Keyboard::Scan::Unknown,
-      sf::Keyboard::Scan::G, sf::Keyboard::Scan::Unknown, sf::Keyboard::Scan::Unknown, sf::Keyboard::Scan::T,
-      sf::Keyboard::Scan::Tab, sf::Keyboard::Scan::F2, sf::Keyboard::Scan::LAlt, sf::Keyboard::Scan::Unknown, sf::Keyboard::Scan::V,
-      sf::Keyboard::Scan::R, sf::Keyboard::Scan::Num1, sf::Keyboard::Scan::Num2,
-      sf::Keyboard::Scan::Unknown, sf::Keyboard::Scan::Unknown, sf::Keyboard::Scan::H, sf::Keyboard::Scan::Q
-    };
+    const auto &keys = ControlsConfig::DefaultKeys;
     for (int action = 0; action < Count; ++action) if (keys[action] != sf::Keyboard::Scan::Unknown) ctx.input.Bind(action, Input::Keyboard{keys[action]});
     ctx.input.Bind(Lethal, Input::Mouse{sf::Mouse::Button::Left});
     ctx.input.Bind(NonLethal, Input::Mouse{sf::Mouse::Button::Right});
-    const std::array<sf::Keyboard::Scan, 5> movementKeys{sf::Keyboard::Scan::Space, sf::Keyboard::Scan::LControl, sf::Keyboard::Scan::X, sf::Keyboard::Scan::J, sf::Keyboard::Scan::K};
-    const int diveKey = std::clamp(ctx.save.Get("NoTrace:DiveKey", 0), 0, 4), rollKey = std::clamp(ctx.save.Get("NoTrace:RollKey", 1), 0, 4);
+    const auto &movementKeys = ControlsConfig::MovementKeys;
+    const int diveKey = std::clamp(ctx.save.Get(ControlsConfig::DiveSaveKey.data(), 0), 0, 4), rollKey = std::clamp(ctx.save.Get(ControlsConfig::RollSaveKey.data(), 1), 0, 4);
     ctx.input.Bind(Dive, Input::Keyboard{movementKeys[diveKey]});
     ctx.input.Bind(Roll, Input::Keyboard{movementKeys[rollKey == diveKey ? (rollKey + 1) % 5 : rollKey]});
     ctx.input.Bind(Left, Input::Keyboard{sf::Keyboard::Scan::Left});
@@ -140,6 +131,8 @@ namespace NoTrace {
   }
 
   void Game::Update() {
+    showOrders_ = !paused_ && page_ == Page::None && ctx.input.Held(Orders);
+    worldRenderer_.SetNamesVisible(showOrders_);
     if (page_ == Page::Weapons) {
       if (!ctx.input.Held(WeaponMenu)) ClosePanel();
       else {
@@ -157,7 +150,6 @@ namespace NoTrace {
     }
     if (Pressed(Lobby, true) && session_.GetWorld().phase == GamePhase::Base) { Open(Page::Deployment); return; }
     if (ctx.input.Held(WeaponMenu)) { Open(Page::Weapons); return; }
-    if (Pressed(Orders, true)) showOrders_ = !showOrders_;
     const auto *agent = LocalAgent();
     if (!agent) return;
     worldRenderer_.AdjustZoom(ctx.input.WheelDelta());
@@ -188,7 +180,7 @@ namespace NoTrace {
     if (!ctx.input.Held(Cqc)) cqcBlocked_ = false;
     command.cqc = !cqcBlocked_ && ctx.input.JustPressed(Cqc);
     command.cqcHeld = !cqcBlocked_ && ctx.input.Held(Cqc);
-    command.push = Pressed(Shove, true); command.knock = Pressed(Knock, true);
+    command.push = ctx.input.JustPressed(Shove); command.knock = ctx.input.JustPressed(Knock);
     command.tool = Pressed(Tool, true);
     command.reloadWeapon = Pressed(Reload, true);
     command.weaponChoice = Pressed(SelectPistol, true) ? 0 : Pressed(SelectNonLethal, true) ? 1 : -1;
@@ -214,13 +206,11 @@ namespace NoTrace {
       worldRenderer_.SetDecoyPreview(preparingDecoy_, throwDirection, command.decoyDistance);
     } else worldRenderer_.SetDecoyPreview(false, {}, 0.f);
     command.prepareDecoy = preparingDecoy_;
-    if (!choosingWeapon && !decoyContext && cursor.y > 116.f && cursor.y < 750.f) { command.fireSelected = lethal; }
-    if (command.interact && world.phase == GamePhase::Base) {
-      for (const auto &object : world.objects) {
-        if (!WorldGeometry::Properties(object).interactive) continue;
-        if (WorldGeometry::DistanceToBounds(agent->position, WorldGeometry::ObjectFootprint(object)) >= GameplayConfig::InteractionDistance) continue;
-        if (!Visibility::HasLineOfSight(world, agent->position, WorldGeometry::ClosestPoint(agent->position, WorldGeometry::ObjectFootprint(object)), Stance::Standing, object.id)) continue;
-        switch (object.kind) {
+    if (!choosingWeapon && !decoyContext && cursor.y > 116.f && cursor.y < (footer_->isVisible() ? 820.f : 900.f)) { command.fireSelected = lethal; }
+    if (command.interact && world.phase == GamePhase::Base && !agent->hidden && agent->draggingGuard < 0 &&
+        agent->cqcHoldingGuard == 0 && agent->cqcHoldingAgent == 0 && agent->cqcAttackTime <= 0.f && !Interaction::FindBody(world, *agent)) {
+      if (const auto *object = Interaction::FindObject(world, *agent)) {
+        switch (object->kind) {
         case ObjectKind::Operations: Open(Page::Operations); return;
         case ObjectKind::Armory: Open(Page::Armory); return;
         case ObjectKind::Intelligence: Open(Page::Intelligence); return;
@@ -376,7 +366,7 @@ namespace NoTrace {
       }
     } else if (page == Page::Intelligence) {
       Label("CENTRO DE INTELIGENCIA", {30.f, 20.f}, {714.f, 45.f}, 28);
-      Label(contract.name + "\n" + contract.briefing + "\n\nLa niebla oculta lo que no observas; el ojo indica la alerta global. Los pasos no identifican al enemigo.\n\nE: interactuar / escondite. Mantén E para arrastrar. En armario, T abre la puerta; entrada y salida frontales. Bajo la mesa puedes observar en 360 grados.\n\nF breve: puño y patada. Mantener detrás: agarre, también a aliados. Durante el agarre, alterna tres pulsaciones para asfixiar. Mantener F 2,25 s libera. V: empujar.\n\nQ mantenida: selector de armas. R: recargar. Alt: cubrirse; asomado automático en extremos. F en cobertura: pared. G: mantener y soltar señuelo.\n\nTab: orden privada. E: operar objetivos o rescatar al compañero antes de 55 s.", {30.f, 82.f}, {714.f, 450.f}, 18);
+      Label(contract.name + "\n\n" + contract.briefing, {30.f, 82.f}, {714.f, 450.f}, 18);
     } else {
       Label("DESPLIEGUE / SALA LAN", {30.f, 20.f}, {714.f, 45.f}, 28);
       status_ = Label("", {30.f, 79.f}, {714.f, 65.f}, 18);
@@ -438,7 +428,7 @@ namespace NoTrace {
     const auto alert = world.securityAlert == SecurityAlert::Red ? std::string("ROJA") : world.securityAlert == SecurityAlert::Orange ?
         std::format("NARANJA {:.0f}s",std::ceil(world.securityRemaining)) : world.securityAlert == SecurityAlert::Yellow ? std::format("AMARILLA {:.0f}s",std::ceil(world.securityRemaining)) : "SIN ALERTA";
     title_->setText(world.phase == GamePhase::Base ? "NO TRACE  //  BASE CIO" : "NO TRACE  //  " + contract.name);
-    mission_->setText(world.phase == GamePhase::Base ? "ENTRENAMIENTO SEGURO: sin enemigos · prácticas al este · R recargar · 1/2 cambiar arma · F2 despliegue" : std::format("OBJETIVOS {}/{}  ·  SECUNDARIOS {}  ·  {:.0f} s  ·  {}  ·  SEMILLA {}", world.objectives, contract.requiredObjectives, world.secondary, std::max(0.f, contract.timeLimit - world.elapsed), alert, world.seed));
+    mission_->setText(world.phase == GamePhase::Base ? "BASE CIO / ENTRENAMIENTO" : std::format("OBJETIVOS {}/{}  ·  SECUNDARIOS {}  ·  {:.0f} s  ·  {}", world.objectives, contract.requiredObjectives, world.secondary, std::max(0.f, contract.timeLimit - world.elapsed), alert));
     mission_->getRenderer()->setTextColor(world.securityAlert == SecurityAlert::Red ? tgui::Color{221,67,77} : world.securityAlert == SecurityAlert::Orange ? tgui::Color{238,139,58} : world.securityAlert == SecurityAlert::Yellow ? tgui::Color{233,202,83} : tgui::Color{225,232,238});
     if (const auto *agent = LocalAgent()) {
       health_->setVisible(true); stamina_->setVisible(true);
@@ -451,35 +441,17 @@ namespace NoTrace {
       health_->setText("VIDA " + std::to_string(health_->getValue()) + "%");
       stamina_->setText("RESIST. " + std::to_string(stamina_->getValue()) + "%");
       lobby_->setText(world.phase == GamePhase::Mission ? "PAUSA  [ESC]" : "BASE / SALA  [F2]");
-      agent_->setText(std::format("{} | {}{} | {}{} | L {}/{}+{} · NL {}/{}+{} · G {} · T {}", agent->name, StanceName(agent->stance), !agent->alive ? " / ELIMINADO" : agent->incapacitated ? " / INCONSCIENTE" : agent->hidden ? " / OCULTO" : agent->extracted ? " / EXTRAÍDO" : agent->cover.active ? " / COBERTURA" : "", agent->selectedWeapon == WeaponKind::Pistol ? "PISTOLA" : "NO LETAL", agent->reloadRemaining > 0.f ? " / RECARGANDO" : "", agent->lethalMagazine, WeaponConfig::PistolCapacity, ReserveAmmo(*agent, WeaponKind::Pistol), agent->nonLethalMagazine, WeaponConfig::NonLethalCapacity, ReserveAmmo(*agent, WeaponKind::NonLethal), agent->loadout.decoys, agent->loadout.tools));
+      agent_->setText(std::format("{}{} | {}{} | L {}/{}+{} · NL {}/{}+{} · G {} · T {}", StanceName(agent->stance), !agent->alive ? " / ELIMINADO" : agent->incapacitated ? " / INCONSCIENTE" : agent->hidden ? " / OCULTO" : agent->extracted ? " / EXTRAÍDO" : agent->cover.active ? " / COBERTURA" : "", agent->selectedWeapon == WeaponKind::Pistol ? "PISTOLA" : "NO LETAL", agent->reloadRemaining > 0.f ? " / RECARGANDO" : "", agent->lethalMagazine, WeaponConfig::PistolCapacity, ReserveAmmo(*agent, WeaponKind::Pistol), agent->nonLethalMagazine, WeaponConfig::NonLethalCapacity, ReserveAmmo(*agent, WeaponKind::NonLethal), agent->loadout.decoys, agent->loadout.tools));
       private_->setText(tgui::String(std::string(PrivateOrderText(agent->privateOrder)) + (agent->privateComplete ? "\nORDEN CUMPLIDA" : "")));
       private_->setVisible(showOrders_ && world.phase == GamePhase::Mission && page_ == Page::None);
-      std::string hint = world.phase == GamePhase::Base ? "Recorre la base y pulsa E en una estación. F2 abre la sala de despliegue." : "Recupera los objetivos y vuelve al punto verde de extracción. Tab: orden privada.";
-      float nearest = GameplayConfig::InteractionDistance;
-      for (const auto &object : world.objects) {
-        if (!WorldGeometry::Properties(object).interactive || !Visibility::ObjectVisible(world, *agent, object)) continue;
-        const float distance = WorldGeometry::DistanceToBounds(agent->position, WorldGeometry::ObjectFootprint(object));
-        if (distance < nearest) {
-          nearest = distance; hint = "E  //  " + object.name;
-          if (WorldGeometry::HideoutType(object) != HideoutKind::None) {
-            if (WorldGeometry::HideoutOccupied(object)) hint = object.name + "  //  Ocupado";
-            else if (agent->draggingGuard < 0) hint = "E  //  Esconderse en " + object.name;
-            else hint = WorldGeometry::HideoutAllowsBody(object) ? "E  //  Ocultar cuerpo en " + object.name : "Esta mesa solo admite al agente tumbado.";
-          }
-          if (object.puzzle.kind != PuzzleKind::None) hint = "E  //  Resolver circuito de " + object.name;
-          else if (object.kind == ObjectKind::Camera || object.kind == ObjectKind::AlarmPanel) hint = "T  //  " + object.name + " — requiere herramienta";
-        }
-      }
-      for (const auto &guard : world.guards) if (agent->draggingGuard < 0 && !guard.bodyHidden && (guard.state == GuardState::Dead || guard.state == GuardState::Incapacitated || (IsTraining(world) && guard.trainingDummy)) &&
-          Visibility::GuardVisible(world, *agent, guard) && (guard.position - agent->position).length() < GameplayConfig::CqcDistance) hint = guard.trainingDummy ? "Mantén E para mover la diana de prácticas; suelta para dejarla." : "Mantener E para arrastrar el cuerpo.";
-      if (agent->draggingGuard >= 0 && nearest >= GameplayConfig::InteractionDistance) hint = "Mantén E para arrastrar; suelta E para dejar el cuerpo.";
-      if (agent->hidden) hint = "E  //  Salir del escondite; T abre o cierra la puerta del armario";
-      if (agent->cqcHoldingGuard || agent->cqcHoldingAgent) hint = std::format("CQC  //  F: suelta brevemente y pulsa para asfixiar ({}/3). Mantener F prolongadamente libera; V empuja.", agent->cqcProgress);
-      if (preparingDecoy_) hint = "SEÑUELO  //  Apunta con el cursor; suelta G para lanzar. Clic derecho o Esc cancela.";
-      if (agent->incapacitated) hint = std::format("RESCATE  //  {:.0f} s: un compañero debe acercarse y pulsar E.", std::ceil(agent->incapacityRemaining));
+      std::string hint = Interaction::Prompt(world, *agent);
+      if (hint.empty() && Simulation::FindCqcTarget(world, *agent, Simulation::CqcAction::Push)) hint = "V · Empujar";
+      else if (hint.empty() && Simulation::FindCqcTarget(world, *agent, Simulation::CqcAction::Grab)) hint = "F · Agarrar";
+      if (preparingDecoy_) hint.clear();
+      if (agent->incapacitated) hint = std::format("RESCATE · {:.0f} s", std::ceil(agent->incapacityRemaining));
       hint_->setText(tgui::String(hint));
-    } else { agent_->setText("Accede a CIO para preparar tu operación."); hint_->setText("Elige individual, crea una sala o conecta por IP local."); private_->setVisible(false); health_->setVisible(false); stamina_->setVisible(false); }
-    std::string feedback = world.phase == GamePhase::Mission && session_.GetLobbyPlayers().size() > 1 ? "Operación en curso." : world.message;
+    } else { agent_->setText(""); hint_->setText(""); private_->setVisible(false); health_->setVisible(false); stamina_->setVisible(false); }
+    std::string feedback;
     for (const auto &shot : world.shots) if (shot.actor == session_.GetLocalPlayerId()) {
       if (shot.blocked) feedback = "Impacto contra una superficie sólida.";
       else if (shot.hit) {
@@ -487,12 +459,22 @@ namespace NoTrace {
         feedback = std::string(shot.lethal ? "Impacto letal en " : "Impacto no letal en ") + zone + ".";
       } else feedback = "Disparo sin impacto.";
     }
-    if (const auto *listener = LocalAgent()) for (const auto &object : world.objects) if (object.kind == ObjectKind::Computer && object.puzzle.state == PuzzleState::Solved && (object.position - listener->position).length() < GameplayConfig::InteractionDistance * 2.f) feedback = object.puzzle.intelligence;
     if (world.phase != puzzleFailurePhase_ || !session_.IsConnected() || !IsTactical(world) || world.tick < puzzleFailure_.tick) {
       puzzleFailure_ = {}; puzzleFailureUntil_ = 0.f;
+      puzzleSuccess_ = {}; puzzleSuccessUntil_ = 0.f; puzzleSuccessText_.clear();
       if (world.phase == GamePhase::Base && world.phase != puzzleFailurePhase_ && !world.events.empty()) puzzleFailure_.sequence = world.events.back().sequence;
       puzzleFailurePhase_ = world.phase;
     }
+    if (!session_.IsConnected() || !IsTactical(world) || world.tick < puzzleSuccess_.tick || world.elapsed + PresentationConfig::IntelligenceFeedbackDuration < puzzleSuccessUntil_) {
+      puzzleSuccess_ = {}; puzzleSuccessUntil_ = 0.f; puzzleSuccessText_.clear();
+    }
+    for (const auto &event : world.events) if (event.actor == session_.GetLocalPlayerId() && event.kind == EventKind::PuzzleSolved && event.sequence > puzzleSuccess_.sequence) {
+      puzzleSuccess_ = event; puzzleSuccessUntil_ = world.elapsed + PresentationConfig::IntelligenceFeedbackDuration; puzzleSuccessText_.clear();
+      const auto device = std::ranges::find(world.objects, event.target, &Interactable::id);
+      if (device != world.objects.end() && device->kind == ObjectKind::Computer) puzzleSuccessText_ = device->puzzle.intelligence;
+      else if (device == world.objects.end() && world.message.starts_with("INTELIGENCIA:")) puzzleSuccessText_ = world.message;
+    }
+    if (!puzzleSuccessText_.empty() && world.elapsed < puzzleSuccessUntil_) feedback = puzzleSuccessText_;
     // Solo un fallo propio autoriza el aviso; el estado público de un dispositivo ajeno no lo activa.
     if (session_.IsConnected() && IsTactical(world)) for (const auto &event : world.events) if (event.actor == session_.GetLocalPlayerId() && event.kind == EventKind::PuzzleFailed && event.sequence > puzzleFailure_.sequence) {
       puzzleFailure_ = event; puzzleFailureUntil_ = world.elapsed + DevicesConfig::PuzzleFailureCooldown;
@@ -510,6 +492,9 @@ namespace NoTrace {
     } else puzzleFailure_.target = 0;
     message_->getRenderer()->setTextColor(puzzleError ? tgui::Color{239, 115, 106} : TEXT_COLOR);
     message_->setText(tgui::String(session_.IsConnected() ? feedback : session_.GetStatus()));
+    message_->setVisible(!message_->getText().empty());
+    hint_->setVisible(!hint_->getText().empty());
+    footer_->setVisible(hint_->isVisible() || message_->isVisible());
     if (page_ == Page::Deployment) {
       status_->setText(tgui::String(session_.GetStatus() + (session_.IsHost() && ctx.network.GetRole() == NetworkRole::Host ? "\nIP local: " + ctx.network.GetLocalAddress() + " : " + std::to_string(ctx.network.GetPort()) : "")));
       std::string roster;
@@ -542,6 +527,7 @@ namespace NoTrace {
   }
 
   void Game::OnPause(bool paused) {
+    if (paused) { showOrders_ = false; worldRenderer_.SetNamesVisible(false); private_->setVisible(false); }
     if (paused) pendingPuzzleHeld_ = false;
     paused_ = paused; session_.Submit({}); root_->setEnabled(!paused);
     if (paused) { preparingDecoy_ = false; cancelledDecoy_ = true; worldRenderer_.SetDecoyPreview(false, {}, 0.f); }

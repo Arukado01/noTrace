@@ -2,12 +2,14 @@
 #include "NoTraceGame.h"
 #include "Config/NoTraceConfig.h"
 #include "Config/NoTraceOptionsConfig.h"
+#include "Config/NoTraceControlsConfig.h"
 #include "Core/EngineConfig.h"
 #include "Core/EngineContext.h"
 #include <algorithm>
 #include <charconv>
 #include <cmath>
 #include <format>
+#include <SFML/System/String.hpp>
 
 namespace NoTrace {
   namespace {
@@ -21,8 +23,17 @@ namespace NoTrace {
     int ControlPreference(const SaveManager &save, std::string_view key, int fallback) {
       try {
         const int value = save.Get(key, fallback);
-        return value >= 0 && value < 5 ? value : fallback;
+        return value >= 0 && value < static_cast<int>(ControlsConfig::MovementKeys.size()) ? value : fallback;
       } catch (const nlohmann::json::exception &) { return fallback; }
+    }
+
+    std::string KeyName(ControlsConfig::Action action) {
+      const auto key = ControlsConfig::DefaultKeys[static_cast<std::size_t>(action)];
+      if (key == sf::Keyboard::Scan::LShift) return "Mayús";
+      if (key == sf::Keyboard::Scan::LAlt) return "Alt izq.";
+      if (key == sf::Keyboard::Scan::Tab) return "Tab";
+      const auto encoded = sf::Keyboard::getDescription(key).toUtf8();
+      return {encoded.begin(), encoded.end()};
     }
 
     tgui::Label::Ptr Text(const tgui::Panel::Ptr &panel, const std::string &text, float x, float y,
@@ -79,10 +90,10 @@ namespace NoTrace {
     context.audio.SetGlobalVolume(master); context.audio.SetEffectsVolume(effects); context.cursor.SetSpeed(cursor);
     context.save.Set(VOLUME_SAVE_KEY, master); context.save.Set(OptionsConfig::EffectsVolumeSaveKey, effects);
     context.save.Set(CURSOR_SPEED_SAVE_KEY, cursor);
-    const int dive = ControlPreference(context.save, "NoTrace:DiveKey", 0);
-    int roll = ControlPreference(context.save, "NoTrace:RollKey", 1);
+    const int dive = ControlPreference(context.save, ControlsConfig::DiveSaveKey, 0);
+    int roll = ControlPreference(context.save, ControlsConfig::RollSaveKey, 1);
     if (roll == dive) roll = dive == 1 ? 0 : 1;
-    context.save.Set("NoTrace:DiveKey", dive); context.save.Set("NoTrace:RollKey", roll);
+    context.save.Set(ControlsConfig::DiveSaveKey, dive); context.save.Set(ControlsConfig::RollSaveKey, roll);
   }
 
   OptionsWidgets BuildOptionsUi(EngineContext &context, const tgui::Panel::Ptr &panel,
@@ -133,7 +144,7 @@ namespace NoTrace {
     panel->add(widgets.cursorSpeed);
     Text(panel, "Pantalla completa usa la resolución del escritorio.\nVSync sincroniza con el monitor y sustituye el límite de FPS.", 30.f, 354.f, 714.f, 42.f, 15);
     widgets.status = Text(panel, "Aplica y confirma vídeo. Audio y mando se guardan al ajustarlos.", 30.f, 400.f, 714.f, 28.f, 16);
-    Action(context, panel, "CONTROLES Y TECLAS ASIGNADAS", 30.f, 434.f, 714.f, std::move(onControls));
+    Action(context, panel, "Controles", 30.f, 434.f, 714.f, std::move(onControls));
     Action(context, panel, "RESTABLECER VÍDEO", 30.f, 474.f, 345.f, [&context, widgets] {
       const auto defaults = context.window.GetDefaultDisplaySettings();
       if (defaults != context.window.GetDisplaySettings()) context.window.RequestDisplaySettings(defaults);
@@ -175,26 +186,44 @@ namespace NoTrace {
 
   void BuildControlsUi(EngineContext &context, const tgui::Panel::Ptr &panel,
                        std::function<void()> onApply, std::function<void()> onBack) {
-    Text(panel, "CONTROLES / TECLAS ASIGNADAS", 30.f, 20.f, 714.f, 42.f, 25);
-    Text(panel, "WASD / flechas: movimiento · Ratón: mirar · Mayús: correr\nC: agacharse · Z: tumbarse · E: interactuar / rescatar / arrastrar\nIzquierdo: disparar · Derecho: apuntar · R: recargar · 1/2: arma\nAlt: cobertura · F: CQC / golpear pared · V: empujar\nG: señuelo · H: silenciador · Q mantenida: selector de armas\nT: herramienta · Tab: orden privada · F2: sala · Esc: pausa\nF11 / Alt+Intro: pantalla completa · Rueda: zoom", 30.f, 82.f, 714.f, 210.f, 18);
-    const auto selector = [&](const char *name, float y, int selected) {
-      Text(panel, name, 30.f, y, 300.f);
-      auto box = Choice(panel, 340.f, y, 404.f);
-      for (const char *key : {"ESPACIO", "CTRL IZQUIERDO", "X", "J", "K"}) box->addItem(key);
+    using Control = ControlsConfig::Action;
+    Text(panel, "CONTROLES", 30.f, 20.f, 714.f, 42.f, 27);
+    const int diveKey = ControlPreference(context.save, ControlsConfig::DiveSaveKey, 0);
+    const int rollKey = ControlPreference(context.save, ControlsConfig::RollSaveKey, 1);
+    const std::array<std::string, 6> descriptions{
+      std::format("{}{}{}{} / flechas: movimiento\n{}: correr · {}: agacharse · {}: tumbarse\n{}: zambullida · {}: rodada", KeyName(Control::Up), KeyName(Control::Left), KeyName(Control::Down), KeyName(Control::Right),
+        KeyName(Control::Run), KeyName(Control::Crouch), KeyName(Control::Prone), ControlsConfig::MovementKeyNames[diveKey], ControlsConfig::MovementKeyNames[rollKey]),
+      std::format("Ratón derecho: apuntar\nRatón izquierdo: disparar · {}: recargar\n{}/{}: arma · {}: silenciador", KeyName(Control::Reload), KeyName(Control::SelectPistol), KeyName(Control::SelectNonLethal), KeyName(Control::Suppressor)),
+      std::format("{}: interactuar / rescatar\n{}: golpes; mantener para agarrar\n{} en agarre: someter · {}: empujar", KeyName(Control::Interact), KeyName(Control::Cqc), KeyName(Control::Cqc), KeyName(Control::Shove)),
+      std::format("{}: cobertura / asomarse\n{}: entrar y salir\n{} mantenida: arrastrar\n{}: pared · {}: armario", KeyName(Control::WallCover), KeyName(Control::Interact), KeyName(Control::Interact), KeyName(Control::Cqc), KeyName(Control::Tool)),
+      std::format("{}: mantener / soltar señuelo\n{}: herramienta contextual\nRueda: zoom táctico", KeyName(Control::Decoy), KeyName(Control::Tool)),
+      std::format("Mantén {}: nombres y orden privada\nMantén {}: selector de armas\n{}: sala · Esc: pausa\nF11 / Alt+Intro: pantalla completa", KeyName(Control::Orders), KeyName(Control::WeaponMenu), KeyName(Control::Lobby))
+    };
+    for (std::size_t index = 0; index < descriptions.size(); ++index) {
+      const float x = index % 2 == 0 ? 30.f : 399.f, y = 70.f + static_cast<float>(index / 2) * 100.f;
+      auto title = Text(panel, std::string(ControlsConfig::Categories[index]), x, y, 345.f, 24.f, 16);
+      title->getRenderer()->setTextColor({110, 200, 147});
+      Text(panel, descriptions[index], x, y + 25.f, 345.f, 72.f, 14);
+    }
+    Text(panel, "Reasignación de maniobras", 30.f, 382.f, 714.f, 24.f, 18);
+    const auto selector = [&](const char *name, float x, int selected) {
+      Text(panel, name, x, 410.f, 345.f, 22.f, 16);
+      auto box = Choice(panel, x, 434.f, 345.f);
+      for (const auto key : ControlsConfig::MovementKeyNames) box->addItem(std::string(key));
       box->setSelectedItemByIndex(selected); return box;
     };
-    auto dive = selector("Zambullida (correr de pie)", 308.f, ControlPreference(context.save, "NoTrace:DiveKey", 0));
-    auto roll = selector("Rodada (agachado)", 356.f, ControlPreference(context.save, "NoTrace:RollKey", 1));
-    auto status = Text(panel, "Estas dos acciones admiten reasignación. Elige teclas distintas.", 30.f, 408.f, 714.f, 44.f, 17);
-    Action(context, panel, "GUARDAR CONTROLES", 30.f, 466.f, 714.f, [&context, dive, roll, status, onApply] {
+    auto dive = selector("Zambullida (correr de pie)", 30.f, diveKey);
+    auto roll = selector("Rodada (agachado)", 399.f, rollKey);
+    auto status = Text(panel, "Sólo estas dos maniobras admiten reasignación. Elige teclas distintas.", 30.f, 474.f, 714.f, 26.f, 15);
+    Action(context, panel, "GUARDAR CONTROLES", 30.f, 506.f, 714.f, [&context, dive, roll, status, onApply] {
       const int diveKey = dive->getSelectedItemIndex(), rollKey = roll->getSelectedItemIndex();
       if (diveKey < 0 || rollKey < 0 || diveKey == rollKey) { status->setText("Selecciona dos teclas diferentes."); return; }
-      context.save.Set("NoTrace:DiveKey", diveKey); context.save.Set("NoTrace:RollKey", rollKey); onApply();
+      context.save.Set(ControlsConfig::DiveSaveKey, diveKey); context.save.Set(ControlsConfig::RollSaveKey, rollKey); onApply();
     });
-    Action(context, panel, "RESTAURAR CONTROLES", 30.f, 520.f, 345.f, [&context, onApply] {
-      context.save.Set("NoTrace:DiveKey", 0); context.save.Set("NoTrace:RollKey", 1); onApply();
+    Action(context, panel, "RESTAURAR CONTROLES", 30.f, 548.f, 345.f, [&context, onApply] {
+      context.save.Set(ControlsConfig::DiveSaveKey, 0); context.save.Set(ControlsConfig::RollSaveKey, 1); onApply();
     });
-    Action(context, panel, "VOLVER A OPCIONES", 399.f, 520.f, 345.f, std::move(onBack));
+    Action(context, panel, "VOLVER A OPCIONES", 399.f, 548.f, 345.f, std::move(onBack));
   }
 
   void HandleOptionsKey(const sf::Event &event, const OptionsWidgets &widgets) {

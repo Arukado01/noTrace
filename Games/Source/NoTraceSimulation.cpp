@@ -11,6 +11,7 @@
 #include "NoTraceCombatGeometry.h"
 #include "NoTraceDistractionGeometry.h"
 #include "NoTracePerception.h"
+#include "NoTraceInteraction.h"
 #include "NoTraceVisibility.h"
 #include "NoTraceWorldGeometry.h"
 #include "NoTraceStateExtensions.h"
@@ -612,42 +613,11 @@ namespace NoTrace {
   }
 
   bool Simulation::HideoutPathClear(const Interactable &object, sf::Vector2f from, sf::Vector2f to) const {
-    const float radius = GameplayConfig::AgentRadius;
-    for (const auto &obstacle : world_.obstacles) if (WorldGeometry::BlocksMovement(obstacle) && WorldGeometry::SegmentRect(from, to, WorldGeometry::Expanded(obstacle.bounds, radius))) return false;
-    for (const auto &other : world_.objects) if (other.id != object.id && WorldGeometry::BlocksMovement(other) && WorldGeometry::SegmentRect(from, to, WorldGeometry::Expanded(WorldGeometry::ObjectFootprint(other), radius))) return false;
-    return true;
+    return Interaction::HideoutPathClear(world_, object, from, to);
   }
 
   bool Simulation::HideoutExit(const Agent &agent, const Interactable &object, sf::Vector2f &position) const {
-    if (WorldGeometry::HideoutType(object) == HideoutKind::Closet) {
-      const std::array<sf::Vector2f, 2> candidates{{agent.hideoutExit, WorldGeometry::HideoutFrontPosition(object, GameplayConfig::AgentRadius)}};
-      for (const auto candidate : candidates) if (WorldGeometry::AtHideoutEntrance(object, candidate, GameplayConfig::AgentRadius) &&
-          !Blocked(candidate, GameplayConfig::AgentRadius) && HideoutPathClear(object, object.position, candidate)) { position = candidate; return true; }
-      return false;
-    }
-    if (WorldGeometry::HideoutType(object) == HideoutKind::UnderTable) {
-      const auto direction = Unit(agent.facing);
-      if (Length(direction) <= 0.f) return false;
-      const auto expanded = WorldGeometry::Expanded(WorldGeometry::ObjectFootprint(object), GameplayConfig::AgentRadius + SpatialConfig::CollisionSkin);
-      const auto minimum = expanded.position, maximum = expanded.position + expanded.size;
-      const float horizontal = direction.x > 0.f ? (maximum.x - agent.position.x) / direction.x : direction.x < 0.f ? (minimum.x - agent.position.x) / direction.x : std::numeric_limits<float>::infinity();
-      const float vertical = direction.y > 0.f ? (maximum.y - agent.position.y) / direction.y : direction.y < 0.f ? (minimum.y - agent.position.y) / direction.y : std::numeric_limits<float>::infinity();
-      const float distance = std::min(horizontal, vertical) + SpatialConfig::CollisionSkin;
-      if (!std::isfinite(distance) || distance <= 0.f) return false;
-      const auto candidate = agent.position + direction * distance;
-      if (Blocked(candidate, GameplayConfig::AgentRadius) || !HideoutPathClear(object, agent.position, candidate)) return false;
-      position = candidate; return true;
-    }
-    const auto bounds = WorldGeometry::ObjectFootprint(object);
-    const auto minimum = bounds.position, maximum = bounds.position + bounds.size;
-    const float radius = GameplayConfig::AgentRadius + SpatialConfig::CollisionSkin;
-    const std::array<sf::Vector2f, 9> candidates{{agent.hideoutExit,
-        {minimum.x - radius, object.position.y}, {maximum.x + radius, object.position.y},
-        {object.position.x, minimum.y - radius}, {object.position.x, maximum.y + radius},
-        minimum - sf::Vector2f{radius, radius}, maximum + sf::Vector2f{radius, radius},
-        {minimum.x - radius, maximum.y + radius}, {maximum.x + radius, minimum.y - radius}}};
-    for (const auto candidate : candidates) if (!Blocked(candidate, GameplayConfig::AgentRadius) && HideoutPathClear(object, object.position, candidate)) { position = candidate; return true; }
-    return false;
+    return Interaction::HideoutExit(world_, agent, object, position);
   }
 
   void Simulation::ReleaseHideout(Agent &agent) {
@@ -710,14 +680,7 @@ namespace NoTrace {
   }
 
   Guard *Simulation::NearbyBody(const Agent &agent) {
-    Guard *nearest = nullptr; float distance = GameplayConfig::InteractionDistance;
-    for (auto &guard : world_.guards) if ((IsBody(guard) || (IsTraining(world_) && guard.trainingDummy && guard.heldBy == 0)) && !guard.bodyHidden && guard.storedIn == 0) {
-      const float candidate = Distance(agent.position, guard.position);
-      if (candidate >= distance || std::ranges::any_of(world_.agents, [&](const Agent &other) { return other.id != agent.id && other.draggingGuard == static_cast<int>(guard.id); })) continue;
-      if (!WorldGeometry::ClearMovementSegment(world_, agent.position, guard.position, GameplayConfig::AgentRadius)) continue;
-      nearest = &guard; distance = candidate;
-    }
-    return nearest;
+    return const_cast<Guard *>(Interaction::FindBody(world_, agent));
   }
 
   void Simulation::UpdateBodyDrag(Agent &agent, bool held) {
@@ -865,13 +828,7 @@ namespace NoTrace {
     }
     if (agent.draggingGuard >= 0) {
       if (tool) { world_.message = "Suelta E antes de utilizar una herramienta."; return; }
-      Interactable *hideout = nullptr; float nearest = InteractionDistance;
-      for (auto &object : world_.objects) {
-        const float distance = WorldGeometry::DistanceToBounds(agent.position, WorldGeometry::ObjectFootprint(object));
-        if (WorldGeometry::HideoutType(object) != HideoutKind::None && WorldGeometry::Properties(object).interactive && distance < nearest &&
-            Visibility::HasLineOfSight(world_, agent.position, WorldGeometry::ClosestPoint(agent.position, WorldGeometry::ObjectFootprint(object)), Stance::Standing, object.id)) { hideout = &object; nearest = distance; }
-      }
-      if (hideout) UseHideout(agent, *hideout);
+      if (const auto *hideout = Interaction::FindObject(world_, agent)) UseHideout(agent, *std::ranges::find(world_.objects, hideout->id, &Interactable::id));
       else world_.message = "Mantén E para arrastrar; pulsa E junto a un contenedor vacío para almacenar el cuerpo.";
       return;
     }
@@ -879,15 +836,9 @@ namespace NoTrace {
     if (IsTraining(world_) && !tool) for (auto &dummy : world_.guards) if (dummy.trainingDummy && Distance(agent.position, dummy.position) < InteractionDistance) {
       DamageTrainingDummy(dummy, 0.f); world_.message = "Diana indestructible: prueba armas, golpes y agarre por detrás."; return;
     }
-    Interactable *nearest = nullptr;
-    float distance = InteractionDistance;
-    for (auto &object : world_.objects) {
-      if (!WorldGeometry::Properties(object).interactive) continue;
-      const float candidate = WorldGeometry::DistanceToBounds(agent.position, WorldGeometry::ObjectFootprint(object));
-      if (candidate < distance && Visibility::HasLineOfSight(world_, agent.position, WorldGeometry::ClosestPoint(agent.position, WorldGeometry::ObjectFootprint(object)), Stance::Standing, object.id)) { nearest = &object; distance = candidate; }
-    }
-    if (!nearest) { world_.message = "Acércate a una estación u objeto para interactuar."; return; }
-    auto &object = *nearest;
+    const auto *selected = Interaction::FindObject(world_, agent);
+    if (!selected) { world_.message = "Acércate a una estación u objeto para interactuar."; return; }
+    auto &object = *std::ranges::find(world_.objects, selected->id, &Interactable::id);
     if (WorldGeometry::HideoutType(object) != HideoutKind::None) {
       if (!tool) UseHideout(agent, object);
       else world_.message = "Pulsa E para utilizar el escondite.";
@@ -1372,6 +1323,13 @@ namespace NoTrace {
       {"secondary", world_.secondary}, {"message", filtered ? "Operación en curso." : world_.message}, {"visibilityFiltered", filtered},
       {"securityActive", world_.securityActive}, {"securityAlert", static_cast<int>(world_.securityAlert)}, {"securityRemaining", world_.securityRemaining}, {"reinforcementWaves", world_.reinforcementWaves}};
     snapshot["rescueSignals"] = json::array();
+    if (filtered) {
+      const auto solved = std::find_if(world_.events.rbegin(), world_.events.rend(), [player](const MissionEvent &event) { return event.actor == player && event.kind == EventKind::PuzzleSolved; });
+      if (solved != world_.events.rend()) {
+        const auto device = std::ranges::find(world_.objects, solved->target, &Interactable::id);
+        if (device != world_.objects.end() && device->kind == ObjectKind::Computer) snapshot["message"] = device->puzzle.intelligence;
+      }
+    }
     if (filtered && observer && observer->privateOrder != PrivateOrder::Traitor) for (const auto &ally : world_.agents) {
       if (ally.id == player || !ally.connected || !ally.incapacitated || ally.privateOrder == PrivateOrder::Traitor) continue;
       const auto delta = ally.position - observer->position;
