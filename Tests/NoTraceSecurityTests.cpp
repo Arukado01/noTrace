@@ -129,7 +129,7 @@ namespace {
       Require(world.agents[0].position == observedPosition && world.securityAlert == SecurityAlert::Orange &&
         std::abs(world.securityRemaining - SecurityConfig::SearchDuration) < 0.001f && world.guards[remaining].state == GuardState::Search &&
         world.guards[0].lastKnown == lastKnown && world.guards[1].lastKnown == lastKnown,
-        "Sólo perder todos los contactos inicia veinte segundos completos de naranja y conserva la última pista observada");
+        "Sólo perder todos los contactos inicia treinta segundos completos de naranja y conserva la última pista observada");
     }
   }
 
@@ -214,7 +214,7 @@ namespace {
     Require(Reinforcements(world) > 0, "La retirada necesita refuerzos que hayan entrado realmente");
     world.agents[0].hidden = true; world.agents[0].position = {50.f, 700.f};
     Advance(simulation, SecurityConfig::PatrolRecoveryDelay + 0.2f);
-    Require(!world.securityActive && !world.alarm && world.securityAlert == SecurityAlert::Yellow, "Tras veinte segundos de búsqueda comienza la vigilancia amarilla");
+    Require(!world.securityActive && !world.alarm && world.securityAlert == SecurityAlert::Yellow, "Tras treinta segundos de búsqueda comienza la vigilancia amarilla");
     const auto waves = world.reinforcementWaves;
     Require(std::ranges::all_of(world.guards, [](const Guard &guard) { return guard.reinforcement ? guard.state == GuardState::Retiring : guard.state == GuardState::Vigilance; }), "La amarilla mantiene a los guardias vigilando y ordena retirarse inmediatamente a los refuerzos");
     Require(std::ranges::any_of(world.guards, [](const Guard &guard) { return guard.reinforcement && guard.state == GuardState::Retiring; }), "Los refuerzos comienzan a caminar a su salida al entrar en amarillo");
@@ -293,8 +293,8 @@ namespace {
         }
         if (world.securityAlert == SecurityAlert::Orange) break;
       }
-      Require(detour && inspected && world.securityAlert == SecurityAlert::Orange && std::abs(world.securityRemaining - 20.f) < 0.001f,
-        "El investigador debe rodear la geometría, detenerse a inspeccionar y comunicar una naranja completa de veinte segundos");
+      Require(detour && inspected && world.securityAlert == SecurityAlert::Orange && std::abs(world.securityRemaining - 30.f) < 0.001f,
+        "El investigador debe rodear la geometría, detenerse a inspeccionar y comunicar una naranja completa de treinta segundos");
       Require(world.elapsed - inspectionStart >= SecurityConfig::BodyInspectionDuration - 0.01f,
         "El aviso del cuerpo se produce antes de completar la inspección física");
       Require(world.alarmCount == 1 && std::ranges::count_if(world.events, [](const MissionEvent &event) { return event.kind == EventKind::BodyFound && event.actor == 0; }) == 1,
@@ -306,7 +306,7 @@ namespace {
         "La central comparte el cuerpo como pista y distribuye las rutas alrededor de la zona");
       world.securityEntries = {{{982.f, 110.f}, {910.f, 110.f}}};
       Advance(simulation, 2.7f);
-      Require(world.reinforcementWaves == 0 && world.securityRemaining < 18.f,
+      Require(world.reinforcementWaves == 0 && world.securityRemaining < 28.f,
         "Volver a ver el mismo cuerpo reinicia la naranja o genera una oleada prematura");
       Advance(simulation, 0.5f);
       Require(world.reinforcementWaves == 1 && Reinforcements(world) == 1 && std::ranges::count_if(world.events, [](const MissionEvent &event) { return event.kind == EventKind::BodyFound; }) == 1,
@@ -491,14 +491,14 @@ namespace {
     Require(world.securityAlert == SecurityAlert::Red, "La roja caduca mientras todavía existe contacto visual confirmado");
     const auto lastKnown = world.guards[0].lastKnown;
     world.agents[0].hidden = true; world.agents[0].position = {50.f, 700.f}; simulation.Step(0.1f, {});
-    Require(world.securityAlert == SecurityAlert::Orange && std::abs(world.securityRemaining - 20.f) < 0.001f && world.guards[0].lastKnown == lastKnown,
+    Require(world.securityAlert == SecurityAlert::Orange && std::abs(world.securityRemaining - 30.f) < 0.001f && world.guards[0].lastKnown == lastKnown,
       "Perder el último contacto cambia inmediatamente a naranja y conserva únicamente la pista observada");
-    Advance(simulation, 19.9f);
+    Advance(simulation, 29.9f);
     Require(world.securityAlert == SecurityAlert::Orange && world.securityRemaining > 0.f && world.securityRemaining < 0.11f,
-      "La naranja termina antes de sus veinte segundos completos");
+      "La naranja termina antes de sus treinta segundos completos");
     simulation.Step(0.1f, {});
     Require(world.securityAlert == SecurityAlert::Yellow && std::abs(world.securityRemaining - 12.f) < 0.001f && world.guards[0].state == GuardState::Vigilance,
-      "Al segundo veinte comienza una vigilancia amarilla completa de doce segundos");
+      "Al segundo treinta comienza una vigilancia amarilla completa de doce segundos");
     std::string error;
     Require(replica.LoadSnapshot(simulation.SnapshotFor(1), error), (std::string("La réplica rechaza el estado amarillo: ") + error).c_str());
     Require(replica.GetState().securityAlert == SecurityAlert::Yellow && replica.GetState().securityRemaining == world.securityRemaining && replica.GetState().guards[0].state == GuardState::Vigilance,

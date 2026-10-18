@@ -236,6 +236,62 @@ namespace {
     Require(!simulation.GetState().noises.empty() && simulation.GetState().noises.back().position.x==200.f,"El golpe no se origina en el contacto real con la pared");
   }
 
+  void CoverBackUsesEveryPhysicalWallFace() {
+    const sf::FloatRect wall{{300.f, 300.f}, {140.f, 120.f}};
+    const std::array<sf::Vector2f, 4> normals{{{-1.f, 0.f}, {1.f, 0.f}, {0.f, -1.f}, {0.f, 1.f}}};
+    const std::array<sf::Vector2f, 4> contacts{{{300.f, 360.f}, {440.f, 360.f}, {370.f, 300.f}, {370.f, 420.f}}};
+    for (std::size_t side = 0; side < normals.size(); ++side) {
+      Simulation simulation, replica;
+      const auto normal = normals[side]; const sf::Vector2f tangent{-normal.y, normal.x};
+      auto snapshot = Empty(simulation, contacts[side] + normal * 25.f); snapshot["phase"] = static_cast<int>(GamePhase::Mission);
+      snapshot["obstacles"].push_back(Wall(wall)); Load(simulation, snapshot);
+      ActionCommand enter; enter.coverToggle = true; enter.aimX = -normal.x; enter.aimY = -normal.y; Advance(simulation, enter);
+      Require(Local(simulation).cover.active && Local(simulation).cover.normal == normal && Local(simulation).facing == normal,
+        "Una cara lateral o proyectada en diagonal orienta el cuerpo hacia la pared o hacia el cursor");
+      const auto contact = WorldGeometry::ClosestPoint(Local(simulation).position, wall);
+      const auto outward = Local(simulation).position - contact;
+      Require(outward.dot(Local(simulation).facing) > 0.f && std::abs(outward.length() - GameplayConfig::AgentRadius - SpatialConfig::CollisionSkin) < 0.01f,
+        "La normal no sitúa la espalda junto a la cara física manteniendo el cuerpo fuera de la pared");
+      for (const auto cursor : normals) {
+        ActionCommand aim; aim.aiming = true; aim.aimX = cursor.x; aim.aimY = cursor.y; Advance(simulation, aim);
+        Require(Local(simulation).facing == normal && Local(simulation).weaponAim == cursor, "Apuntar desde una cara de cobertura gira el cuerpo en lugar del arma");
+      }
+      ActionCommand slide; slide.moveX = tangent.x; slide.moveY = tangent.y; slide.aimX = -normal.x; slide.aimY = -normal.y; Advance(simulation, slide, 3);
+      Require(Local(simulation).facing == normal && Local(simulation).cover.normal == normal && Local(simulation).moving, "Deslizarse lateralmente pierde la postura de espalda a la pared");
+      RequireClear(simulation, Local(simulation).position);
+      const auto beforeKnock = Local(simulation).position;
+      ActionCommand knock; knock.cqc = true; knock.cqcHeld = true; knock.aimX = -normal.x; knock.aimY = -normal.y; Advance(simulation, knock);
+      Require(Local(simulation).actionPose == ActionPose::KnockWall && Local(simulation).position == beforeKnock && Local(simulation).facing == normal && !Local(simulation).moving && !Local(simulation).running,
+        "El golpe contextual mueve o gira el cuerpo en lugar de conservar el apoyo y animar sólo el brazo");
+      Require(!simulation.GetState().noises.empty() && simulation.GetState().noises.back().position == WorldGeometry::ClosestPoint(beforeKnock, wall),
+        "El golpe de una cara lateral no utiliza el contacto real de la pared como origen acústico");
+      knock.cqc = false; Advance(simulation, knock, 10);
+      Require(Local(simulation).position == beforeKnock && Local(simulation).facing == normal && std::ranges::count_if(simulation.GetState().events, [](const MissionEvent &event) { return event.kind == EventKind::Noise; }) == 1,
+        "Mantener F repite el impacto o separa el cuerpo de su apoyo de cobertura");
+      Load(replica, simulation.SnapshotFor(1));
+      Require(Local(replica).cover.normal == normal && Local(replica).facing == normal, "La réplica pierde la normal física y la postura de una cara de cobertura");
+      ActionCommand leave; leave.coverToggle = true; leave.moveX = tangent.x; leave.moveY = tangent.y; Advance(simulation, leave);
+      Require(!Local(simulation).cover.active && Local(simulation).facing == tangent && Local(simulation).moving,
+        "Salir de cobertura conserva un tick la orientación de la pared en lugar de recuperar WASD inmediatamente");
+    }
+  }
+
+  void AutomaticPeekUsesTheCurrentAnchor() {
+    Simulation simulation, replica;
+    auto snapshot = Empty(simulation, {175.f, 174.f}); snapshot["phase"] = static_cast<int>(GamePhase::Mission);
+    snapshot["obstacles"].push_back(Wall({{200.f, 150.f}, {30.f, 200.f}})); Load(simulation, snapshot);
+    ActionCommand enter; enter.coverToggle = true; Advance(simulation, enter);
+    Require(Local(simulation).cover.peekSide == PeekSide::None, "La fixture empieza asomada antes de alcanzar el extremo");
+    ActionCommand slide; slide.moveY = -1.f; Advance(simulation, slide, 2);
+    Require(Local(simulation).cover.anchor.y == 162.f && Local(simulation).cover.peekSide == PeekSide::Left,
+      "Llegar al umbral de asomado usa el ancla del tick anterior");
+    Load(replica, simulation.SnapshotFor(1));
+    slide.moveY = 1.f; Advance(simulation, slide);
+    Require(Local(simulation).cover.anchor.y == 168.f && Local(simulation).cover.peekSide == PeekSide::None && Local(simulation).position.y > 154.5f,
+      "Alejarse del extremo conserva un asomado anterior y desplaza el cuerpo hacia la esquina contraria");
+    Load(replica, simulation.SnapshotFor(1));
+  }
+
   void MalformedCoverSnapshots() {
     Simulation simulation;
     auto snapshot = Empty(simulation, {175.f, 180.f});
@@ -273,7 +329,7 @@ namespace {
 
 int main() {
   try {
-    PropertiesAndFootprints(); SolidMovement(); GuardNavigation(); GuardCornerRecovery(); WallCoverAndPeek(); AutomaticCoverEdgeAndBack(); MalformedCoverSnapshots();
+    PropertiesAndFootprints(); SolidMovement(); GuardNavigation(); GuardCornerRecovery(); WallCoverAndPeek(); AutomaticCoverEdgeAndBack(); CoverBackUsesEveryPhysicalWallFace(); AutomaticPeekUsesTheCurrentAnchor(); MalformedCoverSnapshots();
     std::cout << "PASS spatial: " << checks << " comprobaciones de huellas, colisiones, navegación, cobertura y asomado físico\n";
     return 0;
   } catch (const std::exception &error) {

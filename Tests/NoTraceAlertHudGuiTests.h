@@ -78,7 +78,7 @@ namespace EngineTests {
     guard.patrol = {guard.position}; live.guards.push_back(guard);
     nlohmann::json flow = nlohmann::json::array();
     bool red = false, orange = false, yellow = false, calm = false, hidden = false;
-    for (unsigned int step = 0; step < 450 && !calm; ++step) {
+    for (unsigned int step = 0; step < static_cast<unsigned int>((SecurityConfig::SearchDuration + SecurityConfig::VigilanceDuration + 8.f) / 0.1f) && !calm; ++step) {
       ActionCommand command; command.interact = red && !hidden;
       simulation.Step(0.1f, {{1, command}});
       if (command.interact) { hidden = live.agents[0].hidden && live.agents[0].hideoutId == closet.id; require(hidden, "la pérdida de contacto no proviene de una interacción real de escondite"); }

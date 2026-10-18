@@ -236,7 +236,7 @@ namespace NoTrace {
         for (auto &guard : world_.guards) if (guard.state == GuardState::Patrol || guard.state == GuardState::Retiring || guard.state == GuardState::Vigilance) {
           guard.state = GuardState::Search; guard.stateTime = 0.f; guard.lastKnown = securityLastKnown_; guard.navigation.clear();
         }
-        world_.message = "Contacto perdido: alerta naranja, veinte segundos de búsqueda.";
+        world_.message = "Contacto perdido: alerta naranja, treinta segundos de búsqueda.";
       } else if (securityAlertChangeTick_ != world_.tick && (world_.securityAlert == SecurityAlert::Orange || world_.securityAlert == SecurityAlert::Yellow)) {
         world_.securityRemaining = std::max(0.f, world_.securityRemaining - dt);
         if (world_.securityRemaining <= 0.00001f) {

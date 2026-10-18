@@ -532,6 +532,8 @@ namespace NoTrace {
 
   bool Simulation::CoverSurfaceValid(const AgentCover &cover) const {
     if (!cover.active || std::abs(Length(cover.normal) - 1.f) > 0.001f || (std::abs(cover.normal.x) > 0.001f && std::abs(cover.normal.y) > 0.001f)) return false;
+    const auto contact = WorldGeometry::ClosestPoint(cover.anchor, cover.surface);
+    if (Distance(cover.anchor - contact, cover.normal * (GameplayConfig::AgentRadius + SpatialConfig::CollisionSkin)) > SpatialConfig::CoverPositionTolerance) return false;
     if (cover.obstacle >= 0) {
       const auto index = static_cast<std::size_t>(cover.obstacle);
       return index < world_.obstacles.size() && WorldGeometry::SupportsWallCover(world_.obstacles[index]) && world_.obstacles[index].bounds == cover.surface;
@@ -548,6 +550,7 @@ namespace NoTrace {
     const auto consider = [&](const sf::FloatRect &surface, int obstacle, std::uint32_t object) {
       const float radius = GameplayConfig::AgentRadius + SpatialConfig::CollisionSkin;
       const auto minimum = surface.position, maximum = surface.position + surface.size;
+      // La normal exterior va de la pared al agente: mirar en esa dirección apoya la espalda contra la cara real.
       const std::array<sf::Vector2f, 4> normals{{{-1.f, 0.f}, {1.f, 0.f}, {0.f, -1.f}, {0.f, 1.f}}};
       const std::array<sf::Vector2f, 4> anchors{{
           {minimum.x - radius, std::clamp(agent.position.y, minimum.y, maximum.y)},
@@ -576,16 +579,11 @@ namespace NoTrace {
   }
 
   bool Simulation::UpdateCover(Agent &agent, const ActionCommand &command, sf::Vector2f direction, float dt) {
-    if (!agent.cover.active) return false;
-    if (!CoverSurfaceValid(agent.cover) || agent.stance == Stance::Prone || agent.draggingGuard >= 0 || Blocked(agent.cover.anchor, GameplayConfig::AgentRadius)) { agent.cover = {}; return false; }
+    if (!agent.cover.active) { if (direction.lengthSquared() > 0.0001f) agent.facing = Unit(direction); return false; }
+    if (!CoverSurfaceValid(agent.cover) || agent.stance == Stance::Prone || agent.draggingGuard >= 0 || Blocked(agent.cover.anchor, GameplayConfig::AgentRadius)) {
+      agent.cover = {}; if (direction.lengthSquared() > 0.0001f) agent.facing = Unit(direction); return false;
+    }
     auto &cover = agent.cover;
-    sf::Vector2f left, right;
-    cover.canPeekLeft = CoverPeekTarget(cover, PeekSide::Left, left);
-    cover.canPeekRight = CoverPeekTarget(cover, PeekSide::Right, right);
-    const bool automaticLeft = cover.canPeekLeft && Distance(cover.anchor, left) <= SpatialConfig::AutomaticPeekDistance;
-    const bool automaticRight = cover.canPeekRight && Distance(cover.anchor, right) <= SpatialConfig::AutomaticPeekDistance;
-    const bool wantsLeft = (command.peekLeft || (!command.peekRight && automaticLeft)) && cover.canPeekLeft;
-    const bool wantsRight = !wantsLeft && (command.peekRight || automaticRight) && cover.canPeekRight;
     const sf::Vector2f tangent{-cover.normal.y, cover.normal.x};
     if (!command.peekLeft && !command.peekRight) {
       auto destination = cover.anchor + tangent * (direction.dot(tangent) * SpatialConfig::CoverSlideSpeed * dt);
@@ -593,6 +591,13 @@ namespace NoTrace {
       else destination.x = std::clamp(destination.x, cover.surface.position.x, cover.surface.position.x + cover.surface.size.x);
       Move(cover.anchor, destination - cover.anchor, GameplayConfig::AgentRadius);
     }
+    sf::Vector2f left, right;
+    cover.canPeekLeft = CoverPeekTarget(cover, PeekSide::Left, left);
+    cover.canPeekRight = CoverPeekTarget(cover, PeekSide::Right, right);
+    const bool automaticLeft = cover.canPeekLeft && Distance(cover.anchor, left) <= SpatialConfig::AutomaticPeekDistance;
+    const bool automaticRight = cover.canPeekRight && Distance(cover.anchor, right) <= SpatialConfig::AutomaticPeekDistance;
+    const bool wantsLeft = (command.peekLeft || (!command.peekRight && automaticLeft)) && cover.canPeekLeft;
+    const bool wantsRight = !wantsLeft && (command.peekRight || automaticRight) && cover.canPeekRight;
     const auto destination = wantsLeft ? left : wantsRight ? right : cover.anchor;
     cover.peekSide = wantsLeft ? PeekSide::Left : wantsRight ? PeekSide::Right : PeekSide::None;
     const auto movement = destination - agent.position;

@@ -193,11 +193,11 @@ namespace {
     snapshot = EmptyMission(simulation, {400.f, 500.f});
     snapshot["objects"].push_back({{"id", 90}, {"kind", static_cast<int>(ObjectKind::Camera)}, {"position", {300.f, 500.f}}, {"name", "Cámara"}, {"active", true}, {"completed", false}, {"open", false}, {"progress", 0.f}, {"facing", {1.f, 0.f}}});
     Load(simulation, snapshot);
-    Advance(simulation, {}, 250);
-    Require(simulation.GetState().alarm, "La visión continua debe mantener la alarma más de veinte segundos");
+    Advance(simulation, {}, 350);
+    Require(simulation.GetState().alarm, "La visión continua debe mantener la alarma más de treinta segundos");
     snapshot = simulation.SnapshotFor(1); snapshot["agents"][0]["hidden"] = true;
     Load(simulation, snapshot);
-    Advance(simulation, {}, 210);
+    Advance(simulation, {}, 310);
     Require(!simulation.GetState().alarm, "Al perder la visión la alarma debe terminar después de la búsqueda");
 
     snapshot = EmptyMission(simulation, {900.f, 700.f});

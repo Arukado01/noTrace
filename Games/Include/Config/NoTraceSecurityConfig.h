@@ -8,7 +8,7 @@ namespace NoTrace::SecurityConfig {
   inline constexpr std::size_t GuardsPerWave = 2;
   inline constexpr std::size_t MaximumActiveReinforcements = 6;
   inline constexpr unsigned int MaximumWaves = 3;
-  inline constexpr float SearchDuration = 20.f;
+  inline constexpr float SearchDuration = 30.f;
   inline constexpr float PatrolRecoveryDelay = SearchDuration;
   inline constexpr float WithdrawalDelay = 12.f;
   inline constexpr float VigilanceDuration = WithdrawalDelay;

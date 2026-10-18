@@ -32,7 +32,7 @@ namespace NoTrace::GameplayConfig {
   inline constexpr float SuspicionDecay = 0.2f;
   inline constexpr float InvestigationDuration = 5.f;
   inline constexpr float SearchDuration = SecurityConfig::SearchDuration;
-  inline constexpr float AlarmDuration = 20.f;
+  inline constexpr float AlarmDuration = SecurityConfig::SearchDuration;
   inline constexpr float InteractionDistance = 48.f;
   inline constexpr float CqcDistance = 38.f;
   inline constexpr float WeaponRange = 340.f;
@@ -99,7 +99,7 @@ namespace NoTrace::GameplayConfig {
   inline constexpr std::uint32_t HostPlayerId = 1;
   inline constexpr std::size_t MaximumEvents = 20000;
   inline constexpr std::size_t MaximumSnapshotBytes = 60 * 1024;
-  inline constexpr std::uint32_t ProtocolVersion = 8;
+  inline constexpr std::uint32_t ProtocolVersion = 9;
   inline constexpr float SimulationHz = 60.f;
   inline constexpr float CommandHz = 30.f;
   inline constexpr float SnapshotHz = 20.f;

@@ -484,9 +484,9 @@ namespace {
         "El contacto visual confirmado debe replicar roja sin una cuenta atrás artificial");
       remote.hidden = true;
       Until([&] { return world.securityAlert == SecurityAlert::Orange && pair.client.GetWorld().securityAlert == SecurityAlert::Orange; }, [&] { pair.Tick(true); });
-      Require(world.securityRemaining > 19.f && pair.client.GetWorld().securityRemaining >= world.securityRemaining - 0.001f &&
+      Require(world.securityRemaining > 29.f && pair.client.GetWorld().securityRemaining >= world.securityRemaining - 0.001f &&
         pair.client.GetWorld().securityRemaining - world.securityRemaining < 0.15f,
-        "La pérdida de contacto no transmite la naranja y su plazo autoritativo de veinte segundos");
+        "La pérdida de contacto no transmite la naranja y su plazo autoritativo de treinta segundos");
       pair.client.Tick(0.f); pair.client.Tick(0.f);
       const auto clientTick = pair.client.GetWorld().tick;
       const auto remaining = pair.client.GetWorld().securityRemaining;
@@ -543,7 +543,7 @@ namespace {
       "Cargar una instantánea completa altera el siguiente paso de alerta o regeneración del anfitrión");
     invalid = searching; invalid["securityAlert"] = 4;
     Require(!restored.LoadSnapshot(invalid, error), "La réplica acepta una fase de alerta fuera del protocolo");
-    for (unsigned int step = 0; step < 210 && world.securityAlert != SecurityAlert::Yellow; ++step) authority.Step(0.1f, {});
+    for (unsigned int step = 0; step < 310 && world.securityAlert != SecurityAlert::Yellow; ++step) authority.Step(0.1f, {});
     Require(world.securityAlert == SecurityAlert::Yellow && world.securityRemaining == SecurityConfig::VigilanceDuration,
       "La autoridad no inició una vigilancia de doce segundos después de la búsqueda");
     const auto vigilant = authority.SnapshotFor(2, true);

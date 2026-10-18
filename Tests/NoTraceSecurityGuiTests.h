@@ -40,10 +40,17 @@ namespace EngineTests {
     nlohmann::json phases = nlohmann::json::array();
     const auto snapshot = [&](const char *name) {
       auto view = world;
+      auto viewCamera = camera;
       const bool exteriorView = observer.hideoutId == closet.id;
       if (exteriorView) {
-        // La cámara de evidencia conserva la posición exterior; la simulación mantiene al observador dentro del armario cerrado.
+        // La cámara de evidencia sigue al investigador; el observador autoritativo permanece en el armario cerrado.
         view.agents[0].position = camera; view.agents[0].hideoutId = 0; view.agents[0].hideoutExit = {};
+        const auto offset = view.guards[0].position - viewCamera;
+        if (offset.lengthSquared() > 0.001f) view.agents[0].facing = offset.normalized();
+        if (!Visibility::GuardVisible(view, view.agents[0], view.guards[0])) {
+          viewCamera = view.guards[0].position - sf::Vector2f{70.f, 0.f};
+          view.agents[0].position = viewCamera; view.agents[0].facing = {1.f, 0.f};
+        }
       }
       const auto &guard = view.guards[0];
       require(Visibility::GuardVisible(view, view.agents[0], guard), std::string("el guardia debe estar visible en la captura ") + name);
@@ -53,7 +60,7 @@ namespace EngineTests {
       const auto background = capture(renderer, absent, output / (std::string("security-") + name + "-without-guard.png"), true);
       const auto logical = context.window.GetLogicalSize();
       const auto scale = sf::Vector2f(pixels.getSize()).componentWiseDiv(logical);
-      const auto feet = WorldRenderer::ProjectGround(guard.position, camera, logical, renderer.GetZoom());
+      const auto feet = WorldRenderer::ProjectGround(guard.position, viewCamera, logical, renderer.GetZoom());
       const auto minimum = (feet - sf::Vector2f{60.f, 115.f} * renderer.GetZoom()).componentWiseMul(scale);
       const auto maximum = (feet + sf::Vector2f{60.f, 12.f} * renderer.GetZoom()).componentWiseMul(scale);
       const int left = std::max(0, static_cast<int>(std::floor(minimum.x))), top = std::max(0, static_cast<int>(std::floor(minimum.y)));
@@ -79,7 +86,7 @@ namespace EngineTests {
         {"guardFacing", {guard.facing.x, guard.facing.y}}, {"bodyPosition", {bodyPosition.x, bodyPosition.y}}, {"inspectionTime", guard.bodyInspectionTime},
         {"spriteFrame", frame.index}, {"indicator", static_cast<int>(indicator)}, {"changedGuardPixels", changed},
         {"observerPosition", {observer.position.x, observer.position.y}}, {"observerHideout", observer.hideoutId}, {"observerAlive", observer.alive},
-        {"cameraPosition", {camera.x, camera.y}}, {"exteriorFixtureView", exteriorView}});
+        {"cameraPosition", {viewCamera.x, viewCamera.y}}, {"exteriorFixtureView", exteriorView}});
     };
     float maximumMovement = 0.f, inspectionStart = -1.f, orangeAt = -1.f, yellowAt = -1.f, calmAt = -1.f;
     sf::Vector2f inspectionPosition;
@@ -88,7 +95,7 @@ namespace EngineTests {
     bool assistingCaptured = false, awakeCaptured = false, colleagueContinued = false;
     float assistanceRemaining = 0.f, assistanceAt = 0.f;
     sf::Vector2f assistedPosition;
-    for (unsigned int step = 0; step < 450; ++step) {
+    for (unsigned int step = 0; step < static_cast<unsigned int>((SecurityConfig::SearchDuration + SecurityConfig::VigilanceDuration + 8.f) / 0.1f); ++step) {
       ActionCommand command;
       if (orangeCaptured && !enteredCloset) command.interact = true;
       const auto previous = world.guards[0].position;
@@ -106,7 +113,7 @@ namespace EngineTests {
       }
       if (world.securityAlert == SecurityAlert::Orange && !orangeCaptured) {
         orangeAt = world.elapsed;
-        require(std::abs(world.securityRemaining - SecurityConfig::SearchDuration) < 0.001f, "el hallazgo debe iniciar veinte segundos completos de naranja");
+        require(std::abs(world.securityRemaining - SecurityConfig::SearchDuration) < 0.001f, "el hallazgo debe iniciar treinta segundos completos de naranja");
         snapshot("orange"); orangeCaptured = true;
         Guard unconscious; unconscious.id = 92; unconscious.position = bodyPosition + sf::Vector2f{0.f, 45.f}; unconscious.health = 37.f;
         unconscious.state = GuardState::Incapacitated; unconscious.incapacityRemaining = GameplayConfig::GuardIncapacityDuration; unconscious.bodyReported = true;
@@ -148,7 +155,7 @@ namespace EngineTests {
     require(inspectionStationary && inspectionStart >= 0.f && std::abs(orangeAt - inspectionStart - SecurityConfig::BodyInspectionDuration) < 0.002f,
       "el investigador debe permanecer detenido durante los 1,5 segundos de inspección");
     require(std::abs(yellowAt - orangeAt - SecurityConfig::SearchDuration) < 0.003f && std::abs(calmAt - yellowAt - SecurityConfig::VigilanceDuration) < 0.003f,
-      "los tiempos reales de búsqueda y vigilancia no coinciden con veinte y doce segundos");
+      "los tiempos reales de búsqueda y vigilancia no coinciden con treinta y doce segundos");
     require(enteredCloset && observer.alive && !observer.incapacitated && !unexpectedDetection && world.guards[0].state == GuardState::Patrol &&
       std::ranges::count_if(world.events, [](const MissionEvent &event) { return event.kind == EventKind::BodyFound; }) == 1,
       "la ocultación debe impedir contacto real y el mismo cuerpo no debe reiniciar la alerta ni bloquear el regreso a patrulla");
@@ -156,7 +163,7 @@ namespace EngineTests {
       {"yellowStartedAt", yellowAt}, {"patrolResumedAt", calmAt}, {"inspectionDuration", orangeAt - inspectionStart}, {"searchDuration", yellowAt - orangeAt},
       {"vigilanceDuration", calmAt - yellowAt}, {"maximumMovementPerStep", maximumMovement}, {"stepSeconds", 0.1f},
       {"assistanceDuringOrange", "PASS"}, {"awakeWithoutTeleport", "PASS"}, {"otherGuardContinuedSearch", colleagueContinued}, {"orangeClockPreserved", "PASS"},
-      {"cameraNote", "Después de entrar por interacción real en el armario cerrado, sólo la copia de presentación conserva la cámara exterior; posiciones y fases del guardia proceden de la simulación sin modificaciones."}};
+      {"cameraNote", "Después de entrar por interacción real en el armario cerrado, sólo la copia de presentación orienta y aproxima su cámara al investigador para conservarlo visible durante treinta segundos; posiciones y fases del guardia proceden de la simulación sin modificaciones."}};
     std::ofstream file(output / "security-fixtures.json"); file << report.dump(2);
     return report;
   }
