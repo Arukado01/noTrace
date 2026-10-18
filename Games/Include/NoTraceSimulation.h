@@ -29,9 +29,15 @@ namespace NoTrace {
     float reinforcementTimer_ = 0.f;
     sf::Vector2f securityLastKnown_;
     bool securityHasClue_ = false;
+    std::uint64_t securityContactTick_ = 0;
+    std::uint64_t securityAlertChangeTick_ = 0;
     std::uint32_t nextGuardId_ = 1;
     void ResetSecurity();
     void RegisterSecurityContact(sf::Vector2f position);
+    void SetSecurityAlert(SecurityAlert alert);
+    void RegisterBodyDiscovery(Guard &observer, sf::Vector2f position, std::uint32_t body);
+    bool UpdateBodyInvestigation(Guard &guard, float dt);
+    sf::Vector2f SecuritySearchDestination(const Guard &guard) const;
     void UpdateSecurity(float dt);
     bool SpawnReinforcementWave();
     bool SecurityEntryValid(const SecurityEntry &entry) const;

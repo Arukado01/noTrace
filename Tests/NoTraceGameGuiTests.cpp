@@ -12,6 +12,7 @@
 #include "NoTraceOptionsGuiTests.h"
 #include "NoTraceMenuGuiTests.h"
 #include "NoTraceOrientationGuiTests.h"
+#include "NoTraceSecurityGuiTests.h"
 #include "NoTraceWorldGeometry.h"
 #include <SFML/Graphics/Image.hpp>
 #include <SFML/System/Sleep.hpp>
@@ -1001,6 +1002,7 @@ namespace {
       Access::VerifyFireInput(game,context,window); Access::VerifyCursorOrientation(game,context,window,output); Access::VerifyFinalVisuals(context,window,output);
       const auto captureWorld=[&](WorldRenderer &renderer,const WorldState &world,const std::filesystem::path &file,bool hudVisible=true) { return Access::CaptureWorld(renderer,world,context,window,file,hudVisible); };
       EngineTests::RunOrientationRenderFixtures(context,output,captureWorld);
+      EngineTests::RunSecurityRenderFixtures(context,output,captureWorld);
       game.OnCleanup(); window.close(); return nlohmann::json::array();
     }
     Access::Require(Access::GetSession(game).IsConnected(), "La conexión individual desde GUI falló");
@@ -1086,6 +1088,7 @@ namespace {
     Access::VerifyFinalVisuals(context,window,output);
     const auto captureWorld=[&](WorldRenderer &renderer,const WorldState &world,const std::filesystem::path &file,bool hudVisible=true) { return Access::CaptureWorld(renderer,world,context,window,file,hudVisible); };
     EngineTests::RunOrientationRenderFixtures(context,output,captureWorld);
+    EngineTests::RunSecurityRenderFixtures(context,output,captureWorld);
     EngineTests::RunWorldRenderFixtures(context, output, [&](WorldRenderer &renderer, const WorldState &world, const std::filesystem::path &file, bool hudVisible = true) {
       return Access::CaptureWorld(renderer, world, context, window, file, hudVisible);
     });

@@ -435,8 +435,11 @@ namespace NoTrace {
   void Game::RefreshHud() {
     const auto &world = session_.GetWorld();
     const auto &contract = GetContract(world.contract);
+    const auto alert = world.securityAlert == SecurityAlert::Red ? std::string("ROJA") : world.securityAlert == SecurityAlert::Orange ?
+        std::format("NARANJA {:.0f}s",std::ceil(world.securityRemaining)) : world.securityAlert == SecurityAlert::Yellow ? std::format("AMARILLA {:.0f}s",std::ceil(world.securityRemaining)) : "SIN ALERTA";
     title_->setText(world.phase == GamePhase::Base ? "NO TRACE  //  BASE CIO" : "NO TRACE  //  " + contract.name);
-    mission_->setText(world.phase == GamePhase::Base ? "ENTRENAMIENTO SEGURO: sin enemigos · prácticas al este · R recargar · 1/2 cambiar arma · F2 despliegue" : std::format("OBJETIVOS {}/{}  ·  SECUNDARIOS {}  ·  {:.0f} s  ·  {}  ·  SEMILLA {}", world.objectives, contract.requiredObjectives, world.secondary, std::max(0.f, contract.timeLimit - world.elapsed), world.alarm ? "ALARMA" : "SIN ALARMA", world.seed));
+    mission_->setText(world.phase == GamePhase::Base ? "ENTRENAMIENTO SEGURO: sin enemigos · prácticas al este · R recargar · 1/2 cambiar arma · F2 despliegue" : std::format("OBJETIVOS {}/{}  ·  SECUNDARIOS {}  ·  {:.0f} s  ·  {}  ·  SEMILLA {}", world.objectives, contract.requiredObjectives, world.secondary, std::max(0.f, contract.timeLimit - world.elapsed), alert, world.seed));
+    mission_->getRenderer()->setTextColor(world.securityAlert == SecurityAlert::Red ? tgui::Color{221,67,77} : world.securityAlert == SecurityAlert::Orange ? tgui::Color{238,139,58} : world.securityAlert == SecurityAlert::Yellow ? tgui::Color{233,202,83} : tgui::Color{225,232,238});
     if (const auto *agent = LocalAgent()) {
       health_->setVisible(true); stamina_->setVisible(true);
       const bool pistol = agent->selectedWeapon == WeaponKind::Pistol; const float durability = pistol ? agent->pistolSuppressor : agent->nonLethalSuppressor;

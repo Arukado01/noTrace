@@ -27,7 +27,9 @@ namespace NoTrace {
   enum class ShotTarget { None, Agent, Guard };
   enum class ActionPose { None, ThrowDecoy, KnockWall, Push, Subdue, Punch, Kick, Recover, Grab, Choke, Aim, Shoot, Reload, TakeDamage, Fall, Interact, HideEnter, HideExit, CoverEnter };
   enum class SoundKind { Pistol, Rifle, Suppressed, Reload, Impact, Punch, Kick, Grab, Choke, Fall, StepHard, StepSoft, Knock, TrapTick, Explosion, Lock, PuzzleStep, PuzzleFailed, PuzzleSolved, Camera, Alarm, Reinforcement, Cabinet, Hideout, Drag, Decoy, SuppressorAttach, SuppressorDetach, StepRunHard, StepRunSoft, StepCrouchHard, StepCrouchSoft };
-  enum class GuardState { Patrol, Suspicion, Investigate, Alert, Search, Incapacitated, Dead, Retiring };
+  enum class GuardState { Patrol, Suspicion, Investigate, Alert, Search, Incapacitated, Dead, Retiring, ApproachBody, InspectBody, Vigilance };
+  enum class SecurityAlert { Calm, Red, Orange, Yellow };
+  enum class BodyTargetKind { None, Guard, Agent };
   enum class CoverKind { None, Low, High, Hide };
   enum class SpatialOverride { Default, Enabled, Disabled };
   enum class PeekSide { None, Left, Right };
@@ -220,6 +222,9 @@ namespace NoTrace {
     PlayerId observedAgent = 0;
     bool reinforcement = false;
     sf::Vector2f reinforcementExit;
+    BodyTargetKind bodyTargetKind = BodyTargetKind::None;
+    std::uint32_t bodyTargetId = 0;
+    float bodyInspectionTime = 0.f;
   };
   struct Obstacle {
     sf::FloatRect bounds;
@@ -333,6 +338,8 @@ namespace NoTrace {
     bool alarm = false;
     int alarmCount = 0;
     bool securityActive = false;
+    SecurityAlert securityAlert = SecurityAlert::Calm;
+    float securityRemaining = 0.f;
     unsigned int reinforcementWaves = 0;
     std::vector<SecurityEntry> securityEntries;
     int objectives = 0;

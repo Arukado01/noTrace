@@ -65,8 +65,10 @@ namespace NoTrace {
     if (!IsTraining(world_)) return;
     std::erase_if(world_.guards, [](const Guard &guard) { return !guard.trainingDummy; });
     world_.securityEntries.clear(); world_.securityActive = false; world_.reinforcementWaves = 0;
+    world_.securityAlert = SecurityAlert::Calm; world_.securityRemaining = 0.f;
     world_.alarm = false; world_.alarmCount = 0;
     securityHasClue_ = false; securityContactAge_ = 0.f; reinforcementTimer_ = 0.f; alarmRemaining_ = 0.f;
+    securityContactTick_ = securityAlertChangeTick_ = 0;
     if (world_.events.size() > TrainingConfig::MaximumRetainedEvents)
       world_.events.erase(world_.events.begin(), world_.events.end() - TrainingConfig::MaximumRetainedEvents);
     for (auto &dummy : world_.guards) {
