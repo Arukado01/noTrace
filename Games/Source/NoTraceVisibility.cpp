@@ -57,8 +57,12 @@ namespace NoTrace::Visibility {
       }
       const float range = observer.stance == Stance::Prone ? ProneRange : observer.stance == Stance::Crouched ? CrouchedRange : StandingRange;
       if (distance > range) return false;
-      const float facingLength = std::hypot(observer.facing.x, observer.facing.y);
-      if (distance > CloseRange && facingLength > 0.f && observer.facing.dot(delta) / (facingLength * distance) < CosHalfAngle) return false;
+      const bool aimingFromCover = observer.cover.active && observer.aiming &&
+        ((observer.cover.peekSide == PeekSide::Left && observer.cover.canPeekLeft) || (observer.cover.peekSide == PeekSide::Right && observer.cover.canPeekRight));
+      // La postura sigue apoyada en la pared, pero al asomarse la visión acompaña al arma.
+      const auto facing = aimingFromCover ? WeaponFacing(observer) : observer.facing;
+      const float facingLength = std::hypot(facing.x, facing.y);
+      if (distance > CloseRange && facingLength > 0.f && facing.dot(delta) / (facingLength * distance) < CosHalfAngle) return false;
       return clear(CombatGeometry::HeadCenterHeight(observer.stance));
     }
 

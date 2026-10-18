@@ -128,7 +128,7 @@ Maestro exige completar los objetivos obligatorios y **todas las misiones secund
 
 ## Controles
 
-En la vista táctica, WASD controla el movimiento axonométrico y la orientación del cuerpo en ocho direcciones. Al detenerte conservas la última orientación; mover el ratón no gira el cuerpo. Mantener clic derecho orienta el arma hacia el cursor y activa la mira y el láser desde el cañón. El disparo sigue esa misma dirección. En cobertura, la normal de la pared fija la postura, incluso al apuntar o deslizarte; F golpea la pared con el brazo sin girar el cuerpo. Las maniobras y el CQC conservan su orientación durante la acción.
+En la vista táctica, WASD controla el movimiento axonométrico y la orientación del cuerpo en ocho direcciones. Al detenerte conservas la última orientación; mover el ratón no gira el cuerpo. Mantener clic derecho orienta el arma hacia el cursor y activa la mira y el láser desde el cañón. El disparo sigue esa misma dirección. En cobertura, la normal de la pared fija la postura, incluso al apuntar o deslizarte; F golpea la pared con el brazo sin girar el cuerpo. Al apuntar mientras te asomas por un extremo, la visión y la niebla siguen la dirección del arma desde la posición real del agente; las paredes siguen bloqueando lo que queda detrás. Las maniobras y el CQC conservan su orientación durante la acción.
 
 | Acción | Control |
 | --- | --- |
