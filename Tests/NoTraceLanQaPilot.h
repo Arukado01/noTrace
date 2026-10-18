@@ -11,7 +11,10 @@ namespace NoTrace::Qa {
     inline constexpr float WaypointTolerance = 0.25f;
     inline constexpr float CollisionMargin = 0.5f;
     inline constexpr float DeviceMargin = 25.f;
-    inline constexpr float InteractionFraction = 0.5f;
+    inline constexpr float InteractionFraction = 0.95f;
+    inline constexpr float ProgressDistance = 0.5f;
+    inline constexpr float StuckEvidenceSeconds = 3.f;
+    inline constexpr float StuckLimitSeconds = 12.f;
   }
 
   class MissionPilot {

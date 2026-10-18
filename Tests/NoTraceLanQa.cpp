@@ -1,5 +1,6 @@
 #include "NoTraceGame.h"
 #include "NoTraceLanQaPilot.h"
+#include "NoTraceInteraction.h"
 #include "Core/EngineConfig.h"
 #include <SFML/Graphics/Image.hpp>
 #include <SFML/Graphics/Sprite.hpp>
@@ -191,6 +192,9 @@ namespace {
     std::uint32_t missionSeed_ = 0;
     std::uint64_t baselineTick_ = 0;
     sf::Vector2f baselinePosition_, pausedLocalPosition_;
+    sf::Vector2f pilotProgressPosition_;
+    float pilotProgressAt_ = -1.f, pilotProgressElevation_ = 0.f;
+    bool pilotStallCaptured_ = false;
     float progressAt_ = -1.f;
     float extractionDeniedAt_ = -1.f;
     bool recovery_ = false, complete_ = false, objectiveSeen_ = false, clientLossEndedMission_ = false;
@@ -212,9 +216,13 @@ namespace {
     bool AllReady() { return Room() && std::ranges::all_of(SessionState().GetLobbyPlayers(), [](const LobbyPlayer &player) { return player.ready; }); }
     Json State() {
       Json state{{"connected", SessionState().IsConnected()}, {"phase", static_cast<int>(World().phase)}, {"tick", World().tick}, {"seed", World().seed}, {"elapsed", World().elapsed}, {"player", SessionState().GetLocalPlayerId()}, {"rosterCount", SessionState().GetLobbyPlayers().size()}, {"status", SessionState().GetStatus()}};
-      if (const auto *local = Local()) state["local"] = {{"position", {local->position.x, local->position.y}}, {"elevation", local->elevation}, {"support", local->supportId},
-        {"traversal", static_cast<int>(local->traversal.mode)}, {"health", local->health}, {"stamina", local->stamina}, {"incapacitated", local->incapacitated},
-        {"lifeState", static_cast<int>(local->lifeState)}, {"draggingGuard", local->draggingGuard}, {"extracted", local->extracted}, {"pilot", pilot_.Stage()}};
+      if (const auto *local = Local()) {
+        state["local"] = {{"position", {local->position.x, local->position.y}}, {"elevation", local->elevation}, {"support", local->supportId},
+          {"traversal", static_cast<int>(local->traversal.mode)}, {"health", local->health}, {"stamina", local->stamina}, {"incapacitated", local->incapacitated},
+          {"lifeState", static_cast<int>(local->lifeState)}, {"draggingGuard", local->draggingGuard}, {"extracted", local->extracted}, {"pilot", pilot_.Stage()}};
+        if (const auto *body = Interaction::FindBody(World(), *local)) state["local"]["nearbyBody"] = {{"id", body->id}, {"position", {body->position.x, body->position.y}}, {"elevation", body->elevation}};
+        if (const auto *object = Interaction::FindObject(World(), *local)) state["local"]["selectedObject"] = {{"id", object->id}, {"kind", static_cast<int>(object->kind)}, {"position", {object->position.x, object->position.y}}, {"elevation", object->elevation}};
+      }
       return state;
     }
     Json Report(const std::string &status, const std::string &reason) {
@@ -245,6 +253,22 @@ namespace {
       auto command = pilot_.Update(World(), SessionState().GetLocalPlayerId(), collectObjective, allowExtraction);
       if (std::hypot(command.aimX, command.aimY) < 0.01f) command.aimX = 1.f;
       SessionState().Submit(command);
+    }
+    void CheckPilotProgress() {
+      const auto *local = Local();
+      const auto &stage = pilot_.Stage();
+      const bool expectsProgress = stage == "esperando_ruta_transitable" || stage == "recuperando_archivo" || stage == "regresando_extraccion";
+      if (!local || !expectsProgress) { pilotProgressAt_ = -1.f; pilotStallCaptured_ = false; return; }
+      if (pilotProgressAt_ < 0.f || (local->position - pilotProgressPosition_).length() > Qa::MissionPilotConfig::ProgressDistance ||
+          std::abs(local->elevation - pilotProgressElevation_) > Qa::MissionPilotConfig::ProgressDistance) {
+        pilotProgressAt_ = Elapsed(); pilotProgressPosition_ = local->position; pilotProgressElevation_ = local->elevation; pilotStallCaptured_ = false;
+      }
+      const float stationary = Elapsed() - pilotProgressAt_;
+      if (stationary >= Qa::MissionPilotConfig::StuckEvidenceSeconds && !pilotStallCaptured_) {
+        Case("pilot_stalled_replan", State().at("local")); Capture("pilot-stalled-" + std::to_string(World().tick));
+        pilot_.Reset(); pilotStallCaptured_ = true;
+      }
+      Require(stationary < Qa::MissionPilotConfig::StuckLimitSeconds, "Piloto sin avance físico tras replantear ruta: " + State().at("local").dump());
     }
     void Connect(bool host) {
       Access::FillConnection(game_, host ? "QA ANFITRION" : "QA VM", options_.host, options_.port);
@@ -386,6 +410,7 @@ namespace {
         RequireMissionHealthy();
         const bool traitor = Local()->privateOrder == PrivateOrder::Traitor;
         SubmitPilot(!traitor, traitor || Marker("extraction-denied.json").is_object());
+        CheckPilotProgress();
         if (World().objectives >= GetContract(World().contract).requiredObjectives && !objectiveSeen_) {
           objectiveSeen_ = true; Case("objective_collected_by_normal_interaction"); Capture("09-objective-collected"); Mark("objective-collected.json");
         }

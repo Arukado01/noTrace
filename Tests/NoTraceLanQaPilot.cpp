@@ -217,7 +217,7 @@ namespace NoTrace::Qa {
       stage_ = kind == ObjectKind::Terminal ? "interactuando_archivo" : "interactuando_extraccion";
       return command;
     }
-    if (target_ != target->id || support_ != agent.supportId || world.elapsed >= nextPlan_ || route_.empty()) {
+    if (target_ != target->id || support_ != agent.supportId || world.elapsed >= nextPlan_) {
       route_ = PlanRoute(world, agent, *target);
       target_ = target->id;
       support_ = agent.supportId;
