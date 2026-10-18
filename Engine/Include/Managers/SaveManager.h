@@ -1,10 +1,12 @@
 #pragma once
 #include <nlohmann/json.hpp>
 #include <string_view>
+#include <filesystem>
 
 class SaveManager {
 private:
   nlohmann::json values_;
+  std::filesystem::path file_ = "Content/Save.json";
 
 public:
   SaveManager();
