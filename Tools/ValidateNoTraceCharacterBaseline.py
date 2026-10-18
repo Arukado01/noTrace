@@ -3,7 +3,7 @@ import copy
 import hashlib
 import json
 import math
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from PIL import Image
 
@@ -442,12 +442,101 @@ def exception_contract(baseline, current, exceptions, toe_witness=None, semantic
     return result
 
 
-def compare(baseline, current, references=None, contracts=None, exceptions=None, toe_witness=None, semantic_records=None, death_witness=None, crouch_push_witness=None, ik_floor_witness=None, recovery_witness=None):
+def socket_source_contract(exceptions, expected_contract_sha256):
+    require(valid_sha(expected_contract_sha256), "Schema2 exige expected_contract_sha256 aprobado externamente")
+    require(canonical_sha(exceptions) == expected_contract_sha256, "SHA externo del preregistro distinto")
+    fields = {"schemaVersion", "kind", "baselineCanonicalSha256", "canonicalManifest", "tools", "pieceFiles", "entries"}
+    require(set(exceptions) == fields and type(exceptions["schemaVersion"]) is int and exceptions["schemaVersion"] == 2, "Campos schema2 incorrectos")
+    require(exceptions["kind"] == "rig_socket_projection_v1", "Kind schema2 incorrecto")
+
+    def record(value, prefix, hash_field):
+        require(isinstance(value, dict) and set(value) == {"file", hash_field}, "Registro de fuente schema2 incorrecto")
+        name = value["file"]
+        require(isinstance(name, str) and bool(name) and "\\" not in name and ":" not in name, "Ruta de fuente schema2 inválida")
+        path = PurePosixPath(name)
+        require(not path.is_absolute() and ".." not in path.parts and name == path.as_posix() and name.startswith(prefix), "Ruta de fuente schema2 fuera de alcance")
+        require(valid_sha(value[hash_field]), "SHA de fuente schema2 inválido")
+        return value
+
+    manifest = record(exceptions["canonicalManifest"], "Manifests/", "canonicalSha256")
+    result = {"canonicalManifest": manifest}
+    for key, prefix in [("tools", "Tools/"), ("pieceFiles", "Pieces/")]:
+        values = exceptions[key]
+        require(isinstance(values, list) and bool(values), "Lista de fuentes schema2 vacía: " + key)
+        records = [record(value, prefix, "sha256") for value in values]
+        names = [value["file"] for value in records]
+        require(len(names) == len(set(names)), "Fuentes schema2 duplicadas: " + key)
+        result[key] = records
+    return result
+
+
+def verify_socket_sources(root, exceptions, expected_contract_sha256):
+    declared = socket_source_contract(exceptions, expected_contract_sha256)
+
+    def verified(base, record, canonical=False):
+        base = base.resolve()
+        path = (base / record["file"]).resolve()
+        require(path.is_relative_to(base), "Fuente schema2 resuelta fuera de su raíz")
+        key = "canonicalSha256" if canonical else "sha256"
+        return {"file": record["file"], key: canonical_sha(read_json(path)) if canonical else file_sha(path)}
+
+    return {"canonicalManifest": verified(root, declared["canonicalManifest"], True),
+            "tools": [verified(REPOSITORY, row) for row in declared["tools"]],
+            "pieceFiles": [verified(root, row) for row in declared["pieceFiles"]]}
+
+
+def socket_projection_contract(baseline, current, exceptions, semantic_records, expected_contract_sha256, verified_source_hashes):
+    declared = socket_source_contract(exceptions, expected_contract_sha256)
+    require(exceptions["baselineCanonicalSha256"] == canonical_sha(baseline), "Schema2 ligado a otro baseline")
+    require(verified_source_hashes is not None and canonical_json(declared) == canonical_json(verified_source_hashes), "Fuentes, herramientas o manifiesto canónico schema2 distintos")
+    entries = exceptions["entries"]
+    require(isinstance(entries, list) and bool(entries), "Schema2 exige filas literales no vacías")
+    before = {row["index"]: row for row in baseline["frames"]}
+    after = {row["index"]: row for row in current["frames"]}
+    result, previous = {}, -1
+    fields = {"index", "identity", "reason", "rgbaSha256", "joints", "anchors", "semantic", "semanticSha256", "jointsSha256"}
+    for row in entries:
+        require(isinstance(row, dict) and set(row) == fields, "Entrada schema2 incorrecta")
+        index = row["index"]
+        require(type(index) is int and index >= 0 and index > previous and index in before and index in after, "Índice schema2 inválido, duplicado o desordenado")
+        previous = index
+        original, actual = before[index], after[index]
+        identity = {key: original[key] for key in IDENTITY_FIELDS if key != "index"}
+        require(isinstance(row["identity"], dict) and canonical_json(row["identity"]) == canonical_json(identity), "Identidad schema2 distinta")
+        require(isinstance(row["reason"], str) and bool(row["reason"].strip()), "Motivo schema2 vacío")
+        layers = row["rgbaSha256"]
+        require(isinstance(layers, dict) and set(layers) == set(original["rgbaSha256"]) == set(actual["rgbaSha256"]), "Schema2 debe declarar todas las capas originales exactas")
+        require(all(valid_sha(value) for value in layers.values()) and canonical_json(layers) == canonical_json(actual["rgbaSha256"]), "RGBA schema2 distinto del preregistro")
+        joints, anchors, semantic = row["joints"], row["anchors"], row["semantic"]
+        require(isinstance(joints, dict) and bool(joints), "Joints schema2 incompletos")
+        require(all(isinstance(name, str) and bool(name) and isinstance(point, list) and len(point) == 3 and all(type(value) in [int, float] and math.isfinite(value) for value in point) for name, point in joints.items()), "Joint schema2 inválido o no finito")
+        require(isinstance(anchors, dict) and set(anchors) == set(ANCHOR_FIELDS), "Anclas schema2 incompletas")
+        for name, point in anchors.items():
+            values = [point] if name == "supportWidth" else point
+            require(isinstance(values, list) and len(values) == (1 if name == "supportWidth" else 2) and all(type(value) in [int, float] and math.isfinite(value) for value in values), "Ancla schema2 inválida o no finita")
+        require(canonical_json(anchors["groundAnchor"]) == canonical_json(original["anchors"]["groundAnchor"]), "Schema2 no modifica el ancla de suelo")
+        require(isinstance(semantic, dict) and not (set(semantic) & PACKING_FIELDS), "Semántica schema2 incluye packing o es inválida")
+        require(all(key in semantic for key in (*IDENTITY_FIELDS, *ANCHOR_FIELDS, "joints")), "Semántica schema2 incompleta")
+        require(type(semantic["index"]) is int and semantic["index"] == index and canonical_json({key: semantic[key] for key in identity}) == canonical_json(identity), "Identidad semántica schema2 distinta")
+        require(canonical_json(semantic["joints"]) == canonical_json(joints) and canonical_json({key: semantic[key] for key in ANCHOR_FIELDS}) == canonical_json(anchors), "Joints o anclas schema2 no coinciden con semántica")
+        require(valid_sha(row["semanticSha256"]) and valid_sha(row["jointsSha256"]) and canonical_sha(semantic) == row["semanticSha256"] and canonical_sha(joints) == row["jointsSha256"], "Hashes semánticos schema2 incorrectos")
+        require(semantic_records is not None and index in semantic_records and canonical_json(semantic_records[index]) == canonical_json(semantic), "Semántica real schema2 distinta del preregistro")
+        require(actual["semanticSha256"] == row["semanticSha256"] and actual["jointsSha256"] == row["jointsSha256"] and canonical_json(actual["anchors"]) == canonical_json(anchors), "Registro actual schema2 distinto del preregistro")
+        result[index] = {**row, "approvedAnchors": anchors}
+    return result
+
+
+def compare(baseline, current, references=None, contracts=None, exceptions=None, toe_witness=None, semantic_records=None, death_witness=None, crouch_push_witness=None, ik_floor_witness=None, recovery_witness=None, expected_contract_sha256=None, verified_source_hashes=None):
     errors = []
     for label, document in [("baseline", baseline), ("actual", current)]:
         indices = [frame["index"] for frame in document["frames"]]
         require(all(type(index) is int for index in indices) and len(indices) == len(set(indices)), "Índices inválidos o duplicados en " + label)
-    approved = exception_contract(baseline, current, exceptions, toe_witness, semantic_records, death_witness, crouch_push_witness, ik_floor_witness, recovery_witness)
+    socket_contract = exceptions is not None and exceptions.get("schemaVersion") == 2
+    require(expected_contract_sha256 is None or socket_contract, "El pin externo exige un contrato schema2; no admite downgrade")
+    if socket_contract:
+        approved = socket_projection_contract(baseline, current, exceptions, semantic_records, expected_contract_sha256, verified_source_hashes)
+    else:
+        approved = exception_contract(baseline, current, exceptions, toe_witness, semantic_records, death_witness, crouch_push_witness, ik_floor_witness, recovery_witness)
     if references is not None:
         validate_references(baseline, references)
         require(contracts is not None, "Faltan los contratos actuales")
@@ -475,6 +564,9 @@ def compare(baseline, current, references=None, contracts=None, exceptions=None,
                     if original[key].get(layer) != candidate[key].get(layer):
                         if exception is None or exception["rgbaSha256"].get(layer) != candidate[key].get(layer):
                             errors.append("RGBA distinto: índice " + str(index) + ", capa " + layer)
+            elif key == "anchors" and exception is not None and "approvedAnchors" in exception:
+                if canonical_json(exception["approvedAnchors"]) != canonical_json(candidate[key]):
+                    errors.append("Semántica distinta: índice " + str(index) + ", campo anchors")
             elif key == "anchors" and exception is not None and "approvedCarryGrip" in exception:
                 anchors = {**original[key], "carryGrip": exception["approvedCarryGrip"]}
                 if canonical_json(anchors) != canonical_json(candidate[key]):
@@ -485,7 +577,7 @@ def compare(baseline, current, references=None, contracts=None, exceptions=None,
     return errors
 
 
-def validate_current(root, baseline_path=None, references_path=None, exceptions_path=None, toe_witness_path=None, death_witness_path=None, crouch_push_witness_path=None, ik_floor_witness_path=None, recovery_witness_path=None):
+def validate_current(root, baseline_path=None, references_path=None, exceptions_path=None, toe_witness_path=None, death_witness_path=None, crouch_push_witness_path=None, ik_floor_witness_path=None, recovery_witness_path=None, expected_contract_sha256=None):
     baseline_path = baseline_path or root / "Manifests" / BASELINE_NAME
     references_path = references_path or root / "Manifests" / REFERENCES_NAME
     baseline, references = read_json(baseline_path), read_json(references_path)
@@ -493,7 +585,10 @@ def validate_current(root, baseline_path=None, references_path=None, exceptions_
     exceptions = read_json(exceptions_path) if exceptions_path is not None else None
     require(exceptions is None or isinstance(exceptions, dict), "El contrato de excepciones debe ser un objeto")
     kinds = set()
-    if exceptions is not None and isinstance(exceptions.get("entries"), list):
+    socket_contract = exceptions is not None and exceptions.get("schemaVersion") == 2
+    require(expected_contract_sha256 is None or socket_contract, "El pin externo exige un contrato schema2; no admite downgrade")
+    verified_sources = verify_socket_sources(root, exceptions, expected_contract_sha256) if socket_contract else None
+    if exceptions is not None and not socket_contract and isinstance(exceptions.get("entries"), list):
         for row in exceptions["entries"]:
             if isinstance(row, dict) and row.get("semantic") is not None:
                 kinds.update(semantic_contract_ids(row["semantic"]))
@@ -502,10 +597,10 @@ def validate_current(root, baseline_path=None, references_path=None, exceptions_
     crouch_push_witness = read_json(crouch_push_witness_path or root / "Manifests" / CROUCH_PUSH_WITNESS_NAME) if "crouch_push_child_offset_v1" in kinds else None
     ik_floor_witness = read_json(ik_floor_witness_path or root / "Manifests" / IK_FLOOR_WITNESS_NAME) if "ik_floor_v1" in kinds else None
     recovery_witness = read_json(recovery_witness_path or root / "Manifests" / RECOVERY_WITNESS_NAME) if "recovery_prone_frame_v1" in kinds else None
-    semantics = {} if kinds else None
+    semantics = {} if kinds or socket_contract else None
     current = snapshot(root, baseline["provenance"]["commit"], semantics)
     contracts = registration_contracts(root)
-    errors = compare(baseline, current, references, contracts, exceptions, toe_witness, semantics, death_witness, crouch_push_witness, ik_floor_witness, recovery_witness)
+    errors = compare(baseline, current, references, contracts, exceptions, toe_witness, semantics, death_witness, crouch_push_witness, ik_floor_witness, recovery_witness, expected_contract_sha256, verified_sources)
     return {"status": "FAIL" if errors else "PASS", "frames": len(current["frames"]),
             "layers": sum(len(frame["rgbaSha256"]) for frame in current["frames"]),
             "canonicalSourceContracts": len(contracts), "baselineCanonicalSha256": canonical_sha(baseline),
@@ -514,7 +609,8 @@ def validate_current(root, baseline_path=None, references_path=None, exceptions_
             "deathWitnessCanonicalSha256": canonical_sha(death_witness) if death_witness is not None else None,
             "crouchPushWitnessCanonicalSha256": canonical_sha(crouch_push_witness) if crouch_push_witness is not None else None,
             "ikFloorWitnessCanonicalSha256": canonical_sha(ik_floor_witness) if ik_floor_witness is not None else None,
-            "recoveryWitnessCanonicalSha256": canonical_sha(recovery_witness) if recovery_witness is not None else None, "errors": errors}
+            "recoveryWitnessCanonicalSha256": canonical_sha(recovery_witness) if recovery_witness is not None else None,
+            "rigSocketContractCanonicalSha256": expected_contract_sha256 if socket_contract else None, "errors": errors}
 
 
 def main():
@@ -524,6 +620,7 @@ def main():
     parser.add_argument("--baseline", type=Path)
     parser.add_argument("--references", type=Path)
     parser.add_argument("--exceptions", type=Path)
+    parser.add_argument("--expected-contract-sha256")
     parser.add_argument("--toe-witness", type=Path)
     parser.add_argument("--death-witness", type=Path)
     parser.add_argument("--crouch-push-witness", type=Path)
@@ -567,7 +664,7 @@ def main():
             stream.write(canonical_json(references) + "\n")
         print(json.dumps({"status": "REFERENCES_FROZEN", "references": str(references_path), "baselineCanonicalSha256": references["baselineCanonicalSha256"], "referencesCanonicalSha256": canonical_sha(references)}))
         return
-    report = validate_current(args.root, baseline_path, references_path, args.exceptions, args.toe_witness, args.death_witness, args.crouch_push_witness, args.ik_floor_witness, args.recovery_witness)
+    report = validate_current(args.root, baseline_path, references_path, args.exceptions, args.toe_witness, args.death_witness, args.crouch_push_witness, args.ik_floor_witness, args.recovery_witness, args.expected_contract_sha256)
     print(json.dumps(report, ensure_ascii=False))
     require(not report["errors"], "El atlas difiere del baseline inmutable fuera de sus excepciones exactas")
 

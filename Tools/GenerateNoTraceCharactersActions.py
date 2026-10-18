@@ -440,7 +440,7 @@ def weapon_image(root, direction, points, weapon="Pistol", suppressed=False):
     return image, first, last
 
 
-def generate(root, content=None, baseline=None, references=None, exceptions=None, toe_witness=None, report_path=None, death_witness=None, crouch_push_witness=None, ik_floor_witness=None, recovery_witness=None):
+def generate(root, content=None, baseline=None, references=None, exceptions=None, toe_witness=None, report_path=None, death_witness=None, crouch_push_witness=None, ik_floor_witness=None, recovery_witness=None, expected_contract_sha256=None):
     output = root / "Atlas"
     output.mkdir(parents=True, exist_ok=True)
     pages, metadata, review_sequences = [], [], []
@@ -472,7 +472,7 @@ def generate(root, content=None, baseline=None, references=None, exceptions=None
                 lower.alpha_composite(rendered_lower, rect[:2])
                 upper.alpha_composite(rendered_upper, rect[:2])
                 for layer, sheet in cqc_layers.items():
-                    sheet.alpha_composite(render(parts_by_direction[direction], points, direction, layer), rect[:2])
+                    sheet.alpha_composite(prone_rig.render(points, direction, name, frame, stance, layer), rect[:2])
                 bounds = rendered.getchannel("A").point(lambda value: 255 if value >= 32 else 0).getbbox()
                 if bounds and (bounds[0] <= 1 or bounds[1] <= 1 or bounds[2] >= CELL - 1 or bounds[3] >= CELL - 1):
                     raise ValueError("La pose invade borde: " + filename + "/" + direction + "/" + str(frame) + str(bounds))
@@ -524,7 +524,7 @@ def generate(root, content=None, baseline=None, references=None, exceptions=None
     if content:
         # La publicación exige la excepción explícita revisada; regenerar hashes no concede autorización.
         from GenerateNoTraceCharactersValidate import validate
-        validate(root, baseline, references, exceptions, toe_witness, report_path, death_witness=death_witness, crouch_push_witness=crouch_push_witness, ik_floor_witness=ik_floor_witness, recovery_witness=recovery_witness)
+        validate(root, baseline, references, exceptions, toe_witness, report_path, death_witness=death_witness, crouch_push_witness=crouch_push_witness, ik_floor_witness=ik_floor_witness, recovery_witness=recovery_witness, expected_contract_sha256=expected_contract_sha256)
         content.mkdir(parents=True, exist_ok=True)
         for path in list((output / "Packed").glob("*.png")) + [output / "WeaponProps.png", output / "WeaponSelection.png"]:
             save_bytes(content / path.name, path.read_bytes())
@@ -635,5 +635,6 @@ if __name__ == "__main__":
     parser.add_argument("--crouch-push-witness", type=Path)
     parser.add_argument("--ik-floor-witness", type=Path)
     parser.add_argument("--recovery-witness", type=Path)
+    parser.add_argument("--expected-contract-sha256")
     arguments = parser.parse_args()
-    generate(arguments.root, arguments.content, arguments.baseline, arguments.references, arguments.exceptions, arguments.toe_witness, arguments.report, arguments.death_witness, arguments.crouch_push_witness, arguments.ik_floor_witness, arguments.recovery_witness)
+    generate(arguments.root, arguments.content, arguments.baseline, arguments.references, arguments.exceptions, arguments.toe_witness, arguments.report, arguments.death_witness, arguments.crouch_push_witness, arguments.ik_floor_witness, arguments.recovery_witness, arguments.expected_contract_sha256)

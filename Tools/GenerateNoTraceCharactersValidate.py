@@ -10,7 +10,7 @@ from PIL import Image
 from ValidateNoTraceCharacterBaseline import validate_current
 
 
-def validate(root, baseline=None, references=None, exceptions=None, toe_witness=None, report_path=None, death_witness=None, crouch_push_witness=None, ik_floor_witness=None, recovery_witness=None):
+def validate(root, baseline=None, references=None, exceptions=None, toe_witness=None, report_path=None, death_witness=None, crouch_push_witness=None, ik_floor_witness=None, recovery_witness=None, expected_contract_sha256=None):
     metadata = json.loads((root / "Atlas/CharacterAtlasMetadata.json").read_text(encoding="utf-8"))
     runtime = json.loads((root / "Atlas/CharacterAtlasRuntime.json").read_text(encoding="utf-8"))
     checks = 0
@@ -19,7 +19,7 @@ def validate(root, baseline=None, references=None, exceptions=None, toe_witness=
         checks += 1
         if not condition:
             raise ValueError(message)
-    baseline_report = validate_current(root, baseline, references, exceptions, toe_witness, death_witness, crouch_push_witness, ik_floor_witness, recovery_witness)
+    baseline_report = validate_current(root, baseline, references, exceptions, toe_witness, death_witness, crouch_push_witness, ik_floor_witness, recovery_witness, expected_contract_sha256)
     require(not baseline_report["errors"], "El atlas cambia RGBA o semántica fuera de las excepciones exactas: " + "; ".join(baseline_report["errors"][:8]))
     require(metadata["schemaVersion"] == 3, "Contrato de atlas incorrecto")
     require(len(metadata["clips"]) == 53 and len(metadata["frames"]) == 4544, "La matriz de clips no está completa")
@@ -113,5 +113,6 @@ if __name__ == "__main__":
     parser.add_argument("--ik-floor-witness", type=Path)
     parser.add_argument("--recovery-witness", type=Path)
     parser.add_argument("--report", type=Path)
+    parser.add_argument("--expected-contract-sha256")
     args = parser.parse_args()
-    validate(args.root, args.baseline, args.references, args.exceptions, args.toe_witness, args.report, death_witness=args.death_witness, crouch_push_witness=args.crouch_push_witness, ik_floor_witness=args.ik_floor_witness, recovery_witness=args.recovery_witness)
+    validate(args.root, args.baseline, args.references, args.exceptions, args.toe_witness, args.report, death_witness=args.death_witness, crouch_push_witness=args.crouch_push_witness, ik_floor_witness=args.ik_floor_witness, recovery_witness=args.recovery_witness, expected_contract_sha256=args.expected_contract_sha256)

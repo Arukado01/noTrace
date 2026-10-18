@@ -11,12 +11,12 @@ def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def reproduce(root, baseline=None, references=None, exceptions=None, toe_witness=None, death_witness=None, crouch_push_witness=None, ik_floor_witness=None, recovery_witness=None):
+def reproduce(root, baseline=None, references=None, exceptions=None, toe_witness=None, death_witness=None, crouch_push_witness=None, ik_floor_witness=None, recovery_witness=None, expected_contract_sha256=None):
     atlas = root / "Atlas"
     paths = sorted((atlas / "Packed").glob("*.png")) + [atlas / "WeaponProps.png", atlas / "WeaponSelection.png", atlas / "CharacterAtlasRuntime.json"]
     before = {path: digest(path) for path in paths}
     generate(root)
-    validate(root, baseline, references, exceptions, toe_witness, death_witness=death_witness, crouch_push_witness=crouch_push_witness, ik_floor_witness=ik_floor_witness, recovery_witness=recovery_witness)
+    validate(root, baseline, references, exceptions, toe_witness, death_witness=death_witness, crouch_push_witness=crouch_push_witness, ik_floor_witness=ik_floor_witness, recovery_witness=recovery_witness, expected_contract_sha256=expected_contract_sha256)
     records = [{"file": path.name, "sha256": digest(path), "identical": before[path] == digest(path)} for path in paths]
     tools = [{"file": path.as_posix(), "sha256": digest(path)} for path in sorted(Path("Tools").glob("GenerateNoTraceCharacters*.py"))]
     report = {"author": "Carlos Cortina", "organization": "CIO", "date": "2026-10-18", "status": "PASS" if all(item["identical"] for item in records) else "FAIL",
@@ -39,5 +39,6 @@ if __name__ == "__main__":
     parser.add_argument("--crouch-push-witness", type=Path)
     parser.add_argument("--ik-floor-witness", type=Path)
     parser.add_argument("--recovery-witness", type=Path)
+    parser.add_argument("--expected-contract-sha256")
     args = parser.parse_args()
-    reproduce(args.root, args.baseline, args.references, args.exceptions, args.toe_witness, args.death_witness, args.crouch_push_witness, args.ik_floor_witness, args.recovery_witness)
+    reproduce(args.root, args.baseline, args.references, args.exceptions, args.toe_witness, args.death_witness, args.crouch_push_witness, args.ik_floor_witness, args.recovery_witness, args.expected_contract_sha256)

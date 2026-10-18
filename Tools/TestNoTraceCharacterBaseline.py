@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 from PIL import Image
 
-from ValidateNoTraceCharacterBaseline import BASELINE_NAME, CROUCH_PUSH_IDENTITIES, CROUCH_PUSH_JOINTS, CROUCH_PUSH_WITNESS_NAME, DEATH_IDENTITIES, DEATH_WITNESS_NAME, IK_FLOOR_WITNESS_NAME, RECOVERY_WITNESS_NAME, REFERENCES_NAME, REGISTRATION_FILES, TOE_IDENTITIES, TOE_WITNESS_NAME, canonical_sha, compare, create_death_witness, create_ik_floor_witness, create_recovery_witness, create_references, file_sha, frame_record, main, read_json, registration_contracts, semantic_record, semantic_spec, snapshot, validate_crouch_push_witness, validate_current, validate_death_witness, validate_toe_witness, witness_descriptor
+from ValidateNoTraceCharacterBaseline import ANCHOR_FIELDS, BASELINE_NAME, CROUCH_PUSH_IDENTITIES, CROUCH_PUSH_JOINTS, CROUCH_PUSH_WITNESS_NAME, DEATH_IDENTITIES, DEATH_WITNESS_NAME, IK_FLOOR_WITNESS_NAME, RECOVERY_WITNESS_NAME, REFERENCES_NAME, REGISTRATION_FILES, TOE_IDENTITIES, TOE_WITNESS_NAME, canonical_sha, compare, create_death_witness, create_ik_floor_witness, create_recovery_witness, create_references, file_sha, frame_record, main, read_json, registration_contracts, semantic_record, semantic_spec, snapshot, validate_crouch_push_witness, validate_current, validate_death_witness, validate_toe_witness, verify_socket_sources, witness_descriptor
 
 
 class CharacterBaselineTests(unittest.TestCase):
@@ -671,10 +671,11 @@ class CharacterBaselineExceptionTests(unittest.TestCase):
             for name in ["WeaponProps.png", "WeaponSelection.png", "CharacterAtlasRuntime.json"]:
                 (root / "Atlas" / name).write_bytes(b"unchanged")
             paths = [root / name for name in ["baseline.json", "references.json", "exceptions.json", "toe.json", "death.json", "crouch-push.json", "floor.json", "recovery.json"]]
-            with patch.object(repro, "generate") as generate, patch.object(repro, "validate") as validate, patch("builtins.print"):
-                repro.reproduce(root, *paths)
-            generate.assert_called_once_with(root)
-            validate.assert_called_once_with(root, *paths[:4], death_witness=paths[4], crouch_push_witness=paths[5], ik_floor_witness=paths[6], recovery_witness=paths[7])
+            for pin in [None, "a" * 64]:
+                with patch.object(repro, "generate") as generate, patch.object(repro, "validate") as validate, patch("builtins.print"):
+                    repro.reproduce(root, *paths, expected_contract_sha256=pin)
+                generate.assert_called_once_with(root)
+                validate.assert_called_once_with(root, *paths[:4], death_witness=paths[4], crouch_push_witness=paths[5], ik_floor_witness=paths[6], recovery_witness=paths[7], expected_contract_sha256=pin)
 
 
 class CharacterLiteralJointTests(unittest.TestCase):
@@ -834,6 +835,237 @@ class CharacterLiteralJointTests(unittest.TestCase):
                 with self.assertRaises(FileNotFoundError):
                     validate_current(root, self.root / "Manifests" / BASELINE_NAME, self.root / "Manifests" / REFERENCES_NAME, path)
                 self.assertFalse((root / "Manifests").exists())
+
+
+class CharacterSocketProjectionTests(unittest.TestCase):
+    temporary_directory = CharacterBaselineTests.temporary_directory
+    fixture = CharacterBaselineTests.fixture
+    baseline = CharacterBaselineTests.baseline
+    contracts_fixture = CharacterBaselineTests.contracts_fixture
+
+    def socket_fixture(self):
+        entry, pages = self.fixture()
+        before = self.baseline(frame_record(entry, pages, 192))
+        before["provenance"] = {"commit": "fixture"}
+        semantic = semantic_record(entry)
+        semantic["joints"]["pelvis"][2] = 32.5
+        semantic["pelvis"] = [96.0, 111.5]
+        semantic["muzzle"] = [123.0, 98.0]
+        semantic["grip"] = [115.0, 102.0]
+        semantic["carryGrip"] = [115.0, 102.0]
+        semantic["supportWidth"] = 25.5
+        after = copy.deepcopy(before)
+        candidate = after["frames"][0]
+        candidate.update({"anchors": {key: semantic[key] for key in ANCHOR_FIELDS},
+                          "semanticSha256": canonical_sha(semantic), "jointsSha256": canonical_sha(semantic["joints"]),
+                          "rgbaSha256": {"full": "a" * 64}})
+        contract = {"schemaVersion": 2, "kind": "rig_socket_projection_v1", "baselineCanonicalSha256": canonical_sha(before),
+                    "canonicalManifest": {"file": "Manifests/canonical.json", "canonicalSha256": "b" * 64},
+                    "tools": [{"file": "Tools/rig.py", "sha256": "c" * 64}],
+                    "pieceFiles": [{"file": "Pieces/E-arm.png", "sha256": "d" * 64}],
+                    "entries": [{"index": 42, "identity": {key: entry[key] for key in ["clip", "stance", "direction", "phase"]},
+                                 "reason": "Sockets originales completos corrigen reposo E fase0 y anclas del arma",
+                                 "rgbaSha256": copy.deepcopy(candidate["rgbaSha256"]), "joints": copy.deepcopy(semantic["joints"]),
+                                 "anchors": copy.deepcopy(candidate["anchors"]), "semantic": copy.deepcopy(semantic),
+                                 "semanticSha256": candidate["semanticSha256"], "jointsSha256": candidate["jointsSha256"]}]}
+        sources = {key: copy.deepcopy(contract[key]) for key in ["canonicalManifest", "tools", "pieceFiles"]}
+        return before, after, contract, {42: semantic}, sources
+
+    def check(self, values, **overrides):
+        before, after, contract, semantics, sources = values
+        kwargs = {"exceptions": contract, "semantic_records": semantics, "expected_contract_sha256": canonical_sha(contract), "verified_source_hashes": sources}
+        kwargs.update(overrides)
+        return compare(before, after, **kwargs)
+
+    def test_exact_full_pose_contract_allows_registered_joints_and_weapon_anchors(self):
+        self.assertEqual([], self.check(self.socket_fixture()))
+
+    def test_external_hash_is_mandatory_and_cannot_be_learned_from_edited_contract(self):
+        values = self.socket_fixture()
+        for value in [None, "", "e" * 64]:
+            with self.subTest(pin=value), self.assertRaises(ValueError):
+                self.check(values, expected_contract_sha256=value)
+        approved = canonical_sha(values[2])
+        values[2]["entries"][0]["reason"] += " modificado"
+        with self.assertRaisesRegex(ValueError, "SHA externo"):
+            self.check(values, expected_contract_sha256=approved)
+
+    def test_external_pin_cannot_be_ignored_by_downgrading_to_schema1(self):
+        values = self.socket_fixture()
+        with self.assertRaisesRegex(ValueError, "downgrade"):
+            compare(values[0], values[0], expected_contract_sha256=canonical_sha(values[2]))
+        before, after, legacy = CharacterBaselineExceptionTests().raster_fixture()
+        with self.assertRaisesRegex(ValueError, "downgrade"):
+            compare(before, after, exceptions=legacy, expected_contract_sha256=canonical_sha(values[2]))
+
+    def test_joint_anchor_and_rgba_tampering_are_rejected_after_consistent_runtime_rehash(self):
+        for field in ["joint", "anchor", "rgba"]:
+            values = self.socket_fixture()
+            _, after, _, semantics, _ = values
+            actual = semantics[42]
+            if field == "joint":
+                actual["joints"]["pelvis"][2] += .001
+            elif field == "anchor":
+                actual["muzzle"][0] += .001
+                after["frames"][0]["anchors"]["muzzle"][0] += .001
+            else:
+                after["frames"][0]["rgbaSha256"]["full"] = "f" * 64
+            after["frames"][0]["semanticSha256"] = canonical_sha(actual)
+            after["frames"][0]["jointsSha256"] = canonical_sha(actual["joints"])
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                self.check(values)
+
+    def test_schema_rejects_duplicates_bool_indices_wildcards_and_missing_full_layers(self):
+        mutations = [lambda c: c["entries"].append(copy.deepcopy(c["entries"][0])),
+                     lambda c: c["entries"][0].update({"index": True}),
+                     lambda c: c["entries"][0]["identity"].update({"clip": "*"}),
+                     lambda c: c["entries"][0]["identity"].update({"phase": False}),
+                     lambda c: c["entries"][0].update({"rgbaSha256": {}}),
+                     lambda c: c["entries"][0]["rgbaSha256"].update({"newLayer": "a" * 64}),
+                     lambda c: c["entries"][0]["anchors"].pop("muzzle"),
+                     lambda c: c.update({"clips": ["*"]}),
+                     lambda c: c.update({"schemaVersion": True}),
+                     lambda c: c.update({"entries": []}),
+                     lambda c: c["tools"].append(copy.deepcopy(c["tools"][0])),
+                     lambda c: c["pieceFiles"].append(copy.deepcopy(c["pieceFiles"][0]))]
+        for mutate in mutations:
+            values = self.socket_fixture()
+            mutate(values[2])
+            with self.subTest(mutation=mutate), self.assertRaises(ValueError):
+                self.check(values)
+
+    def test_literal_semantic_joints_and_anchor_records_must_agree(self):
+        for field in ["joints", "anchors", "semanticSha256", "jointsSha256"]:
+            values = self.socket_fixture()
+            row = values[2]["entries"][0]
+            if field == "joints":
+                row[field]["pelvis"][0] += .1
+            elif field == "anchors":
+                row[field]["pelvis"][0] += .1
+            else:
+                row[field] = "f" * 64
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                self.check(values)
+
+    def test_unlisted_index_remains_baseline_exact(self):
+        values = self.socket_fixture()
+        before, after, contract, _, _ = values
+        other = copy.deepcopy(before["frames"][0]); other["index"] = 43
+        before["frames"].append(other); after["frames"].append(copy.deepcopy(other))
+        after["frames"][-1]["rgbaSha256"]["full"] = "e" * 64
+        contract["baselineCanonicalSha256"] = canonical_sha(before)
+        self.assertIn("RGBA distinto: índice 43, capa full", self.check(values))
+
+    def test_original_header_definition_source_contracts_pngs_and_weapons_remain_protected(self):
+        for field in ["headerSha256", "definition", "sourceRegistrations", "originalSources", "weaponFiles"]:
+            values = self.socket_fixture()
+            values[1][field] = "changed"
+            with self.subTest(field=field):
+                self.assertIn("Contrato o fuente distintos: " + field, self.check(values))
+
+    def test_source_manifest_tool_and_piece_hashes_require_verified_inputs(self):
+        values = self.socket_fixture()
+        with self.assertRaises(ValueError):
+            self.check(values, verified_source_hashes=None)
+        for key in ["canonicalManifest", "tools", "pieceFiles"]:
+            values = self.socket_fixture()
+            if key == "canonicalManifest":
+                values[4][key]["canonicalSha256"] = "f" * 64
+            else:
+                values[4][key][0]["sha256"] = "f" * 64
+            with self.subTest(source=key), self.assertRaisesRegex(ValueError, "manifiesto canónico"):
+                self.check(values)
+
+    def test_contract_source_paths_cannot_escape_authorized_roots(self):
+        for key, value in [("canonicalManifest", "../outside.json"), ("tools", "Tools/../outside.py"), ("pieceFiles", "Pieces/../../outside.png"), ("tools", "C:/outside.py"), ("pieceFiles", "Pieces\\outside.png")]:
+            values = self.socket_fixture()
+            record = values[2][key] if key == "canonicalManifest" else values[2][key][0]
+            record["file"] = value
+            with self.subTest(source=key, path=value), self.assertRaisesRegex(ValueError, "Ruta"):
+                self.check(values)
+
+    def test_bool_or_duplicate_actual_indices_are_rejected(self):
+        for duplicate in [False, True]:
+            values = self.socket_fixture()
+            if duplicate:
+                values[1]["frames"].append(copy.deepcopy(values[1]["frames"][0]))
+            else:
+                values[1]["frames"][0]["index"] = True
+            with self.subTest(duplicate=duplicate), self.assertRaisesRegex(ValueError, "Índices"):
+                self.check(values)
+
+    def test_source_verification_reads_actual_manifest_tools_and_complete_piece_bytes(self):
+        with self.temporary_directory() as directory:
+            root = Path(directory); (root / "Manifests").mkdir(); (root / "Pieces").mkdir(); (root / "Tools").mkdir()
+            manifest = root / "Manifests/canonical.json"; manifest.write_text('{"socket": [1, 2]}', encoding="utf-8")
+            tool = root / "Tools/rig.py"; tool.write_bytes(b"original tool\n")
+            piece = root / "Pieces/E-arm.png"; Image.new("RGBA", (2, 3), (4, 5, 6, 7)).save(piece)
+            values = self.socket_fixture(); contract = values[2]
+            contract["canonicalManifest"]["canonicalSha256"] = canonical_sha(read_json(manifest))
+            contract["tools"][0]["sha256"] = file_sha(tool); contract["pieceFiles"][0]["sha256"] = file_sha(piece)
+            expected = canonical_sha(contract)
+            with patch("ValidateNoTraceCharacterBaseline.REPOSITORY", root):
+                values[4].update(verify_socket_sources(root, contract, expected))
+                self.assertEqual([], self.check(values))
+                for file in [manifest, tool, piece]:
+                    before = file.read_bytes()
+                    if file == manifest:
+                        file.write_text('{"socket": [1, 3]}', encoding="utf-8")
+                    else:
+                        file.write_bytes(before + b"changed")
+                    verified = verify_socket_sources(root, contract, expected)
+                    with self.subTest(file=file.name), self.assertRaises(ValueError):
+                        self.check(values, verified_source_hashes=verified)
+                    file.write_bytes(before)
+
+    def test_check_reads_schema2_pin_without_creating_or_updating_preregistered_files(self):
+        with self.temporary_directory() as directory:
+            root = Path(directory); before, references = self.contracts_fixture(root)
+            _, after, contract, semantics, _ = self.socket_fixture()
+            before["provenance"] = {"commit": "fixture"}; after["sourceRegistrations"] = copy.deepcopy(before["sourceRegistrations"])
+            references = create_references(root, before); contract["baselineCanonicalSha256"] = canonical_sha(before)
+            for name, value in [("baseline.json", before), ("references.json", references), ("exceptions.json", contract)]:
+                (root / name).write_text(json.dumps(value), encoding="utf-8")
+            original = {p.name: p.read_bytes() for p in root.glob("*.json")}
+            args = ["baseline", "check", "--root", str(root), "--baseline", str(root / "baseline.json"), "--references", str(root / "references.json"), "--exceptions", str(root / "exceptions.json")]
+            with patch("sys.argv", args), self.assertRaisesRegex(ValueError, "expected_contract_sha256"):
+                main()
+            self.assertEqual(original, {p.name: p.read_bytes() for p in root.glob("*.json")})
+
+    def test_validate_current_routes_schema2_semantics_and_real_file_verification(self):
+        with self.temporary_directory() as directory:
+            root = Path(directory); before, _ = self.contracts_fixture(root)
+            before["provenance"] = {"commit": "fixture"}
+            _, after, contract, semantics, _ = self.socket_fixture()
+            after["sourceRegistrations"] = copy.deepcopy(before["sourceRegistrations"])
+            references = create_references(root, before)
+            (root / "Pieces").mkdir(); (root / "Tools").mkdir()
+            (root / "Manifests/canonical.json").write_text('{"sockets": [1, 2]}', encoding="utf-8")
+            (root / "Tools/rig.py").write_bytes(b"approved rig\n")
+            Image.new("RGBA", (2, 3), (4, 5, 6, 7)).save(root / "Pieces/E-arm.png")
+            contract["baselineCanonicalSha256"] = canonical_sha(before)
+            contract["canonicalManifest"]["canonicalSha256"] = canonical_sha(read_json(root / "Manifests/canonical.json"))
+            contract["tools"][0]["sha256"] = file_sha(root / "Tools/rig.py")
+            contract["pieceFiles"][0]["sha256"] = file_sha(root / "Pieces/E-arm.png")
+            for name, value in [("baseline.json", before), ("references.json", references), ("exceptions.json", contract)]:
+                (root / name).write_text(json.dumps(value), encoding="utf-8")
+
+            def candidate_snapshot(actual_root, commit, records):
+                self.assertEqual(root, actual_root)
+                self.assertEqual("fixture", commit)
+                self.assertIsInstance(records, dict)
+                records.update(copy.deepcopy(semantics))
+                return copy.deepcopy(after)
+
+            kwargs = {"expected_contract_sha256": canonical_sha(contract)}
+            args = [root, root / "baseline.json", root / "references.json", root / "exceptions.json"]
+            with patch("ValidateNoTraceCharacterBaseline.REPOSITORY", root), patch("ValidateNoTraceCharacterBaseline.snapshot", candidate_snapshot):
+                report = validate_current(*args, **kwargs)
+                self.assertEqual("PASS", report["status"])
+                self.assertEqual(kwargs["expected_contract_sha256"], report["rigSocketContractCanonicalSha256"])
+                (root / "Pieces/E-arm.png").write_bytes(b"unapproved piece")
+                with self.assertRaisesRegex(ValueError, "manifiesto canónico"):
+                    validate_current(*args, **kwargs)
 
 
 if __name__ == "__main__":
