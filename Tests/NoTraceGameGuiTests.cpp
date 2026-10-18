@@ -14,6 +14,8 @@
 #include "NoTraceBodyStatusGuiTests.h"
 #include "NoTraceOrientationGuiTests.h"
 #include "NoTraceSecurityGuiTests.h"
+#include "NoTraceAlertHudGuiTests.h"
+#include "NoTraceTableGuiTests.h"
 #include "NoTraceWorldGeometry.h"
 #include <SFML/Graphics/Image.hpp>
 #include <SFML/System/Sleep.hpp>
@@ -796,7 +798,8 @@ namespace EngineTests {
       context.gui.SyncPresentation(context.window.GetLogicalSize(), context.window.GetViewport());
     }
     static sf::Image CaptureWorld(WorldRenderer &renderer, const WorldState &world, EngineContext &context, sf::RenderWindow &window, const std::filesystem::path &file, bool hudVisible = true) {
-      window.setView(sf::View(sf::FloatRect({0.f, 0.f}, gConfig.windowSize)));
+      Sync(context);
+      window.setView(context.window.GetPresentationView());
       window.clear(); context.renderer.BeginDrawing(); renderer.Render(world, 1, hudVisible);
       window.draw(sf::Sprite(context.renderer.FinishDrawing()));
       sf::Texture pixels(window.getSize()); pixels.update(window); window.display();
@@ -826,6 +829,7 @@ namespace EngineTests {
       for (unsigned int y=0;y<idle.getSize().y;++y) for (unsigned int x=0;x<idle.getSize().x;++x) if (idle.getPixel({x,y})!=rescue.getPixel({x,y})) ++changed;
       Require(changed>100,"El selector/ocultación del HUD elimina la flecha de rescate fuera de visión");
       demo.visibility={}; demo.rescueSignals.clear(); demo.obstacles.clear(); demo.agents[0].cover={};
+      Require(std::abs(GameplayConfig::RunningNoiseRadius - 340.f * 0.9f) < 0.001f, "El radio de carrera no equivale al noventa por ciento del valor anterior");
       const auto quiet=CaptureWorld(renderer,demo,context,window,output/"final-noise-silent.png",false);
       const auto noiseOrigin=demo.agents[0].position+sf::Vector2f{100.f,0.f};
       demo.noises={{noiseOrigin,GameplayConfig::RunningNoiseRadius,GameplayConfig::NoiseDuration,1,0,SoundKind::StepRunHard}};
@@ -968,7 +972,8 @@ namespace {
     return {std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()};
   }
 
-  nlohmann::json Run(const std::filesystem::path &output, bool finalVisualsOnly = false) {
+  nlohmann::json Run(const std::filesystem::path &output, const std::string &visualSuite = {}) {
+    const bool finalVisualsOnly = visualSuite == "--final-visuals-only";
     sf::RenderWindow window(sf::VideoMode(sf::Vector2u(gConfig.windowSize)), "NO TRACE GUI TEST", sf::Style::None);
     window.setVisible(false);
     window.setKeyRepeatEnabled(false);
@@ -981,6 +986,18 @@ namespace {
     context.save.Set(DisplayConfig::VerticalSyncSaveKey,false); context.save.Set(DisplayConfig::FramerateLimitSaveKey,0u);
     context.window.Initialize();
     Access::Sync(context);
+    context.renderer.SetPostProcessingEnabled(false); context.renderer.SetTextureSmoothing(false);
+    if (visualSuite == "--alert-hud-visuals-only" || visualSuite == "--security-visuals-only" ||
+        visualSuite == "--orientation-visuals-only" || visualSuite == "--table-visuals-only" || visualSuite == "--world-visuals-only" || visualSuite == "--tactical-fixes-visuals-only") {
+      const auto captureWorld=[&](WorldRenderer &renderer,const WorldState &world,const std::filesystem::path &file,bool hudVisible=true) { return Access::CaptureWorld(renderer,world,context,window,file,hudVisible); };
+      if (visualSuite == "--alert-hud-visuals-only" || visualSuite == "--tactical-fixes-visuals-only") EngineTests::RunAlertHudRenderFixtures(context,window,output,captureWorld);
+      if (visualSuite == "--security-visuals-only" || visualSuite == "--tactical-fixes-visuals-only") EngineTests::RunSecurityRenderFixtures(context,output,captureWorld);
+      if (visualSuite == "--orientation-visuals-only") EngineTests::RunOrientationRenderFixtures(context,output,captureWorld);
+      if (visualSuite == "--table-visuals-only" || visualSuite == "--tactical-fixes-visuals-only") EngineTests::RunTableRenderFixtures(context,output,captureWorld);
+      if (visualSuite == "--world-visuals-only") EngineTests::RunWorldRenderFixtures(context,output,captureWorld);
+      if (visualSuite == "--tactical-fixes-visuals-only") Access::VerifyFinalVisuals(context,window,output);
+      window.close(); return nlohmann::json::array();
+    }
     Access::VerifyCursorSampling(context,window);
     Access::VerifyProductionSave();
     EngineTests::VerifyOptionsPreferences(window,output);
@@ -1006,6 +1023,8 @@ namespace {
       EngineTests::RunBodyStatusRenderFixtures(context,output,captureWorld);
       EngineTests::RunOrientationRenderFixtures(context,output,captureWorld);
       EngineTests::RunSecurityRenderFixtures(context,output,captureWorld);
+      EngineTests::RunAlertHudRenderFixtures(context,window,output,captureWorld);
+      EngineTests::RunTableRenderFixtures(context,output,captureWorld);
       game.OnCleanup(); window.close(); return nlohmann::json::array();
     }
     Access::Require(Access::GetSession(game).IsConnected(), "La conexión individual desde GUI falló");
@@ -1093,6 +1112,8 @@ namespace {
     EngineTests::RunBodyStatusRenderFixtures(context,output,captureWorld);
     EngineTests::RunOrientationRenderFixtures(context,output,captureWorld);
     EngineTests::RunSecurityRenderFixtures(context,output,captureWorld);
+    EngineTests::RunAlertHudRenderFixtures(context,window,output,captureWorld);
+    EngineTests::RunTableRenderFixtures(context,output,captureWorld);
     EngineTests::RunWorldRenderFixtures(context, output, [&](WorldRenderer &renderer, const WorldState &world, const std::filesystem::path &file, bool hudVisible = true) {
       return Access::CaptureWorld(renderer, world, context, window, file, hudVisible);
     });
@@ -1127,7 +1148,9 @@ namespace {
 
 int main(int argc, char **argv) {
   try {
-    const bool finalVisualsOnly = argc == 2 && std::string(argv[1]) == "--final-visuals-only";
+    const std::string visualSuite = argc == 2 ? argv[1] : "";
+    const bool focused = visualSuite == "--final-visuals-only" || visualSuite == "--alert-hud-visuals-only" || visualSuite == "--security-visuals-only" ||
+      visualSuite == "--orientation-visuals-only" || visualSuite == "--table-visuals-only" || visualSuite == "--world-visuals-only" || visualSuite == "--tactical-fixes-visuals-only";
     const auto project = std::filesystem::current_path();
     const auto userSave = ReadFile(project / "Content/Save.json");
     const auto sandbox = project / "build/gui-test-sandbox";
@@ -1135,11 +1158,11 @@ int main(int argc, char **argv) {
     std::filesystem::create_directories(output);
     std::filesystem::copy(project / "Content", sandbox / "Content", std::filesystem::copy_options::recursive | std::filesystem::copy_options::overwrite_existing);
     std::filesystem::current_path(sandbox);
-    const auto metrics = Run(output,finalVisualsOnly);
-    std::ofstream(output / (finalVisualsOnly ? "final-visual-metrics.json" : "text-metrics.json")) << metrics.dump(2);
+    const auto metrics = Run(output,visualSuite);
+    std::ofstream(output / (visualSuite == "--final-visuals-only" ? "final-visual-metrics.json" : focused ? visualSuite.substr(2) + "-metrics.json" : "text-metrics.json")) << metrics.dump(2);
     std::filesystem::current_path(project);
     Access::Require(ReadFile(project / "Content/Save.json") == userSave, "La prueba alteró el guardado original");
-    if (finalVisualsOnly) { std::cout << "PASS comprobación puntual de presentación; Save original intacto\n"; return 0; }
+    if (focused) { std::cout << "PASS " << visualSuite << "; Save original intacto\n"; return 0; }
     unsigned int overflow = 0;
     for (const auto &entry : metrics) if (!entry.at("fits").get<bool>()) {
       ++overflow;

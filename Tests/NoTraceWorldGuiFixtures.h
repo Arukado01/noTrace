@@ -170,11 +170,10 @@ namespace EngineTests {
       shooter.hidden = false; world.shots = shot;
       const auto pixels = capture(renderer, world, file);
       const auto logicalSize = context.window.GetLogicalSize();
-      auto selected = WorldRenderer::SelectActorSprite(shooter);
-      // El giro previo de 63,4 a 70,1 grados conserva el sector uno hasta superar su margen visual.
-      const auto visualDirection = blocked ? WorldRenderer::SpriteDirection(shooter.facing) : std::size_t{1};
-      selected.index = selected.index - (selected.index / SpriteConfig::Columns % SpriteConfig::Directions) * SpriteConfig::Columns + visualDirection * SpriteConfig::Columns;
-      const auto muzzle = bitmapMuzzle(selected, shooter.position, shooter.facing, shooter.stance, shooter.position, renderer.GetZoom());
+      const auto selected = WorldRenderer::SelectWeaponSprite(shooter);
+      // La boca corresponde al torso apuntado, cuya dirección es independiente de la histéresis de las piernas.
+      const auto visualDirection = WorldRenderer::SpriteDirection(WeaponFacing(shooter));
+      const auto muzzle = bitmapMuzzle(selected, shooter.position, WeaponFacing(shooter), shooter.stance, shooter.position, renderer.GetZoom());
       const auto pixel = muzzle.componentWiseDiv(logicalSize).componentWiseMul(sf::Vector2f(pixels.getSize()));
       const sf::Vector2u sample{static_cast<unsigned int>(std::floor(pixel.x)), static_cast<unsigned int>(std::floor(pixel.y))};
       requireBitmapFlash(body, absent, pixels, muzzle, stem);

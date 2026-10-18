@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <fstream>
 #include <nlohmann/json.hpp>
+#include <map>
 #include <set>
 #include <stdexcept>
 
@@ -57,7 +58,8 @@ namespace EngineTests {
         const auto feet = WorldRenderer::ProjectGround(agent.position, observer.position, logical);
         const auto placement = WorldRenderer::PlaceSprite(feet, agent.facing, stance, false, body, frames.at(body.index).rectangle.size);
         const auto pivot = WorldRenderer::TorsoPivot(stance), lowerNormal = WorldRenderer::TorsoForward(stance, agent.facing);
-        std::set<std::pair<int, int>> legs, weaponPixels;
+        std::map<std::pair<int, int>, unsigned int> legs;
+        std::set<std::pair<int, int>> weaponPixels;
         const auto markWeapon = [&] {
           const auto upper = WorldRenderer::SelectWeaponSprite(agent);
           const auto &rect = frames.at(upper.index).rectangle;
@@ -81,13 +83,18 @@ namespace EngineTests {
           const sf::Vector2f point{x + 0.5f, y + 0.5f};
           if ((point - pivot).dot(lowerNormal) > -6.f || atlas.getPixel(sf::Vector2u(rect.position + sf::Vector2i{x, y})).a < SpriteConfig::SupportAlpha) continue;
           const auto pixel = physical(placement.Map(point));
-          if (inImage(pixel) && !weaponPixels.contains({pixel.x, pixel.y})) legs.emplace(pixel.x, pixel.y);
+          if (inImage(pixel) && !weaponPixels.contains({pixel.x, pixel.y})) legs.emplace(std::pair{pixel.x, pixel.y}, atlas.getPixel(sf::Vector2u(rect.position + sf::Vector2i{x, y})).a);
         }
-        int changedLegs = 0, visibleLegs = 0;
-        for (const auto [x, y] : legs) {
+        int changedLegs = 0, visibleLegs = 0, blendedLegEdges = 0;
+        for (const auto &[position, alpha] : legs) {
+          const auto [x, y] = position;
           const sf::Vector2u pixel{static_cast<unsigned int>(x), static_cast<unsigned int>(y)};
           if (first.getPixel(pixel) != absent.getPixel(pixel)) ++visibleLegs;
-          if (first.getPixel(pixel) != second.getPixel(pixel)) ++changedLegs;
+          const auto before = first.getPixel(pixel), after = second.getPixel(pixel);
+          const int difference = std::max({std::abs(static_cast<int>(before.r) - after.r), std::abs(static_cast<int>(before.g) - after.g), std::abs(static_cast<int>(before.b) - after.b)});
+          // El torso posterior puede alterar el fondo visible a través del alfa de las piernas sin desplazar su silueta.
+          if (difference > static_cast<int>(alpha == 255 ? 0 : 255 - alpha + 1)) ++changedLegs;
+          else if (difference > 0) ++blendedLegEdges;
         }
         require(visibleLegs > 12, "la máscara del atlas no conserva piernas visibles: " + name);
         require(changedLegs == 0, "la puntería contraria cambia " + std::to_string(changedLegs) + " píxeles de piernas: " + name);
@@ -112,11 +119,12 @@ namespace EngineTests {
         require(changedUpper > 20, "el arma y torso no cambian al apuntar hacia el lado opuesto: " + name);
         require(WorldRenderer::SelectBodySprite(agent).index == body.index, "el apuntado sustituyó el ciclo corporal de movimiento");
         evidence.push_back({{"case", name}, {"zoom", zoom}, {"stance", static_cast<int>(stance)}, {"direction", direction},
-          {"body_frame", body.index}, {"protected_leg_pixels", visibleLegs}, {"changed_leg_pixels", changedLegs}, {"weapon_pixels_excluded", weaponPixels.size()},
+          {"body_frame", body.index}, {"protected_leg_pixels", visibleLegs}, {"changed_leg_pixels", changedLegs}, {"alpha_blended_leg_edges", blendedLegEdges}, {"weapon_pixels_excluded", weaponPixels.size()},
           {"shadow_samples", shadowSamples}, {"changed_upper_pixels", changedUpper}, {"laser_source", "observer_without_aim"}});
       }
     }
-    nlohmann::json report{{"status", "PASS"}, {"checks", checks}, {"cases", evidence}};
+    nlohmann::json report{{"status", "PASS"}, {"checks", checks}, {"cases", evidence},
+      {"legComparison", "Los píxeles opacos exigen igualdad exacta; los bordes admiten sólo la contribución posterior 255-alfa y un nivel de redondeo. El fallo previo de seis muestras provenía de alfa248–252 y diferencias RGB de uno o dos niveles."}};
     std::ofstream file(output / "orientation-fixtures.json"); file << report.dump(2);
     return report;
   }
