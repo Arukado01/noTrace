@@ -2,6 +2,7 @@
 #include "Config/NoTraceGameplayConfig.h"
 #include "NoTraceCombatGeometry.h"
 #include "NoTraceWorldGeometry.h"
+#include "NoTraceVisibility.h"
 #include "Config/NoTraceDistractionConfig.h"
 #include "Config/NoTraceVisibilityConfig.h"
 #include "Config/NoTraceManeuverConfig.h"
@@ -809,11 +810,14 @@ namespace {
     Interactable computer{91, ObjectKind::Computer, {240.f, 300.f}, "Computador LAN"};
     computer.footprint = {24.f, 24.f}; computer.puzzle.kind = PuzzleKind::Computer; computer.puzzle.family = PuzzleFamily::Arrows; computer.puzzle.difficulty = 2;
     computer.puzzle.intelligence = "INTELIGENCIA LAN: grupo de vigilancia 7."; world.objects.push_back(computer);
+    currentCase = "CámaraLAN/computador visible";
     Until([&] { return !pair.client.GetWorld().objects.empty() && pair.client.GetWorld().objects[0].id == 91; }, [&] { pair.Tick(true); });
     Require(pair.client.GetWorld().objects[0].puzzle.intelligence.empty(), "El snapshot revela inteligencia sin descifrar el computador");
     ActionCommand interact; interact.interact = true; interact.aimX = 1.f; pair.client.Submit(interact); pair.client.Submit({});
+    currentCase = "CámaraLAN/abrir computador";
     Until([&] { return FindAgent(pair.client.GetWorld(), 2).puzzle.target == 91; }, [&] { pair.Tick(true); });
     for (unsigned int stage = 0; stage < 2; ++stage) {
+      currentCase = "CámaraLAN/descifrar computador";
       Until([&] { return FindAgent(pair.client.GetWorld(), 2).puzzle.stage == stage; }, [&] { pair.Tick(true); });
       const auto puzzle = FindAgent(pair.client.GetWorld(), 2).puzzle;
       ActionCommand choice; choice.puzzleTarget = 91; choice.puzzleInput = static_cast<int>(puzzle.sequence.at(puzzle.stage));
@@ -826,17 +830,38 @@ namespace {
     Interactable camera{92, ObjectKind::Camera, {400.f, 300.f}, "Cámara LAN"};
     camera.facing = {-1.f, 0.f}; camera.camera.sweeping = true; camera.camera.baseAngle = 3.14159265f; camera.camera.minAngle = -0.1f; camera.camera.maxAngle = 0.1f; camera.camera.speed = 0.15f;
     world.objects.push_back(camera);
+    currentCase = "CámaraLAN/sospecha";
     Until([&] { return FindAgent(pair.client.GetWorld(), 2).detectionProgress > 0.f; }, [&] { pair.Tick(true); });
     Require(!world.alarm && world.objects[0].progress > 0.f, "La cámara remota confirma la detección sin una fase progresiva");
-    Until([&] { return pair.client.GetWorld().alarm && FindAgent(pair.client.GetWorld(), 2).detectionConfirmed; }, [&] { pair.Tick(true); });
+    currentCase = "CámaraLAN/confirmación";
+    const auto cameraTick = world.tick, clientTick = pair.client.GetWorld().tick;
+    const float cameraElapsed = world.elapsed, initialProgress = world.objects[0].progress;
+    sf::Clock cameraWait;
+    try {
+      Until([&] { return pair.client.GetWorld().alarm && FindAgent(pair.client.GetWorld(), 2).detectionConfirmed; }, [&] {
+        // El sensor acumula su tiempo autoritativo con el paso nominal antes de comprobar la réplica.
+        pair.host.Tick(1.f / GameplayConfig::SimulationHz, true); pair.client.Tick(1.f / GameplayConfig::SimulationHz);
+      });
+    } catch (const std::exception &error) {
+      const auto &sensor = world.objects[0];
+      Json diagnostic{{"wallSeconds", cameraWait.getElapsedTime().asSeconds()}, {"hostSeconds", world.elapsed - cameraElapsed}, {"hostTicks", world.tick - cameraTick},
+        {"clientTicks", pair.client.GetWorld().tick - clientTick}, {"hostTick", world.tick}, {"clientTick", pair.client.GetWorld().tick}, {"initialProgress", initialProgress},
+        {"progress", sensor.progress}, {"confirmationTime", sensor.camera.confirmationTime}, {"trackedAgent", sensor.camera.trackedAgent}, {"alarm", world.alarm},
+        {"clientAlarm", pair.client.GetWorld().alarm}, {"clientConfirmed", FindAgent(pair.client.GetWorld(), 2).detectionConfirmed}, {"clientConnected", pair.client.IsConnected()}, {"clientStatus", pair.client.GetStatus()}};
+      throw std::runtime_error(std::string(error.what()) + " " + diagnostic.dump());
+    }
+    std::cout << "PASS reloj cámara LAN: real=" << cameraWait.getElapsedTime().asSeconds() << " s, simulado=" << world.elapsed - cameraElapsed
+      << " s, pasos anfitrión=" << world.tick - cameraTick << ", pasos cliente=" << pair.client.GetWorld().tick - clientTick << std::endl;
     Require(world.alarm && world.securityActive && !pair.client.GetWorld().objects.empty() && pair.client.GetWorld().objects[0].camera.sweepAngle != 0.f,
       "El movimiento, la detección y la alarma de cámara no proceden del estado anfitrión");
     world.objects.clear(); world.alarm = false;
     Interactable trap{93, ObjectKind::Explosive, {240.f, 300.f}, "Trampa LAN"}; trap.footprint = {16.f, 12.f};
     trap.solid = SpatialOverride::Disabled; trap.blocksVision = SpatialOverride::Disabled; trap.puzzle.kind = PuzzleKind::Explosive; trap.puzzle.difficulty = 2; trap.trap.fuse = 0.25f;
     world.objects.push_back(trap);
+    currentCase = "CámaraLAN/temporizador de trampa";
     Until([&] { return std::ranges::any_of(pair.client.GetWorld().objects, [](const Interactable &o) { return o.id == 93 && o.trap.remaining > 0.f; }); }, [&] { pair.Tick(true); });
     Require(std::ranges::any_of(pair.client.GetWorld().sounds, [](const SoundEvent &sound) { return sound.kind == SoundKind::TrapTick; }), "La trampa audible no transmite su evento de reloj al participante cercano");
+    currentCase = "CámaraLAN/daño de trampa";
     Until([&] { return FindAgent(pair.client.GetWorld(), 2).health < GameplayConfig::MaxHealth; }, [&] { pair.Tick(true); });
     Require(world.objects[0].trap.state == TrapState::Detonated && FindAgent(world, 2).health == FindAgent(pair.client.GetWorld(), 2).health,
       "La detonación y el daño de trampa no se resuelven de forma autoritativa");
@@ -873,7 +898,25 @@ namespace {
     pair.client.Submit(interact); pair.client.Submit({});
     Until([&] { return FindAgent(pair.client.GetWorld(), 2).puzzle.target == 80; }, [&] { pair.Tick(); });
     pair.client.Submit(hold); currentCase = "CoordinaciónLAN/éxito";
-    Until([&] { return world.objects[0].completed && std::ranges::any_of(pair.client.GetWorld().objects, [](const Interactable &object) { return object.id == 80 && object.completed && !object.active; }); }, [&] { pair.Tick(); });
+    float maximumProgress = 0.f;
+    unsigned int hostReleased = 0, clientReleased = 0;
+    try {
+      Until([&] { return world.objects[0].completed && std::ranges::any_of(pair.client.GetWorld().objects, [](const Interactable &object) { return object.id == 80 && object.completed && !object.active; }); }, [&] {
+        // Los pasos autoritativos dejan margen para replicar el resultado dentro del plazo real de la prueba.
+        pair.host.Tick(1.f / GameplayConfig::SimulationHz); pair.client.Tick(1.f / GameplayConfig::SimulationHz);
+        maximumProgress = std::max(maximumProgress, world.objects[0].puzzle.coordinationProgress);
+        if (!FindAgent(world, 1).puzzle.holding) ++hostReleased;
+        if (!FindAgent(world, 2).puzzle.holding) ++clientReleased;
+      });
+    } catch (const std::exception &error) {
+      Json diagnostic{{"seed", world.seed}, {"tick", world.tick}, {"elapsed", world.elapsed}, {"phase", static_cast<int>(world.phase)}, {"maximumProgress", maximumProgress},
+        {"progress", world.objects[0].puzzle.coordinationProgress}, {"hostReleased", hostReleased}, {"clientReleased", clientReleased},
+        {"active", world.objects[0].active}, {"completed", world.objects[0].completed}, {"message", world.message}, {"clientStatus", pair.client.GetStatus()}, {"clientConnected", pair.client.IsConnected()},
+        {"clientTick", pair.client.GetWorld().tick}, {"clientElapsed", pair.client.GetWorld().elapsed}};
+      for (const auto &agent : world.agents) diagnostic["agents"].push_back({{"id", agent.id}, {"target", agent.puzzle.target}, {"holding", agent.puzzle.holding},
+        {"position", {agent.position.x, agent.position.y}}, {"health", agent.health}, {"hidden", agent.hidden}, {"connected", agent.connected}});
+      throw std::runtime_error(std::string(error.what()) + " " + diagnostic.dump());
+    }
     Require(FindAgent(world, 1).puzzle.target == 0 && FindAgent(world, 2).puzzle.target == 0, "Completar por LAN no libera las dos sesiones de coordinación");
 
     pair.host.Submit({}); pair.client.Submit({}); pair.Advance(8);
@@ -1050,11 +1093,125 @@ namespace {
     }
     Until([&] { return flood.rejected || flood.disconnected; }, [&] { flood.Tick(); });
   }
+
+  void AcousticRangeAndWallsRemainAuthoritative() {
+    Pair pair; pair.Deploy();
+    auto &world = const_cast<WorldState &>(pair.host.GetWorld());
+    world.objects.clear(); world.obstacles.clear(); world.guards.clear(); world.securityEntries.clear();
+    world.noises.clear(); world.sounds.clear(); world.events.clear();
+    world.agents[0].position = {800.f, 650.f}; world.agents[0].hidden = true;
+    auto &remote = world.agents[1]; remote.position = {100.f, 500.f}; remote.facing = {0.f, 1.f};
+    Guard inside; inside.id = 81; inside.position = {370.f, 500.f}; inside.facing = {1.f, 0.f};
+    Guard outside = inside; outside.id = 82; outside.position = {440.f, 500.f};
+    world.guards = {inside, outside};
+    world.obstacles.push_back({{{220.f, 400.f}, {12.f, 220.f}}, CoverKind::High, true, "Separación acústica LAN"});
+    ActionCommand run; run.moveY = 1.f; run.run = true; pair.client.Submit(run);
+    const auto runningNoise = [](const NoiseEvent &noise) { return noise.actor == 2 && noise.kind == SoundKind::StepRunHard; };
+    Until([&] {
+      return world.guards[0].state == GuardState::Investigate &&
+        std::ranges::any_of(pair.client.GetWorld().noises, runningNoise);
+    }, [&] { pair.Tick(true); });
+    const auto emitted = std::ranges::find_if(world.noises, runningNoise);
+    const auto replicated = std::ranges::find_if(pair.client.GetWorld().noises, runningNoise);
+    Require(emitted != world.noises.end() && replicated != pair.client.GetWorld().noises.end() &&
+      emitted->radius == 306.f && replicated->radius == emitted->radius && replicated->position == emitted->position,
+      "El radio y origen real de carrera no se replican desde el anfitrión");
+    Require(world.guards[0].lastKnown == emitted->position && world.guards[0].observedAgent == 0 &&
+      world.guards[1].state == GuardState::Patrol && world.securityAlert == SecurityAlert::Calm && !world.alarm,
+      "La audición remota atraviesa paredes sólo dentro del radio y no confirma detección visual");
+    pair.client.Submit({}); pair.Advance(5, true); pair.client.Tick(0.f); pair.client.Tick(0.f);
+    const auto tick = pair.client.GetWorld().tick;
+    const auto count = pair.client.GetWorld().noises.size();
+    pair.client.Tick(0.2f);
+    Require(pair.client.GetWorld().tick == tick && pair.client.GetWorld().noises.size() == count,
+      "El cliente genera o simula ruido sin pasos nuevos del anfitrión");
+  }
+
+  void TableVisionAndInstantTransitionsOnTheWire() {
+    Pair pair; pair.Deploy();
+    auto &world = const_cast<WorldState &>(pair.host.GetWorld());
+    world.objects.clear(); world.obstacles.clear(); world.guards.clear(); world.securityEntries.clear(); world.noises.clear();
+    world.agents[0].position = {800.f, 650.f}; world.agents[0].hidden = true;
+    auto &remote = world.agents[1]; remote.position = {230.f, 300.f}; remote.facing = {1.f, 0.f};
+    Interactable table{77, ObjectKind::Hideout, {300.f, 300.f}, "Mesa LAN"}; table.hideoutKind = HideoutKind::UnderTable;
+    world.objects.push_back(table);
+    Guard west; west.id = 81; west.position = {150.f, 300.f}; west.facing = {-1.f, 0.f};
+    Guard east = west; east.id = 82; east.position = {450.f, 300.f}; east.facing = {1.f, 0.f}; world.guards = {west, east};
+    world.obstacles.push_back({{{380.f, 250.f}, {12.f, 100.f}}, CoverKind::High, true, "Oclusión LAN"});
+    ActionCommand use; use.interact = true; pair.client.Submit(use);
+    Until([&] { return remote.hideoutId == 77 && FindAgent(pair.client.GetWorld(), 2).hideoutId == 77; }, [&] { pair.Tick(true); });
+    const auto &received = FindAgent(pair.client.GetWorld(), 2);
+    Require(remote.hidden && remote.position == table.position && remote.actionPose == ActionPose::None && remote.transitionTime == 0.f &&
+      received.hidden && received.position == remote.position && received.actionPose == ActionPose::None && received.transitionTime == 0.f,
+      "La mesa remota debe ocultar y recolocar inmediatamente sin transición ni pose de entrada");
+    Require(std::ranges::any_of(pair.client.GetWorld().guards, [](const Guard &guard) { return guard.id == 81; }) &&
+      std::ranges::none_of(pair.client.GetWorld().guards, [](const Guard &guard) { return guard.id == 82; }),
+      "La instantánea bajo mesa debe revelar detrás del cuerpo y conservar oculta la patrulla tras la pared");
+    ActionCommand mouse; mouse.aimX = -1.f; mouse.aiming = true; pair.client.Submit(mouse);
+    Until([&] { return remote.weaponAim.x < -0.99f && FindAgent(pair.client.GetWorld(), 2).weaponAim.x < -0.99f; }, [&] { pair.Tick(true); });
+    Require(remote.hidden && remote.position == table.position && remote.facing == sf::Vector2f{1.f, 0.f} && !remote.aiming,
+      "El cursor debe actualizar el arma remota sin sacar al cuerpo de la mesa ni permitir disparar escondido");
+    pair.client.Submit({}); pair.Advance(3, true); pair.client.Submit(use);
+    Until([&] { return remote.hideoutId == 0 && FindAgent(pair.client.GetWorld(), 2).hideoutId == 0; }, [&] { pair.Tick(true); });
+    Require(!remote.hidden && remote.position.x > table.position.x && !WorldGeometry::PositionBlocked(world, remote.position, GameplayConfig::AgentRadius) &&
+      remote.actionPose == ActionPose::None && remote.actionPoseTime == 0.f && remote.transitionTime == 0.f &&
+      FindAgent(pair.client.GetWorld(), 2).actionPose == ActionPose::None,
+      "Salir de la mesa LAN debe aparecer fuera de geometría y sin animación de salida");
+  }
+
+  void GuardAssistanceAndOrangeClockOnTheWire() {
+    Pair pair; pair.Deploy();
+    auto &world = const_cast<WorldState &>(pair.host.GetWorld());
+    world.objects.clear(); world.obstacles.clear(); world.guards.clear(); world.securityEntries.clear(); world.noises.clear(); world.events.clear();
+    world.agents[0].position = {800.f, 650.f}; world.agents[0].hidden = true;
+    auto &remote = world.agents[1]; remote.position = {100.f, 200.f}; remote.facing = sf::Vector2f{1.f, 1.f}.normalized();
+    Guard helper; helper.id = 81; helper.position = {200.f, 300.f}; helper.facing = {1.f, 0.f}; world.guards.push_back(helper);
+    Guard dead; dead.id = 91; dead.position = {228.f, 300.f}; dead.health = 0.f; dead.state = GuardState::Dead; world.guards.push_back(dead);
+    currentCase = "AsistenciaLAN/naranja";
+    Until([&] { return world.securityAlert == SecurityAlert::Orange && pair.client.GetWorld().securityAlert == SecurityAlert::Orange; }, [&] { pair.Tick(true); });
+    world.guards[0].position = {200.f, 300.f}; world.guards[0].facing = {1.f, 0.f};
+    auto &body = world.guards[1]; body.state = GuardState::Incapacitated; body.health = 37.f;
+    body.incapacityRemaining = 80.f; body.stun = CombatConfig::MaxGuardStun; body.bodyReported = true;
+    const auto orangeTick = world.tick; const auto orangeRemaining = world.securityRemaining;
+    const auto remoteGuard = [&]() -> const Guard * {
+      const auto &guards = pair.client.GetWorld().guards;
+      const auto found = std::ranges::find_if(guards, [](const Guard &guard) { return guard.id == 91; });
+      return found == guards.end() ? nullptr : &*found;
+    };
+    currentCase = "AsistenciaLAN/despertar";
+    try {
+      Until([&] { return world.guards[1].state == GuardState::Search && remoteGuard() && remoteGuard()->state == GuardState::Search; }, [&] { pair.Tick(true); });
+    } catch (...) {
+      for (const auto &guard : world.guards) std::cerr << "Guardia anfitrión " << guard.id << " estado=" << static_cast<int>(guard.state) << " reserva=" << guard.bodyTargetId <<
+        " progreso=" << guard.bodyInspectionTime << " sospecha=" << guard.suspicion << " observado=" << guard.observedAgent << " posición=" << guard.position.x << ',' << guard.position.y << '\n';
+      for (const auto &guard : pair.client.GetWorld().guards) std::cerr << "Guardia cliente " << guard.id << " estado=" << static_cast<int>(guard.state) << '\n';
+      std::cerr << "Alerta=" << static_cast<int>(world.securityAlert) << " resto=" << world.securityRemaining << " tick=" << world.tick << " conexión=" << pair.client.GetStatus() << '\n';
+      throw;
+    }
+    Require(world.guards[1].health == 37.f && remoteGuard()->health == 37.f && remoteGuard()->stun == 0.f && remoteGuard()->incapacityRemaining == 0.f,
+      "El cliente no recibe el despertar autoritativo con vida y temporizadores coherentes");
+    const float simulated = static_cast<float>(world.tick - orangeTick) / GameplayConfig::SimulationHz;
+    Require(world.securityAlert == SecurityAlert::Orange && pair.client.GetWorld().securityAlert == SecurityAlert::Orange &&
+      std::abs(world.securityRemaining - (orangeRemaining - simulated)) < 0.01f &&
+      std::ranges::count_if(world.events, [](const MissionEvent &event) { return event.kind == EventKind::BodyFound; }) == 1,
+      "La asistencia LAN renueva el incidente, reinicia la naranja o confirma al jugador sin verlo");
+    Require(world.guards[0].observedAgent == 0 && remoteGuard()->bodyTargetKind == BodyTargetKind::None,
+      "El despertar inventa una identidad de jugador o filtra una reserva privada de asistencia");
+  }
 }
 
-int main() {
+int main(int argc, char **argv) {
   try {
-    const auto run = [](const char *name, auto test) { currentCase = name; test(); };
+    Require(argc == 1 || (argc == 3 && std::string(argv[1]) == "--case"), "Uso: NoTraceSessionTests [--case nombre]");
+    const std::string selected = argc == 3 ? argv[2] : "";
+    bool ran = false;
+    const auto run = [&](const char *name, auto test) {
+      if (!selected.empty() && selected != name) return;
+      ran = true; currentCase = name; sf::Clock elapsed;
+      std::cout << "RUN sesión: " << name << std::endl;
+      test();
+      std::cout << "PASS " << name << ": " << elapsed.getElapsedTime().asSeconds() << " s" << std::endl;
+    };
     run("SoloPauseAndFiniteInput", SoloPauseAndFiniteInput);
     run("LobbyAndAuthority", LobbyAndAuthority);
     run("SimultaneousPreparationKeepsFullLobbyConnected", SimultaneousPreparationKeepsFullLobbyConnected);
@@ -1078,8 +1235,13 @@ int main() {
     run("CameraTrapAndIntelligenceOnTheWire", CameraTrapAndIntelligenceOnTheWire);
     run("RejectInvalidPuzzleCommands", RejectInvalidPuzzleCommands);
     run("TrainingAndMissionRulesOnTheWire", TrainingAndMissionRulesOnTheWire);
+    run("AcousticRangeAndWallsRemainAuthoritative", AcousticRangeAndWallsRemainAuthoritative);
+    run("TableVisionAndInstantTransitionsOnTheWire", TableVisionAndInstantTransitionsOnTheWire);
+    run("GuardAssistanceAndOrangeClockOnTheWire", GuardAssistanceAndOrangeClockOnTheWire);
     run("RejectInvalidCommandAndFlood", RejectInvalidCommandAndFlood);
-    std::cout << "PASS sesión: sala, autoridad, privacidad, mandos, pausa, desconexión y loopback de dos participantes\n";
+    Require(ran, "No existe el caso de sesión solicitado");
+    if (selected.empty()) std::cout << "PASS sesión: sala, autoridad, privacidad, mandos, pausa, desconexión y loopback de dos participantes\n";
+    else std::cout << "PASS caso de sesión: " << selected << '\n';
     return 0;
   } catch (const std::exception &error) {
     std::cerr << "FAIL sesión: " << error.what() << '\n';

@@ -4,6 +4,7 @@
 #include "NoTraceDistractionGeometry.h"
 #include "NoTraceWorldGeometry.h"
 #include "NoTraceVisibility.h"
+#include <chrono>
 #include <cmath>
 #include <iostream>
 #include <queue>
@@ -12,6 +13,7 @@
 namespace {
   using namespace NoTrace;
   int checks = 0;
+  const char *currentCase = "argumentos";
   void Require(bool condition, const char *message) {
     ++checks;
     if (!condition) throw std::runtime_error(message);
@@ -846,6 +848,8 @@ namespace {
   void CompleteOperationWithoutStateShortcuts() {
     for (std::uint32_t seed : {0u, 1u, 2u, 5u}) {
       for (auto contract : {ContractId::GhostArchive, ContractId::SilentRelay, ContractId::DoubleCross}) {
+        const auto started = std::chrono::steady_clock::now();
+        std::cout << "RUN operación: semilla=" << seed << " contrato=" << static_cast<int>(contract) << std::endl;
         Simulation simulation;
         simulation.ResetBase();
         simulation.SetContract(contract);
@@ -860,6 +864,7 @@ namespace {
         Require(!simulation.GetState().results.at(1).maestroEligible, "Una operación que usa armas no puede lograr Maestro");
         simulation.ReturnToBase();
         Require(simulation.GetState().phase == GamePhase::Base, "El ciclo completo debe volver a base");
+        std::cout << "PASS operación: " << std::chrono::duration<float>(std::chrono::steady_clock::now() - started).count() << " s" << std::endl;
       }
     }
     Simulation clean;
@@ -874,25 +879,37 @@ namespace {
   }
 }
 
-int main() {
+int main(int argc, char **argv) {
   try {
-    MovementAndBase();
-    MovementOwnsBodyFacing();
-    PerceptionAndNoise();
-    CombatAndTools();
-    WeaponTrajectoriesAndVitals();
-    GuardAttacksAndRecovery();
-    AtomicLifeAndExplicitRescue();
-    ScoringAndObjectives();
-    PrivacyAndDisconnect();
-    DisconnectNeutralizesMovement();
-    SeedReachability();
-    SafeInsertion();
-    CompleteOperationWithoutStateShortcuts();
+    Require(argc == 1 || (argc == 3 && std::string(argv[1]) == "--case"), "Uso: NoTraceSimulationTests [--case nombre]");
+    const std::string selected = argc == 3 ? argv[2] : "";
+    bool ran = false;
+    const auto run = [&](const char *name, auto test) {
+      if (!selected.empty() && selected != name) return;
+      ran = true; currentCase = name;
+      const auto started = std::chrono::steady_clock::now();
+      std::cout << "RUN simulación: " << name << std::endl;
+      test();
+      std::cout << "PASS " << name << ": " << std::chrono::duration<float>(std::chrono::steady_clock::now() - started).count() << " s" << std::endl;
+    };
+    run("MovementAndBase", MovementAndBase);
+    run("MovementOwnsBodyFacing", MovementOwnsBodyFacing);
+    run("PerceptionAndNoise", PerceptionAndNoise);
+    run("CombatAndTools", CombatAndTools);
+    run("WeaponTrajectoriesAndVitals", WeaponTrajectoriesAndVitals);
+    run("GuardAttacksAndRecovery", GuardAttacksAndRecovery);
+    run("AtomicLifeAndExplicitRescue", AtomicLifeAndExplicitRescue);
+    run("ScoringAndObjectives", ScoringAndObjectives);
+    run("PrivacyAndDisconnect", PrivacyAndDisconnect);
+    run("DisconnectNeutralizesMovement", DisconnectNeutralizesMovement);
+    run("SeedReachability", SeedReachability);
+    run("SafeInsertion", SafeInsertion);
+    run("CompleteOperationWithoutStateShortcuts", CompleteOperationWithoutStateShortcuts);
+    Require(ran, "No existe el caso de simulación solicitado");
     std::cout << "NO TRACE: " << checks << " comprobaciones de simulación correctas.\n";
     return 0;
   } catch (const std::exception &error) {
-    std::cerr << "NO TRACE: fallo tras " << checks << " comprobaciones: " << error.what() << '\n';
+    std::cerr << "NO TRACE: fallo en " << currentCase << " tras " << checks << " comprobaciones: " << error.what() << '\n';
     return 1;
   }
 }
