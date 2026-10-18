@@ -3,6 +3,7 @@
 #include "Scene/Scene.h"
 #include "NoTraceSession.h"
 #include "NoTraceWorldRenderer.h"
+#include "NoTraceOptionsUi.h"
 #include "Types/DisplayTypes.h"
 #include <SFML/Audio/Sound.hpp>
 #include <array>
@@ -49,6 +50,7 @@ namespace NoTrace {
     tgui::ProgressBar::Ptr puzzleProgress_;
     tgui::ComboBox::Ptr resolutionBox_;
     tgui::ComboBox::Ptr modeBox_;
+    OptionsWidgets options_;
     DisplaySettings observedDisplay_;
     std::array<bool, Count> held_{};
     Page page_ = Page::Connection;
@@ -59,7 +61,7 @@ namespace NoTrace {
     bool preparingDecoy_ = false;
     bool cancelledDecoy_ = false;
     bool cqcBlocked_ = false;
-    std::vector<std::unique_ptr<sf::Sound>> voices_;
+    std::vector<std::shared_ptr<sf::Sound>> voices_;
     std::uint64_t lastSound_ = 0;
     MissionEvent puzzleFailure_;
     float puzzleFailureUntil_ = 0.f;

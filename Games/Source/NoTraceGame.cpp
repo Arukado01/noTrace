@@ -118,6 +118,7 @@ namespace NoTrace {
   }
 
   void Game::Start() {
+    ApplyUserPreferences(ctx);
     session_.Stop(); held_.fill(false); previousPhase_ = GamePhase::Base;
     ready_ = false; paused_ = false; showOrders_ = false; lastSound_ = 0;
     puzzleFailure_ = {}; puzzleFailureUntil_ = 0.f; puzzleFailurePhase_ = GamePhase::Base;
@@ -169,14 +170,16 @@ namespace NoTrace {
     if (length > 0.f) direction /= length;
     command.moveX = direction.x; command.moveY = direction.y;
     const auto cursor = ctx.cursor.GetPosition();
+    command.aiming = ctx.input.Held(NonLethal);
+    const bool weaponRay = command.aiming || ctx.input.JustPressed(Lethal);
     const auto aimSolution = worldRenderer_.AimAt(cursor, world, agent->id);
-    auto aim = aimSolution.ground - agent->position;
+    const auto lookAt = weaponRay ? aimSolution.ground : worldRenderer_.ScreenToGround(cursor, world, agent->id);
+    auto aim = lookAt - agent->position;
     const float aimLength = std::sqrt(aim.x * aim.x + aim.y * aim.y);
     if (aimLength > 1.f) aim /= aimLength; else aim = agent->facing;
     command.aimX = aim.x; command.aimY = aim.y;
-    command.aimSlope = aimSolution.slope;
+    command.aimSlope = weaponRay ? aimSolution.slope : 0.f;
     command.coverToggle = ctx.input.JustPressed(WallCover);
-    command.aiming = ctx.input.Held(NonLethal);
     command.dive = ctx.input.JustPressed(Dive); command.roll = ctx.input.JustPressed(Roll);
     command.toggleSuppressor = ctx.input.JustPressed(Suppressor);
     command.run = Pressed(Run); command.crouch = Pressed(Crouch, true); command.prone = Pressed(Prone, true);
@@ -271,15 +274,7 @@ namespace NoTrace {
     if (const auto *key = event.getIf<sf::Event::KeyReleased>(); key && key->scancode == sf::Keyboard::Scan::Q && page_ == Page::Weapons) ClosePanel();
     if (const auto *key = event.getIf<sf::Event::KeyPressed>()) {
       if (key->scancode == sf::Keyboard::Scan::Escape) { NavigateBack(); return; }
-      if (page_ == Page::Options) for (const auto &widget : panel_->getWidgets()) {
-        const auto slider = std::dynamic_pointer_cast<tgui::Slider>(widget);
-        if (!slider || !slider->isFocused()) continue;
-        if (key->scancode == sf::Keyboard::Scan::Left) slider->setValue(slider->getValue() - slider->getStep());
-        else if (key->scancode == sf::Keyboard::Scan::Right) slider->setValue(slider->getValue() + slider->getStep());
-        else if (key->scancode == sf::Keyboard::Scan::Home) slider->setValue(slider->getMinimum());
-        else if (key->scancode == sf::Keyboard::Scan::End) slider->setValue(slider->getMaximum());
-        break;
-      }
+      if (page_ == Page::Options) HandleOptionsKey(event, options_);
     }
     if (const auto *joystick = event.getIf<sf::Event::JoystickButtonPressed>()) {
       const auto button = Input::HardwareToLogical(joystick->button, joystick->joystickId);
@@ -423,59 +418,6 @@ namespace NoTrace {
     Button("SALIR DEL JUEGO", y, [this] { ctx.scenes.RequestQuit(); });
   }
 
-  void Game::BuildOptions() {
-    Label("OPCIONES / NO TRACE", {30.f, 20.f}, {714.f, 45.f}, 29);
-    Label("Resolución", {30.f, 94.f}, {300.f, 35.f}, 21);
-    resolutionBox_ = tgui::ComboBox::create(); resolutionBox_->setPosition({340.f, 89.f});
-    resolutionBox_->setSize({404.f, 42.f}); resolutionBox_->setTextSize(20); resolutionBox_->setItemsToDisplay(5);
-    panel_->add(resolutionBox_);
-    Label("Modo de pantalla", {30.f, 165.f}, {300.f, 35.f}, 21);
-    modeBox_ = tgui::ComboBox::create(); modeBox_->setPosition({340.f, 160.f});
-    modeBox_->setSize({404.f, 42.f}); modeBox_->setTextSize(20); panel_->add(modeBox_);
-    const auto volumeLabel = Label("", {30.f, 239.f}, {300.f, 35.f}, 20);
-    auto volume = tgui::Slider::create(MIN_VOLUME, MAX_VOLUME); volume->setStep(VOLUME_STEP);
-    volume->setPosition({340.f, 247.f}); volume->setSize({404.f, 24.f}); volume->setFocusable(true);
-    volume->setValue(ctx.audio.GetGlobalVolume());
-    volumeLabel->setText("Volumen: " + std::to_string(static_cast<int>(std::lround(volume->getValue()))) + "%");
-    volume->onValueChange([this, volumeLabel](float value) {
-      ctx.audio.SetGlobalVolume(value); ctx.save.Set(VOLUME_SAVE_KEY, value);
-      volumeLabel->setText("Volumen: " + std::to_string(static_cast<int>(std::lround(value))) + "%");
-    });
-    panel_->add(volume);
-    const auto cursorLabel = Label("", {30.f, 313.f}, {300.f, 35.f}, 20);
-    auto cursor = tgui::Slider::create(MIN_CURSOR_SPEED, MAX_CURSOR_SPEED); cursor->setStep(CURSOR_SPEED_STEP);
-    cursor->setPosition({340.f, 321.f}); cursor->setSize({404.f, 24.f}); cursor->setFocusable(true);
-    cursor->setValue(ctx.cursor.GetSpeed());
-    cursorLabel->setText("Cursor / mando: " + std::to_string(static_cast<int>(cursor->getValue())));
-    cursor->onValueChange([this, cursorLabel](float value) {
-      ctx.cursor.SetSpeed(value); ctx.save.Set(CURSOR_SPEED_SAVE_KEY, value);
-      cursorLabel->setText("Cursor / mando: " + std::to_string(static_cast<int>(value)));
-    });
-    panel_->add(cursor);
-    status_ = Label("Aplica y confirma los cambios de pantalla.", {30.f, 370.f}, {714.f, 32.f}, 17);
-    auto controls = Button("CONFIGURAR ZAMBULLIDA Y RODADA", 408.f, [this] { Open(Page::Controls); }); controls->setSize({714.f, 34.f}); controls->setTextSize(17);
-    Button("APLICAR PANTALLA", 450.f, [this] {
-      const auto &modes = ctx.window.GetAvailableResolutions(); const int index = resolutionBox_->getSelectedItemIndex();
-      if (index < 0 || static_cast<std::size_t>(index) >= modes.size()) { status_->setText("Selecciona una resolución compatible."); return; }
-      const DisplaySettings settings{modes[static_cast<std::size_t>(index)], modeBox_->getSelectedItemIndex() == 1};
-      if (settings == ctx.window.GetDisplaySettings()) status_->setText("La configuración seleccionada ya está activa.");
-      else status_->setText(ctx.window.RequestDisplaySettings(settings) ? "Confirma el cambio o espera su restauración automática." : "No se puede aplicar este modo de pantalla.");
-    });
-    Button("VOLVER A LA PAUSA", 520.f, [this] { Open(Page::Pause); });
-    SyncDisplayOptions();
-  }
-
-  void Game::SyncDisplayOptions() {
-    observedDisplay_ = ctx.window.GetDisplaySettings();
-    const auto &modes = ctx.window.GetAvailableResolutions(); resolutionBox_->removeAllItems();
-    for (const auto size : modes) resolutionBox_->addItem(std::format("{} x {}", size.x, size.y));
-    const auto found = std::find(modes.begin(), modes.end(), observedDisplay_.resolution);
-    if (found != modes.end()) resolutionBox_->setSelectedItemByIndex(static_cast<std::size_t>(found - modes.begin()));
-    modeBox_->removeAllItems(); modeBox_->addItem("Ventana");
-    if (ctx.window.IsFullscreenAvailable()) modeBox_->addItem("Pantalla completa");
-    modeBox_->setSelectedItemByIndex(observedDisplay_.fullscreen ? 1 : 0);
-  }
-
   void Game::BuildResults() {
     const auto &world = session_.GetWorld();
     Label("INFORME DE OPERACIÓN", {30.f, 20.f}, {714.f, 45.f}, 28);
@@ -590,7 +532,7 @@ namespace NoTrace {
   void Game::PlayCue(const std::string &file, float volume, float pan, float pitch) {
     if (auto *buffer = ctx.resources.FetchSound(file)) {
       if (voices_.size() >= AudioConfig::MaximumVoices) voices_.erase(voices_.begin());
-      auto sound = std::make_unique<sf::Sound>(*buffer); sound->setVolume(volume); sound->setPitch(pitch);
+      auto sound = std::make_shared<sf::Sound>(*buffer); ctx.audio.RegisterEffect(sound, volume); sound->setPitch(pitch);
       sound->setRelativeToListener(true); sound->setPosition({pan, 0.f, -1.f}); sound->setAttenuation(0.f);
       sound->play(); voices_.push_back(std::move(sound));
     }

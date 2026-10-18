@@ -2,6 +2,7 @@
 
 #include "Scene/Scene.h"
 #include "NoTraceBackdrop.h"
+#include "NoTraceOptionsUi.h"
 #include "Types/DisplayTypes.h"
 #include "Types/NoTraceTypes.h"
 
@@ -12,15 +13,14 @@ namespace NoTrace {
     tgui::Group::Ptr root_;
     tgui::Group::Ptr mainPage_;
     tgui::Group::Ptr optionsPage_;
+    tgui::Panel::Ptr optionsPanel_;
+    tgui::Panel::Ptr controlsPanel_;
+    OptionsWidgets options_;
     tgui::Button::Ptr mainFocus_;
     tgui::ComboBox::Ptr resolutionBox_;
     tgui::ComboBox::Ptr modeBox_;
     tgui::Slider::Ptr volumeSlider_;
     tgui::Slider::Ptr cursorSlider_;
-    tgui::Label::Ptr volumeLabel_;
-    tgui::Label::Ptr cursorLabel_;
-    tgui::Label::Ptr currentLabel_;
-    tgui::Label::Ptr statusLabel_;
     MenuPage page_ = MenuPage::Main;
     DisplaySettings observedDisplay_;
     float fade_ = 0.f;
@@ -41,10 +41,6 @@ namespace NoTrace {
     void ShowPage(MenuPage page);
     void FocusPage();
     void SyncDisplayOptions();
-    void ApplyDisplayOptions();
-    void RestoreDefaults();
-    void SetVolume(float volume);
-    void SetCursorSpeed(float speed);
   };
 
   class Reception : public Scene {

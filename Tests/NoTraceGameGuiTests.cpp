@@ -5,9 +5,12 @@
 #include "Config/NoTraceManeuverConfig.h"
 #include "Config/NoTracePreparationConfig.h"
 #include "Config/NoTraceWeaponConfig.h"
+#include "Config/NoTraceConfig.h"
 #include "Core/EngineConfig.h"
 #include "Core/Overlay.h"
 #include "NoTraceWorldGuiFixtures.h"
+#include "NoTraceOptionsGuiTests.h"
+#include "NoTraceMenuGuiTests.h"
 #include "NoTraceWorldGeometry.h"
 #include <SFML/Graphics/Image.hpp>
 #include <SFML/System/Sleep.hpp>
@@ -26,6 +29,27 @@ namespace EngineTests {
   struct GuiAccess {
     static void UseSyntheticInput(EngineContext &context) { context.input.hardwarePolling_ = false; }
     static Session &GetSession(Game &game) { return game.session_; }
+    static void VerifyCursorSampling(EngineContext &context, sf::RenderWindow &window) {
+      const sf::Vector2f initial{500.f,300.f}; context.cursor.SetPosition(initial);
+      sf::Mouse::setPosition(window.mapCoordsToPixel({650.f,410.f},context.window.GetPresentationView()),window);
+      const auto native=sf::Mouse::getPosition(window);
+      Require(context.cursor.GetPosition()==initial,"El cursor vuelve a consultar el ratón entre la simulación y el dibujo");
+      context.cursor.Update(0.f);
+      const auto expected=window.mapPixelToCoords(native,context.window.GetPresentationView());
+      Require((context.cursor.GetPosition()-expected).length()<3.f,"La actualización del cursor no toma la posición real con la presentación actual");
+      sf::View view(sf::FloatRect({100.f,200.f},{400.f,300.f})); view.setViewport({{.1f,.1f},{.8f,.8f}});
+      const auto presentation=context.window.GetViewport(); auto composed=view;
+      composed.setViewport({presentation.position+view.getViewport().position.componentWiseMul(presentation.size),presentation.size.componentWiseMul(view.getViewport().size)});
+      const auto pixel=window.mapCoordsToPixel(context.cursor.GetPosition(),context.window.GetPresentationView());
+      Require((context.cursor.GetPosition(view)-window.mapPixelToCoords(pixel,composed)).length()<.001f,"La posición cacheada no comparte la transformación del viewport de escena");
+    }
+    static void VerifyMainMenu(EngineContext &context, sf::RenderWindow &window, const std::filesystem::path &output) {
+      VerifyMainMenuOptions(context,window,output,[&] { return context.gui.gui_.getWidgets(); },
+        [&](Menu &menu,const std::filesystem::path &file) {
+          const auto previous=context.time.deltaTime_; context.time.deltaTime_=sf::seconds(1.f); menu.Update(); context.time.deltaTime_=previous;
+          CaptureExample(menu,context,window,file);
+        });
+    }
     static void Require(bool condition, const std::string &message) {
       if (!condition) throw std::runtime_error(message);
     }
@@ -364,6 +388,52 @@ namespace EngineTests {
       context.input.Clear(); game.BindInputs(); game.held_.fill(false); game.pendingWeaponChoice_ = -1; game.session_.Submit({});
       world = saved; game.lastSound_ = savedSound; game.UpdateBackground();
     }
+    static void VerifyCursorOrientation(Game &game, EngineContext &context, sf::RenderWindow &window, const std::filesystem::path &output) {
+      auto &world=const_cast<WorldState &>(game.session_.GetWorld());
+      const auto saved=world; const auto previousSize=window.getSize(); const auto previousZoom=game.worldRenderer_.GetZoom();
+      world.obstacles.clear(); world.objects.clear(); world.guards.clear(); world.securityEntries.clear(); world.shots.clear(); world.visibility={};
+      const std::array<sf::Keyboard::Scan,4> scans{sf::Keyboard::Scan::W,sf::Keyboard::Scan::D,sf::Keyboard::Scan::S,sf::Keyboard::Scan::A};
+      const std::array<sf::Vector2f,8> movements{{{0.f,-1.f},{1.f,-1.f},{1.f,0.f},{1.f,1.f},{0.f,1.f},{-1.f,1.f},{-1.f,0.f},{-1.f,-1.f}}};
+      const auto hold=[&](sf::Keyboard::Scan scan) { sf::Event::KeyPressed event; event.scancode=scan; context.input.CaptureEvent(event); };
+      for(const auto size:{sf::Vector2u{1280,720},{1000,700},{1600,900}}) {
+        window.setSize(size); context.window.RefreshPresentation(); context.gui.SyncPresentation(context.window.GetLogicalSize(),context.window.GetViewport());
+        for(const float requestedZoom:{PresentationConfig::MinimumZoom,PresentationConfig::DefaultZoom,PresentationConfig::MaximumZoom}) {
+          game.worldRenderer_.AdjustZoom(std::log(requestedZoom/game.worldRenderer_.GetZoom())/std::log(PresentationConfig::ZoomFactorPerStep));
+          const float zoom=game.worldRenderer_.GetZoom();
+          for(std::size_t index=0;index<movements.size();++index) {
+            context.input.Clear(); game.BindInputs(); game.held_.fill(false);
+            auto &agent=world.agents.front(); const auto id=agent.id; agent=Agent{}; agent.id=id; agent.position={500.f,500.f};
+            const auto movement=movements[index];
+            if(movement.y<0.f) hold(scans[0]); if(movement.x>0.f) hold(scans[1]); if(movement.y>0.f) hold(scans[2]); if(movement.x<0.f) hold(scans[3]);
+            const sf::Vector2f cursor{index%2==0?850.f:750.f,480.f}; context.cursor.SetPosition(cursor);
+            const auto expectedLook=WorldRenderer::UnprojectGround(cursor,agent.position,context.window.GetLogicalSize(),zoom)-agent.position;
+            const auto expectedMove=WorldRenderer::UnprojectGround({800.f+movement.x,480.f+movement.y},agent.position,context.window.GetLogicalSize(),zoom)-WorldRenderer::UnprojectGround({800.f,480.f},agent.position,context.window.GetLogicalSize(),zoom);
+            const auto start=agent.position; game.Update(); Step(game);
+            Require((agent.position-start).normalized().dot(expectedMove.normalized())>.999f,"WASD cambia de convención al mover el ratón o cambiar resolución/zoom");
+            Require(agent.facing.dot(expectedLook.normalized())>.999f,std::format("Sin apuntar, la mirada difiere del cursor: resolución {}x{}, zoom {}, movimiento {}, facing ({},{}), esperado ({},{}), cursor ({},{}), página {}, fase {}, pose {}",size.x,size.y,zoom,index,agent.facing.x,agent.facing.y,expectedLook.normalized().x,expectedLook.normalized().y,context.cursor.GetPosition().x,context.cursor.GetPosition().y,static_cast<int>(game.page_),static_cast<int>(world.phase),static_cast<int>(agent.actionPose)));
+            Require(game.worldRenderer_.GetZoom()==zoom,"Cambiar ventana o mover el ratón altera el zoom elegido");
+            if(size==sf::Vector2u{1280,720} && std::abs(zoom-PresentationConfig::DefaultZoom)<0.0001f)
+              Capture(game,context,window,output/std::format("cursor-movement-{}.png",index));
+          }
+          context.input.Clear(); game.BindInputs(); game.held_.fill(false);
+          auto &agent=world.agents.front(); agent.actionCooldown=0.f; agent.lethalMagazine=WeaponConfig::PistolCapacity; agent.loadout.lethalAmmo=12; agent.selectedWeapon=WeaponKind::Pistol;
+          const sf::Vector2f cursor{1050.f,480.f}; context.cursor.SetPosition(cursor);
+          context.input.CaptureEvent(sf::Event::MouseButtonPressed{sf::Mouse::Button::Right,{0,0}});
+          context.input.CaptureEvent(sf::Event::MouseButtonPressed{sf::Mouse::Button::Left,{0,0}});
+          context.input.CaptureEvent(sf::Event::MouseButtonReleased{sf::Mouse::Button::Left,{0,0}});
+          world.shots.clear(); game.Update(); Step(game);
+          Require(agent.aiming && !world.shots.empty(),"Apuntar y disparar falla después de cambiar resolución y zoom");
+          const auto shotDirection=(world.shots.back().to-world.shots.back().from).normalized();
+          const auto laser=WorldRenderer::LaserFor(world,agent);
+          Require(shotDirection.dot(agent.facing)>.999f && (laser.to-laser.from).normalized().dot(agent.facing)>.999f,"Disparo, láser y orientación no comparten dirección");
+          agent.lethalMagazine=0; agent.actionCooldown=0.f; context.input.BeginFrame(); hold(sf::Keyboard::Scan::R); game.Update(); Step(game);
+          Require(agent.reloadRemaining>0.f && agent.facing.dot(shotDirection)>.999f,"Recargar cambia la orientación exigida por el cursor");
+        }
+      }
+      context.input.Clear(); game.BindInputs(); game.held_.fill(false); game.session_.Submit({}); world=saved;
+      window.setSize(previousSize); context.window.RefreshPresentation(); context.gui.SyncPresentation(context.window.GetLogicalSize(),context.window.GetViewport());
+      game.worldRenderer_.AdjustZoom(std::log(previousZoom/game.worldRenderer_.GetZoom())/std::log(PresentationConfig::ZoomFactorPerStep)); game.RefreshHud();
+    }
     static void VerifyManeuverControls(Game &game, EngineContext &context) {
       context.input.Clear(); game.BindInputs(); game.held_.fill(false);
       auto &world = const_cast<WorldState &>(game.session_.GetWorld());
@@ -376,7 +446,7 @@ namespace EngineTests {
         for (int frame = 0; frame < frames; ++frame) { context.input.BeginFrame(); game.Update(); Step(game); }
       };
       const auto controls = [&] {
-        Escape(game); Press(game, "OPCIONES"); Press(game, "CONFIGURAR ZAMBULLIDA Y RODADA");
+        Escape(game); Press(game, "OPCIONES"); Press(game, "CONTROLES Y TECLAS ASIGNADAS");
         std::vector<tgui::ComboBox::Ptr> selectors;
         for (const auto &widget : game.panel_->getWidgets()) if (const auto box = std::dynamic_pointer_cast<tgui::ComboBox>(widget)) selectors.push_back(box);
         Require(game.page_ == Game::Page::Controls && selectors.size() == 2, "Las opciones no exponen un selector independiente para cada maniobra");
@@ -434,7 +504,8 @@ namespace EngineTests {
       world = saved; game.lastSound_ = savedSound; game.UpdateBackground();
     }
     static void Sync(EngineContext &context) {
-      context.gui.SyncPresentation(gConfig.windowSize, {{0.f, 0.f}, {1.f, 1.f}});
+      context.window.RefreshPresentation();
+      context.gui.SyncPresentation(context.window.GetLogicalSize(),context.window.GetViewport());
     }
     static void Step(Game &game, float dt = 1.f / GameplayConfig::SimulationHz) {
       game.session_.Tick(dt, game.paused_ || (game.page_ != Game::Page::None && game.page_ != Game::Page::Puzzle));
@@ -882,9 +953,17 @@ namespace {
     EngineContext context(window);
     Access::UseSyntheticInput(context);
     context.audio.SetGlobalVolume(0.f);
+    context.save.Set(VOLUME_SAVE_KEY,0.f);
+    context.save.Set(DisplayConfig::WidthSaveKey,1600u); context.save.Set(DisplayConfig::HeightSaveKey,900u);
+    context.save.Set(DisplayConfig::FullscreenSaveKey,false); context.save.Set(DisplayConfig::BorderlessSaveKey,false);
+    context.save.Set(DisplayConfig::VerticalSyncSaveKey,false); context.save.Set(DisplayConfig::FramerateLimitSaveKey,0u);
+    context.window.Initialize();
     Access::Sync(context);
+    Access::VerifyCursorSampling(context,window);
     Access::VerifyProductionSave();
+    EngineTests::VerifyOptionsPreferences(window,output);
     Access::VerifyOverlay(context);
+    Access::VerifyMainMenu(context,window,output);
     struct ExampleScene final : Scene {
       using Scene::Scene;
       void Start() override {}
@@ -900,7 +979,7 @@ namespace {
     if (finalVisualsOnly) {
       Access::GetSession(game).SetReady(true); Access::GetSession(game).Deploy(); game.UpdateBackground();
       Access::Require(Access::GetSession(game).GetWorld().phase==GamePhase::Mission,"La comprobación visual no pudo desplegar su operación aislada");
-      Access::VerifyFireInput(game,context,window); Access::VerifyFinalVisuals(context,window,output);
+      Access::VerifyFireInput(game,context,window); Access::VerifyCursorOrientation(game,context,window,output); Access::VerifyFinalVisuals(context,window,output);
       game.OnCleanup(); window.close(); return nlohmann::json::array();
     }
     Access::Require(Access::GetSession(game).IsConnected(), "La conexión individual desde GUI falló");
@@ -961,6 +1040,7 @@ namespace {
     Access::Capture(game, context, window, output / "05-mission.png");
     Access::VerifyGameOverAndRetry(game);
     Access::VerifyFireInput(game, context, window);
+    Access::VerifyCursorOrientation(game,context,window,output);
     Access::VerifyAutomaticCrawl(game, context);
     Access::VerifyTacticalControls(game, context);
     Access::VerifyManeuverControls(game, context);

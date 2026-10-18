@@ -3,6 +3,7 @@
 namespace NoTrace {
   enum class MenuPage {
     Main,
-    Options
+    Options,
+    Controls
   };
 }

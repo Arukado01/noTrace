@@ -53,23 +53,7 @@ namespace NoTrace {
   }
 
   void Game::BuildControls() {
-    Label("MOVIMIENTOS TÁCTICOS / TECLAS", {30.f, 20.f}, {714.f, 45.f}, 25);
-    Label("Zambullida: correr de pie y pulsar la tecla.\nRodada: estar agachado y pulsar la tecla.\nSe conservan F, R, ALT y los botones del ratón.", {30.f, 80.f}, {714.f, 110.f}, 19);
-    const auto selector = [this](const char *name, float y, int selected) {
-      Label(name, {30.f, y}, {300.f, 38.f}, 20);
-      auto box = tgui::ComboBox::create(); box->setPosition({340.f, y}); box->setSize({404.f, 40.f}); box->setTextSize(20);
-      for (const char *key : {"ESPACIO", "CTRL IZQUIERDO", "X", "J", "K"}) box->addItem(key);
-      box->setSelectedItemByIndex(std::clamp(selected, 0, 4)); panel_->add(box); return box;
-    };
-    auto dive = selector("Zambullida", 230.f, ctx.save.Get("NoTrace:DiveKey", 0));
-    auto roll = selector("Rodada", 300.f, ctx.save.Get("NoTrace:RollKey", 1));
-    auto status = Label("Elige teclas distintas para ambas acciones.", {30.f, 365.f}, {714.f, 60.f}, 18);
-    Button("GUARDAR CONTROLES", 450.f, [this, dive, roll, status] {
-      const int diveKey = dive->getSelectedItemIndex(), rollKey = roll->getSelectedItemIndex();
-      if (diveKey < 0 || rollKey < 0 || diveKey == rollKey) { status->setText("Selecciona dos teclas diferentes."); return; }
-      ctx.save.Set("NoTrace:DiveKey", diveKey); ctx.save.Set("NoTrace:RollKey", rollKey);
-      ctx.input.Clear(); BindInputs(); Open(Page::Options);
-    });
-    Button("VOLVER A OPCIONES", 520.f, [this] { Open(Page::Options); });
+    BuildControlsUi(ctx, panel_, [this] { ctx.input.Clear(); BindInputs(); Open(Page::Options); },
+                    [this] { Open(Page::Options); });
   }
 }

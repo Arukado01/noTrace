@@ -48,10 +48,10 @@ namespace NoTrace {
       return button;
     }
 
-    tgui::Group::Ptr CreateScreen() {
+    tgui::Group::Ptr CreateScreen(bool subtitle = true) {
       auto root = tgui::Group::create();
-      AddLabel(root, "CIO  //  CLANDESTINE INTELLIGENCE ORGANIZATION", "5.5%", "28.5%", "57%",
-               SMALL_TEXT_SIZE, MUTED_COLOR);
+      if (subtitle) AddLabel(root, "CIO  //  CLANDESTINE INTELLIGENCE ORGANIZATION", "5.5%", "28.5%", "57%",
+                             SMALL_TEXT_SIZE, MUTED_COLOR);
       AddLabel(root, "v0.1.1   |   Carlos Cortina   |   CIO", "5.5%", "94%", "43%",
                SMALL_TEXT_SIZE, MUTED_COLOR);
       auto slogan = AddLabel(root, "INFILTRA  ·  CUMPLE  ·  DESAPARECE", "65%", "94%", "31%",
@@ -70,12 +70,9 @@ namespace NoTrace {
       ctx.gui.Add(root);
     }
 
-    std::string ResolutionText(sf::Vector2u size) {
-      return std::to_string(size.x) + " x " + std::to_string(size.y);
-    }
   }
 
-  Menu::Menu(EngineContext &context) : Scene(context), backdrop_(context), root_(CreateScreen()) {
+  Menu::Menu(EngineContext &context) : Scene(context), backdrop_(context), root_(CreateScreen(false)) {
     mainPage_ = tgui::Group::create();
     optionsPage_ = tgui::Group::create();
     root_->add(mainPage_);
@@ -85,6 +82,7 @@ namespace NoTrace {
   }
 
   void Menu::InitMainPage() {
+    AddLabel(mainPage_, "CIO  //  CLANDESTINE INTELLIGENCE ORGANIZATION", "5.5%", "28.5%", "57%", SMALL_TEXT_SIZE, MUTED_COLOR);
     mainFocus_ = AddButton(ctx, mainPage_, "NUEVA OPERACIÓN", "5.5%", "43%");
     mainFocus_->onPress([this] { ctx.scenes.ChangeScene(std::string(GameplayConfig::GameScene)); });
     AddButton(ctx, mainPage_, "OPCIONES", "5.5%", "54%")->onPress([this] { ShowPage(MenuPage::Options); });
@@ -94,63 +92,30 @@ namespace NoTrace {
   }
 
   void Menu::InitOptionsPage() {
-    auto panel = tgui::Panel::create();
-    panel->setPosition("4%", "33%");
-    panel->setSize("61%", "59%");
-    panel->getRenderer()->setBackgroundColor({3, 8, 14, 235});
-    panel->getRenderer()->setBorderColor({49, 59, 76});
-    panel->setIgnoreMouseEvents(true);
-    optionsPage_->add(panel);
-    AddLabel(optionsPage_, "OPCIONES", "5.5%", "34%", "36%", HEADING_TEXT_SIZE, TEXT_COLOR);
-    currentLabel_ = AddLabel(optionsPage_, "", "5.5%", "39%", "56%", SMALL_TEXT_SIZE, MUTED_COLOR);
-
-    AddLabel(optionsPage_, "Resolución", "5.5%", "45%", "23%", BODY_TEXT_SIZE, TEXT_COLOR);
-    resolutionBox_ = tgui::ComboBox::create();
-    resolutionBox_->setPosition("30%", "45%");
-    resolutionBox_->setSize("29%", "5%");
-    resolutionBox_->setTextSize(BODY_TEXT_SIZE);
-    resolutionBox_->setItemsToDisplay(6);
-    optionsPage_->add(resolutionBox_);
-
-    AddLabel(optionsPage_, "Modo de pantalla", "5.5%", "52%", "23%", BODY_TEXT_SIZE, TEXT_COLOR);
-    modeBox_ = tgui::ComboBox::create();
-    modeBox_->setPosition("30%", "52%");
-    modeBox_->setSize("29%", "5%");
-    modeBox_->setTextSize(BODY_TEXT_SIZE);
-    optionsPage_->add(modeBox_);
-
-    volumeLabel_ = AddLabel(optionsPage_, "", "5.5%", "59%", "24%", BODY_TEXT_SIZE, TEXT_COLOR);
-    volumeSlider_ = tgui::Slider::create(MIN_VOLUME, MAX_VOLUME);
-    volumeSlider_->setPosition("30%", "60%");
-    volumeSlider_->setSize("29%", "3%");
-    volumeSlider_->setStep(VOLUME_STEP);
-    volumeSlider_->setFocusable(true);
-    volumeSlider_->onValueChange([this](float value) { SetVolume(value); });
-    optionsPage_->add(volumeSlider_);
-
-    cursorLabel_ = AddLabel(optionsPage_, "", "5.5%", "66%", "24%", BODY_TEXT_SIZE, TEXT_COLOR);
-    cursorSlider_ = tgui::Slider::create(MIN_CURSOR_SPEED, MAX_CURSOR_SPEED);
-    cursorSlider_->setPosition("30%", "67%");
-    cursorSlider_->setSize("29%", "3%");
-    cursorSlider_->setStep(CURSOR_SPEED_STEP);
-    cursorSlider_->setFocusable(true);
-    cursorSlider_->onValueChange([this](float value) { SetCursorSpeed(value); });
-    optionsPage_->add(cursorSlider_);
-
-    statusLabel_ = AddLabel(optionsPage_, "Aplica y confirma los cambios de pantalla.", "5.5%", "72%", "55%",
-                            SMALL_TEXT_SIZE, MUTED_COLOR);
-    AddButton(ctx, optionsPage_, "APLICAR", "5.5%", "78%", "23%")->onPress([this] { ApplyDisplayOptions(); });
-    auto defaults = AddButton(ctx, optionsPage_, "PREDETERMINADOS", "30%", "78%", "29%");
-    defaults->setTextSize(BODY_TEXT_SIZE);
-    defaults->onPress([this] { RestoreDefaults(); });
-    AddButton(ctx, optionsPage_, "VOLVER", "5.5%", "86%", "23%")->onPress([this] { ShowPage(MenuPage::Main); });
+    const auto panel = [&] {
+      auto result = tgui::Panel::create({780.f, 596.f}); result->setPosition("4%", "25%");
+      result->getRenderer()->setBackgroundColor({3, 8, 14, 250});
+      result->getRenderer()->setBorderColor(ACCENT_COLOR); optionsPage_->add(result); return result;
+    };
+    optionsPanel_ = panel(); controlsPanel_ = panel();
+    options_ = BuildOptionsUi(ctx, optionsPanel_, [this] { ShowPage(MenuPage::Controls); },
+                             [this] { ShowPage(MenuPage::Main); }, "VOLVER");
+    resolutionBox_ = options_.resolution; modeBox_ = options_.mode;
+    volumeSlider_ = options_.masterVolume; cursorSlider_ = options_.cursorSpeed;
   }
 
   void Menu::ShowPage(MenuPage page) {
     page_ = page;
     ctx.cursor.SetHovered(false);
     mainPage_->setVisible(page_ == MenuPage::Main);
-    optionsPage_->setVisible(page_ == MenuPage::Options);
+    optionsPage_->setVisible(page_ != MenuPage::Main);
+    optionsPanel_->setVisible(page_ == MenuPage::Options);
+    controlsPanel_->setVisible(page_ == MenuPage::Controls);
+    if (page_ == MenuPage::Controls) {
+      controlsPanel_->removeAllWidgets();
+      BuildControlsUi(ctx, controlsPanel_, [this] { ShowPage(MenuPage::Options); },
+                      [this] { ShowPage(MenuPage::Options); });
+    }
     fade_ = 0.f;
     if (page_ == MenuPage::Options) {
       SyncDisplayOptions();
@@ -161,88 +126,18 @@ namespace NoTrace {
   void Menu::FocusPage() {
     if (page_ == MenuPage::Main) {
       mainFocus_->setFocused(true);
-    } else {
+    } else if (page_ == MenuPage::Options) {
       resolutionBox_->setFocused(true);
     }
   }
 
   void Menu::SyncDisplayOptions() {
-    observedDisplay_ = ctx.window.GetDisplaySettings();
-    const auto &modes = ctx.window.GetAvailableResolutions();
-    resolutionBox_->removeAllItems();
-    for (const auto size : modes) {
-      resolutionBox_->addItem(ResolutionText(size));
-    }
-    modeBox_->removeAllItems();
-    modeBox_->addItem("Ventana");
-    if (ctx.window.IsFullscreenAvailable()) {
-      modeBox_->addItem("Pantalla completa");
-    } else {
-      statusLabel_->setText("SFML no ofrece modos compatibles; se mantiene el tamaño de ventana actual.");
-    }
-    auto selected = std::find(modes.begin(), modes.end(), observedDisplay_.resolution);
-    if (selected == modes.end()) {
-      selected = std::find(modes.begin(), modes.end(), ctx.window.GetDefaultDisplaySettings().resolution);
-    }
-    if (selected != modes.end()) {
-      resolutionBox_->setSelectedItemByIndex(static_cast<std::size_t>(selected - modes.begin()));
-    }
-    modeBox_->setSelectedItemByIndex(observedDisplay_.fullscreen ? 1 : 0);
-    currentLabel_->setText("ACTUAL: " + ResolutionText(observedDisplay_.resolution) +
-                          (observedDisplay_.fullscreen ? " / Pantalla completa" : " / Ventana"));
-  }
-
-  void Menu::ApplyDisplayOptions() {
-    const int index = resolutionBox_->getSelectedItemIndex();
-    const auto &modes = ctx.window.GetAvailableResolutions();
-    if (index < 0 || static_cast<std::size_t>(index) >= modes.size()) {
-      statusLabel_->setText("Selecciona una resolución compatible.");
-      return;
-    }
-    const DisplaySettings settings{modes[static_cast<std::size_t>(index)], modeBox_->getSelectedItemIndex() == 1};
-    if (settings == ctx.window.GetDisplaySettings()) {
-      statusLabel_->setText("La configuración seleccionada ya está activa.");
-    } else if (!ctx.window.RequestDisplaySettings(settings)) {
-      statusLabel_->setText("No se puede aplicar este modo de pantalla.");
-    } else {
-      statusLabel_->setText("Confirma el cambio o espera la restauración automática.");
-    }
-  }
-
-  void Menu::RestoreDefaults() {
-    volumeSlider_->setValue(gConfig.globalVolume);
-    cursorSlider_->setValue(gConfig.cursorSpeed);
-    SetVolume(volumeSlider_->getValue());
-    SetCursorSpeed(cursorSlider_->getValue());
-    const auto settings = ctx.window.GetDefaultDisplaySettings();
-    if (settings != ctx.window.GetDisplaySettings()) {
-      ctx.window.RequestDisplaySettings(settings);
-    }
-    SyncDisplayOptions();
-    statusLabel_->setText("Valores predeterminados restaurados; confirma el modo si cambia.");
-  }
-
-  void Menu::SetVolume(float volume) {
-    const float value = std::clamp(volume, MIN_VOLUME, MAX_VOLUME);
-    ctx.audio.SetGlobalVolume(value);
-    ctx.save.Set(VOLUME_SAVE_KEY, value);
-    volumeLabel_->setText("Volumen general: " + std::to_string(static_cast<int>(std::lround(value))) + "%");
-  }
-
-  void Menu::SetCursorSpeed(float speed) {
-    const float value = std::clamp(speed, MIN_CURSOR_SPEED, MAX_CURSOR_SPEED);
-    ctx.cursor.SetSpeed(value);
-    ctx.save.Set(CURSOR_SPEED_SAVE_KEY, value);
-    cursorLabel_->setText("Cursor / mando: " + std::to_string(static_cast<int>(value)));
+    observedDisplay_ = ctx.window.GetDisplaySettings(); SyncOptionsUi(ctx, options_);
   }
 
   void Menu::Start() {
-    PrepareScreen(ctx, root_);
-    ShowPage(MenuPage::Main);
-    volumeSlider_->setValue(std::clamp(ctx.save.Get<float>(VOLUME_SAVE_KEY, gConfig.globalVolume), MIN_VOLUME, MAX_VOLUME));
-    cursorSlider_->setValue(std::clamp(ctx.save.Get<float>(CURSOR_SPEED_SAVE_KEY, gConfig.cursorSpeed), MIN_CURSOR_SPEED, MAX_CURSOR_SPEED));
-    SetVolume(volumeSlider_->getValue());
-    SetCursorSpeed(cursorSlider_->getValue());
+    ApplyUserPreferences(ctx); PrepareScreen(ctx, root_); ShowPage(MenuPage::Main);
+    SyncDisplayOptions();
   }
 
   void Menu::Update() {
@@ -260,35 +155,11 @@ namespace NoTrace {
 
   void Menu::OnEvent(const sf::Event &event) {
     const auto *key = event.getIf<sf::Event::KeyPressed>();
-    if (!key || page_ != MenuPage::Options) {
-      return;
-    }
+    if (!key || page_ == MenuPage::Main) return;
     if (key->scancode == sf::Keyboard::Scan::Escape) {
-      ShowPage(MenuPage::Main);
-      return;
+      ShowPage(page_ == MenuPage::Controls ? MenuPage::Options : MenuPage::Main); return;
     }
-    const auto slider = volumeSlider_->isFocused() ? volumeSlider_ :
-                        (cursorSlider_->isFocused() ? cursorSlider_ : nullptr);
-    if (!slider) {
-      return;
-    }
-    // Los deslizadores TGUI requieren adaptar las teclas desde la escena.
-    switch (key->scancode) {
-    case sf::Keyboard::Scan::Left:
-      slider->setValue(slider->getValue() - slider->getStep());
-      break;
-    case sf::Keyboard::Scan::Right:
-      slider->setValue(slider->getValue() + slider->getStep());
-      break;
-    case sf::Keyboard::Scan::Home:
-      slider->setValue(slider->getMinimum());
-      break;
-    case sf::Keyboard::Scan::End:
-      slider->setValue(slider->getMaximum());
-      break;
-    default:
-      break;
-    }
+    if (page_ == MenuPage::Options) HandleOptionsKey(event, options_);
   }
 
   void Menu::OnPause(bool paused) {
