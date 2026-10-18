@@ -1,7 +1,7 @@
 {
   "author": "Carlos Cortina",
   "organization": "CIO",
-  "generatedAtUtc": "2026-10-18T06:13:20.588223+00:00",
+  "generatedAtUtc": "2026-10-18T07:46:38.098638+00:00",
   "schemaVersion": 2,
   "scope": "original_sources_authored_rig_paged_raster_and_runtime_contract",
   "activeGameContentChanged": true,
@@ -11,9 +11,27 @@
     {
       "clipId": 0,
       "clip": "Idle",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "active_shared_original_rig_with_guard_rifle",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "Existing full-body source; reauthor identity and true phases",
       "classification": "redesign",
@@ -25,9 +43,27 @@
     {
       "clipId": 1,
       "clip": "Walk",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "active_shared_original_rig_with_guard_rifle",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "Existing full-body source; reauthor identity and true phases",
       "classification": "redesign",
@@ -39,9 +75,27 @@
     {
       "clipId": 2,
       "clip": "Run",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "active_shared_original_rig_with_guard_rifle",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "Existing full-body source; reauthor identity and true phases",
       "classification": "redesign",
@@ -53,9 +107,27 @@
     {
       "clipId": 3,
       "clip": "CrouchIdle",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "not_selected_by_guard_state_machine",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "CrouchWalk first pose",
       "classification": "redesign",
@@ -67,9 +139,27 @@
     {
       "clipId": 4,
       "clip": "CrouchWalk",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "not_selected_by_guard_state_machine",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "Existing full-body source; reauthor identity and true phases",
       "classification": "redesign",
@@ -81,9 +171,27 @@
     {
       "clipId": 5,
       "clip": "CrouchRun",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "not_selected_by_guard_state_machine",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "Existing full-body source; reauthor identity and true phases",
       "classification": "redesign",
@@ -95,9 +203,27 @@
     {
       "clipId": 6,
       "clip": "LieDown",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "not_selected_by_guard_state_machine",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "Existing full-body source; reauthor identity and true phases",
       "classification": "redesign",
@@ -109,9 +235,27 @@
     {
       "clipId": 7,
       "clip": "ProneIdle",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "not_selected_by_guard_state_machine",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "LieDown final pose",
       "classification": "redesign",
@@ -123,9 +267,27 @@
     {
       "clipId": 8,
       "clip": "Crawl",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "not_selected_by_guard_state_machine",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "Existing full-body source; reauthor identity and true phases",
       "classification": "redesign",
@@ -137,9 +299,27 @@
     {
       "clipId": 9,
       "clip": "StandUp",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "not_selected_by_guard_state_machine",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "LieDown reversed",
       "classification": "redesign",
@@ -151,9 +331,27 @@
     {
       "clipId": 10,
       "clip": "Dive",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "not_selected_by_guard_state_machine",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "Existing full-body source; reauthor identity and true phases",
       "classification": "redesign",
@@ -165,9 +363,27 @@
     {
       "clipId": 11,
       "clip": "Roll",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "not_selected_by_guard_state_machine",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "Existing full-body source; reauthor identity and true phases",
       "classification": "redesign",
@@ -179,9 +395,27 @@
     {
       "clipId": 12,
       "clip": "Aim",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "not_selected_by_guard_state_machine",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "Existing full-body source; reauthor identity and true phases",
       "classification": "redesign",
@@ -193,9 +427,27 @@
     {
       "clipId": 13,
       "clip": "Shoot",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "active_shared_original_rig_with_guard_rifle",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "Existing full-body source; reauthor identity and true phases",
       "classification": "redesign",
@@ -207,9 +459,27 @@
     {
       "clipId": 14,
       "clip": "Reload",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "not_selected_by_guard_state_machine",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "Existing full-body source; reauthor identity and true phases",
       "classification": "redesign",
@@ -221,9 +491,27 @@
     {
       "clipId": 15,
       "clip": "Punch",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "active_shared_original_rig_with_guard_rifle",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "Existing full-body source; reauthor identity and true phases",
       "classification": "redesign",
@@ -235,9 +523,27 @@
     {
       "clipId": 16,
       "clip": "Kick",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "not_selected_by_guard_state_machine",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "Existing full-body source; reauthor identity and true phases",
       "classification": "redesign",
@@ -249,9 +555,27 @@
     {
       "clipId": 17,
       "clip": "Grab",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "not_selected_by_guard_state_machine",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "Existing full-body source; reauthor identity and true phases",
       "classification": "redesign",
@@ -263,9 +587,27 @@
     {
       "clipId": 18,
       "clip": "Choke",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "not_selected_by_guard_state_machine",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "Existing full-body source; reauthor identity and true phases",
       "classification": "redesign",
@@ -277,9 +619,27 @@
     {
       "clipId": 19,
       "clip": "Push",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "not_selected_by_guard_state_machine",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "Grab cycle",
       "classification": "redesign",
@@ -291,9 +651,27 @@
     {
       "clipId": 20,
       "clip": "Throw",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "not_selected_by_guard_state_machine",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "Existing full-body source; reauthor identity and true phases",
       "classification": "redesign",
@@ -305,9 +683,27 @@
     {
       "clipId": 21,
       "clip": "WallBang",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "not_selected_by_guard_state_machine",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "Punch cycle",
       "classification": "redesign",
@@ -319,9 +715,27 @@
     {
       "clipId": 22,
       "clip": "Damage",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "active_shared_original_rig_with_guard_rifle",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "Fall first poses",
       "classification": "redesign",
@@ -333,9 +747,27 @@
     {
       "clipId": 23,
       "clip": "Fall",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "active_shared_original_rig_with_guard_rifle",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "Existing full-body source; reauthor identity and true phases",
       "classification": "redesign",
@@ -347,9 +779,27 @@
     {
       "clipId": 24,
       "clip": "Unconscious",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "active_shared_original_rig_with_guard_rifle",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "Fall final pose",
       "classification": "redesign",
@@ -361,9 +811,27 @@
     {
       "clipId": 25,
       "clip": "Interact",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "active_shared_original_rig_with_guard_rifle",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "Existing full-body source; reauthor identity and true phases",
       "classification": "redesign",
@@ -375,9 +843,27 @@
     {
       "clipId": 26,
       "clip": "HideEnter",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "not_selected_by_guard_state_machine",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "Existing full-body source; reauthor identity and true phases",
       "classification": "redesign",
@@ -389,9 +875,27 @@
     {
       "clipId": 27,
       "clip": "HideExit",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "not_selected_by_guard_state_machine",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "HideEnter reversed",
       "classification": "redesign",
@@ -403,9 +907,27 @@
     {
       "clipId": 28,
       "clip": "CoverEnter",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "active_standing_body_crouched_upper_on_crouched_lower",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "active_standing_body_crouched_upper_on_crouched_lower",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "not_selected_by_guard_state_machine",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "Existing full-body source; reauthor identity and true phases",
       "classification": "redesign",
@@ -417,9 +939,27 @@
     {
       "clipId": 29,
       "clip": "CoverIdle",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "not_selected_by_guard_state_machine",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "CoverEnter hold pose",
       "classification": "redesign",
@@ -431,9 +971,27 @@
     {
       "clipId": 30,
       "clip": "CoverMove",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "not_selected_by_guard_state_machine",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "CoverEnter cycle",
       "classification": "redesign",
@@ -445,9 +1003,27 @@
     {
       "clipId": 31,
       "clip": "CrouchEnter",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "not_selected_by_guard_state_machine",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "LieDown first poses",
       "classification": "redesign",
@@ -459,9 +1035,27 @@
     {
       "clipId": 32,
       "clip": "CrouchExit",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "not_selected_by_guard_state_machine",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "LieDown first poses reversed",
       "classification": "redesign",
@@ -473,9 +1067,27 @@
     {
       "clipId": 33,
       "clip": "DragStart",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "not_selected_by_guard_state_machine",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "New authored sequence",
       "classification": "redesign",
@@ -487,9 +1099,27 @@
     {
       "clipId": 34,
       "clip": "DragLoop",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "not_selected_by_guard_state_machine",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "New authored sequence",
       "classification": "redesign",
@@ -501,9 +1131,27 @@
     {
       "clipId": 35,
       "clip": "DragStop",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "authored_no_direct_state_binding",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "authored_no_direct_state_binding",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "not_selected_by_guard_state_machine",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "New authored sequence",
       "classification": "redesign",
@@ -515,9 +1163,27 @@
     {
       "clipId": 36,
       "clip": "Death",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "active_shared_original_rig_with_guard_rifle",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "New authored sequence",
       "classification": "redesign",
@@ -529,9 +1195,27 @@
     {
       "clipId": 37,
       "clip": "GripVictimEnter",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "authored_no_direct_state_binding",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "authored_no_direct_state_binding",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "not_selected_by_guard_state_machine",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "New authored sequence",
       "classification": "redesign",
@@ -543,9 +1227,27 @@
     {
       "clipId": 38,
       "clip": "GripVictimHold",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "active_shared_original_rig_with_guard_rifle",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "New authored sequence",
       "classification": "redesign",
@@ -557,9 +1259,27 @@
     {
       "clipId": 39,
       "clip": "GripVictimRelease",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "authored_no_direct_state_binding",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "authored_no_direct_state_binding",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "not_selected_by_guard_state_machine",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "New authored sequence",
       "classification": "redesign",
@@ -571,9 +1291,27 @@
     {
       "clipId": 40,
       "clip": "SuppressorAttach",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "active",
+          "consumer": "WorldRenderer::AgentWeaponFrame"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "active",
+          "consumer": "WorldRenderer::AgentWeaponFrame"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "not_selected_by_guard_state_machine",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "New authored sequence",
       "classification": "redesign",
@@ -585,9 +1323,27 @@
     {
       "clipId": 41,
       "clip": "SuppressorDetach",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "active",
+          "consumer": "WorldRenderer::AgentWeaponFrame"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "active",
+          "consumer": "WorldRenderer::AgentWeaponFrame"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "not_selected_by_guard_state_machine",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "New authored sequence",
       "classification": "redesign",
@@ -599,9 +1355,27 @@
     {
       "clipId": 42,
       "clip": "WeaponHolster",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "active",
+          "consumer": "WorldRenderer::AgentWeaponFrame"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "active",
+          "consumer": "WorldRenderer::AgentWeaponFrame"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "not_selected_by_guard_state_machine",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "New authored sequence",
       "classification": "redesign",
@@ -613,9 +1387,27 @@
     {
       "clipId": 43,
       "clip": "WeaponDraw",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "active",
+          "consumer": "WorldRenderer::AgentWeaponFrame"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "active",
+          "consumer": "WorldRenderer::AgentWeaponFrame"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "not_selected_by_guard_state_machine",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "New authored sequence",
       "classification": "redesign",
@@ -627,9 +1419,27 @@
     {
       "clipId": 44,
       "clip": "TraversalAttach",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "not_selected_by_guard_state_machine",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "New authored sequence",
       "classification": "redesign",
@@ -641,9 +1451,27 @@
     {
       "clipId": 45,
       "clip": "TraversalMove",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "authored_no_direct_state_binding",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "authored_no_direct_state_binding",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "not_selected_by_guard_state_machine",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "New authored sequence",
       "classification": "redesign",
@@ -655,9 +1483,27 @@
     {
       "clipId": 46,
       "clip": "TraversalRelease",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "authored_no_direct_state_binding",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "authored_no_direct_state_binding",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "not_selected_by_guard_state_machine",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "New authored sequence",
       "classification": "redesign",
@@ -669,9 +1515,27 @@
     {
       "clipId": 47,
       "clip": "TraversalHang",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "not_selected_by_guard_state_machine",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "New authored sequence",
       "classification": "redesign",
@@ -683,9 +1547,27 @@
     {
       "clipId": 48,
       "clip": "TraversalShimmy",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "not_selected_by_guard_state_machine",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "New authored sequence",
       "classification": "redesign",
@@ -697,9 +1579,27 @@
     {
       "clipId": 49,
       "clip": "TraversalClimb",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "not_selected_by_guard_state_machine",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "New authored sequence",
       "classification": "redesign",
@@ -711,9 +1611,27 @@
     {
       "clipId": 50,
       "clip": "TraversalTransfer",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "not_selected_by_guard_state_machine",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "New authored sequence",
       "classification": "redesign",
@@ -725,9 +1643,27 @@
     {
       "clipId": 51,
       "clip": "TraversalDrop",
-      "entities": [
-        "CIO",
-        "Guard compatible with equipment"
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "not_selected_by_guard_state_machine",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
       ],
       "before": "New authored sequence",
       "classification": "redesign",
@@ -737,64 +1673,23 @@
       "status": "generated_and_integrated_runtime_validation_pending"
     }
   ],
-  "missingClips": [
-    {
-      "clip": "DragStart",
-      "status": "requires_real_sequence_and_state_integration"
-    },
-    {
-      "clip": "DragLoop",
-      "status": "requires_real_sequence_and_state_integration"
-    },
-    {
-      "clip": "DragStop",
-      "status": "requires_real_sequence_and_state_integration"
-    },
-    {
-      "clip": "Death",
-      "status": "requires_real_sequence_and_state_integration"
-    },
-    {
-      "clip": "GripVictimEnter",
-      "status": "requires_real_sequence_and_state_integration"
-    },
-    {
-      "clip": "GripVictimHold",
-      "status": "requires_real_sequence_and_state_integration"
-    },
-    {
-      "clip": "GripVictimRelease",
-      "status": "requires_real_sequence_and_state_integration"
-    },
-    {
-      "clip": "SuppressorAttach",
-      "status": "requires_real_sequence_and_state_integration"
-    },
-    {
-      "clip": "SuppressorDetach",
-      "status": "requires_real_sequence_and_state_integration"
-    },
-    {
-      "clip": "WeaponHolster",
-      "status": "requires_real_sequence_and_state_integration"
-    },
-    {
-      "clip": "WeaponDraw",
-      "status": "requires_real_sequence_and_state_integration"
-    },
-    {
-      "clip": "FutureTraversalGrip",
-      "status": "reserved_for_doc3"
-    },
-    {
-      "clip": "FutureTraversalTravel",
-      "status": "reserved_for_doc3"
-    },
-    {
-      "clip": "FutureTraversalRelease",
-      "status": "reserved_for_doc3"
-    }
+  "initialMissingClips": [
+    "DragStart",
+    "DragLoop",
+    "DragStop",
+    "Death",
+    "GripVictimEnter",
+    "GripVictimHold",
+    "GripVictimRelease",
+    "SuppressorAttach",
+    "SuppressorDetach",
+    "WeaponHolster",
+    "WeaponDraw",
+    "TraversalAttach",
+    "TraversalMove",
+    "TraversalRelease"
   ],
+  "missingClips": [],
   "familyProposal": [
     {
       "id": 0,
@@ -834,37 +1729,37 @@
     {
       "id": 7,
       "name": "Push",
-      "status": "append_proposed_not_integrated"
+      "status": "appended_authored_and_integrated"
     },
     {
       "id": 8,
       "name": "Drag",
-      "status": "append_proposed_not_integrated"
+      "status": "appended_authored_and_integrated"
     },
     {
       "id": 9,
       "name": "Death",
-      "status": "append_proposed_not_integrated"
+      "status": "appended_authored_and_integrated"
     },
     {
       "id": 10,
       "name": "GripVictim",
-      "status": "append_proposed_not_integrated"
+      "status": "appended_authored_and_integrated"
     },
     {
       "id": 11,
       "name": "Suppressor",
-      "status": "append_proposed_not_integrated"
+      "status": "appended_authored_and_integrated"
     },
     {
       "id": 12,
       "name": "WeaponSwitch",
-      "status": "append_proposed_not_integrated"
+      "status": "appended_authored_and_integrated"
     },
     {
       "id": 13,
-      "name": "FutureTraversal",
-      "status": "append_proposed_not_integrated"
+      "name": "Traversal",
+      "status": "appended_authored_and_integrated"
     }
   ],
   "sources": [
@@ -5738,7 +6633,7 @@
       "generator": "OpenAI image_gen builtin",
       "prompt": "Art/NoTrace/Characters/Prompts/OperativeRigParts-E-v3.txt",
       "status": "registered_authored_parts_used_by_rig",
-      "activeGameContent": false,
+      "activeGameContent": true,
       "issues": [
         "Comprobar que sólo el muslo derecho tenga funda",
         "Usar rectángulos completos revisados, no asumir cuadrícula exacta",
@@ -6059,7 +6954,7 @@
       "generator": "OpenAI image_gen builtin",
       "prompt": "Art/NoTrace/Characters/Prompts/OperativeRigParts-N-v2.txt",
       "status": "registered_authored_parts_used_by_rig",
-      "activeGameContent": false,
+      "activeGameContent": true,
       "issues": [
         "Comprobar que sólo el muslo derecho tenga funda",
         "Usar rectángulos completos revisados, no asumir cuadrícula exacta",
@@ -6702,7 +7597,7 @@
       "generator": "OpenAI image_gen builtin",
       "prompt": "Art/NoTrace/Characters/Prompts/OperativeRigParts-NE-v2.txt",
       "status": "registered_authored_parts_used_by_rig",
-      "activeGameContent": false,
+      "activeGameContent": true,
       "issues": [
         "Comprobar que sólo el muslo derecho tenga funda",
         "Usar rectángulos completos revisados, no asumir cuadrícula exacta",
@@ -7344,7 +8239,7 @@
       "generator": "OpenAI image_gen builtin",
       "prompt": "Art/NoTrace/Characters/Prompts/OperativeRigParts-NW-v3.txt",
       "status": "registered_authored_parts_used_by_rig",
-      "activeGameContent": false,
+      "activeGameContent": true,
       "issues": [
         "Comprobar que sólo el muslo derecho tenga funda",
         "Usar rectángulos completos revisados, no asumir cuadrícula exacta",
@@ -7986,7 +8881,7 @@
       "generator": "OpenAI image_gen builtin",
       "prompt": "Art/NoTrace/Characters/Prompts/OperativeRigParts-S-v2.txt",
       "status": "registered_authored_parts_used_by_rig",
-      "activeGameContent": false,
+      "activeGameContent": true,
       "issues": [
         "Comprobar que sólo el muslo derecho tenga funda",
         "Usar rectángulos completos revisados, no asumir cuadrícula exacta",
@@ -8950,7 +9845,7 @@
       "generator": "OpenAI image_gen builtin",
       "prompt": "Art/NoTrace/Characters/Prompts/OperativeRigParts-SE-v3.txt",
       "status": "registered_authored_parts_used_by_rig",
-      "activeGameContent": false,
+      "activeGameContent": true,
       "issues": [
         "Comprobar que sólo el muslo derecho tenga funda",
         "Usar rectángulos completos revisados, no asumir cuadrícula exacta",
@@ -9271,7 +10166,7 @@
       "generator": "OpenAI image_gen builtin",
       "prompt": "Art/NoTrace/Characters/Prompts/OperativeRigParts-SW-v2.txt",
       "status": "registered_authored_parts_used_by_rig",
-      "activeGameContent": false,
+      "activeGameContent": true,
       "issues": [
         "Comprobar que sólo el muslo derecho tenga funda",
         "Usar rectángulos completos revisados, no asumir cuadrícula exacta",
@@ -9913,7 +10808,7 @@
       "generator": "OpenAI image_gen builtin",
       "prompt": "Art/NoTrace/Characters/Prompts/OperativeRigParts-W-v3.txt",
       "status": "registered_authored_parts_used_by_rig",
-      "activeGameContent": false,
+      "activeGameContent": true,
       "issues": [
         "Comprobar que sólo el muslo derecho tenga funda",
         "Usar rectángulos completos revisados, no asumir cuadrícula exacta",
@@ -10233,8 +11128,8 @@
       "author": "Carlos Cortina",
       "generator": "OpenAI image_gen builtin",
       "prompt": "Art/NoTrace/Characters/Prompts/Weapon-GuardRifle-16views-v1.txt",
-      "status": "source_candidate_pending_pose_and_game_scale_review",
-      "activeGameContent": false
+      "status": "registered_weapon_props_runtime_review_pending",
+      "activeGameContent": true
     },
     {
       "file": "Art/NoTrace/Characters/Sources/Weapon-NonLethal-16views-v1.png",
@@ -10549,8 +11444,8 @@
       "author": "Carlos Cortina",
       "generator": "OpenAI image_gen builtin",
       "prompt": "Art/NoTrace/Characters/Prompts/Weapon-NonLethal-16views-v1.txt",
-      "status": "source_candidate_pending_pose_and_game_scale_review",
-      "activeGameContent": false
+      "status": "registered_weapon_props_runtime_review_pending",
+      "activeGameContent": true
     },
     {
       "file": "Art/NoTrace/Characters/Sources/Weapon-Pistol-16views-v1.png",
@@ -10865,10 +11760,11 @@
       "author": "Carlos Cortina",
       "generator": "OpenAI image_gen builtin",
       "prompt": "Art/NoTrace/Characters/Prompts/Weapon-Pistol-16views-v1.txt",
-      "status": "source_candidate_pending_pose_and_game_scale_review",
-      "activeGameContent": false
+      "status": "registered_weapon_props_runtime_review_pending",
+      "activeGameContent": true
     }
   ],
   "atlasMetadata": "Art\\NoTrace\\Characters\\Atlas\\CharacterAtlasMetadata.json",
+  "runtimeReview": null,
   "warning": "Hash distinto no demuestra movimiento correcto; la validación offline no sustituye capturas runtime ni partida manual"
 }

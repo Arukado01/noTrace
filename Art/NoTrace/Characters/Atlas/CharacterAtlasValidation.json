@@ -1,6 +1,6 @@
 {
   "status": "PASS",
-  "checks": 80226,
+  "checks": 81378,
   "clips": 52,
   "stanceVariants": 68,
   "frames": 4352,
@@ -880,49 +880,49 @@
       "clip": "Choke",
       "stance": "Standing",
       "direction": "S",
-      "distinctRasterPhases": 5
+      "distinctRasterPhases": 8
     },
     {
       "clip": "Choke",
       "stance": "Standing",
       "direction": "SE",
-      "distinctRasterPhases": 5
+      "distinctRasterPhases": 8
     },
     {
       "clip": "Choke",
       "stance": "Standing",
       "direction": "E",
-      "distinctRasterPhases": 5
+      "distinctRasterPhases": 8
     },
     {
       "clip": "Choke",
       "stance": "Standing",
       "direction": "NE",
-      "distinctRasterPhases": 5
+      "distinctRasterPhases": 8
     },
     {
       "clip": "Choke",
       "stance": "Standing",
       "direction": "N",
-      "distinctRasterPhases": 5
+      "distinctRasterPhases": 8
     },
     {
       "clip": "Choke",
       "stance": "Standing",
       "direction": "NW",
-      "distinctRasterPhases": 5
+      "distinctRasterPhases": 8
     },
     {
       "clip": "Choke",
       "stance": "Standing",
       "direction": "W",
-      "distinctRasterPhases": 5
+      "distinctRasterPhases": 8
     },
     {
       "clip": "Choke",
       "stance": "Standing",
       "direction": "SW",
-      "distinctRasterPhases": 5
+      "distinctRasterPhases": 8
     },
     {
       "clip": "Push",

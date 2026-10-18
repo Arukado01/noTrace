@@ -1,5 +1,6 @@
 import argparse
 import hashlib
+import io
 import json
 import math
 from pathlib import Path
@@ -31,6 +32,24 @@ CLIPS = [
     ("TraversalTransfer", 13, 48, 12, False), ("TraversalDrop", 13, 56, 16, False),
 ]
 WEAPON_CLIPS = ["Aim", "Shoot", "Reload", "Throw"]
+
+
+def save_bytes(path, data):
+    if path.exists() and path.read_bytes() == data:
+        return
+    temporary = path.with_name(path.name + ".writing")
+    temporary.write_bytes(data)
+    temporary.replace(path)
+
+
+def save_text(path, text):
+    save_bytes(path, text.encode("utf-8"))
+
+
+def save_png(image, path, **options):
+    data = io.BytesIO()
+    image.save(data, format="PNG", **options)
+    save_bytes(path, data.getvalue())
 
 
 def write_config(path):
@@ -73,7 +92,7 @@ ENTRIES
   }};
 }
 '''.replace("NAMES", names).replace("ENTRIES", entries)
-    path.write_text(source, encoding="utf-8")
+    save_text(path, source)
 
 
 def mix(a, b, fraction):
@@ -257,14 +276,18 @@ def body_pose(clip, frame, stance="Standing"):
             for side, sign in [("left", 1.0), ("right", -1.0)]:
                 points[side + "_wrist"] = (10.0 + extension * 15.0, sign * 7.0, 42.0)
         else:
-            angle = math.radians(14.0)
-            forward, height = 20.0 * math.sin(angle), 35.0 + 20.0 * math.cos(angle)
-            points["neck"] = (forward, 0.0, height)
-            points["head"] = (forward + 7.0 * math.sin(angle), 0.0, height + 7.0 * math.cos(angle))
-            points["backpack"] = (forward - 3.0, 0.0, height - 9.0)
-            squeeze = math.sin(phase) * (1.8 if clip == "Choke" else 0.35)
+            angle = math.radians(25.0)
+            points["pelvis"] = (6.0, 0.0, 31.5)
+            def torso_point(forward, side, height):
+                return add(points["pelvis"], (forward * math.cos(angle) + height * math.sin(angle), side,
+                                               -forward * math.sin(angle) + height * math.cos(angle)))
+            points["neck"] = torso_point(0.0, 0.0, 20.0)
+            points["head"] = torso_point(0.0, 0.0, 27.0)
+            points["backpack"] = torso_point(-3.0, 0.0, 11.0)
+            squeeze = [0.0, 0.5, 1.1, 1.5, 2.1, 1.8, 1.0, 0.35][frame] if clip == "Choke" else math.sin(phase) * 0.35
             for side, sign in [("left", 1.0), ("right", -1.0)]:
-                points[side + "_shoulder"] = (forward + 3.0, sign * 6.5, height - 6.0)
+                points[side + "_hip"] = add(points["pelvis"], (0.0, sign * 4.0, 0.0))
+                points[side + "_shoulder"] = torso_point(-3.0, sign * 6.5, 14.0)
                 points[side + "_wrist"] = (33.5 if side == "right" else 33.0, sign * (4.5 - squeeze), 52.0 if side == "right" else 51.5)
     elif clip == "Damage":
         recoil = math.sin(t * math.pi)
@@ -356,7 +379,7 @@ def generate(root, content=None):
                         preview.alpha_composite(prop)
                     sequence.append(preview)
         for layer, image in [("full", full), ("lower", lower), ("upper", upper), *cqc_layers.items()]:
-            image.save(output / (filename + "-" + layer + ".png"))
+            save_png(image, output / (filename + "-" + layer + ".png"))
         page = {"name": filename, "full": filename + "-full.png", "lower": filename + "-lower.png", "upper": filename + "-upper.png"}
         page.update({layer: filename + "-" + layer + ".png" for layer in cqc_layers})
         pages.append(page)
@@ -370,14 +393,12 @@ def generate(root, content=None):
               "sourceRegistration": "../Manifests/rig-pieces.registration.json", "weaponRegistration": "../Manifests/weapons.registration.json",
               "clips": [{"name": name, "family": family, "first": first, "count": 8, "fps": fps, "loop": loop} for name, family, first, fps, loop in CLIPS],
               "pages": packed_pages, "authoringPages": pages, "weapons": weapons, "frames": metadata, "status": "generated_requires_runtime_and_visual_validation"}
-    (output / "CharacterAtlasMetadata.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
+    save_text(output / "CharacterAtlasMetadata.json", json.dumps(report, indent=2))
     runtime = {name: report[name] for name in ["author", "date", "schemaVersion", "cellSize", "standingPixels", "groundAnchor", "directions", "pages", "weapons"]}
     runtime["frames"] = [{key: entry[key] for key in ["index", "groundAnchor", "pelvis", "muzzle", "grip", "carryGrip", "supportWidth", "art"]} for entry in metadata]
-    (output / "CharacterAtlasRuntime.json").write_text(json.dumps(runtime, separators=(",", ":")), encoding="utf-8")
-    with (output / "CharacterAtlasMetadata.frames").open("w", encoding="utf-8") as stream:
-        for item in metadata:
-            stream.write(" ".join(str(value) for value in [item["index"], item["page"], *item["rect"], *item["groundAnchor"], *item["pelvis"], *item["muzzle"], *item["grip"], item["supportWidth"]]) + "\n")
-    (output / "CharacterAtlasMetadata.pages").write_text("\n".join(" ".join([item["full"], item["lower"], item["upper"]]) for item in pages) + "\n", encoding="utf-8")
+    save_text(output / "CharacterAtlasRuntime.json", json.dumps(runtime, separators=(",", ":")))
+    save_text(output / "CharacterAtlasMetadata.frames", "".join(" ".join(str(value) for value in [item["index"], item["page"], *item["rect"], *item["groundAnchor"], *item["pelvis"], *item["muzzle"], *item["grip"], item["supportWidth"]]) + "\n" for item in metadata))
+    save_text(output / "CharacterAtlasMetadata.pages", "\n".join(" ".join([item["full"], item["lower"], item["upper"]]) for item in pages) + "\n")
     gallery = []
     columns = 8
     rows = math.ceil(len(review_sequences) / columns)
@@ -389,16 +410,16 @@ def generate(root, content=None):
             view.alpha_composite(sequence[phase], (x, y))
             drawing.text((x + 3, y + CELL), name, fill=(198, 218, 218))
         gallery.append(view)
-    gallery[2].save(output / "CharacterActions-review.png")
-    gallery[0].save(output / "CharacterActions-animated.png", save_all=True, append_images=gallery[1:], duration=125, loop=0)
+    save_png(gallery[2], output / "CharacterActions-review.png")
+    save_png(gallery[0], output / "CharacterActions-animated.png", save_all=True, append_images=gallery[1:], duration=125, loop=0)
     quality_galleries(root, output, parts_by_direction)
     if content:
         content.mkdir(parents=True, exist_ok=True)
         for path in list((output / "Packed").glob("*.png")) + [output / "WeaponProps.png", output / "WeaponSelection.png"]:
-            (content / path.name).write_bytes(path.read_bytes())
+            save_bytes(content / path.name, path.read_bytes())
         for path in [output / "CharacterAtlasMetadata.json"]:
-            (content / path.name).write_bytes(path.read_bytes())
-        (content / "CharacterAtlasRuntime.json").write_bytes((output / "CharacterAtlasRuntime.json").read_bytes())
+            save_bytes(content / path.name, path.read_bytes())
+        save_bytes(content / "CharacterAtlasRuntime.json", (output / "CharacterAtlasRuntime.json").read_bytes())
     print(json.dumps({"clips": len(CLIPS), "pages": len(pages), "frames": len(metadata), "layers": 3, "pairedCqcLayers": 2, "content": str(content) if content else None}))
 
 
@@ -435,7 +456,7 @@ def pack_layers(output, pages, metadata):
     records = []
     for index, atlas in enumerate(atlases):
         filename = "Characters-" + str(index).zfill(2) + ".png"
-        atlas.save(destination / filename)
+        save_png(atlas, destination / filename)
         records.append({"file": filename, "size": list(atlas.size), "sha256": hashlib.sha256((destination / filename).read_bytes()).hexdigest()})
     return records
 
@@ -452,13 +473,13 @@ def pack_weapons(root, output):
                 atlas.alpha_composite(image, (direction_index * CELL, row * CELL))
                 records.append({"weapon": weapon, "suppressed": suppressed, "direction": direction, "rect": [direction_index * CELL, row * CELL, CELL, CELL],
                                 "grip": grip, "muzzle": muzzle, "barrelLength": 17.0 if weapon == "GuardRifle" else 14.0 if suppressed else 10.0})
-    atlas.save(output / "WeaponProps.png")
+    save_png(atlas, output / "WeaponProps.png")
     selection = Image.new("RGBA", (320 * 3, 192))
     for index, weapon in enumerate(["Pistol", "NonLethal", "GuardRifle"]):
         prop = Image.open(root / "Pieces" / ("Weapon-" + weapon + "-E.png")).convert("RGBA")
         prop.thumbnail((300, 172), Image.Resampling.BOX)
         selection.alpha_composite(prop, (index * 320 + (320 - prop.width) // 2, (192 - prop.height) // 2))
-    selection.save(output / "WeaponSelection.png")
+    save_png(selection, output / "WeaponSelection.png")
     return {"file": "WeaponProps.png", "frames": records, "source": "../Manifests/weapons.registration.json"}
 
 
@@ -480,9 +501,9 @@ def quality_galleries(root, output, parts_by_direction):
                 view.alpha_composite(image, (direction_index % 4 * CELL, direction_index // 4 * CELL))
             animation.append(view.resize((view.width * 4, view.height * 4), Image.Resampling.NEAREST))
         name = clip + "-" + stance
-        gallery.save(target / (name + "-8dir8phase.png"))
-        gallery.resize((gallery.width * 4, gallery.height * 4), Image.Resampling.NEAREST).save(target / (name + "-8dir8phase-4x.png"))
-        animation[0].save(target / (name + "-animated4x.png"), save_all=True, append_images=animation[1:], duration=125, loop=0)
+        save_png(gallery, target / (name + "-8dir8phase.png"))
+        save_png(gallery.resize((gallery.width * 4, gallery.height * 4), Image.Resampling.NEAREST), target / (name + "-8dir8phase-4x.png"))
+        save_png(animation[0], target / (name + "-animated4x.png"), save_all=True, append_images=animation[1:], duration=125, loop=0)
 
 
 if __name__ == "__main__":
