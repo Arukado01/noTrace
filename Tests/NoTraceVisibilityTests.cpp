@@ -75,6 +75,78 @@ namespace {
     }
     Require(ranges[0] > ranges[1] && ranges[1] > ranges[2] && ranges[2] > VisibilityConfig::CloseRange, "La reducción deja de distinguir posturas o elimina la exploración fuera del campo cercano");
   }
+  void CoverPeekFollowsAimFromThePhysicalPosition() {
+    for (const auto side : {PeekSide::Left, PeekSide::Right}) {
+      Simulation simulation; simulation.ResetBase(); simulation.Deploy(17);
+      auto &world = const_cast<WorldState &>(simulation.GetState()); TestFixture::LegacyPlane(world);
+      world.size = {600.f, 500.f}; world.objects.clear(); world.guards.clear(); world.securityEntries.clear(); world.obstacles.clear(); world.visibility = {};
+      world.obstacles.push_back({{{200.f, 150.f}, {30.f, 200.f}}, CoverKind::High, true, "Pared de asomado"});
+      auto &observer = world.agents.front(); observer.position = {175.f, side == PeekSide::Left ? 180.f : 320.f};
+      const auto advance = [&](const ActionCommand &command, unsigned int frames = 1) {
+        for (unsigned int frame = 0; frame < frames; ++frame) simulation.Step(.05f, {{observer.id, command}});
+      };
+      ActionCommand attach; attach.coverToggle = true; advance(attach);
+      Require(observer.cover.active && observer.facing == sf::Vector2f{-1.f, 0.f}, "La regresión visual no establece una cobertura física de espalda a la pared");
+      const auto anchor = observer.cover.anchor;
+      sf::Vector2f exposed;
+      Require(WorldGeometry::CoverPeekPosition(observer.cover, side, exposed), "El extremo físico no ofrece un destino de asomado");
+      const auto target = exposed + sf::Vector2f{100.f, 0.f};
+      ActionCommand peek; peek.peekLeft = side == PeekSide::Left; peek.peekRight = side == PeekSide::Right; peek.aimX = 1.f; peek.aiming = true;
+      advance(peek);
+      Require(observer.cover.peekSide == side && (observer.position - exposed).length() > SpatialConfig::CoverPositionTolerance,
+        "El primer paso no conserva el desplazamiento gradual hacia el extremo");
+      Require(!Visibility::IsGeometricallyVisible(world, observer, target), "Solicitar el asomado adelanta el ojo al destino y revela a través de la pared");
+      advance(peek, 20);
+      Require(observer.cover.peekSide == side && (observer.position - exposed).length() <= SpatialConfig::CoverPositionTolerance &&
+        observer.facing == observer.cover.normal && WeaponFacing(observer) == sf::Vector2f{1.f, 0.f}, "El asomado no separa el apuntado del cuerpo apoyado en la pared");
+      Require(Visibility::IsGeometricallyVisible(world, observer, target), "Apuntar desde el extremo expuesto conserva en sombra la dirección del arma");
+      const auto rear = observer.position - sf::Vector2f{100.f, 0.f};
+      const sf::Vector2f behindWall{target.x, 250.f};
+      Require(!Visibility::IsGeometricallyVisible(world, observer, rear), "Asomarse concede visión simultánea a la espalda del arma");
+      Require(!Visibility::IsGeometricallyVisible(world, observer, behindWall), "El apuntado asomado atraviesa el volumen real de la pared");
+      Require(!Visibility::IsGeometricallyVisible(world, observer, observer.position + sf::Vector2f{VisibilityConfig::StandingRange + 1.f, 0.f}),
+        "El asomado amplía el alcance visual de la postura");
+      const WorldGeometry::PreparedOccluders geometry(world);
+      Require(Visibility::IsGeometricallyVisible(world, observer, target, Stance::Standing, observer.elevation, &geometry) &&
+        !Visibility::IsGeometricallyVisible(world, observer, behindWall, Stance::Standing, observer.elevation, &geometry),
+        "La geometría preparada no conserva la visión y la oclusión del asomado");
+      const auto grid = Visibility::BuildGrid(world, observer);
+      Require(grid.visualOrigin == observer.position && grid.visualOrigin != anchor && grid.visualRadii[0] > 100.f &&
+        grid.visualRadii[180] <= VisibilityConfig::CloseRange + .1f, "La niebla usa el ancla o la normal de cobertura en lugar del ojo y el apuntado reales");
+      world.visibility = grid;
+      Require(Visibility::IsVisible(world, observer, target) && !Visibility::IsVisible(world, observer, rear), "La cuadrícula de niebla no acompaña el cono del asomado");
+      world.visibility = {};
+      for (unsigned int index = 0; index < 3; ++index) {
+        Guard guard; guard.id = 71 + index; guard.position = index == 0 ? target : index == 1 ? rear : behindWall;
+        guard.facing = {1.f, 0.f}; guard.patrol = {guard.position}; world.guards.push_back(guard);
+      }
+      const auto filtered = simulation.SnapshotFor(observer.id, true);
+      Require(filtered["guards"].size() == 1 && filtered["guards"][0]["id"] == 71,
+        "El snapshot del asomado oculta al guardia apuntado o revela la espalda y el interior de la pared");
+      world.guards.clear();
+      auto invalidSide = observer;
+      if (side == PeekSide::Left) invalidSide.cover.canPeekLeft = false; else invalidSide.cover.canPeekRight = false;
+      Require(!Visibility::IsGeometricallyVisible(world, invalidSide, target) && Visibility::IsGeometricallyVisible(world, invalidSide, rear),
+        "Un lado de asomado inválido conserva un cono orientado por el arma");
+      invalidSide = observer; invalidSide.cover.active = false;
+      Require(!Visibility::IsGeometricallyVisible(world, invalidSide, target), "Una cobertura inactiva conserva el cono especial del asomado");
+      auto notAiming = observer; notAiming.aiming = false;
+      Require(!Visibility::IsGeometricallyVisible(world, notAiming, target) && Visibility::IsGeometricallyVisible(world, notAiming, rear),
+        "Dejar de apuntar conserva el cono del arma en vez de la orientación corporal de cobertura");
+      const auto position = observer.position;
+      auto turnAim = peek; turnAim.aimX = -1.f; advance(turnAim);
+      Require(observer.position == position && observer.facing == observer.cover.normal && Visibility::IsGeometricallyVisible(world, observer, rear) &&
+        !Visibility::IsGeometricallyVisible(world, observer, target), "Cambiar el apuntado no gira el cono del extremo o desplaza el cuerpo");
+      advance(peek); advance({}, 20);
+      Require(observer.cover.active && observer.cover.peekSide == PeekSide::None && (observer.position - anchor).length() <= SpatialConfig::CoverPositionTolerance,
+        "Soltar el asomado no recupera la posición protegida");
+      Require(!Visibility::IsGeometricallyVisible(world, observer, target) && Visibility::IsGeometricallyVisible(world, observer, observer.position - sf::Vector2f{100.f, 0.f}),
+        "Volver al ancla conserva la visión del arma o pierde la orientación normal de cobertura");
+      const auto returned = Visibility::BuildGrid(world, observer);
+      Require(returned.visualOrigin == observer.position && returned.visualRadii[0] < 100.f && returned.visualRadii[180] > 100.f,
+        "La frontera de niebla no vuelve al cono protegido al dejar el extremo");
+    }
+  }
   void PrivateSnapshots() {
     Simulation simulation;
     simulation.ResetBase({{1, "Uno"}, {2, "Dos"}}); simulation.Deploy(17);
@@ -371,7 +443,7 @@ namespace {
 }
 int main() {
   try {
-    PreparedOcclusionMatchesReference(); HeightAndTableCursorGeometry(); BodyExposureAndRescueDirection(); GeometryAndGrid(); ReducedPostureRanges(); PrivateSnapshots(); HideoutPrivacy(); PrivateFootstepFiltering(); HiddenNeutralizationFeedback();
+    PreparedOcclusionMatchesReference(); HeightAndTableCursorGeometry(); BodyExposureAndRescueDirection(); GeometryAndGrid(); ReducedPostureRanges(); CoverPeekFollowsAimFromThePhysicalPosition(); PrivateSnapshots(); HideoutPrivacy(); PrivateFootstepFiltering(); HiddenNeutralizationFeedback();
     std::cout << "PASS visibilidad: " << checks << " comprobaciones de campo, paredes, puertas, posturas, privacidad y mascaras\n";
     return 0;
   } catch (const std::exception &error) {
