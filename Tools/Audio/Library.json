@@ -691,20 +691,6 @@
       "notes": ""
     },
     {
-      "kind": "Cabinet",
-      "variant": 1,
-      "category": "Objects",
-      "file": "Objects/Cabinet-01.wav",
-      "source": "source-d6d20f61ed1c",
-      "start": 0.02,
-      "end": 1.2,
-      "peak": 0.38,
-      "rmsDb": -23,
-      "material": "",
-      "loop": false,
-      "notes": ""
-    },
-    {
       "kind": "Hideout",
       "variant": 1,
       "category": "Objects",
@@ -2510,5 +2496,8 @@
       "loop": false,
       "notes": "Otra grabación real de gatillo en seco; contacto independiente, sin transposición de tono."
     }
+  ],
+  "inactiveKinds": [
+    "Cabinet"
   ]
 }

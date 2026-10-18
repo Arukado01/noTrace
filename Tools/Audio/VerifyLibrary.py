@@ -10,7 +10,10 @@ import wave
 ROOT = Path(__file__).resolve().parents[2]
 directory = ROOT / "Content/Audio/NoTrace"
 manifest = json.loads((directory / "manifest.json").read_text(encoding="utf-8"))
-recipes = json.loads((ROOT / "Tools/Audio/Library.json").read_text(encoding="utf-8"))["assets"]
+spec = json.loads((ROOT / "Tools/Audio/Library.json").read_text(encoding="utf-8"))
+recipes = spec["assets"]
+assert spec.get("inactiveKinds") == ["Cabinet"] and manifest.get("inactiveKinds") == ["Cabinet"]
+assert not any(asset["kind"] == "Cabinet" for asset in recipes), "El slot retirado conserva un recurso activo"
 sources = {item["id"]: item for item in json.loads((ROOT / "Tools/Audio/Sources.json").read_text(encoding="utf-8"))["sources"]}
 rejected = ("Kenney", "HaelDB", "/72030/", "/316919/", "/316922/", "/788342/")
 assert all(not any(value.lower() in (source["sourceUrl"] + source["author"]).lower() for value in rejected) for source in sources.values()), "La biblioteca incluye una fuente rechazada"
@@ -33,4 +36,6 @@ for asset in manifest["assets"]:
     fingerprints.add(fingerprint)
     peak = max(abs(sample[0]) for sample in struct.iter_unpack("<h", pcm))
     assert 0 < peak < 32440 and asset["clippedSamples"] == 0
-print(json.dumps({"result": "PASS", "assets": len(fingerprints), "sourceRecordings": len(sources), "sampleRate": 48000, "auditoryAcceptance": False}))
+used = {asset["source"] for asset in recipes}
+assert manifest["recordings"] == len(used)
+print(json.dumps({"result": "PASS", "assets": len(fingerprints), "activeFamilies": len({asset["kind"] for asset in recipes}), "usedSourceRecordings": len(used), "retainedSourceRecordings": len(sources), "sampleRate": 48000, "auditoryAcceptance": False}))

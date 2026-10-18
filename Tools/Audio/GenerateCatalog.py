@@ -8,11 +8,18 @@ ROOT = Path(__file__).resolve().parents[2]
 types = (ROOT / "Games/Include/Types/NoTraceGameplayTypes.h").read_text(encoding="utf-8")
 kinds = [name.strip() for name in re.search(r"enum class SoundKind \{([^}]+)\}", types).group(1).split(",")]
 assert kinds.pop() == "Count"
-assets = json.loads((ROOT / "Tools/Audio/Library.json").read_text(encoding="utf-8"))["assets"]
+spec = json.loads((ROOT / "Tools/Audio/Library.json").read_text(encoding="utf-8"))
+assets = spec["assets"]
+inactive = set(spec.get("inactiveKinds", []))
+assert inactive == {"Cabinet"}
 by_kind = {kind: [asset for asset in assets if asset["kind"] == kind] for kind in kinds}
-assert set(kinds) == {asset["kind"] for asset in assets}
+assert set(kinds) == {asset["kind"] for asset in assets} | inactive
+assert not inactive & {asset["kind"] for asset in assets}
 lines = ["#pragma once", "", "// Catálogo generado por Tools/Audio/GenerateCatalog.py desde grabaciones CC0 verificadas.", "namespace NoTrace::AudioConfig {", "  inline constexpr std::array<ClipSet, static_cast<std::size_t>(SoundKind::Count)> Profiles{{"]
 for kind, clips in by_kind.items():
+    if kind in inactive:
+        lines.append('    ClipSet{{"", "", "", "", "", ""}, 0, 0.00f, 0, 0, false},')
+        continue
     assert 1 <= len(clips) <= 6
     variants = [json.dumps(asset["file"]) for asset in clips] + ['""'] * (6 - len(clips))
     step = kind.startswith("Step")
@@ -25,4 +32,4 @@ lines += ["  }};", "  inline constexpr std::array<std::string_view, Profiles.siz
 lines += ["    " + ", ".join(json.dumps(kind) for kind in kinds) + "};"]
 lines += ["  inline constexpr auto Files = [] {", "    std::array<std::string_view, Profiles.size()> files{};", "    for (std::size_t index = 0; index < files.size(); ++index) files[index] = Profiles[index].variants[0];", "    return files;", "  }();", "}", ""]
 (ROOT / "Games/Include/Config/NoTraceAudioCatalog.h").write_text("\n".join(lines), encoding="utf-8")
-print(f"Catálogo: {len(kinds)} familias, {len(assets)} variantes")
+print(f"Catálogo: {len(kinds) - len(inactive)} familias activas, {len(inactive)} slot inactivo, {len(assets)} variantes")

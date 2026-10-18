@@ -2,7 +2,7 @@
 
 Estado: integración técnica en curso; escucha humana y aceptación artística pendientes.
 
-179 recursos, 91 grabaciones fuente verificadas CC0; 28,645,484 bytes PCM. Ningún hash PCM duplicado ni muestras con clipping en los recursos exportados.
+178 recursos, 90 grabaciones fuente verificadas CC0; 28,532,160 bytes PCM. Ningún hash PCM duplicado ni muestras con clipping en los recursos exportados.
 
 Las variantes son contactos o tomas diferentes; no son copias transpuestas. Algunas fuentes de Freesound sólo ofrecen una vista previa HQ pública: el manifiesto identifica expresamente esos MP3, cuya conversión no recupera calidad del original. Los archivos de armas, puertas, teclado y Foley obtenidos de OpenGameArt son descargas originales de sus páginas primarias.
 
@@ -57,7 +57,6 @@ Las variantes son contactos o tomas diferentes; no son copias transpuestas. Algu
 | Camera | Devices/Camera-02.wav | [record_player_loop.wav — OwlishMedia](https://opengameart.org/content/sound-effects-pack) · CC0 | 7680–45600 a 48000 Hz | 295c006db900b76842bd75512d6ed9404c87908b7877749e4f20c7bfa370463a | Pendiente |
 | Alarm | Security/Alarm-01.wav | [Military Alarm & Noise.flac — qubodup](https://freesound.org/people/qubodup/sounds/184357/) · CC0 | 2400–134400 a 48000 Hz | 38adf2223a67d429834e781809d70862040c3d57e8424a1288bf50ea45c86465 | Pendiente |
 | Reinforcement | Objects/Reinforcement-01.wav | [qubodup-DoorOpen07.flac — qubodup (Iwan Gabovitch)](https://opengameart.org/content/door-open-door-close-set) · CC0 | 0–96000 a 96000 Hz | a35c367e368adfef3775c5a1b6b659b2d6a4500e5a7494f9640e54beb93ac523 | Pendiente |
-| Cabinet | Objects/Cabinet-01.wav | [Door, metal, opening and closing — giddster](https://freesound.org/people/giddster/sounds/336660/) · CC0 | 882–52920 a 44100 Hz | f8950773a63116632cf8b1152187878bd77f0df766a4a69ac5c435b0592be1f6 | Pendiente |
 | Hideout | Objects/Hideout-01.wav | [320144__owlstorm__blanket-movement-6.wav — OwlishMedia](https://opengameart.org/content/sound-effects-pack) · CC0 | 1764–24255 a 44100 Hz | eea53ebe3f28ced99b69e9947172e1f71988d4f145d2630f6e391d9a6e113625 | Pendiente |
 | Hideout | Objects/Hideout-02.wav | [320144__owlstorm__blanket-movement-6.wav — OwlishMedia](https://opengameart.org/content/sound-effects-pack) · CC0 | 24255–50936 a 44100 Hz | 9ef9a1e2be6fe967d0a40ed0ec5835f3044e9c18bbab438f03c931462f5c696d | Pendiente |
 | Drag | Cqc/Drag-01.wav | [Body Drag.wav — Wallch503](https://freesound.org/people/Wallch503/sounds/507473/) · CC0 | 46305–83790 a 44100 Hz | b5ffda70306e7ea352d1a73a3e481ae40278805f25761fefc136354bf1a799b5 | Pendiente |

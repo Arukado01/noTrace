@@ -11,6 +11,7 @@ parser.add_argument("--source-root", type=Path, default=Path("build/qa-cierre-ev
 parser.add_argument("--python-deps", type=Path, default=Path("build/qa-cierre-eventos-20261017/audio-python"))
 parser.add_argument("--output", type=Path, default=Path("Content/Audio/NoTrace"))
 parser.add_argument("--report", type=Path, default=Path("docs/audio-redesign-2026-10-18"))
+parser.add_argument("--metadata-only", action="store_true", help="Verifica WAV existentes y regenera manifiesto, créditos y galería sin reescribir audio.")
 args = parser.parse_args()
 sys.path.insert(0, str(args.python_deps.resolve()))
 import numpy as np
@@ -29,9 +30,27 @@ rate = spec["sampleRate"]
 verified = set()
 fingerprints = set()
 results = []
+existing = {}
+if args.metadata_only:
+    existing = {asset["file"]: asset for asset in json.loads((output / "manifest.json").read_text(encoding="utf-8"))["assets"]}
 
 for asset in spec["assets"]:
     source = sources[asset["source"]]
+    if args.metadata_only:
+        previous = existing[asset["file"]]
+        destination = (output / asset["file"]).resolve()
+        if not destination.is_relative_to(output) or any(previous.get(key) != value for key, value in asset.items()) or previous["sourceInfo"] != source or source["license"] != "CC0-1.0":
+            raise ValueError("La receta o procedencia cambió; reconstruye el audio: " + asset["file"])
+        if hashlib.file_digest(destination.open("rb"), "sha256").hexdigest() != previous["sha256"] or destination.stat().st_size != previous["bytes"]:
+            raise ValueError("El WAV existente cambió: " + asset["file"])
+        encoded, decoded_rate = sf.read(destination, dtype="int16", always_2d=True)
+        pcm_hash = hashlib.sha256(encoded.tobytes()).hexdigest()
+        if pcm_hash != previous["pcmSha256"] or pcm_hash in fingerprints or decoded_rate != rate or encoded.shape[1] != (2 if asset["loop"] else 1):
+            raise ValueError("PCM existente inválido o duplicado: " + asset["file"])
+        if np.max(np.abs(encoded.astype("int32"))) >= 32440 or previous["clippedSamples"] != 0:
+            raise ValueError("El WAV existente satura: " + asset["file"])
+        fingerprints.add(pcm_hash); verified.add(source["id"]); results.append(previous)
+        continue
     path = (root / source["file"]).resolve()
     if not path.is_relative_to(root) or source["license"] != "CC0-1.0":
         raise ValueError("Fuente o ruta no autorizada: " + str(path))
@@ -95,7 +114,7 @@ for asset in spec["assets"]:
         "processing": "Recorte de toma física, eliminación DC, pasaaltos 28 Hz, conversión polifase 48 kHz, fundidos de borde y ajuste de nivel; sin síntesis ni cambio de tono.",
         "auditoryReview": "Pendiente de escucha humana individual y en partida"})
 
-manifest = {"schema": 1, "license": "CC0-1.0", "recordings": len(verified), "assets": results,
+manifest = {"schema": 1, "license": "CC0-1.0", "recordings": len(verified), "inactiveKinds": spec.get("inactiveKinds", []), "assets": results,
     "technicalValidation": {"decodable": len(results), "distinctPcmHashes": len(fingerprints), "clippedSamples": 0,
         "sampleRate": rate, "oldSourcesUsed": False, "auditoryAcceptance": False}}
 (output / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")

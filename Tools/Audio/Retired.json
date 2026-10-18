@@ -1,0 +1,71 @@
+{
+  "schema": 1,
+  "retired": [
+    {
+      "date": "2026-10-18",
+      "kind": "Cabinet",
+      "networkIndex": 22,
+      "reason": "Slot legado sin emisor; el recorte combina puerta metálica/llave y no se reasigna sin escucha. Se conserva el enum, sin WAV activo.",
+      "recipe": {
+        "kind": "Cabinet",
+        "variant": 1,
+        "category": "Objects",
+        "file": "Objects/Cabinet-01.wav",
+        "source": "source-d6d20f61ed1c",
+        "start": 0.02,
+        "end": 1.2,
+        "peak": 0.38,
+        "rmsDb": -23,
+        "material": "",
+        "loop": false,
+        "notes": ""
+      },
+      "exportedAsset": {
+        "kind": "Cabinet",
+        "variant": 1,
+        "category": "Objects",
+        "file": "Objects/Cabinet-01.wav",
+        "source": "source-d6d20f61ed1c",
+        "start": 0.02,
+        "end": 1.2,
+        "peak": 0.38,
+        "rmsDb": -23,
+        "material": "",
+        "loop": false,
+        "notes": "",
+        "sourceInfo": {
+          "id": "source-d6d20f61ed1c",
+          "file": "previews/336660.mp3",
+          "title": "Door, metal, opening and closing",
+          "author": "giddster",
+          "sourceUrl": "https://freesound.org/people/giddster/sounds/336660/",
+          "downloadUrl": "https://cdn.freesound.org/previews/336/336660_1738686-hq.mp3",
+          "downloadSha256": "6feb6c980dc66876342a8c7eb26e463b90badba4648d97f45f0e18f8bd94cb52",
+          "license": "CC0-1.0",
+          "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/",
+          "downloadIsOriginal": false,
+          "notes": "Puerta metálica con apertura por llave electrónica y cierre; Zoom H1.",
+          "sourceFileBytes": 298266,
+          "sourceFileSha256": "6feb6c980dc66876342a8c7eb26e463b90badba4648d97f45f0e18f8bd94cb52"
+        },
+        "sourceFrames": [
+          882,
+          52920
+        ],
+        "sourceSampleRate": 44100,
+        "duration": 1.18,
+        "sampleRate": 48000,
+        "channels": 1,
+        "bytes": 113324,
+        "sha256": "f4d7a59bfc952e5740fce0b4058a580f3b5583ca9f981ef2135963f982604144",
+        "pcmSha256": "f8950773a63116632cf8b1152187878bd77f0df766a4a69ac5c435b0592be1f6",
+        "peakDbFS": -8.404216458984806,
+        "rmsDbFS": -27.330281163150968,
+        "clippedSamples": 0,
+        "processingGainDb": 14.77229584880125,
+        "processing": "Recorte de toma física, eliminación DC, pasaaltos 28 Hz, conversión polifase 48 kHz, fundidos de borde y ajuste de nivel; sin síntesis ni cambio de tono.",
+        "auditoryReview": "Pendiente de escucha humana individual y en partida"
+      }
+    }
+  ]
+}
