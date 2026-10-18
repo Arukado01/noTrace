@@ -260,7 +260,10 @@ int main() {
     Require(WorldRenderer::ZoomAfterSteps(initialZoom, -1000.f) == NoTrace::PresentationConfig::MinimumZoom, "Alejar supera el mínimo configurable");
     Require(WorldRenderer::ClampZoom(std::numeric_limits<float>::quiet_NaN()) == initialZoom, "El zoom admite NaN");
     Require(WorldRenderer::ClampZoom(std::numeric_limits<float>::infinity()) == initialZoom, "El zoom admite infinito");
-    Require(WorldRenderer::ZoomAfterSteps(1.5f, std::numeric_limits<float>::quiet_NaN()) == 1.5f, "Un evento de rueda inválido altera la vista");
+    Require(WorldRenderer::ZoomAfterSteps(initialZoom, std::numeric_limits<float>::quiet_NaN()) == initialZoom, "Un evento de rueda inválido altera la vista");
+    Require(WorldRenderer::ZoomAfterSteps(NoTrace::PresentationConfig::MinimumZoom, -1.f) == NoTrace::PresentationConfig::MinimumZoom &&
+        WorldRenderer::ZoomAfterSteps(NoTrace::PresentationConfig::MaximumZoom, 1.f) == NoTrace::PresentationConfig::MaximumZoom,
+      "La rueda provoca un salto al insistir en alguno de los límites del zoom");
     const sf::FloatRect crate({100.f, 100.f}, {100.f, 100.f});
     const auto checkSide = [&](sf::Vector2f feet, bool inFront) {
       const std::vector<sf::FloatRect> footprints{crate, {feet, {0.f, 0.f}}};
@@ -337,7 +340,8 @@ int main() {
       }
       aimingWorld.agents[0].stance = NoTrace::Stance::Standing;
     }
-    Require(NoTrace::PresentationConfig::DefaultZoom > 1.f && NoTrace::PresentationConfig::MinimumZoom >= 1.f && NoTrace::PresentationConfig::MaximumZoom > 3.f,
+    Require(NoTrace::PresentationConfig::MinimumZoom > 1.4f && NoTrace::PresentationConfig::MaximumZoom > 3.5f &&
+        NoTrace::PresentationConfig::DefaultZoom >= NoTrace::PresentationConfig::MinimumZoom && NoTrace::PresentationConfig::DefaultZoom <= NoTrace::PresentationConfig::MaximumZoom,
             "El intervalo de zoom conserva el alejamiento excesivo o no permite apreciar los detalles");
     const auto project = std::filesystem::path(__FILE__).parent_path().parent_path();
     const auto inspectAtlas = [&](const char *imageFile, const char *tableFile, std::size_t rows, std::size_t columns) {
@@ -492,8 +496,8 @@ int main() {
         "El cliente elimina una pared visible porque el centro de su celda cae dentro de la superficie sólida");
     Require(!WorldRenderer::FootprintVisible(clientTerrain, clientTerrain.agents[0], {{450.f, 260.f}, {20.f, 70.f}}),
         "La prueba exacta de superficies revela otra huella completamente oculta tras la pared");
-    const auto invisibleHead = WorldRenderer::ProjectGround(guard.position, fogWorld.agents[0].position, size, 1.6f) - sf::Vector2f{0.f, 40.f * 1.6f};
-    Require(WorldRenderer::ResolveAim(invisibleHead, fogWorld, 1, size, 1.6f).slope == 0.f, "La puntería revela o selecciona un enemigo detrás de la pared");
+    const auto invisibleHead = WorldRenderer::ProjectGround(guard.position, fogWorld.agents[0].position, size, initialZoom) - sf::Vector2f{0.f, 40.f * initialZoom};
+    Require(WorldRenderer::ResolveAim(invisibleHead, fogWorld, 1, size, initialZoom).slope == 0.f, "La puntería revela o selecciona un enemigo detrás de la pared");
     fogWorld.visibility = visibility;
     Require(!NoTrace::Visibility::GuardVisible(fogWorld, fogWorld.agents[0], guard), "El cliente ignora la máscara de visibilidad autoritativa");
     NoTrace::ShotTrace shot;

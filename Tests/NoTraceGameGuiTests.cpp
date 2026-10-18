@@ -827,9 +827,10 @@ namespace EngineTests {
       Require(changed>100,"El selector/ocultación del HUD elimina la flecha de rescate fuera de visión");
       demo.visibility={}; demo.rescueSignals.clear(); demo.obstacles.clear(); demo.agents[0].cover={};
       const auto quiet=CaptureWorld(renderer,demo,context,window,output/"final-noise-silent.png",false);
-      demo.noises={{demo.agents[0].position,GameplayConfig::RunningNoiseRadius,GameplayConfig::NoiseDuration,1,0,SoundKind::StepRunHard}};
+      const auto noiseOrigin=demo.agents[0].position+sf::Vector2f{100.f,0.f};
+      demo.noises={{noiseOrigin,GameplayConfig::RunningNoiseRadius,GameplayConfig::NoiseDuration,1,0,SoundKind::StepRunHard}};
       const auto loud=CaptureWorld(renderer,demo,context,window,output/"final-noise-running-radius.png",false);
-      const auto screen=WorldRenderer::ProjectGround(demo.agents[0].position+sf::Vector2f{GameplayConfig::RunningNoiseRadius,0.f},demo.agents[0].position,context.window.GetLogicalSize(),renderer.GetZoom());
+      const auto screen=WorldRenderer::ProjectGround(noiseOrigin-sf::Vector2f{GameplayConfig::RunningNoiseRadius,0.f},demo.agents[0].position,context.window.GetLogicalSize(),renderer.GetZoom());
       const auto pixel=screen.componentWiseDiv(context.window.GetLogicalSize()).componentWiseMul(sf::Vector2f(loud.getSize()));
       bool edge=false;
       for(int y=-4;y<=4;++y) for(int x=-4;x<=4;++x) {

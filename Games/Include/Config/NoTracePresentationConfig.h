@@ -26,9 +26,9 @@ namespace NoTrace::PresentationConfig {
   inline constexpr sf::Vector2f GroundProjection{1.35f, 0.675f};
   inline constexpr sf::Vector2f CameraFocusRatio{0.5f, 0.535f};
   inline constexpr float PixelSize = 2.f;
-  inline constexpr float DefaultZoom = 1.6f;
-  inline constexpr float MinimumZoom = 1.4f;
-  inline constexpr float MaximumZoom = 3.5f;
+  inline constexpr float DefaultZoom = 2.f;
+  inline constexpr float MinimumZoom = 1.8f;
+  inline constexpr float MaximumZoom = 4.5f;
   inline constexpr float ZoomFactorPerStep = 1.125f;
   inline constexpr float FloorTileSize = 48.f;
   inline constexpr float HighCoverHeight = SpatialConfig::HighCoverHeight;
