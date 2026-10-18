@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 from PIL import Image
 
-from ValidateNoTraceCharacterBaseline import REFERENCES_NAME, REGISTRATION_FILES, TOE_IDENTITIES, TOE_WITNESS_NAME, canonical_sha, compare, create_references, file_sha, frame_record, main, read_json, registration_contracts, semantic_record, validate_toe_witness
+from ValidateNoTraceCharacterBaseline import BASELINE_NAME, CROUCH_PUSH_IDENTITIES, CROUCH_PUSH_JOINTS, CROUCH_PUSH_WITNESS_NAME, DEATH_IDENTITIES, DEATH_WITNESS_NAME, IK_FLOOR_WITNESS_NAME, RECOVERY_WITNESS_NAME, REFERENCES_NAME, REGISTRATION_FILES, TOE_IDENTITIES, TOE_WITNESS_NAME, canonical_sha, compare, create_death_witness, create_ik_floor_witness, create_recovery_witness, create_references, file_sha, frame_record, main, read_json, registration_contracts, semantic_record, semantic_spec, snapshot, validate_crouch_push_witness, validate_current, validate_death_witness, validate_toe_witness, witness_descriptor
 
 
 class CharacterBaselineTests(unittest.TestCase):
@@ -198,6 +198,66 @@ class CharacterBaselineExceptionTests(unittest.TestCase):
                                         "expectedJointsSha256": candidate["jointsSha256"]}}]}
         return before, after, exceptions, witness, {index: actual}
 
+    def death_fixture(self):
+        template, pages = self.fixture()
+        original, records = {}, []
+        for index, identity in sorted(DEATH_IDENTITIES.items()):
+            entry = copy.deepcopy(template)
+            entry.update(identity | {"index": index})
+            entry["joints"].update({"left_ankle": [30.0, 7.0, 2.0], "right_ankle": [30.0, -14.0, 2.0],
+                                    "left_toe": [34.0, 7.0, 1.0], "right_toe": [20.0, -8.0, 1.0]})
+            original[index] = semantic_record(entry)
+            records.append(frame_record(entry, pages, 192))
+        before = self.baseline(records[0])
+        before["frames"] = records
+        before["provenance"] = {"metadataSha256": "d" * 64, "commit": "fixture"}
+        witness = {"schemaVersion": 1, "baselineCanonicalSha256": canonical_sha(before),
+                   "originalMetadataSha256": "d" * 64, "allowedJoints": ["right_toe"],
+                   "frames": [{"index": row["index"], "semantic": original[row["index"]],
+                               "semanticSha256": row["semanticSha256"], "jointsSha256": row["jointsSha256"]} for row in records]}
+        index = 4609
+        actual = copy.deepcopy(original[index])
+        actual["joints"]["right_toe"][0] += .25
+        after = copy.deepcopy(before)
+        candidate = next(row for row in after["frames"] if row["index"] == index)
+        candidate["semanticSha256"], candidate["jointsSha256"] = canonical_sha(actual), canonical_sha(actual["joints"])
+        exceptions = {"schemaVersion": 1, "baselineCanonicalSha256": canonical_sha(before), "toeWitnessCanonicalSha256": None,
+                      "deathWitnessCanonicalSha256": canonical_sha(witness), "entries": [
+                          {"index": index, "identity": DEATH_IDENTITIES[index], "reason": "Retarget de tobillo conserva offset local right_toe en Death S fase 1",
+                           "rgbaSha256": {}, "semantic": {"kind": "death_child_offset_v1", "expectedSemanticSha256": candidate["semanticSha256"],
+                                                         "expectedJointsSha256": candidate["jointsSha256"]}}]}
+        return before, after, exceptions, witness, {index: actual}
+
+    def crouch_push_fixture(self, index=40):
+        template, pages = self.fixture()
+        original, records = {}, []
+        for frame_index, identity in sorted(CROUCH_PUSH_IDENTITIES.items()):
+            entry = copy.deepcopy(template)
+            entry.update(identity | {"index": frame_index})
+            entry["joints"].update({"left_ankle": [-7.0, 7.0, 2.0], "right_ankle": [10.0, -6.0, 2.0],
+                                    "left_toe": [5.0, 7.0, 0.0], "right_toe": [15.0, -7.5, 0.0]})
+            original[frame_index] = semantic_record(entry)
+            records.append(frame_record(entry, pages, 192))
+        before = self.baseline(records[0])
+        before["frames"] = records
+        before["provenance"] = {"metadataSha256": "d" * 64, "commit": "fixture"}
+        witness = {"schemaVersion": 1, "baselineCanonicalSha256": canonical_sha(before), "originalMetadataSha256": "d" * 64,
+                   "allowedJoints": {str(key): list(joints) for key, joints in CROUCH_PUSH_JOINTS.items()},
+                   "frames": [{"index": row["index"], "semantic": original[row["index"]],
+                               "semanticSha256": row["semanticSha256"], "jointsSha256": row["jointsSha256"]} for row in records]}
+        actual = copy.deepcopy(original[index])
+        for joint in CROUCH_PUSH_JOINTS[index]:
+            actual["joints"][joint][0] += .25
+        after = copy.deepcopy(before)
+        candidate = next(row for row in after["frames"] if row["index"] == index)
+        candidate["semanticSha256"], candidate["jointsSha256"] = canonical_sha(actual), canonical_sha(actual["joints"])
+        exceptions = {"schemaVersion": 1, "baselineCanonicalSha256": canonical_sha(before), "toeWitnessCanonicalSha256": None,
+                      "crouchPushWitnessCanonicalSha256": canonical_sha(witness), "entries": [
+                          {"index": index, "identity": CROUCH_PUSH_IDENTITIES[index], "reason": "Retarget de tobillo conserva sólo descendientes autorizados en este índice",
+                           "rgbaSha256": {}, "semantic": {"kind": "crouch_push_child_offset_v1", "expectedSemanticSha256": candidate["semanticSha256"],
+                                                         "expectedJointsSha256": candidate["jointsSha256"]}}]}
+        return before, after, exceptions, witness, {index: actual}
+
     def test_exact_raster_exception_passes_without_relaxing_other_fields(self):
         before, after, exceptions = self.raster_fixture()
         self.assertEqual([], compare(before, after, exceptions=exceptions))
@@ -380,6 +440,400 @@ class CharacterBaselineExceptionTests(unittest.TestCase):
         del exceptions["entries"][0]["reason"]
         with self.assertRaisesRegex(ValueError, "Entrada de excepción"):
             compare(before, after, exceptions=exceptions)
+
+    def test_runtime_json_types_are_exact_before_raster_reads(self):
+        metadata = {"schemaVersion": 3, "cellSize": 192, "clips": [{}] * 53, "pages": [],
+                    "frames": [{"index": index, "phase": 1} for index in range(4544)]}
+        for field, value, message in [("index", True, "Índice runtime"), ("index", 1.0, "Índice runtime"),
+                                      ("cellSize", 192.0, "Cabeceras metadata/runtime"),
+                                      ("phase", 1.0, "Metadata/runtime difieren")]:
+            with self.subTest(field=field, value=value), self.temporary_directory() as directory:
+                root = Path(directory)
+                (root / "Atlas").mkdir()
+                runtime = copy.deepcopy(metadata)
+                if field == "cellSize":
+                    runtime[field] = value
+                elif field == "index":
+                    runtime["frames"][1][field] = value
+                else:
+                    runtime["frames"][0][field] = value
+                (root / "Atlas/CharacterAtlasMetadata.json").write_text(json.dumps(metadata), encoding="utf-8")
+                (root / "Atlas/CharacterAtlasRuntime.json").write_text(json.dumps(runtime), encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, message):
+                    snapshot(root, "fixture")
+
+    def test_death_exact_56_witness_allows_only_right_toe(self):
+        before, after, exceptions, witness, semantics = self.death_fixture()
+        self.assertEqual(56, len(validate_death_witness(before, witness)))
+        self.assertEqual([], compare(before, after, exceptions=exceptions, death_witness=witness, semantic_records=semantics))
+
+    def test_death_new_hash_cannot_approve_other_joint_or_fields(self):
+        for field in ["left_toe", "right_ankle", "head", "anchor", "phaseType"]:
+            before, after, exceptions, witness, semantics = self.death_fixture()
+            actual = semantics[4609]
+            if field in ["left_toe", "right_ankle"]:
+                actual["joints"][field][0] += .5
+            elif field == "head":
+                actual["joints"][field] = [0.0, 0.0, 9.0]
+            elif field == "anchor":
+                actual["groundAnchor"][0] += .5
+            else:
+                actual["phase"] = 1.0
+            candidate = next(row for row in after["frames"] if row["index"] == 4609)
+            candidate["semanticSha256"], candidate["jointsSha256"] = canonical_sha(actual), canonical_sha(actual["joints"])
+            exceptions["entries"][0]["semantic"].update({"expectedSemanticSha256": candidate["semanticSha256"], "expectedJointsSha256": candidate["jointsSha256"]})
+            with self.subTest(field=field), self.assertRaisesRegex(ValueError, "ajenos a las puntas"):
+                compare(before, after, exceptions=exceptions, death_witness=witness, semantic_records=semantics)
+
+    def test_death_witness_cannot_expand_scope_or_change_original(self):
+        for field in ["allowedJoints", "values", "identity", "indices", "hash"]:
+            before, after, exceptions, witness, semantics = self.death_fixture()
+            if field == "allowedJoints":
+                witness["allowedJoints"].append("left_toe")
+            elif field == "values":
+                witness["frames"][0]["semantic"]["joints"]["right_ankle"][0] += 1
+            elif field == "identity":
+                witness["frames"][0]["semantic"]["clip"] = "Fall"
+            elif field == "indices":
+                witness["frames"][1] = copy.deepcopy(witness["frames"][0])
+            else:
+                exceptions["deathWitnessCanonicalSha256"] = "0" * 64
+            if field != "hash":
+                exceptions["deathWitnessCanonicalSha256"] = canonical_sha(witness)
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                compare(before, after, exceptions=exceptions, death_witness=witness, semantic_records=semantics)
+
+    def test_semantic_kinds_cannot_cross_authorized_index_sets(self):
+        for fixture, kind in [(self.death_fixture, "posture_toes_v1"), (self.toe_fixture, "death_child_offset_v1")]:
+            before, after, exceptions, witness, semantics = fixture()
+            exceptions["entries"][0]["semantic"]["kind"] = kind
+            with self.subTest(kind=kind), self.assertRaisesRegex(ValueError, "según kind"):
+                compare(before, after, exceptions=exceptions, toe_witness=witness, death_witness=witness, semantic_records=semantics)
+
+    def test_death_needs_explicit_bound_witness_and_real_semantics(self):
+        before, after, exceptions, witness, semantics = self.death_fixture()
+        for kwargs in [{}, {"death_witness": witness}, {"semantic_records": semantics}]:
+            with self.subTest(keys=kwargs.keys()), self.assertRaisesRegex(ValueError, "Falta testigo"):
+                compare(before, after, exceptions=exceptions, **kwargs)
+        del exceptions["deathWitnessCanonicalSha256"]
+        with self.assertRaisesRegex(ValueError, "SHA del testigo"):
+            compare(before, after, exceptions=exceptions, death_witness=witness, semantic_records=semantics)
+
+    def test_three_separate_witnesses_can_coexist(self):
+        before, after, exceptions, toe_witness, semantics = self.toe_fixture()
+        death_before, death_after, death_exceptions, death_witness, death_semantics = self.death_fixture()
+        before["frames"] += death_before["frames"]
+        after["frames"] += death_after["frames"]
+        for document in [exceptions, toe_witness, death_witness]:
+            document["baselineCanonicalSha256"] = canonical_sha(before)
+        exceptions["toeWitnessCanonicalSha256"] = canonical_sha(toe_witness)
+        exceptions["deathWitnessCanonicalSha256"] = canonical_sha(death_witness)
+        exceptions["entries"] += death_exceptions["entries"]
+        other_before, other_after, other_exceptions, other_witness, other_semantics = self.crouch_push_fixture()
+        before["frames"] += other_before["frames"]
+        after["frames"] += other_after["frames"]
+        for document in [exceptions, toe_witness, death_witness, other_witness]:
+            document["baselineCanonicalSha256"] = canonical_sha(before)
+        exceptions["toeWitnessCanonicalSha256"] = canonical_sha(toe_witness)
+        exceptions["deathWitnessCanonicalSha256"] = canonical_sha(death_witness)
+        exceptions["crouchPushWitnessCanonicalSha256"] = canonical_sha(other_witness)
+        exceptions["entries"] += other_exceptions["entries"]
+        self.assertEqual([], compare(before, after, exceptions=exceptions, toe_witness=toe_witness,
+                                     death_witness=death_witness, crouch_push_witness=other_witness,
+                                     semantic_records=semantics | death_semantics | other_semantics))
+
+    def test_check_never_creates_a_missing_death_witness(self):
+        with self.temporary_directory() as directory:
+            root = Path(directory)
+            contract_baseline, _ = self.contracts_fixture(root)
+            before, _, exceptions, witness, _ = self.death_fixture()
+            before["sourceRegistrations"] = contract_baseline["sourceRegistrations"]
+            references = create_references(root, before)
+            witness["baselineCanonicalSha256"] = canonical_sha(before)
+            exceptions["baselineCanonicalSha256"], exceptions["deathWitnessCanonicalSha256"] = canonical_sha(before), canonical_sha(witness)
+            for filename, value in [("baseline.json", before), ("references.json", references), ("exceptions.json", exceptions)]:
+                (root / filename).write_text(json.dumps(value), encoding="utf-8")
+            with patch("sys.argv", ["baseline", "check", "--root", str(root), "--baseline", str(root / "baseline.json"), "--references", str(root / "references.json"), "--exceptions", str(root / "exceptions.json")]):
+                with self.assertRaises(FileNotFoundError):
+                    main()
+            self.assertFalse((root / "Manifests" / DEATH_WITNESS_NAME).exists())
+
+    def test_explicit_death_witness_creator_cannot_overwrite_or_accept_wrong_original(self):
+        with self.temporary_directory() as directory:
+            root = Path(directory)
+            baseline, _ = self.contracts_fixture(root)
+            (root / "baseline.json").write_text(json.dumps(baseline), encoding="utf-8")
+            witness = root / "Manifests" / DEATH_WITNESS_NAME
+            witness.write_bytes(b"immutable")
+            with patch("sys.argv", ["baseline", "freeze-death-witness", "--root", str(root), "--baseline", str(root / "baseline.json"), "--original-metadata", str(root / "original.json")]):
+                with self.assertRaisesRegex(ValueError, "inmutable"):
+                    main()
+            self.assertEqual(b"immutable", witness.read_bytes())
+            original = root / "original.json"
+            original.write_bytes(b"{}")
+            baseline["provenance"] = {"metadataSha256": "d" * 64}
+            with self.assertRaisesRegex(ValueError, "bytes de metadata originales"):
+                create_death_witness(baseline, original)
+
+    def test_unused_death_witness_declaration_is_rejected(self):
+        before, after, exceptions = self.raster_fixture()
+        exceptions["deathWitnessCanonicalSha256"] = "a" * 64
+        with self.assertRaisesRegex(ValueError, "Death declarado"):
+            compare(before, after, exceptions=exceptions)
+
+    def test_crouch_push_exact_witness_has_128_identity_specific_joint_contracts(self):
+        for index in [40, 3584]:
+            before, after, exceptions, witness, semantics = self.crouch_push_fixture(index)
+            self.assertEqual(128, len(validate_crouch_push_witness(before, witness)))
+            self.assertEqual(["left_toe", "right_toe"], witness["allowedJoints"]["40"])
+            self.assertEqual(["left_toe"], witness["allowedJoints"]["3584"])
+            self.assertEqual([], compare(before, after, exceptions=exceptions, crouch_push_witness=witness, semantic_records=semantics))
+
+    def test_crouch_push_other_joints_are_protected_even_with_matching_new_hashes(self):
+        for index, joint in [(40, "left_ankle"), (40, "pelvis"), (3584, "right_toe"), (3584, "left_ankle")]:
+            before, after, exceptions, witness, semantics = self.crouch_push_fixture(index)
+            actual = semantics[index]
+            actual["joints"][joint][0] += .5
+            candidate = next(row for row in after["frames"] if row["index"] == index)
+            candidate["semanticSha256"], candidate["jointsSha256"] = canonical_sha(actual), canonical_sha(actual["joints"])
+            exceptions["entries"][0]["semantic"].update({"expectedSemanticSha256": candidate["semanticSha256"], "expectedJointsSha256": candidate["jointsSha256"]})
+            with self.subTest(index=index, joint=joint), self.assertRaisesRegex(ValueError, "ajenos a las puntas"):
+                compare(before, after, exceptions=exceptions, crouch_push_witness=witness, semantic_records=semantics)
+
+    def test_crouch_push_witness_cannot_broaden_joint_mapping_or_index_scope(self):
+        for field in ["pushRight", "crouchAnkle", "identity", "duplicate", "extraIndex"]:
+            before, after, exceptions, witness, semantics = self.crouch_push_fixture()
+            if field == "pushRight":
+                witness["allowedJoints"]["3584"].append("right_toe")
+            elif field == "crouchAnkle":
+                witness["allowedJoints"]["40"].append("left_ankle")
+            elif field == "identity":
+                witness["frames"][0]["semantic"]["clip"] = "Idle"
+            elif field == "duplicate":
+                witness["frames"][1] = copy.deepcopy(witness["frames"][0])
+            else:
+                witness["allowedJoints"]["0"] = ["left_toe"]
+            exceptions["crouchPushWitnessCanonicalSha256"] = canonical_sha(witness)
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                compare(before, after, exceptions=exceptions, crouch_push_witness=witness, semantic_records=semantics)
+
+    def test_crouch_push_kind_cannot_authorize_a_posture_index(self):
+        before, after, exceptions, witness, semantics = self.toe_fixture()
+        exceptions["entries"][0]["semantic"]["kind"] = "crouch_push_child_offset_v1"
+        with self.assertRaisesRegex(ValueError, "según kind"):
+            compare(before, after, exceptions=exceptions, crouch_push_witness=witness, semantic_records=semantics)
+
+    def test_explicit_crouch_push_witness_creation_cannot_overwrite_existing(self):
+        with self.temporary_directory() as directory:
+            root = Path(directory)
+            baseline, _ = self.contracts_fixture(root)
+            (root / "baseline.json").write_text(json.dumps(baseline), encoding="utf-8")
+            path = root / "Manifests" / CROUCH_PUSH_WITNESS_NAME
+            path.write_bytes(b"immutable")
+            with patch("sys.argv", ["baseline", "freeze-crouch-push-witness", "--root", str(root), "--baseline", str(root / "baseline.json"), "--original-metadata", str(root / "original.json")]):
+                with self.assertRaisesRegex(ValueError, "inmutable"):
+                    main()
+            self.assertEqual(b"immutable", path.read_bytes())
+
+    def test_explicit_crouch_push_witness_path_is_read_without_default_creation(self):
+        with self.temporary_directory() as directory:
+            root = Path(directory)
+            contract_baseline, _ = self.contracts_fixture(root)
+            before, after, exceptions, witness, semantics = self.crouch_push_fixture()
+            before["sourceRegistrations"] = contract_baseline["sourceRegistrations"]
+            after["sourceRegistrations"] = before["sourceRegistrations"]
+            references = create_references(root, before)
+            witness["baselineCanonicalSha256"] = canonical_sha(before)
+            exceptions["baselineCanonicalSha256"], exceptions["crouchPushWitnessCanonicalSha256"] = canonical_sha(before), canonical_sha(witness)
+            for name, value in [("baseline.json", before), ("references.json", references), ("exceptions.json", exceptions), ("explicit-witness.json", witness)]:
+                (root / name).write_text(json.dumps(value), encoding="utf-8")
+
+            def candidate_snapshot(_root, _provenance, semantic_records):
+                semantic_records.update(semantics)
+                return after
+
+            with patch("ValidateNoTraceCharacterBaseline.snapshot", candidate_snapshot):
+                report = validate_current(root, root / "baseline.json", root / "references.json", root / "exceptions.json",
+                                          crouch_push_witness_path=root / "explicit-witness.json")
+            self.assertEqual("PASS", report["status"])
+            self.assertEqual(canonical_sha(witness), report["crouchPushWitnessCanonicalSha256"])
+            with self.assertRaises(FileNotFoundError):
+                validate_current(root, root / "baseline.json", root / "references.json", root / "exceptions.json")
+            self.assertFalse((root / "Manifests" / CROUCH_PUSH_WITNESS_NAME).exists())
+
+    def test_repro_passes_explicit_witness_paths_once_without_content_generation(self):
+        import GenerateNoTraceCharactersRepro as repro
+
+        with self.temporary_directory() as directory:
+            root = Path(directory)
+            (root / "Atlas/Packed").mkdir(parents=True)
+            (root / "Manifests").mkdir()
+            for name in ["WeaponProps.png", "WeaponSelection.png", "CharacterAtlasRuntime.json"]:
+                (root / "Atlas" / name).write_bytes(b"unchanged")
+            paths = [root / name for name in ["baseline.json", "references.json", "exceptions.json", "toe.json", "death.json", "crouch-push.json", "floor.json", "recovery.json"]]
+            with patch.object(repro, "generate") as generate, patch.object(repro, "validate") as validate, patch("builtins.print"):
+                repro.reproduce(root, *paths)
+            generate.assert_called_once_with(root)
+            validate.assert_called_once_with(root, *paths[:4], death_witness=paths[4], crouch_push_witness=paths[5], ik_floor_witness=paths[6], recovery_witness=paths[7])
+
+
+class CharacterLiteralJointTests(unittest.TestCase):
+    temporary_directory = CharacterBaselineTests.temporary_directory
+
+    @classmethod
+    def setUpClass(cls):
+        cls.root = Path(__file__).resolve().parents[1] / "Art/NoTrace/Characters"
+        cls.original = read_json(cls.root / "Manifests" / BASELINE_NAME)
+        cls.witness_files = {"posture_toes_v1": (TOE_WITNESS_NAME, "toeWitnessCanonicalSha256", "toe_witness"),
+                             "death_child_offset_v1": (DEATH_WITNESS_NAME, "deathWitnessCanonicalSha256", "death_witness"),
+                             "crouch_push_child_offset_v1": (CROUCH_PUSH_WITNESS_NAME, "crouchPushWitnessCanonicalSha256", "crouch_push_witness"),
+                             "ik_floor_v1": (IK_FLOOR_WITNESS_NAME, "ikFloorWitnessCanonicalSha256", "ik_floor_witness"),
+                             "recovery_prone_frame_v1": (RECOVERY_WITNESS_NAME, "recoveryWitnessCanonicalSha256", "recovery_witness")}
+        cls.witnesses = {kind: read_json(cls.root / "Manifests" / entry[0]) for kind, entry in cls.witness_files.items()}
+        cls.scopes = {kind: semantic_spec(kind, witness)[0] for kind, witness in cls.witnesses.items()}
+        cls.original_semantics = {row["index"]: row["semantic"] for witness in cls.witnesses.values() for row in witness["frames"]}
+
+    def candidate_fixture(self, indices, overrides=None):
+        from GenerateNoTraceCharactersActions import body_pose
+        from GenerateNoTraceCharactersRig import project
+
+        before, after = self.original, copy.deepcopy(self.original)
+        frames = {frame["index"]: frame for frame in after["frames"]}
+        exceptions = {"schemaVersion": 1, "baselineCanonicalSha256": canonical_sha(before), "toeWitnessCanonicalSha256": None, "entries": []}
+        semantics = {}
+        for index in indices:
+            actual = copy.deepcopy(self.original_semantics[index])
+            actual["joints"] = body_pose(actual["clip"], actual["phase"], actual["stance"])
+            kinds = [kind for kind, scope in self.scopes.items() if index in scope]
+            if overrides is not None:
+                kinds = overrides
+            if index in self.scopes["recovery_prone_frame_v1"]:
+                actual["carryGrip"] = list(project(actual["joints"]["right_wrist"], actual["direction"]))
+                frames[index]["anchors"]["carryGrip"] = actual["carryGrip"]
+            frames[index]["semanticSha256"], frames[index]["jointsSha256"] = canonical_sha(actual), canonical_sha(actual["joints"])
+            semantic = {"kind": kinds[0] if len(kinds) == 1 else "joint_contracts_v1", "expectedSemanticSha256": frames[index]["semanticSha256"], "expectedJointsSha256": frames[index]["jointsSha256"]}
+            if len(kinds) != 1:
+                semantic["contracts"] = kinds
+            exceptions["entries"].append({"index": index, "identity": {key: actual[key] for key in ["clip", "stance", "direction", "phase"]},
+                                           "reason": "Fixture de validación de contratos literales; no aprueba recursos producidos", "rgbaSha256": {}, "semantic": semantic})
+            for kind in kinds:
+                exceptions[self.witness_files[kind][1]] = canonical_sha(self.witnesses[kind])
+            semantics[index] = actual
+        kwargs = {entry[2]: self.witnesses[kind] for kind, entry in self.witness_files.items()}
+        return before, after, exceptions, semantics, kwargs
+
+    def refresh_hashes(self, after, exceptions, semantics, index):
+        frame = next(frame for frame in after["frames"] if frame["index"] == index)
+        row = next(row for row in exceptions["entries"] if row["index"] == index)
+        frame["semanticSha256"], frame["jointsSha256"] = canonical_sha(semantics[index]), canonical_sha(semantics[index]["joints"])
+        row["semantic"].update({"expectedSemanticSha256": frame["semanticSha256"], "expectedJointsSha256": frame["jointsSha256"]})
+
+    def test_all_488_literal_semantic_candidates_validate_without_raster_approval(self):
+        self.assertEqual(488, len(self.original_semantics))
+        before, after, exceptions, semantics, kwargs = self.candidate_fixture(sorted(self.original_semantics))
+        self.assertEqual([], compare(before, after, exceptions=exceptions, semantic_records=semantics, **kwargs))
+
+    def test_posture_and_death_overlaps_require_both_explicit_contracts(self):
+        for kind, expected in [("posture_toes_v1", 32), ("death_child_offset_v1", 16)]:
+            overlap = set(self.scopes[kind]) & set(self.scopes["ik_floor_v1"])
+            self.assertEqual(expected, len(overlap))
+            index = min(overlap)
+            before, after, exceptions, semantics, kwargs = self.candidate_fixture([index], [kind])
+            with self.subTest(kind=kind), self.assertRaisesRegex(ValueError, "ajenos a las puntas"):
+                compare(before, after, exceptions=exceptions, semantic_records=semantics, **kwargs)
+
+    def test_composition_rejects_duplicate_unknown_empty_or_uncovered_contracts(self):
+        index = min(set(self.scopes["posture_toes_v1"]) & set(self.scopes["ik_floor_v1"]))
+        for names in [[], ["ik_floor_v1", "ik_floor_v1"], ["*"], ["posture_toes_v1", "death_child_offset_v1"], [False]]:
+            before, after, exceptions, semantics, kwargs = self.candidate_fixture([index])
+            exceptions["entries"][0]["semantic"].update({"kind": "joint_contracts_v1", "contracts": names})
+            with self.subTest(names=names), self.assertRaises(ValueError):
+                compare(before, after, exceptions=exceptions, semantic_records=semantics, **kwargs)
+
+    def test_recovery_carry_grip_is_derived_from_actual_wrist_projection(self):
+        index = min(self.scopes["recovery_prone_frame_v1"])
+        before, after, exceptions, semantics, kwargs = self.candidate_fixture([index])
+        self.assertEqual([], compare(before, after, exceptions=exceptions, semantic_records=semantics, **kwargs))
+        semantics[index]["carryGrip"][0] += .25
+        next(frame for frame in after["frames"] if frame["index"] == index)["anchors"]["carryGrip"] = semantics[index]["carryGrip"]
+        self.refresh_hashes(after, exceptions, semantics, index)
+        with self.assertRaisesRegex(ValueError, "proyección exacta"):
+            compare(before, after, exceptions=exceptions, semantic_records=semantics, **kwargs)
+
+    def test_recovery_preserves_all_other_semantic_anchors_even_with_new_matching_hashes(self):
+        index = min(self.scopes["recovery_prone_frame_v1"])
+        for field in ["groundAnchor", "pelvis", "muzzle", "grip", "supportWidth"]:
+            before, after, exceptions, semantics, kwargs = self.candidate_fixture([index])
+            if isinstance(semantics[index][field], list):
+                semantics[index][field][0] += .25
+            else:
+                semantics[index][field] += .25
+            next(frame for frame in after["frames"] if frame["index"] == index)["anchors"][field] = semantics[index][field]
+            self.refresh_hashes(after, exceptions, semantics, index)
+            with self.subTest(field=field), self.assertRaisesRegex(ValueError, "ajenos a las puntas"):
+                compare(before, after, exceptions=exceptions, semantic_records=semantics, **kwargs)
+
+    def test_recovery_candidate_anchor_record_cannot_disagree_with_semantics(self):
+        index = min(self.scopes["recovery_prone_frame_v1"])
+        for field in ["carryGrip", "groundAnchor", "pelvis", "muzzle", "grip", "supportWidth"]:
+            before, after, exceptions, semantics, kwargs = self.candidate_fixture([index])
+            frame = next(frame for frame in after["frames"] if frame["index"] == index)
+            if isinstance(frame["anchors"][field], list):
+                frame["anchors"][field] = [frame["anchors"][field][0]+.25, *frame["anchors"][field][1:]]
+            else:
+                frame["anchors"][field] += .25
+            with self.subTest(field=field):
+                errors = compare(before, after, exceptions=exceptions, semantic_records=semantics, **kwargs)
+                self.assertIn("Semántica distinta: índice " + str(index) + ", campo anchors", errors)
+
+    def test_floor_scope_cannot_add_head_or_expand_literal_indices_even_with_matching_witness_sha(self):
+        index = min(self.scopes["ik_floor_v1"])
+        for change in ["head", "index", "identity"]:
+            before, after, exceptions, semantics, kwargs = self.candidate_fixture([index])
+            witness = copy.deepcopy(kwargs["ik_floor_witness"])
+            if change == "head":
+                witness["allowedJoints"][str(index)].append("head")
+            elif change == "index":
+                witness["allowedJoints"]["0"] = ["left_elbow"]
+            else:
+                witness["frames"][0]["semantic"]["direction"] = "N"
+            kwargs["ik_floor_witness"] = witness
+            exceptions["ikFloorWitnessCanonicalSha256"] = canonical_sha(witness)
+            with self.subTest(change=change), self.assertRaises(ValueError):
+                compare(before, after, exceptions=exceptions, semantic_records=semantics, **kwargs)
+
+    def test_recovery_witness_cannot_relax_pelvis_or_other_anchor_fields(self):
+        index = min(self.scopes["recovery_prone_frame_v1"])
+        for change in ["pelvisJoint", "groundAnchorField"]:
+            before, after, exceptions, semantics, kwargs = self.candidate_fixture([index])
+            witness = copy.deepcopy(kwargs["recovery_witness"])
+            if change == "pelvisJoint":
+                witness["allowedJoints"][str(index)].append("pelvis")
+            else:
+                witness["allowedFields"].append("groundAnchor")
+            kwargs["recovery_witness"] = witness
+            exceptions["recoveryWitnessCanonicalSha256"] = canonical_sha(witness)
+            with self.subTest(change=change), self.assertRaises(ValueError):
+                compare(before, after, exceptions=exceptions, semantic_records=semantics, **kwargs)
+
+    def test_fixed_witness_creators_reject_changed_descriptor_before_reading_original(self):
+        for kind, creator in [("ik_floor_v1", create_ik_floor_witness), ("recovery_prone_frame_v1", create_recovery_witness)]:
+            descriptor = witness_descriptor(self.witnesses[kind])
+            descriptor[next(iter(descriptor))]["allowedJoints"].append("head_unapproved")
+            with self.subTest(kind=kind), self.assertRaisesRegex(ValueError, "SHA del descriptor"):
+                creator(self.original, Path("missing-original.json"), descriptor)
+
+    def test_check_never_creates_missing_floor_or_recovery_witnesses(self):
+        for kind in ["ik_floor_v1", "recovery_prone_frame_v1"]:
+            index = min(self.scopes[kind])
+            _, _, exceptions, _, _ = self.candidate_fixture([index])
+            with self.subTest(kind=kind), self.temporary_directory() as directory:
+                root = Path(directory)
+                path = root / "exceptions.json"
+                path.write_text(json.dumps(exceptions), encoding="utf-8")
+                with self.assertRaises(FileNotFoundError):
+                    validate_current(root, self.root / "Manifests" / BASELINE_NAME, self.root / "Manifests" / REFERENCES_NAME, path)
+                self.assertFalse((root / "Manifests").exists())
 
 
 if __name__ == "__main__":
