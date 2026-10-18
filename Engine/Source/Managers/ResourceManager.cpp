@@ -1,5 +1,6 @@
 #include "Managers/ResourceManager.h"
 #include "Utils/Log.h"
+#include <filesystem>
 
 sf::Texture *ResourceManager::FetchTexture(const std::string &filename) {
   if (!textures_.contains(filename)) {
@@ -13,14 +14,18 @@ sf::Texture *ResourceManager::FetchTexture(const std::string &filename) {
 }
 
 sf::SoundBuffer *ResourceManager::FetchSound(const std::string &filename) {
-  if (!sounds_.contains(filename)) {
-    if (!sounds_[filename].loadFromFile("Content/Sounds/" + filename)) {
+  const auto [entry, inserted] = sounds_.try_emplace(filename);
+  if (inserted) {
+    const auto current = std::filesystem::path("Content/Audio") / filename;
+    const auto path = std::filesystem::exists(current) ? current : std::filesystem::path("Content/Sounds") / filename;
+    if (!entry->second.loadFromFile(path)) {
+      sounds_.erase(entry);
       LOG_ERROR("Failed to load sound: {}", filename);
       return nullptr;
     }
   }
 
-  return &sounds_.at(filename);
+  return &entry->second;
 }
 
 sf::Font *ResourceManager::FetchFont(const std::string &filename) {
