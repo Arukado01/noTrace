@@ -108,7 +108,8 @@ namespace {
                                   ResourceManager &resources, int iterations) {
     const auto *texture = resources.FetchTexture("NoTrace/Characters/OperativeAtlas.png");
     const auto *font = resources.FetchFont("Relidux.otf");
-    const auto *sound = resources.FetchSound("NoTrace/SuppressorAttach.wav");
+    const std::string soundFile = "NoTrace/Weapons/SuppressorAttach-01.wav";
+    const auto *sound = resources.FetchSound(soundFile);
     Require(texture && font && sound, "No se pudieron cargar los recursos compartidos de comprobación");
     Require(native.setActive(), "No se pudo activar el contexto de comprobación");
     const auto handle = texture->getNativeHandle();
@@ -136,7 +137,7 @@ namespace {
       Require(native.setActive() && sf::Context::getActiveContextId() == context, "La transición sustituyó el contexto gráfico");
       Require(resources.FetchTexture("NoTrace/Characters/OperativeAtlas.png") == texture && texture->getNativeHandle() == handle,
               "La transición sustituyó la textura compartida");
-      Require(resources.FetchFont("Relidux.otf") == font && resources.FetchSound("NoTrace/SuppressorAttach.wav") == sound,
+      Require(resources.FetchFont("Relidux.otf") == font && resources.FetchSound(soundFile) == sound,
               "La transición volvió a cargar la fuente o el audio");
       Require(shader.getNativeHandle() == shaderHandle, "La transición sustituyó el shader cargado");
       Require(playing.getStatus() == sf::SoundSource::Status::Playing, "La transición interrumpió el sonido activo");
