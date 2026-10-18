@@ -2,7 +2,7 @@
   "author": "Carlos Cortina",
   "date": "2026-10-18",
   "schemaVersion": 2,
-  "status": "registered_original_parts_joint_review_pending",
+  "status": "registered_original_parts_runtime_reviewed",
   "registrationRule": "Rectángulos completos separados por gutters transparentes, congelados con hashes; no son celdas de cuadrícula supuestas",
   "sources": [
     {
@@ -2821,5 +2821,6 @@
         }
       ]
     }
-  ]
+  ],
+  "runtimeReview": "runtime-review.json"
 }

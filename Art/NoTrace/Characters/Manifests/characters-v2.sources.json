@@ -1,7 +1,7 @@
 {
   "author": "Carlos Cortina",
   "organization": "CIO",
-  "generatedAtUtc": "2026-10-18T08:39:14.274643+00:00",
+  "generatedAtUtc": "2026-10-18T09:01:51.764474+00:00",
   "schemaVersion": 2,
   "scope": "original_sources_authored_rig_paged_raster_and_runtime_contract",
   "activeGameContentChanged": true,
@@ -37,8 +37,57 @@
       "classification": "redesign",
       "newSource": null,
       "integration": "CharacterArt paged raster and actual renderer states",
-      "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "executedVisualTests": [
+        "characters-cqc-release-recover-phase-0.png",
+        "characters-cqc-release-recover-phase-1.png",
+        "characters-cqc-release-recover-phase-2.png",
+        "characters-cqc-release-recover-phase-3.png",
+        "characters-cqc-release-recover-phase-4.png",
+        "characters-cqc-release-recover-phase-5.png",
+        "characters-cqc-release-recover-phase-6.png",
+        "characters-cqc-release-recover-phase-7.png",
+        "characters-suppressor-standing-phase-0.png",
+        "characters-suppressor-standing-phase-1.png",
+        "characters-suppressor-standing-phase-2.png",
+        "characters-suppressor-standing-phase-3.png",
+        "characters-suppressor-standing-phase-4.png",
+        "characters-suppressor-standing-phase-5.png",
+        "characters-suppressor-standing-phase-6.png",
+        "characters-suppressor-standing-phase-7.png",
+        "characters-switch-standing-phase-0.png",
+        "characters-switch-standing-phase-1.png",
+        "characters-switch-standing-phase-2.png",
+        "characters-switch-standing-phase-3.png",
+        "characters-switch-standing-phase-4.png",
+        "characters-switch-standing-phase-5.png",
+        "characters-switch-standing-phase-6.png",
+        "characters-switch-standing-phase-7.png",
+        "world-clips-idle-max-phase-0.png",
+        "world-clips-idle-max-phase-1.png",
+        "world-clips-idle-max-phase-2.png",
+        "world-clips-idle-max-phase-3.png",
+        "world-clips-idle-max-phase-4.png",
+        "world-clips-idle-max-phase-5.png",
+        "world-clips-idle-max-phase-6.png",
+        "world-clips-idle-max-phase-7.png",
+        "world-clips-idle-min-phase-0.png",
+        "world-clips-idle-min-phase-1.png",
+        "world-clips-idle-min-phase-2.png",
+        "world-clips-idle-min-phase-3.png",
+        "world-clips-idle-min-phase-4.png",
+        "world-clips-idle-min-phase-5.png",
+        "world-clips-idle-min-phase-6.png",
+        "world-clips-idle-min-phase-7.png",
+        "world-clips-idle-normal-phase-0.png",
+        "world-clips-idle-normal-phase-1.png",
+        "world-clips-idle-normal-phase-2.png",
+        "world-clips-idle-normal-phase-3.png",
+        "world-clips-idle-normal-phase-4.png",
+        "world-clips-idle-normal-phase-5.png",
+        "world-clips-idle-normal-phase-6.png",
+        "world-clips-idle-normal-phase-7.png"
+      ],
+      "status": "runtime_render_reviewed"
     },
     {
       "clipId": 1,
@@ -69,8 +118,21 @@
       "classification": "redesign",
       "newSource": null,
       "integration": "CharacterArt paged raster and actual renderer states",
-      "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "executedVisualTests": [
+        "world-clips-walk-max-phase-0.png",
+        "world-clips-walk-max-phase-1.png",
+        "world-clips-walk-max-phase-2.png",
+        "world-clips-walk-max-phase-3.png",
+        "world-clips-walk-min-phase-0.png",
+        "world-clips-walk-min-phase-1.png",
+        "world-clips-walk-min-phase-2.png",
+        "world-clips-walk-min-phase-3.png",
+        "world-clips-walk-normal-phase-0.png",
+        "world-clips-walk-normal-phase-1.png",
+        "world-clips-walk-normal-phase-2.png",
+        "world-clips-walk-normal-phase-3.png"
+      ],
+      "status": "runtime_render_reviewed"
     },
     {
       "clipId": 2,
@@ -101,8 +163,21 @@
       "classification": "redesign",
       "newSource": null,
       "integration": "CharacterArt paged raster and actual renderer states",
-      "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "executedVisualTests": [
+        "world-clips-run-max-phase-0.png",
+        "world-clips-run-max-phase-1.png",
+        "world-clips-run-max-phase-2.png",
+        "world-clips-run-max-phase-3.png",
+        "world-clips-run-min-phase-0.png",
+        "world-clips-run-min-phase-1.png",
+        "world-clips-run-min-phase-2.png",
+        "world-clips-run-min-phase-3.png",
+        "world-clips-run-normal-phase-0.png",
+        "world-clips-run-normal-phase-1.png",
+        "world-clips-run-normal-phase-2.png",
+        "world-clips-run-normal-phase-3.png"
+      ],
+      "status": "runtime_render_reviewed"
     },
     {
       "clipId": 3,
@@ -133,8 +208,28 @@
       "classification": "redesign",
       "newSource": null,
       "integration": "CharacterArt paged raster and actual renderer states",
-      "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "executedVisualTests": [
+        "characters-cover-enter-crouched-phase-0.png",
+        "characters-cover-enter-crouched-phase-1.png",
+        "characters-cover-enter-crouched-phase-2.png",
+        "characters-cover-enter-crouched-phase-3.png",
+        "characters-cover-enter-crouched-phase-4.png",
+        "characters-cover-enter-crouched-phase-5.png",
+        "characters-cover-enter-crouched-phase-6.png",
+        "characters-cover-enter-crouched-phase-7.png",
+        "characters-suppressor-crouched-phase-0.png",
+        "characters-suppressor-crouched-phase-1.png",
+        "characters-suppressor-crouched-phase-2.png",
+        "characters-suppressor-crouched-phase-3.png",
+        "characters-suppressor-crouched-phase-4.png",
+        "characters-suppressor-crouched-phase-5.png",
+        "characters-suppressor-crouched-phase-6.png",
+        "characters-suppressor-crouched-phase-7.png",
+        "world-clips-crouch-idle-max-phase-0.png",
+        "world-clips-crouch-idle-min-phase-0.png",
+        "world-clips-crouch-idle-normal-phase-0.png"
+      ],
+      "status": "runtime_render_reviewed"
     },
     {
       "clipId": 4,
@@ -165,8 +260,21 @@
       "classification": "redesign",
       "newSource": null,
       "integration": "CharacterArt paged raster and actual renderer states",
-      "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "executedVisualTests": [
+        "world-clips-crouch-walk-max-phase-0.png",
+        "world-clips-crouch-walk-max-phase-1.png",
+        "world-clips-crouch-walk-max-phase-2.png",
+        "world-clips-crouch-walk-max-phase-3.png",
+        "world-clips-crouch-walk-min-phase-0.png",
+        "world-clips-crouch-walk-min-phase-1.png",
+        "world-clips-crouch-walk-min-phase-2.png",
+        "world-clips-crouch-walk-min-phase-3.png",
+        "world-clips-crouch-walk-normal-phase-0.png",
+        "world-clips-crouch-walk-normal-phase-1.png",
+        "world-clips-crouch-walk-normal-phase-2.png",
+        "world-clips-crouch-walk-normal-phase-3.png"
+      ],
+      "status": "runtime_render_reviewed"
     },
     {
       "clipId": 5,
@@ -197,8 +305,21 @@
       "classification": "redesign",
       "newSource": null,
       "integration": "CharacterArt paged raster and actual renderer states",
-      "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "executedVisualTests": [
+        "world-clips-crouch-run-max-phase-0.png",
+        "world-clips-crouch-run-max-phase-1.png",
+        "world-clips-crouch-run-max-phase-2.png",
+        "world-clips-crouch-run-max-phase-3.png",
+        "world-clips-crouch-run-min-phase-0.png",
+        "world-clips-crouch-run-min-phase-1.png",
+        "world-clips-crouch-run-min-phase-2.png",
+        "world-clips-crouch-run-min-phase-3.png",
+        "world-clips-crouch-run-normal-phase-0.png",
+        "world-clips-crouch-run-normal-phase-1.png",
+        "world-clips-crouch-run-normal-phase-2.png",
+        "world-clips-crouch-run-normal-phase-3.png"
+      ],
+      "status": "runtime_render_reviewed"
     },
     {
       "clipId": 6,
@@ -229,8 +350,21 @@
       "classification": "redesign",
       "newSource": null,
       "integration": "CharacterArt paged raster and actual renderer states",
-      "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "executedVisualTests": [
+        "world-clips-lie-down-max-phase-0.png",
+        "world-clips-lie-down-max-phase-1.png",
+        "world-clips-lie-down-max-phase-2.png",
+        "world-clips-lie-down-max-phase-3.png",
+        "world-clips-lie-down-min-phase-0.png",
+        "world-clips-lie-down-min-phase-1.png",
+        "world-clips-lie-down-min-phase-2.png",
+        "world-clips-lie-down-min-phase-3.png",
+        "world-clips-lie-down-normal-phase-0.png",
+        "world-clips-lie-down-normal-phase-1.png",
+        "world-clips-lie-down-normal-phase-2.png",
+        "world-clips-lie-down-normal-phase-3.png"
+      ],
+      "status": "runtime_render_reviewed"
     },
     {
       "clipId": 7,
@@ -261,8 +395,36 @@
       "classification": "redesign",
       "newSource": null,
       "integration": "CharacterArt paged raster and actual renderer states",
-      "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "executedVisualTests": [
+        "characters-nonlethal-prone-phase-0.png",
+        "characters-nonlethal-prone-phase-1.png",
+        "characters-nonlethal-prone-phase-2.png",
+        "characters-nonlethal-prone-phase-3.png",
+        "characters-nonlethal-prone-phase-4.png",
+        "characters-nonlethal-prone-phase-5.png",
+        "characters-nonlethal-prone-phase-6.png",
+        "characters-nonlethal-prone-phase-7.png",
+        "characters-suppressor-prone-phase-0.png",
+        "characters-suppressor-prone-phase-1.png",
+        "characters-suppressor-prone-phase-2.png",
+        "characters-suppressor-prone-phase-3.png",
+        "characters-suppressor-prone-phase-4.png",
+        "characters-suppressor-prone-phase-5.png",
+        "characters-suppressor-prone-phase-6.png",
+        "characters-suppressor-prone-phase-7.png",
+        "characters-switch-prone-phase-0.png",
+        "characters-switch-prone-phase-1.png",
+        "characters-switch-prone-phase-2.png",
+        "characters-switch-prone-phase-3.png",
+        "characters-switch-prone-phase-4.png",
+        "characters-switch-prone-phase-5.png",
+        "characters-switch-prone-phase-6.png",
+        "characters-switch-prone-phase-7.png",
+        "world-clips-prone-idle-max-phase-0.png",
+        "world-clips-prone-idle-min-phase-0.png",
+        "world-clips-prone-idle-normal-phase-0.png"
+      ],
+      "status": "runtime_render_reviewed"
     },
     {
       "clipId": 8,
@@ -293,8 +455,33 @@
       "classification": "redesign",
       "newSource": null,
       "integration": "CharacterArt paged raster and actual renderer states",
-      "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "executedVisualTests": [
+        "world-clips-crawl-max-phase-0.png",
+        "world-clips-crawl-max-phase-1.png",
+        "world-clips-crawl-max-phase-2.png",
+        "world-clips-crawl-max-phase-3.png",
+        "world-clips-crawl-max-phase-4.png",
+        "world-clips-crawl-max-phase-5.png",
+        "world-clips-crawl-max-phase-6.png",
+        "world-clips-crawl-max-phase-7.png",
+        "world-clips-crawl-min-phase-0.png",
+        "world-clips-crawl-min-phase-1.png",
+        "world-clips-crawl-min-phase-2.png",
+        "world-clips-crawl-min-phase-3.png",
+        "world-clips-crawl-min-phase-4.png",
+        "world-clips-crawl-min-phase-5.png",
+        "world-clips-crawl-min-phase-6.png",
+        "world-clips-crawl-min-phase-7.png",
+        "world-clips-crawl-normal-phase-0.png",
+        "world-clips-crawl-normal-phase-1.png",
+        "world-clips-crawl-normal-phase-2.png",
+        "world-clips-crawl-normal-phase-3.png",
+        "world-clips-crawl-normal-phase-4.png",
+        "world-clips-crawl-normal-phase-5.png",
+        "world-clips-crawl-normal-phase-6.png",
+        "world-clips-crawl-normal-phase-7.png"
+      ],
+      "status": "runtime_render_reviewed"
     },
     {
       "clipId": 9,
@@ -325,8 +512,21 @@
       "classification": "redesign",
       "newSource": null,
       "integration": "CharacterArt paged raster and actual renderer states",
-      "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "executedVisualTests": [
+        "world-clips-stand-up-max-phase-0.png",
+        "world-clips-stand-up-max-phase-1.png",
+        "world-clips-stand-up-max-phase-2.png",
+        "world-clips-stand-up-max-phase-3.png",
+        "world-clips-stand-up-min-phase-0.png",
+        "world-clips-stand-up-min-phase-1.png",
+        "world-clips-stand-up-min-phase-2.png",
+        "world-clips-stand-up-min-phase-3.png",
+        "world-clips-stand-up-normal-phase-0.png",
+        "world-clips-stand-up-normal-phase-1.png",
+        "world-clips-stand-up-normal-phase-2.png",
+        "world-clips-stand-up-normal-phase-3.png"
+      ],
+      "status": "runtime_render_reviewed"
     },
     {
       "clipId": 10,
@@ -357,8 +557,21 @@
       "classification": "redesign",
       "newSource": null,
       "integration": "CharacterArt paged raster and actual renderer states",
-      "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "executedVisualTests": [
+        "world-clips-dive-max-phase-0.png",
+        "world-clips-dive-max-phase-1.png",
+        "world-clips-dive-max-phase-2.png",
+        "world-clips-dive-max-phase-3.png",
+        "world-clips-dive-min-phase-0.png",
+        "world-clips-dive-min-phase-1.png",
+        "world-clips-dive-min-phase-2.png",
+        "world-clips-dive-min-phase-3.png",
+        "world-clips-dive-normal-phase-0.png",
+        "world-clips-dive-normal-phase-1.png",
+        "world-clips-dive-normal-phase-2.png",
+        "world-clips-dive-normal-phase-3.png"
+      ],
+      "status": "runtime_render_reviewed"
     },
     {
       "clipId": 11,
@@ -389,8 +602,21 @@
       "classification": "redesign",
       "newSource": null,
       "integration": "CharacterArt paged raster and actual renderer states",
-      "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "executedVisualTests": [
+        "world-clips-roll-max-phase-0.png",
+        "world-clips-roll-max-phase-1.png",
+        "world-clips-roll-max-phase-2.png",
+        "world-clips-roll-max-phase-3.png",
+        "world-clips-roll-min-phase-0.png",
+        "world-clips-roll-min-phase-1.png",
+        "world-clips-roll-min-phase-2.png",
+        "world-clips-roll-min-phase-3.png",
+        "world-clips-roll-normal-phase-0.png",
+        "world-clips-roll-normal-phase-1.png",
+        "world-clips-roll-normal-phase-2.png",
+        "world-clips-roll-normal-phase-3.png"
+      ],
+      "status": "runtime_render_reviewed"
     },
     {
       "clipId": 12,
@@ -421,8 +647,45 @@
       "classification": "redesign",
       "newSource": "prone matched body/aim direction candidates",
       "integration": "CharacterArt paged raster and actual renderer states",
-      "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "executedVisualTests": [
+        "world-clips-aim-crouched-max-phase-0.png",
+        "world-clips-aim-crouched-max-phase-1.png",
+        "world-clips-aim-crouched-max-phase-2.png",
+        "world-clips-aim-crouched-max-phase-3.png",
+        "world-clips-aim-crouched-min-phase-0.png",
+        "world-clips-aim-crouched-min-phase-1.png",
+        "world-clips-aim-crouched-min-phase-2.png",
+        "world-clips-aim-crouched-min-phase-3.png",
+        "world-clips-aim-crouched-normal-phase-0.png",
+        "world-clips-aim-crouched-normal-phase-1.png",
+        "world-clips-aim-crouched-normal-phase-2.png",
+        "world-clips-aim-crouched-normal-phase-3.png",
+        "world-clips-aim-prone-max-phase-0.png",
+        "world-clips-aim-prone-max-phase-1.png",
+        "world-clips-aim-prone-max-phase-2.png",
+        "world-clips-aim-prone-max-phase-3.png",
+        "world-clips-aim-prone-min-phase-0.png",
+        "world-clips-aim-prone-min-phase-1.png",
+        "world-clips-aim-prone-min-phase-2.png",
+        "world-clips-aim-prone-min-phase-3.png",
+        "world-clips-aim-prone-normal-phase-0.png",
+        "world-clips-aim-prone-normal-phase-1.png",
+        "world-clips-aim-prone-normal-phase-2.png",
+        "world-clips-aim-prone-normal-phase-3.png",
+        "world-clips-aim-standing-max-phase-0.png",
+        "world-clips-aim-standing-max-phase-1.png",
+        "world-clips-aim-standing-max-phase-2.png",
+        "world-clips-aim-standing-max-phase-3.png",
+        "world-clips-aim-standing-min-phase-0.png",
+        "world-clips-aim-standing-min-phase-1.png",
+        "world-clips-aim-standing-min-phase-2.png",
+        "world-clips-aim-standing-min-phase-3.png",
+        "world-clips-aim-standing-normal-phase-0.png",
+        "world-clips-aim-standing-normal-phase-1.png",
+        "world-clips-aim-standing-normal-phase-2.png",
+        "world-clips-aim-standing-normal-phase-3.png"
+      ],
+      "status": "runtime_render_reviewed"
     },
     {
       "clipId": 13,
@@ -453,8 +716,49 @@
       "classification": "redesign",
       "newSource": "prone matched body/aim direction candidates",
       "integration": "CharacterArt paged raster and actual renderer states",
-      "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "executedVisualTests": [
+        "world-clips-shoot-crouched-max-phase-0.png",
+        "world-clips-shoot-crouched-max-phase-1.png",
+        "world-clips-shoot-crouched-max-phase-2.png",
+        "world-clips-shoot-crouched-max-phase-3.png",
+        "world-clips-shoot-crouched-min-phase-0.png",
+        "world-clips-shoot-crouched-min-phase-1.png",
+        "world-clips-shoot-crouched-min-phase-2.png",
+        "world-clips-shoot-crouched-min-phase-3.png",
+        "world-clips-shoot-crouched-normal-phase-0.png",
+        "world-clips-shoot-crouched-normal-phase-1.png",
+        "world-clips-shoot-crouched-normal-phase-2.png",
+        "world-clips-shoot-crouched-normal-phase-3.png",
+        "world-clips-shoot-prone-max-phase-0.png",
+        "world-clips-shoot-prone-max-phase-1.png",
+        "world-clips-shoot-prone-max-phase-2.png",
+        "world-clips-shoot-prone-max-phase-3.png",
+        "world-clips-shoot-prone-min-phase-0.png",
+        "world-clips-shoot-prone-min-phase-1.png",
+        "world-clips-shoot-prone-min-phase-2.png",
+        "world-clips-shoot-prone-min-phase-3.png",
+        "world-clips-shoot-prone-normal-phase-0.png",
+        "world-clips-shoot-prone-normal-phase-1.png",
+        "world-clips-shoot-prone-normal-phase-2.png",
+        "world-clips-shoot-prone-normal-phase-3.png",
+        "world-clips-shoot-standing-max-phase-0.png",
+        "world-clips-shoot-standing-max-phase-1.png",
+        "world-clips-shoot-standing-max-phase-2.png",
+        "world-clips-shoot-standing-max-phase-3.png",
+        "world-clips-shoot-standing-min-phase-0.png",
+        "world-clips-shoot-standing-min-phase-1.png",
+        "world-clips-shoot-standing-min-phase-2.png",
+        "world-clips-shoot-standing-min-phase-3.png",
+        "world-clips-shoot-standing-normal-phase-0.png",
+        "world-clips-shoot-standing-normal-phase-1.png",
+        "world-clips-shoot-standing-normal-phase-2.png",
+        "world-clips-shoot-standing-normal-phase-3.png",
+        "world-shot-crouched.png",
+        "world-shot-prone-blocked.png",
+        "world-shot-prone.png",
+        "world-shot-standing.png"
+      ],
+      "status": "runtime_render_reviewed"
     },
     {
       "clipId": 14,
@@ -485,8 +789,45 @@
       "classification": "redesign",
       "newSource": null,
       "integration": "CharacterArt paged raster and actual renderer states",
-      "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "executedVisualTests": [
+        "world-clips-reload-crouched-max-phase-0.png",
+        "world-clips-reload-crouched-max-phase-1.png",
+        "world-clips-reload-crouched-max-phase-2.png",
+        "world-clips-reload-crouched-max-phase-3.png",
+        "world-clips-reload-crouched-min-phase-0.png",
+        "world-clips-reload-crouched-min-phase-1.png",
+        "world-clips-reload-crouched-min-phase-2.png",
+        "world-clips-reload-crouched-min-phase-3.png",
+        "world-clips-reload-crouched-normal-phase-0.png",
+        "world-clips-reload-crouched-normal-phase-1.png",
+        "world-clips-reload-crouched-normal-phase-2.png",
+        "world-clips-reload-crouched-normal-phase-3.png",
+        "world-clips-reload-prone-max-phase-0.png",
+        "world-clips-reload-prone-max-phase-1.png",
+        "world-clips-reload-prone-max-phase-2.png",
+        "world-clips-reload-prone-max-phase-3.png",
+        "world-clips-reload-prone-min-phase-0.png",
+        "world-clips-reload-prone-min-phase-1.png",
+        "world-clips-reload-prone-min-phase-2.png",
+        "world-clips-reload-prone-min-phase-3.png",
+        "world-clips-reload-prone-normal-phase-0.png",
+        "world-clips-reload-prone-normal-phase-1.png",
+        "world-clips-reload-prone-normal-phase-2.png",
+        "world-clips-reload-prone-normal-phase-3.png",
+        "world-clips-reload-standing-max-phase-0.png",
+        "world-clips-reload-standing-max-phase-1.png",
+        "world-clips-reload-standing-max-phase-2.png",
+        "world-clips-reload-standing-max-phase-3.png",
+        "world-clips-reload-standing-min-phase-0.png",
+        "world-clips-reload-standing-min-phase-1.png",
+        "world-clips-reload-standing-min-phase-2.png",
+        "world-clips-reload-standing-min-phase-3.png",
+        "world-clips-reload-standing-normal-phase-0.png",
+        "world-clips-reload-standing-normal-phase-1.png",
+        "world-clips-reload-standing-normal-phase-2.png",
+        "world-clips-reload-standing-normal-phase-3.png"
+      ],
+      "status": "runtime_render_reviewed"
     },
     {
       "clipId": 15,
@@ -517,8 +858,25 @@
       "classification": "redesign",
       "newSource": null,
       "integration": "CharacterArt paged raster and actual renderer states",
-      "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "executedVisualTests": [
+        "world-clips-punch-max-phase-0.png",
+        "world-clips-punch-max-phase-1.png",
+        "world-clips-punch-max-phase-2.png",
+        "world-clips-punch-max-phase-3.png",
+        "world-clips-punch-min-phase-0.png",
+        "world-clips-punch-min-phase-1.png",
+        "world-clips-punch-min-phase-2.png",
+        "world-clips-punch-min-phase-3.png",
+        "world-clips-punch-normal-phase-0.png",
+        "world-clips-punch-normal-phase-1.png",
+        "world-clips-punch-normal-phase-2.png",
+        "world-clips-punch-normal-phase-3.png",
+        "world-cqc-punch-follow-through.png",
+        "world-cqc-punch-impact.png",
+        "world-cqc-punch-recovery.png",
+        "world-cqc-punch-windup.png"
+      ],
+      "status": "runtime_render_reviewed"
     },
     {
       "clipId": 16,
@@ -549,8 +907,25 @@
       "classification": "redesign",
       "newSource": null,
       "integration": "CharacterArt paged raster and actual renderer states",
-      "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "executedVisualTests": [
+        "world-clips-kick-max-phase-0.png",
+        "world-clips-kick-max-phase-1.png",
+        "world-clips-kick-max-phase-2.png",
+        "world-clips-kick-max-phase-3.png",
+        "world-clips-kick-min-phase-0.png",
+        "world-clips-kick-min-phase-1.png",
+        "world-clips-kick-min-phase-2.png",
+        "world-clips-kick-min-phase-3.png",
+        "world-clips-kick-normal-phase-0.png",
+        "world-clips-kick-normal-phase-1.png",
+        "world-clips-kick-normal-phase-2.png",
+        "world-clips-kick-normal-phase-3.png",
+        "world-cqc-kick-follow-through.png",
+        "world-cqc-kick-impact.png",
+        "world-cqc-kick-recovery.png",
+        "world-cqc-kick-windup.png"
+      ],
+      "status": "runtime_render_reviewed"
     },
     {
       "clipId": 17,
@@ -581,8 +956,17 @@
       "classification": "redesign",
       "newSource": null,
       "integration": "CharacterArt paged raster and actual renderer states",
-      "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "executedVisualTests": [
+        "characters-grip-pair28-phase-0.png",
+        "characters-grip-pair28-phase-1.png",
+        "characters-grip-pair28-phase-2.png",
+        "characters-grip-pair28-phase-3.png",
+        "characters-grip-pair28-phase-4.png",
+        "characters-grip-pair28-phase-5.png",
+        "characters-grip-pair28-phase-6.png",
+        "characters-grip-pair28-phase-7.png"
+      ],
+      "status": "runtime_render_reviewed"
     },
     {
       "clipId": 18,
@@ -613,8 +997,17 @@
       "classification": "redesign",
       "newSource": null,
       "integration": "CharacterArt paged raster and actual renderer states",
-      "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "executedVisualTests": [
+        "characters-choke-pair28-phase-0.png",
+        "characters-choke-pair28-phase-1.png",
+        "characters-choke-pair28-phase-2.png",
+        "characters-choke-pair28-phase-3.png",
+        "characters-choke-pair28-phase-4.png",
+        "characters-choke-pair28-phase-5.png",
+        "characters-choke-pair28-phase-6.png",
+        "characters-choke-pair28-phase-7.png"
+      ],
+      "status": "runtime_render_reviewed"
     },
     {
       "clipId": 19,
@@ -645,8 +1038,17 @@
       "classification": "redesign",
       "newSource": null,
       "integration": "CharacterArt paged raster and actual renderer states",
-      "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "executedVisualTests": [
+        "characters-push-phase-0.png",
+        "characters-push-phase-1.png",
+        "characters-push-phase-2.png",
+        "characters-push-phase-3.png",
+        "characters-push-phase-4.png",
+        "characters-push-phase-5.png",
+        "characters-push-phase-6.png",
+        "characters-push-phase-7.png"
+      ],
+      "status": "runtime_render_reviewed"
     },
     {
       "clipId": 20,
@@ -677,8 +1079,21 @@
       "classification": "redesign",
       "newSource": null,
       "integration": "CharacterArt paged raster and actual renderer states",
-      "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "executedVisualTests": [
+        "world-clips-throw-max-phase-0.png",
+        "world-clips-throw-max-phase-1.png",
+        "world-clips-throw-max-phase-2.png",
+        "world-clips-throw-max-phase-3.png",
+        "world-clips-throw-min-phase-0.png",
+        "world-clips-throw-min-phase-1.png",
+        "world-clips-throw-min-phase-2.png",
+        "world-clips-throw-min-phase-3.png",
+        "world-clips-throw-normal-phase-0.png",
+        "world-clips-throw-normal-phase-1.png",
+        "world-clips-throw-normal-phase-2.png",
+        "world-clips-throw-normal-phase-3.png"
+      ],
+      "status": "runtime_render_reviewed"
     },
     {
       "clipId": 21,
@@ -710,7 +1125,7 @@
       "newSource": null,
       "integration": "CharacterArt paged raster and actual renderer states",
       "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "status": "authored_offline_validated_no_dedicated_runtime_case"
     },
     {
       "clipId": 22,
@@ -742,7 +1157,7 @@
       "newSource": null,
       "integration": "CharacterArt paged raster and actual renderer states",
       "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "status": "authored_offline_validated_no_dedicated_runtime_case"
     },
     {
       "clipId": 23,
@@ -773,8 +1188,21 @@
       "classification": "redesign",
       "newSource": null,
       "integration": "CharacterArt paged raster and actual renderer states",
-      "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "executedVisualTests": [
+        "world-clips-fall-max-phase-0.png",
+        "world-clips-fall-max-phase-1.png",
+        "world-clips-fall-max-phase-2.png",
+        "world-clips-fall-max-phase-3.png",
+        "world-clips-fall-min-phase-0.png",
+        "world-clips-fall-min-phase-1.png",
+        "world-clips-fall-min-phase-2.png",
+        "world-clips-fall-min-phase-3.png",
+        "world-clips-fall-normal-phase-0.png",
+        "world-clips-fall-normal-phase-1.png",
+        "world-clips-fall-normal-phase-2.png",
+        "world-clips-fall-normal-phase-3.png"
+      ],
+      "status": "runtime_render_reviewed"
     },
     {
       "clipId": 24,
@@ -806,7 +1234,7 @@
       "newSource": null,
       "integration": "CharacterArt paged raster and actual renderer states",
       "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "status": "authored_offline_validated_no_dedicated_runtime_case"
     },
     {
       "clipId": 25,
@@ -837,8 +1265,33 @@
       "classification": "redesign",
       "newSource": null,
       "integration": "CharacterArt paged raster and actual renderer states",
-      "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "executedVisualTests": [
+        "world-clips-interact-max-phase-0.png",
+        "world-clips-interact-max-phase-1.png",
+        "world-clips-interact-max-phase-2.png",
+        "world-clips-interact-max-phase-3.png",
+        "world-clips-interact-max-phase-4.png",
+        "world-clips-interact-max-phase-5.png",
+        "world-clips-interact-max-phase-6.png",
+        "world-clips-interact-max-phase-7.png",
+        "world-clips-interact-min-phase-0.png",
+        "world-clips-interact-min-phase-1.png",
+        "world-clips-interact-min-phase-2.png",
+        "world-clips-interact-min-phase-3.png",
+        "world-clips-interact-min-phase-4.png",
+        "world-clips-interact-min-phase-5.png",
+        "world-clips-interact-min-phase-6.png",
+        "world-clips-interact-min-phase-7.png",
+        "world-clips-interact-normal-phase-0.png",
+        "world-clips-interact-normal-phase-1.png",
+        "world-clips-interact-normal-phase-2.png",
+        "world-clips-interact-normal-phase-3.png",
+        "world-clips-interact-normal-phase-4.png",
+        "world-clips-interact-normal-phase-5.png",
+        "world-clips-interact-normal-phase-6.png",
+        "world-clips-interact-normal-phase-7.png"
+      ],
+      "status": "runtime_render_reviewed"
     },
     {
       "clipId": 26,
@@ -870,7 +1323,7 @@
       "newSource": null,
       "integration": "CharacterArt paged raster and actual renderer states",
       "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "status": "authored_offline_validated_no_dedicated_runtime_case"
     },
     {
       "clipId": 27,
@@ -901,8 +1354,21 @@
       "classification": "redesign",
       "newSource": null,
       "integration": "CharacterArt paged raster and actual renderer states",
-      "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "executedVisualTests": [
+        "world-clips-hide-exit-max-phase-0.png",
+        "world-clips-hide-exit-max-phase-1.png",
+        "world-clips-hide-exit-max-phase-2.png",
+        "world-clips-hide-exit-max-phase-3.png",
+        "world-clips-hide-exit-min-phase-0.png",
+        "world-clips-hide-exit-min-phase-1.png",
+        "world-clips-hide-exit-min-phase-2.png",
+        "world-clips-hide-exit-min-phase-3.png",
+        "world-clips-hide-exit-normal-phase-0.png",
+        "world-clips-hide-exit-normal-phase-1.png",
+        "world-clips-hide-exit-normal-phase-2.png",
+        "world-clips-hide-exit-normal-phase-3.png"
+      ],
+      "status": "runtime_render_reviewed"
     },
     {
       "clipId": 28,
@@ -933,8 +1399,29 @@
       "classification": "redesign",
       "newSource": null,
       "integration": "CharacterArt paged raster and actual renderer states",
-      "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "executedVisualTests": [
+        "characters-cover-enter-standing-phase-0.png",
+        "characters-cover-enter-standing-phase-1.png",
+        "characters-cover-enter-standing-phase-2.png",
+        "characters-cover-enter-standing-phase-3.png",
+        "characters-cover-enter-standing-phase-4.png",
+        "characters-cover-enter-standing-phase-5.png",
+        "characters-cover-enter-standing-phase-6.png",
+        "characters-cover-enter-standing-phase-7.png",
+        "world-clips-cover-enter-max-phase-0.png",
+        "world-clips-cover-enter-max-phase-1.png",
+        "world-clips-cover-enter-max-phase-2.png",
+        "world-clips-cover-enter-max-phase-3.png",
+        "world-clips-cover-enter-min-phase-0.png",
+        "world-clips-cover-enter-min-phase-1.png",
+        "world-clips-cover-enter-min-phase-2.png",
+        "world-clips-cover-enter-min-phase-3.png",
+        "world-clips-cover-enter-normal-phase-0.png",
+        "world-clips-cover-enter-normal-phase-1.png",
+        "world-clips-cover-enter-normal-phase-2.png",
+        "world-clips-cover-enter-normal-phase-3.png"
+      ],
+      "status": "runtime_render_reviewed"
     },
     {
       "clipId": 29,
@@ -966,7 +1453,7 @@
       "newSource": null,
       "integration": "CharacterArt paged raster and actual renderer states",
       "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "status": "authored_offline_validated_no_dedicated_runtime_case"
     },
     {
       "clipId": 30,
@@ -998,7 +1485,7 @@
       "newSource": null,
       "integration": "CharacterArt paged raster and actual renderer states",
       "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "status": "authored_offline_validated_no_dedicated_runtime_case"
     },
     {
       "clipId": 31,
@@ -1029,8 +1516,15 @@
       "classification": "redesign",
       "newSource": null,
       "integration": "CharacterArt paged raster and actual renderer states",
-      "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "executedVisualTests": [
+        "world-clips-crouch-down-max-phase-0.png",
+        "world-clips-crouch-down-max-phase-1.png",
+        "world-clips-crouch-down-min-phase-0.png",
+        "world-clips-crouch-down-min-phase-1.png",
+        "world-clips-crouch-down-normal-phase-0.png",
+        "world-clips-crouch-down-normal-phase-1.png"
+      ],
+      "status": "runtime_render_reviewed"
     },
     {
       "clipId": 32,
@@ -1061,8 +1555,15 @@
       "classification": "redesign",
       "newSource": null,
       "integration": "CharacterArt paged raster and actual renderer states",
-      "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "executedVisualTests": [
+        "world-clips-crouch-up-max-phase-0.png",
+        "world-clips-crouch-up-max-phase-1.png",
+        "world-clips-crouch-up-min-phase-0.png",
+        "world-clips-crouch-up-min-phase-1.png",
+        "world-clips-crouch-up-normal-phase-0.png",
+        "world-clips-crouch-up-normal-phase-1.png"
+      ],
+      "status": "runtime_render_reviewed"
     },
     {
       "clipId": 33,
@@ -1094,7 +1595,7 @@
       "newSource": null,
       "integration": "CharacterArt paged raster and actual renderer states",
       "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "status": "authored_offline_validated_no_dedicated_runtime_case"
     },
     {
       "clipId": 34,
@@ -1125,8 +1626,17 @@
       "classification": "redesign",
       "newSource": null,
       "integration": "CharacterArt paged raster and actual renderer states",
-      "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "executedVisualTests": [
+        "characters-drag-phase-0.png",
+        "characters-drag-phase-1.png",
+        "characters-drag-phase-2.png",
+        "characters-drag-phase-3.png",
+        "characters-drag-phase-4.png",
+        "characters-drag-phase-5.png",
+        "characters-drag-phase-6.png",
+        "characters-drag-phase-7.png"
+      ],
+      "status": "runtime_render_reviewed"
     },
     {
       "clipId": 35,
@@ -1158,7 +1668,7 @@
       "newSource": null,
       "integration": "CharacterArt paged raster and actual renderer states",
       "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "status": "authored_offline_validated_no_dedicated_runtime_case"
     },
     {
       "clipId": 36,
@@ -1189,8 +1699,17 @@
       "classification": "redesign",
       "newSource": null,
       "integration": "CharacterArt paged raster and actual renderer states",
-      "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "executedVisualTests": [
+        "characters-death-phase-0.png",
+        "characters-death-phase-1.png",
+        "characters-death-phase-2.png",
+        "characters-death-phase-3.png",
+        "characters-death-phase-4.png",
+        "characters-death-phase-5.png",
+        "characters-death-phase-6.png",
+        "characters-death-phase-7.png"
+      ],
+      "status": "runtime_render_reviewed"
     },
     {
       "clipId": 37,
@@ -1222,7 +1741,7 @@
       "newSource": null,
       "integration": "CharacterArt paged raster and actual renderer states",
       "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "status": "authored_offline_validated_no_dedicated_runtime_case"
     },
     {
       "clipId": 38,
@@ -1253,8 +1772,17 @@
       "classification": "redesign",
       "newSource": null,
       "integration": "CharacterArt paged raster and actual renderer states",
-      "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "executedVisualTests": [
+        "characters-held-victim-phase-0.png",
+        "characters-held-victim-phase-1.png",
+        "characters-held-victim-phase-2.png",
+        "characters-held-victim-phase-3.png",
+        "characters-held-victim-phase-4.png",
+        "characters-held-victim-phase-5.png",
+        "characters-held-victim-phase-6.png",
+        "characters-held-victim-phase-7.png"
+      ],
+      "status": "runtime_render_reviewed"
     },
     {
       "clipId": 39,
@@ -1286,7 +1814,7 @@
       "newSource": null,
       "integration": "CharacterArt paged raster and actual renderer states",
       "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "status": "authored_offline_validated_no_dedicated_runtime_case"
     },
     {
       "clipId": 40,
@@ -1317,8 +1845,33 @@
       "classification": "redesign",
       "newSource": null,
       "integration": "CharacterArt paged raster and actual renderer states",
-      "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "executedVisualTests": [
+        "characters-suppressor-crouched-phase-0.png",
+        "characters-suppressor-crouched-phase-1.png",
+        "characters-suppressor-crouched-phase-2.png",
+        "characters-suppressor-crouched-phase-3.png",
+        "characters-suppressor-crouched-phase-4.png",
+        "characters-suppressor-crouched-phase-5.png",
+        "characters-suppressor-crouched-phase-6.png",
+        "characters-suppressor-crouched-phase-7.png",
+        "characters-suppressor-prone-phase-0.png",
+        "characters-suppressor-prone-phase-1.png",
+        "characters-suppressor-prone-phase-2.png",
+        "characters-suppressor-prone-phase-3.png",
+        "characters-suppressor-prone-phase-4.png",
+        "characters-suppressor-prone-phase-5.png",
+        "characters-suppressor-prone-phase-6.png",
+        "characters-suppressor-prone-phase-7.png",
+        "characters-suppressor-standing-phase-0.png",
+        "characters-suppressor-standing-phase-1.png",
+        "characters-suppressor-standing-phase-2.png",
+        "characters-suppressor-standing-phase-3.png",
+        "characters-suppressor-standing-phase-4.png",
+        "characters-suppressor-standing-phase-5.png",
+        "characters-suppressor-standing-phase-6.png",
+        "characters-suppressor-standing-phase-7.png"
+      ],
+      "status": "runtime_render_reviewed"
     },
     {
       "clipId": 41,
@@ -1350,7 +1903,7 @@
       "newSource": null,
       "integration": "CharacterArt paged raster and actual renderer states",
       "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "status": "authored_offline_validated_no_dedicated_runtime_case"
     },
     {
       "clipId": 42,
@@ -1381,8 +1934,17 @@
       "classification": "redesign",
       "newSource": null,
       "integration": "CharacterArt paged raster and actual renderer states",
-      "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "executedVisualTests": [
+        "characters-switch-prone-phase-0.png",
+        "characters-switch-prone-phase-1.png",
+        "characters-switch-prone-phase-2.png",
+        "characters-switch-prone-phase-3.png",
+        "characters-switch-standing-phase-0.png",
+        "characters-switch-standing-phase-1.png",
+        "characters-switch-standing-phase-2.png",
+        "characters-switch-standing-phase-3.png"
+      ],
+      "status": "runtime_render_reviewed"
     },
     {
       "clipId": 43,
@@ -1413,8 +1975,17 @@
       "classification": "redesign",
       "newSource": null,
       "integration": "CharacterArt paged raster and actual renderer states",
-      "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "executedVisualTests": [
+        "characters-switch-prone-phase-4.png",
+        "characters-switch-prone-phase-5.png",
+        "characters-switch-prone-phase-6.png",
+        "characters-switch-prone-phase-7.png",
+        "characters-switch-standing-phase-4.png",
+        "characters-switch-standing-phase-5.png",
+        "characters-switch-standing-phase-6.png",
+        "characters-switch-standing-phase-7.png"
+      ],
+      "status": "runtime_render_reviewed"
     },
     {
       "clipId": 44,
@@ -1445,8 +2016,17 @@
       "classification": "redesign",
       "newSource": null,
       "integration": "CharacterArt paged raster and actual renderer states",
-      "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "executedVisualTests": [
+        "characters-traversal-attach-phase-0.png",
+        "characters-traversal-attach-phase-1.png",
+        "characters-traversal-attach-phase-2.png",
+        "characters-traversal-attach-phase-3.png",
+        "characters-traversal-attach-phase-4.png",
+        "characters-traversal-attach-phase-5.png",
+        "characters-traversal-attach-phase-6.png",
+        "characters-traversal-attach-phase-7.png"
+      ],
+      "status": "runtime_render_reviewed"
     },
     {
       "clipId": 45,
@@ -1478,7 +2058,7 @@
       "newSource": null,
       "integration": "CharacterArt paged raster and actual renderer states",
       "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "status": "authored_offline_validated_no_dedicated_runtime_case"
     },
     {
       "clipId": 46,
@@ -1510,7 +2090,7 @@
       "newSource": null,
       "integration": "CharacterArt paged raster and actual renderer states",
       "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "status": "authored_offline_validated_no_dedicated_runtime_case"
     },
     {
       "clipId": 47,
@@ -1541,8 +2121,17 @@
       "classification": "redesign",
       "newSource": null,
       "integration": "CharacterArt paged raster and actual renderer states",
-      "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "executedVisualTests": [
+        "characters-traversal-hang-phase-0.png",
+        "characters-traversal-hang-phase-1.png",
+        "characters-traversal-hang-phase-2.png",
+        "characters-traversal-hang-phase-3.png",
+        "characters-traversal-hang-phase-4.png",
+        "characters-traversal-hang-phase-5.png",
+        "characters-traversal-hang-phase-6.png",
+        "characters-traversal-hang-phase-7.png"
+      ],
+      "status": "runtime_render_reviewed"
     },
     {
       "clipId": 48,
@@ -1573,8 +2162,17 @@
       "classification": "redesign",
       "newSource": null,
       "integration": "CharacterArt paged raster and actual renderer states",
-      "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "executedVisualTests": [
+        "characters-traversal-shimmy-phase-0.png",
+        "characters-traversal-shimmy-phase-1.png",
+        "characters-traversal-shimmy-phase-2.png",
+        "characters-traversal-shimmy-phase-3.png",
+        "characters-traversal-shimmy-phase-4.png",
+        "characters-traversal-shimmy-phase-5.png",
+        "characters-traversal-shimmy-phase-6.png",
+        "characters-traversal-shimmy-phase-7.png"
+      ],
+      "status": "runtime_render_reviewed"
     },
     {
       "clipId": 49,
@@ -1605,8 +2203,17 @@
       "classification": "redesign",
       "newSource": null,
       "integration": "CharacterArt paged raster and actual renderer states",
-      "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "executedVisualTests": [
+        "characters-traversal-climb-phase-0.png",
+        "characters-traversal-climb-phase-1.png",
+        "characters-traversal-climb-phase-2.png",
+        "characters-traversal-climb-phase-3.png",
+        "characters-traversal-climb-phase-4.png",
+        "characters-traversal-climb-phase-5.png",
+        "characters-traversal-climb-phase-6.png",
+        "characters-traversal-climb-phase-7.png"
+      ],
+      "status": "runtime_render_reviewed"
     },
     {
       "clipId": 50,
@@ -1637,8 +2244,17 @@
       "classification": "redesign",
       "newSource": null,
       "integration": "CharacterArt paged raster and actual renderer states",
-      "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "executedVisualTests": [
+        "characters-traversal-transfer-phase-0.png",
+        "characters-traversal-transfer-phase-1.png",
+        "characters-traversal-transfer-phase-2.png",
+        "characters-traversal-transfer-phase-3.png",
+        "characters-traversal-transfer-phase-4.png",
+        "characters-traversal-transfer-phase-5.png",
+        "characters-traversal-transfer-phase-6.png",
+        "characters-traversal-transfer-phase-7.png"
+      ],
+      "status": "runtime_render_reviewed"
     },
     {
       "clipId": 51,
@@ -1669,8 +2285,17 @@
       "classification": "redesign",
       "newSource": null,
       "integration": "CharacterArt paged raster and actual renderer states",
-      "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "executedVisualTests": [
+        "characters-traversal-drop-phase-0.png",
+        "characters-traversal-drop-phase-1.png",
+        "characters-traversal-drop-phase-2.png",
+        "characters-traversal-drop-phase-3.png",
+        "characters-traversal-drop-phase-4.png",
+        "characters-traversal-drop-phase-5.png",
+        "characters-traversal-drop-phase-6.png",
+        "characters-traversal-drop-phase-7.png"
+      ],
+      "status": "runtime_render_reviewed"
     },
     {
       "clipId": 52,
@@ -1701,8 +2326,41 @@
       "classification": "redesign",
       "newSource": null,
       "integration": "CharacterArt paged raster and actual renderer states",
-      "executedVisualTests": [],
-      "status": "generated_and_integrated_runtime_validation_pending"
+      "executedVisualTests": [
+        "characters-guard-wake-phase-0.png",
+        "characters-guard-wake-phase-1.png",
+        "characters-guard-wake-phase-2.png",
+        "characters-guard-wake-phase-3.png",
+        "characters-guard-wake-phase-4.png",
+        "characters-guard-wake-phase-5.png",
+        "characters-guard-wake-phase-6.png",
+        "characters-guard-wake-phase-7.png",
+        "characters-revive-crouched-phase-0.png",
+        "characters-revive-crouched-phase-1.png",
+        "characters-revive-crouched-phase-2.png",
+        "characters-revive-crouched-phase-3.png",
+        "characters-revive-crouched-phase-4.png",
+        "characters-revive-crouched-phase-5.png",
+        "characters-revive-crouched-phase-6.png",
+        "characters-revive-crouched-phase-7.png",
+        "characters-revive-prone-phase-0.png",
+        "characters-revive-prone-phase-1.png",
+        "characters-revive-prone-phase-2.png",
+        "characters-revive-prone-phase-3.png",
+        "characters-revive-prone-phase-4.png",
+        "characters-revive-prone-phase-5.png",
+        "characters-revive-prone-phase-6.png",
+        "characters-revive-prone-phase-7.png",
+        "characters-revive-standing-phase-0.png",
+        "characters-revive-standing-phase-1.png",
+        "characters-revive-standing-phase-2.png",
+        "characters-revive-standing-phase-3.png",
+        "characters-revive-standing-phase-4.png",
+        "characters-revive-standing-phase-5.png",
+        "characters-revive-standing-phase-6.png",
+        "characters-revive-standing-phase-7.png"
+      ],
+      "status": "runtime_render_reviewed"
     }
   ],
   "initialMissingClips": [
@@ -6669,7 +7327,7 @@
       "author": "Carlos Cortina",
       "generator": "OpenAI image_gen builtin",
       "prompt": "Art/NoTrace/Characters/Prompts/OperativeRigParts-E-v3.txt",
-      "status": "registered_authored_parts_used_by_rig",
+      "status": "registered_authored_parts_runtime_reviewed",
       "activeGameContent": true,
       "issues": [
         "Comprobar que sólo el muslo derecho tenga funda",
@@ -6990,7 +7648,7 @@
       "author": "Carlos Cortina",
       "generator": "OpenAI image_gen builtin",
       "prompt": "Art/NoTrace/Characters/Prompts/OperativeRigParts-N-v2.txt",
-      "status": "registered_authored_parts_used_by_rig",
+      "status": "registered_authored_parts_runtime_reviewed",
       "activeGameContent": true,
       "issues": [
         "Comprobar que sólo el muslo derecho tenga funda",
@@ -7633,7 +8291,7 @@
       "author": "Carlos Cortina",
       "generator": "OpenAI image_gen builtin",
       "prompt": "Art/NoTrace/Characters/Prompts/OperativeRigParts-NE-v2.txt",
-      "status": "registered_authored_parts_used_by_rig",
+      "status": "registered_authored_parts_runtime_reviewed",
       "activeGameContent": true,
       "issues": [
         "Comprobar que sólo el muslo derecho tenga funda",
@@ -8275,7 +8933,7 @@
       "author": "Carlos Cortina",
       "generator": "OpenAI image_gen builtin",
       "prompt": "Art/NoTrace/Characters/Prompts/OperativeRigParts-NW-v3.txt",
-      "status": "registered_authored_parts_used_by_rig",
+      "status": "registered_authored_parts_runtime_reviewed",
       "activeGameContent": true,
       "issues": [
         "Comprobar que sólo el muslo derecho tenga funda",
@@ -8917,7 +9575,7 @@
       "author": "Carlos Cortina",
       "generator": "OpenAI image_gen builtin",
       "prompt": "Art/NoTrace/Characters/Prompts/OperativeRigParts-S-v2.txt",
-      "status": "registered_authored_parts_used_by_rig",
+      "status": "registered_authored_parts_runtime_reviewed",
       "activeGameContent": true,
       "issues": [
         "Comprobar que sólo el muslo derecho tenga funda",
@@ -9881,7 +10539,7 @@
       "author": "Carlos Cortina",
       "generator": "OpenAI image_gen builtin",
       "prompt": "Art/NoTrace/Characters/Prompts/OperativeRigParts-SE-v3.txt",
-      "status": "registered_authored_parts_used_by_rig",
+      "status": "registered_authored_parts_runtime_reviewed",
       "activeGameContent": true,
       "issues": [
         "Comprobar que sólo el muslo derecho tenga funda",
@@ -10202,7 +10860,7 @@
       "author": "Carlos Cortina",
       "generator": "OpenAI image_gen builtin",
       "prompt": "Art/NoTrace/Characters/Prompts/OperativeRigParts-SW-v2.txt",
-      "status": "registered_authored_parts_used_by_rig",
+      "status": "registered_authored_parts_runtime_reviewed",
       "activeGameContent": true,
       "issues": [
         "Comprobar que sólo el muslo derecho tenga funda",
@@ -10844,7 +11502,7 @@
       "author": "Carlos Cortina",
       "generator": "OpenAI image_gen builtin",
       "prompt": "Art/NoTrace/Characters/Prompts/OperativeRigParts-W-v3.txt",
-      "status": "registered_authored_parts_used_by_rig",
+      "status": "registered_authored_parts_runtime_reviewed",
       "activeGameContent": true,
       "issues": [
         "Comprobar que sólo el muslo derecho tenga funda",
@@ -11165,7 +11823,7 @@
       "author": "Carlos Cortina",
       "generator": "OpenAI image_gen builtin",
       "prompt": "Art/NoTrace/Characters/Prompts/Weapon-GuardRifle-16views-v1.txt",
-      "status": "registered_weapon_props_runtime_review_pending",
+      "status": "registered_weapon_props_runtime_reviewed",
       "activeGameContent": true
     },
     {
@@ -11481,7 +12139,7 @@
       "author": "Carlos Cortina",
       "generator": "OpenAI image_gen builtin",
       "prompt": "Art/NoTrace/Characters/Prompts/Weapon-NonLethal-16views-v1.txt",
-      "status": "registered_weapon_props_runtime_review_pending",
+      "status": "registered_weapon_props_runtime_reviewed",
       "activeGameContent": true
     },
     {
@@ -11797,11 +12455,11 @@
       "author": "Carlos Cortina",
       "generator": "OpenAI image_gen builtin",
       "prompt": "Art/NoTrace/Characters/Prompts/Weapon-Pistol-16views-v1.txt",
-      "status": "registered_weapon_props_runtime_review_pending",
+      "status": "registered_weapon_props_runtime_reviewed",
       "activeGameContent": true
     }
   ],
   "atlasMetadata": "Art\\NoTrace\\Characters\\Atlas\\CharacterAtlasMetadata.json",
-  "runtimeReview": null,
+  "runtimeReview": "Art/NoTrace/Characters/Manifests/runtime-review.json",
   "warning": "Hash distinto no demuestra movimiento correcto; la validación offline no sustituye capturas runtime ni partida manual"
 }
