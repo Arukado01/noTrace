@@ -30,6 +30,12 @@ namespace NoTrace::Qa {
     void BeginMission(WorldState &world) { BeginPhase(world, true); }
     void BeginInspection(WorldState &world) { BeginPhase(world, true, true); }
     void BeginPipe(WorldState &world) { BeginPhase(world, false, false, true); }
+    void BeginShowcaseMission(WorldState &world) {
+      BeginPhase(world, true);
+      cases_ = {Case::Decoy};
+      if (!failed_ && !requestedPhases_.empty()) requestedPhases_.back()["cases"] = nlohmann::json::array({Name(Case::Decoy)});
+      stage_ = Name(Current()) + "/preparacion";
+    }
     bool Done() const { return done_ || failed_; }
     bool Failed() const { return failed_; }
     std::string Stage() const { return stage_; }

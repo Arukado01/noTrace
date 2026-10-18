@@ -9,6 +9,9 @@
 #include "NoTraceGame.h"
 #include "NoTraceLanQaPilot.h"
 #include "NoTraceLanQaMechanics.h"
+#include "NoTraceLanQaVideo.h"
+#include "NoTraceOutcomes.h"
+#include "NoTraceFirstPersonGeometry.h"
 #include "NoTraceInteraction.h"
 #include "NoTracePerformance.h"
 #include "Config/NoTraceWeaponConfig.h"
@@ -51,6 +54,12 @@ namespace EngineTests {
     static bool Pause(const NoTrace::Game &game) { return game.page_ == NoTrace::Game::Page::Pause; }
     static bool FirstPerson(const NoTrace::Game &game) { return game.firstPerson_; }
     static NoTrace::FirstPersonCamera Camera(const NoTrace::Game &game) { return game.firstPersonCamera_; }
+    static void LookAt(NoTrace::Game &game, const NoTrace::Agent &actor, sf::Vector3f target) {
+      const auto eye = NoTrace::FirstPersonGeometry::Eye(actor);
+      const auto delta = target - eye;
+      game.firstPersonCamera_.yaw = std::atan2(delta.y, delta.x);
+      game.firstPersonCamera_.pitch = std::atan2(delta.z, std::hypot(delta.x, delta.y));
+    }
     static void Key(NoTrace::Game &game, EngineContext &context, sf::Keyboard::Scan scan, bool down, bool shift = false) {
       if (down) { sf::Event::KeyPressed event; event.scancode = scan; event.shift = shift; context.input.CaptureEvent(event); game.OnEvent(event); }
       else { sf::Event::KeyReleased event; event.scancode = scan; event.shift = shift; context.input.CaptureEvent(event); game.OnEvent(event); }
@@ -91,7 +100,7 @@ namespace EngineTests {
     static void Lobby(NoTrace::Game &game, EngineContext &context, sf::RenderWindow &window) { Click(context, window, game.lobby_); }
     static void Time(EngineContext &context) { context.time.Update(); }
     struct RenderTimes { double render = 0., present = 0.; };
-    static RenderTimes Render(NoTrace::Game &game, EngineContext &context, sf::RenderWindow &window, const std::filesystem::path &capture = {}) {
+    static RenderTimes Render(NoTrace::Game &game, EngineContext &context, sf::RenderWindow &window, const std::filesystem::path &capture = {}, NoTrace::Qa::VideoRecorder *video = nullptr) {
       const auto started = std::chrono::steady_clock::now();
       window.setView(context.window.GetPresentationView()); window.clear();
       context.renderer.BeginDrawing(); game.Render();
@@ -101,6 +110,7 @@ namespace EngineTests {
         if (!pixels.copyToImage().saveToFile(capture)) throw std::runtime_error("No se pudo guardar la captura gráfica");
       }
       const auto submitted = std::chrono::steady_clock::now();
+      if (video) video->Record(window);
       window.display();
       return {std::chrono::duration<double, std::milli>(submitted - started).count(),
           std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - submitted).count()};
@@ -123,7 +133,7 @@ namespace {
   struct Cancelled final : std::runtime_error { using std::runtime_error::runtime_error; };
   struct Options {
     std::string role, scenario, host, runId;
-    Path coord, output;
+    Path coord, output, recordFfmpeg;
     unsigned int port = 55041;
     unsigned int timeout = 360;
     unsigned int frameLimit = 30, width = 1280, height = 720, warmup = 0;
@@ -143,6 +153,7 @@ namespace {
       else if (key == "--run-id") options.runId = value;
       else if (key == "--coord") options.coord = std::filesystem::absolute(value);
       else if (key == "--output") options.output = std::filesystem::absolute(value);
+      else if (key == "--record-ffmpeg") options.recordFfmpeg = std::filesystem::absolute(value);
       else if (key == "--timeout") options.timeout = static_cast<unsigned int>(std::stoul(value));
       else if (key == "--frame-limit") options.frameLimit = static_cast<unsigned int>(std::stoul(value));
       else if (key == "--width") options.width = static_cast<unsigned int>(std::stoul(value));
@@ -155,7 +166,7 @@ namespace {
     }
     if ((options.role != "host" && options.role != "client") ||
         (options.scenario != "mission" && options.scenario != "tour" && options.scenario != "table-tour" && options.scenario != "mechanics" && options.scenario != "training" && options.scenario != "pipe" &&
-         options.scenario != "client-drop" && options.scenario != "host-drop" && options.scenario != "fps") ||
+         options.scenario != "client-drop" && options.scenario != "host-drop" && options.scenario != "fps" && options.scenario != "showcase" && options.scenario != "betrayal" && options.scenario != "fps-enemy") ||
         options.host.empty() || options.port == 0 || options.port > 65535 || options.timeout == 0 || options.timeout > 3600 ||
         options.frameLimit > 1000 || options.width < 640 || options.width > 7680 || options.height < 360 || options.height > 4320 || options.warmup > 10000 ||
         options.runId.size() != 32 || !std::ranges::all_of(options.runId, [](unsigned char value) { return std::isxdigit(value) != 0; }) ||
@@ -240,6 +251,10 @@ namespace {
       if (options_.scenario == "tour") pilot_.EnableTour();
       frames_.reserve(12000); measuredStarted_ = Clock::now(); cpuStarted_ = CpuMilliseconds();
       if (options_.profile) profileFrames_.reserve(12000);
+      if (!options_.recordFfmpeg.empty()) {
+        Require(options_.frameLimit == 30, "La grabación requiere treinta cuadros por segundo");
+        video_ = std::make_unique<NoTrace::Qa::VideoRecorder>(options_.recordFfmpeg, options_.output / "gameplay.mp4", options_.width, options_.height);
+      }
       Profiling::Reset(); Profiling::enabled = options_.profile;
     }
 
@@ -262,7 +277,7 @@ namespace {
             if (const auto *resize = event->getIf<sf::Event::Resized>()) { context_.window.HandleResize(resize->size); Access::Initialize(context_); }
           }
           Access::Time(context_);
-          if (options_.scenario == "fps") {
+          if (options_.scenario == "fps" || (Showcase() && stage_.starts_with("fps_")) || stage_.starts_with("enemy_")) {
             auto measured = Clock::now(); Drive(); pilotMs += Milliseconds(measured);
             measured = Clock::now(); game_.Update(); updateMs += Milliseconds(measured);
           }
@@ -273,7 +288,7 @@ namespace {
           auto measured = Clock::now(); game_.UpdateBackground(); updateMs += Milliseconds(measured);
           measured = Clock::now(); context_.audio.Update(context_.time.GetDeltaTime());
           const double audioManagerMs = Milliseconds(measured); updateMs += audioManagerMs;
-          const auto rendered = Access::Render(game_, context_, window_);
+          const auto rendered = Access::Render(game_, context_, window_, {}, video_.get());
           if (Elapsed() - progressAt_ >= 1.f) {
             measured = Clock::now(); progressAt_ = Elapsed(); WriteJson(options_.output / "qa-progress.json", Report("RUNNING", "")); reportMs = Milliseconds(measured);
           }
@@ -303,6 +318,15 @@ namespace {
         try { Capture("failure"); } catch (...) {}
       }
       Profiling::enabled = false;
+      if (video_) {
+        try { video_->Close(); }
+        catch (const std::exception &error) {
+          if (!reason.empty()) reason += "; ";
+          reason += "No se pudo finalizar el video: " + std::string(error.what());
+          result = "FAIL";
+          cases_.push_back({{"name", "video_finalize"}, {"status", "FAIL"}, {"detail", error.what()}, {"seconds", Elapsed()}});
+        }
+      }
       WritePerformance();
       WriteJson(options_.output / "qa-report.json", Report(result, reason));
       std::cout << result << " QA " << options_.role << ' ' << options_.scenario << ": " << reason << '\n';
@@ -317,6 +341,7 @@ namespace {
     Game game_;
     NoTrace::Qa::MissionPilot pilot_;
     NoTrace::Qa::MechanicsPilot mechanics_;
+    std::unique_ptr<NoTrace::Qa::VideoRecorder> video_;
     Clock::time_point started_, entered_;
     std::string stage_;
     Json cases_ = Json::array(), evidence_ = Json::array(), personalResult_;
@@ -398,6 +423,12 @@ namespace {
           {"instrumentation", options_.profile}, {"profilingCompiled", ProfilingCompiled}, {"audioManagerTick", true}, {"wallSeconds", wallSeconds}, {"cpuMilliseconds", cpuMs},
           {"cpuCoreEquivalent", wallSeconds > 0. ? cpuMs / (wallSeconds * 1000.) : 0.}, {"framesFile", "qa-frames.csv"},
           {"measurement", "steady_clock real; raw incluye piloto, capturas y reportes; render incluye FinishDrawing/GUI; present incluye límite si se solicita; tiempos de ámbitos inclusivos"}};
+      performance_["recording"] = video_ != nullptr;
+      if (video_) {
+        performance_["videoFile"] = "gameplay.mp4";
+        performance_["videoFrameRate"] = 30;
+        performance_["measurement"] = performance_["measurement"].get<std::string>() + "; present incluye lectura GPU a CPU y escritura al pipe de FFmpeg durante la grabación";
+      }
       if (options_.profile) {
         performance_["profileFramesFile"] = "qa-profile-frames.csv";
         performance_["profileFramesMeasurement"] = "Deltas por cuadro de ámbitos inclusivos en el hilo principal; incluyen trabajo del piloto y capturas señaladas; no sumar ámbitos anidados";
@@ -424,7 +455,8 @@ namespace {
     Session &SessionState() { return Access::Session(game_); }
     const WorldState &World() { return SessionState().GetWorld(); }
     bool Host() const { return options_.role == "host"; }
-    bool TrainingMechanicsScenario() const { return options_.scenario == "mechanics" || options_.scenario == "training" || options_.scenario == "pipe"; }
+    bool Showcase() const { return options_.scenario == "showcase" || options_.scenario == "betrayal"; }
+    bool TrainingMechanicsScenario() const { return options_.scenario == "mechanics" || options_.scenario == "training" || options_.scenario == "pipe" || Showcase(); }
     bool MechanicsScenario() const { return TrainingMechanicsScenario() || options_.scenario == "table-tour"; }
     float Elapsed() const { return std::chrono::duration<float>(Clock::now() - started_).count(); }
     float StageSeconds() const { return std::chrono::duration<float>(Clock::now() - entered_).count(); }
@@ -461,6 +493,12 @@ namespace {
       if (options_.scenario == "table-tour") result["routeCoverage"]["initialPlacement"] = "único fixture explícito de inspección de mesa antes del recorrido; no se repiten estaciones de entrenamiento";
       if (options_.scenario == "tour" || options_.scenario == "table-tour" || options_.scenario == "mechanics")
         result["routeCoverage"]["cameraPolicy"] = "recorrido permite contacto con vigilancia real; cámaras y guardias siguen activos, trampas y colisiones se evitan";
+      if (Showcase() || options_.scenario == "fps-enemy") {
+        result["inputMode"] = "scripted_game_actions_tgui_events_and_explicit_shot_setups";
+        result["routeCoverage"]["method"] = "rodaje por planos con colocaciones explícitas de actores entre tomas; interacciones, disparos y caídas comprobados en la simulación autoritativa";
+        result["routeCoverage"]["continuousRoute"] = false;
+        if (options_.scenario == "fps-enemy") result["routeCoverage"]["cameraPolicy"] = "cámara local orientada por el guion LookAt para el disparo y la observación del cuerpo";
+      }
       if (MechanicsScenario()) {
         result["mechanicsCoverage"] = Host() ? mechanics_.Coverage() : mechanicsRemoteCoverage_;
         result["mechanicsObservations"] = mechanicsObservations_;
@@ -522,11 +560,224 @@ namespace {
       Require(Access::Connection(game_), "No se pudo recuperar el acceso a CIO mediante la GUI");
     }
 
+    void PlaceShowcaseArchive() {
+      auto &world = const_cast<WorldState &>(World());
+      const auto terminal = std::ranges::find(world.objects, ObjectKind::Terminal, &Interactable::kind);
+      Require(terminal != world.objects.end() && !terminal->completed, "Falta el archivo pendiente para el cierre");
+      auto placements = Json::array();
+      for (auto &actor : world.agents) {
+        if (actor.privateOrder == PrivateOrder::Traitor) {
+          const auto camera = std::ranges::find(world.objects, 13u, &Interactable::id);
+          Require(camera != world.objects.end() && camera->kind == ObjectKind::Camera, "Falta la cámara del archivo");
+          const auto point = camera->position + sf::Vector2f{0.f, 36.f};
+          auto probe = actor; probe.position = point; probe.elevation = camera->elevation; probe.supportId = camera->supportId;
+          const auto *selected = Interaction::FindObject(world, probe);
+          Require(!WorldGeometry::PositionBlocked(world, point, GameplayConfig::AgentRadius, camera->elevation, CombatConfig::StandingHeight, camera->supportId) && selected && selected->id == camera->id, "No hay acceso de herramienta libre a la cámara del archivo");
+          placements.push_back({{"actor", actor.id}, {"to", {point.x, point.y, camera->elevation}}, {"purpose", "Sabotaje real mediante T antes de recoger el archivo"}});
+          actor.position = point; actor.elevation = camera->elevation; actor.supportId = camera->supportId; actor.facing = {0.f, -1.f};
+          continue;
+        }
+        bool placed = false;
+        for (const float distance : {36.f, 42.f, 54.f, 68.f}) {
+          for (const auto direction : std::array<sf::Vector2f, 8>{{{-1.f, 0.f}, {1.f, 0.f}, {0.f, 1.f}, {0.f, -1.f}, {.7071f, .7071f}, {-.7071f, .7071f}, {.7071f, -.7071f}, {-.7071f, -.7071f}}}) {
+            const auto point = terminal->position + direction * distance;
+            const auto support = WorldGeometry::FindSupport(world, point, terminal->elevation, terminal->supportId, GameplayConfig::AgentRadius);
+            if (!support || support->id != terminal->supportId || WorldGeometry::PositionBlocked(world, point, GameplayConfig::AgentRadius, support->elevation, CombatConfig::StandingHeight, support->id)) continue;
+            if (std::ranges::any_of(world.agents, [&](const Agent &other) { return other.id != actor.id && std::abs(other.elevation - support->elevation) < CombatConfig::StandingHeight && (other.position - point).length() < GameplayConfig::AgentRadius * 2.f + 2.f; })) continue;
+            auto probe = actor; probe.position = point; probe.elevation = support->elevation; probe.supportId = support->id;
+            if (actor.privateOrder != PrivateOrder::Traitor && (!Interaction::FindObject(world, probe) || Interaction::FindObject(world, probe)->id != terminal->id || Interaction::FindBody(world, probe))) continue;
+            placements.push_back({{"actor", actor.id}, {"from", {actor.position.x, actor.position.y, actor.elevation}}, {"to", {point.x, point.y, support->elevation}}});
+            actor.position = point; actor.elevation = support->elevation; actor.supportId = support->id; actor.facing = -direction;
+            placed = true; break;
+          }
+          if (placed) break;
+        }
+        Require(placed, "No se encontró un acceso físico libre al archivo");
+      }
+      Case("showcase_archive_shot_setup", {{"placements", placements}, {"note", "Preparación entre cortes; recoger el objetivo requiere E autoritativa"}});
+    }
+
+    void PlaceShowcaseBetrayal() {
+      auto &world = const_cast<WorldState &>(World());
+      auto traitor = std::ranges::find(world.agents, PrivateOrder::Traitor, &Agent::privateOrder);
+      Require(traitor != world.agents.end() && world.agents.size() == 2, "El cierre requiere un traidor real entre dos agentes");
+      auto victim = std::ranges::find_if(world.agents, [&](const Agent &actor) { return actor.id != traitor->id; });
+      for (const auto &surface : world.walkSurfaces) if (surface.enabled && surface.slope.lengthSquared() == 0.f && surface.elevation >= CqcConfig::FatalPushFallHeight && surface.kind != WalkSurfaceKind::ElevatorCabin) {
+        const auto center = surface.bounds.position + surface.bounds.size * .5f, end = surface.bounds.position + surface.bounds.size;
+        for (const auto direction : std::array<sf::Vector2f, 4>{{{1.f, 0.f}, {-1.f, 0.f}, {0.f, 1.f}, {0.f, -1.f}}}) {
+          auto target = center;
+          if (direction.x) target.x = direction.x > 0.f ? end.x - 16.f : surface.bounds.position.x + 16.f;
+          else target.y = direction.y > 0.f ? end.y - 16.f : surface.bounds.position.y + 16.f;
+          const auto position = target - direction * CqcConfig::GripSeparation;
+          const auto landing = ForcedFalls::Landing(world, target + direction * CqcConfig::PushDistance, surface.elevation);
+          if (!landing.id || surface.elevation - landing.elevation < CqcConfig::FatalPushFallHeight ||
+              WorldGeometry::PositionBlocked(world, position, GameplayConfig::AgentRadius, surface.elevation, CombatConfig::StandingHeight, surface.id) ||
+              WorldGeometry::PositionBlocked(world, target, GameplayConfig::AgentRadius, surface.elevation, CombatConfig::StandingHeight, surface.id)) continue;
+          auto probeWorld = world;
+          auto &attacker = *std::ranges::find(probeWorld.agents, traitor->id, &Agent::id), &other = *std::ranges::find(probeWorld.agents, victim->id, &Agent::id);
+          attacker.position = position; attacker.elevation = surface.elevation; attacker.supportId = surface.id; attacker.facing = direction;
+          other.position = target; other.elevation = surface.elevation; other.supportId = surface.id; other.facing = direction;
+          const auto selected = Simulation::FindCqcTarget(probeWorld, attacker, Simulation::CqcAction::Push);
+          if (!selected || selected->agent != victim->id) continue;
+          Case("showcase_betrayal_shot_setup", {{"traitor", traitor->id}, {"victim", victim->id}, {"objectives", world.objectives}, {"alarmCount", world.alarmCount}, {"support", surface.id}, {"from", {position.x, position.y, surface.elevation}}, {"target", {target.x, target.y, surface.elevation}}, {"note", "Preparación entre cortes sobre borde real; V y la caída deben causar la muerte"}});
+          traitor->position = position; traitor->elevation = surface.elevation; traitor->supportId = surface.id; traitor->facing = direction;
+          victim->position = target; victim->elevation = surface.elevation; victim->supportId = surface.id; victim->facing = direction;
+          return;
+        }
+      }
+      throw std::runtime_error("No hay borde físico libre para el cierre de traición");
+    }
+
+    void PlaceEnemyShowcase() {
+      auto &world = const_cast<WorldState &>(World());
+      Require(world.agents.size() == 2 && world.guards.size() >= 2, "Faltan actores para el disparo no letal");
+      auto shooter = std::ranges::find_if(world.agents, [](const Agent &actor) { return actor.id != GameplayConfig::HostPlayerId; });
+      auto host = std::ranges::find(world.agents, GameplayConfig::HostPlayerId, &Agent::id);
+      for (float y = 740.f; y < 1100.f; y += 64.f) for (float x = 80.f; x < 1150.f; x += 64.f) {
+        const std::array<sf::Vector2f, 4> points{{{x, y}, {x + 96.f, y}, {x + 210.f, y + 20.f}, {x + 210.f, y + 100.f}}};
+        const auto support = WorldGeometry::FindSupport(world, points[0], 0.f, 5, GameplayConfig::AgentRadius);
+        if (!support || support->elevation != 0.f) continue;
+        bool valid = true;
+        for (const auto point : points) {
+          const auto floor = WorldGeometry::FindSupport(world, point, 0.f, support->id, GameplayConfig::AgentRadius);
+          if (!floor || floor->elevation != 0.f || WorldGeometry::PositionBlocked(world, point, GameplayConfig::AgentRadius, 0.f, CombatConfig::StandingHeight, floor->id)) valid = false;
+        }
+        if (!valid || WorldGeometry::RayOccluded(world, {points[0].x, points[0].y, 40.f}, {points[1].x, points[1].y, 40.f}) ||
+            WorldGeometry::RayOccluded(world, {points[2].x, points[2].y, 40.f}, {points[1].x, points[1].y, 6.f}) ||
+            WorldGeometry::RayOccluded(world, {points[3].x, points[3].y, 40.f}, {points[1].x, points[1].y, 6.f})) continue;
+        shooter->position = points[0]; shooter->elevation = 0.f; shooter->supportId = support->id; shooter->facing = {1.f, 0.f};
+        host->position = points[3]; host->elevation = 0.f; host->supportId = WorldGeometry::FindSupport(world, points[3], 0.f, support->id, GameplayConfig::AgentRadius)->id; host->facing = (points[1] - points[3]).normalized();
+        for (std::size_t index = 0; index < 2; ++index) {
+          auto &guard = world.guards[index]; const auto point = points[index + 1];
+          guard.position = point; guard.elevation = 0.f; guard.supportId = WorldGeometry::FindSupport(world, point, 0.f, support->id, GameplayConfig::AgentRadius)->id;
+          guard.facing = {1.f, 0.f}; guard.patrol = {point}; guard.patrolElevations = {0.f}; guard.waypoint = 0; guard.navigation.clear(); guard.patrolPauseRemaining = SecurityConfig::PatrolPauseMaximum;
+        }
+        const auto setup = Json{{"victim", world.guards[0].id}, {"observer", world.guards[1].id}, {"shooter", shooter->id}, {"position", {x, y}}, {"note", "Colocación para rodaje sobre geometría real; guardias vivos sin daño ni incapacitación impuesta"}};
+        Case("enemy_nonlethal_shot_setup", setup); Mark("enemy-placed.json", setup); return;
+      }
+      throw std::runtime_error("No hay un sector libre para el disparo no letal en primera persona");
+    }
+
+    bool DriveEnemyShowcase() {
+      if (options_.scenario != "fps-enemy" || !stage_.starts_with("enemy_")) return false;
+      if (stage_ == "enemy_done") {
+        if (Marker(Host() ? "client-enemy-finished.json" : "host-enemy-finished.json").is_object()) complete_ = true;
+        return true;
+      }
+      Require(SessionState().IsConnected() && Local(), "El rodaje FPS perdió la sala LAN");
+      Require(StageSeconds() < 25.f, "La toma FPS no progresa: " + stage_);
+      const auto setup = Marker("enemy-placed.json");
+      if (!setup.is_object()) return true;
+      const auto targetId = setup.at("victim").get<std::uint32_t>();
+      const auto target = std::ranges::find(World().guards, targetId, &Guard::id);
+      const auto pulse = [&](sf::Keyboard::Scan key) { Access::Key(game_, context_, key, true); Access::Key(game_, context_, key, false); };
+      if (stage_ == "enemy_setup_wait") {
+        if (StageSeconds() < .4f) return true;
+        if (Host()) Stage("enemy_host_watch");
+        else {
+          pulse(sf::Keyboard::Scan::Num2); Access::PerspectiveChord(game_, context_); Stage("enemy_fps_ready");
+        }
+      } else if (stage_ == "enemy_fps_ready" || stage_ == "enemy_fps_shoot") {
+        Require(Access::FirstPerson(game_), "El disparo al enemigo perdió la vista FPS");
+        if (target == World().guards.end()) return true;
+        Access::LookAt(game_, *Local(), {target->position.x, target->position.y, target->elevation + CombatGeometry::HeadCenterHeight(Stance::Standing)});
+        if (target->state == GuardState::Incapacitated) {
+          Require(target->health > 0.f && Local()->selectedWeapon == WeaponKind::NonLethal, "El blanco no quedó dormido por el arma no letal");
+          Case("fps_nonlethal_enemy_incapacitated", {{"guard", targetId}, {"health", target->health}, {"stun", target->stun}, {"firstPerson", true}});
+          Capture("enemy-fps-nonlethal-ko"); Mark("client-enemy-ko.json"); pulse(sf::Keyboard::Scan::Z); Stage("enemy_client_bodywatch");
+        } else if (Local()->selectedWeapon == WeaponKind::NonLethal && Local()->actionCooldown <= 0.f && StageSeconds() > 1.f) {
+          if (Local()->nonLethalMagazine == 0) pulse(sf::Keyboard::Scan::R);
+          else Access::Fire(context_);
+          Stage("enemy_fps_shoot");
+        }
+      } else if (stage_ == "enemy_host_watch") {
+        if (target != World().guards.end() && target->state == GuardState::Incapacitated && Marker("client-enemy-body-held.json").is_object()) {
+          Require(std::ranges::any_of(World().events, [&](const MissionEvent &event) { return event.kind == EventKind::GuardIncapacitated && event.target == targetId && event.actor == setup.at("shooter").get<PlayerId>(); }), "La autoridad no registró la baja no letal del cliente");
+          auto &world = const_cast<WorldState &>(World());
+          auto shooter = std::ranges::find(world.agents, setup.at("shooter").get<PlayerId>(), &Agent::id);
+          Require(shooter != world.agents.end(), "Falta el tirador para el corte de patrulla");
+          const auto safe = WorldGeometry::FindSupport(world, {122.f, 758.f}, 0.f, 5, GameplayConfig::AgentRadius);
+          Require(safe.has_value(), "El punto de espera del rodaje carece de suelo");
+          shooter->position = {122.f, 758.f}; shooter->elevation = safe->elevation; shooter->supportId = safe->id;
+          auto observer = std::ranges::find(world.guards, setup.at("observer").get<std::uint32_t>(), &Guard::id);
+          Require(observer != world.guards.end(), "Falta la patrulla observadora");
+          observer->facing = (target->position - observer->position).normalized();
+          observer->patrolPauseRemaining = 0.f;
+          Case("enemy_patrol_shot_setup", {{"note", "Corte de rodaje: el tirador vuelve al punto de espera y la patrulla gira al sector; descubrir el cuerpo depende de la IA"}, {"guard", observer->id}});
+          Stage("enemy_host_bodywatch");
+        }
+      } else if (stage_ == "enemy_host_bodywatch") {
+        if (std::ranges::any_of(World().events, [&](const MissionEvent &event) { return event.kind == EventKind::BodyFound && event.target == targetId; })) {
+          Case("enemy_ai_found_unconscious_guard", {{"guard", targetId}, {"alarmCount", World().alarmCount}});
+          Capture("enemy-body-found"); Mark("enemy-body-found.json"); Stage("enemy_found_hold");
+        }
+      } else if (stage_ == "enemy_client_bodywatch") {
+        if (target != World().guards.end()) Access::LookAt(game_, *Local(), {target->position.x, target->position.y, target->elevation + 6.f});
+        if (StageSeconds() > 2.f && !Marker("client-enemy-body-held.json").is_object()) { Capture("enemy-fps-body-held"); Mark("client-enemy-body-held.json"); }
+        if (Marker("enemy-body-found.json").is_object()) { Capture("enemy-client-body-found"); Stage("enemy_found_hold"); }
+      } else if (stage_ == "enemy_found_hold") {
+        if (StageSeconds() > 3.f) { Mark(options_.role + "-enemy-finished.json"); Stage("enemy_done"); }
+      }
+      return true;
+    }
+
+    bool DriveShowcase() {
+      if (!Showcase() || !stage_.starts_with("show_")) return false;
+      if (stage_ == "show_done") {
+        if (Marker(Host() ? "client-show-finished.json" : "host-show-finished.json").is_object()) complete_ = true;
+        return true;
+      }
+      Require(SessionState().IsConnected() && Local(), "La grabación perdió la sala LAN");
+      Require(StageSeconds() < 20.f, "El cierre no progresa en " + stage_);
+      if (stage_ == "show_archive_setup") {
+        if (Host()) {
+          Require(World().alarmCount == 0, "La demostración activó una alarma antes del cierre de traición");
+          PlaceShowcaseArchive(); Mark("show-archive-placed.json");
+        }
+        if (Marker("show-archive-placed.json").is_object()) Stage("show_archive_collect");
+      } else if (stage_ == "show_archive_collect") {
+        if (Local()->privateOrder == PrivateOrder::Traitor) {
+          const auto camera = std::ranges::find(World().objects, 13u, &Interactable::id);
+          if (camera != World().objects.end() && camera->active) { ActionCommand sabotage; sabotage.tool = true; SessionState().Submit(sabotage); }
+        }
+        if (StageSeconds() > 1.f && Local()->privateOrder != PrivateOrder::Traitor) { ActionCommand use; use.interact = true; SessionState().Submit(use); }
+        if (World().objectives >= GetContract(World().contract).requiredObjectives) {
+          Case("showcase_objective_collected_by_interaction", {{"objectives", World().objectives}, {"alarmCount", World().alarmCount}});
+          Capture("show-objective-collected"); Mark(options_.role + "-show-objective.json"); Stage("show_archive_hold");
+        }
+      } else if (stage_ == "show_archive_hold") {
+        if (StageSeconds() < 2.f || !Marker("host-show-objective.json").is_object() || !Marker("client-show-objective.json").is_object()) return true;
+        if (Host()) { PlaceShowcaseBetrayal(); Mark("show-betrayal-placed.json"); }
+        Stage("show_betrayal_wait");
+      } else if (stage_ == "show_betrayal_wait") {
+        if (Marker("show-betrayal-placed.json").is_object() && StageSeconds() > .5f) Stage("show_betrayal_push");
+      } else if (stage_ == "show_betrayal_push") {
+        if (Local()->privateOrder == PrivateOrder::Traitor && World().phase == GamePhase::Mission) { ActionCommand push; push.push = true; SessionState().Submit(push); }
+        if (World().phase == GamePhase::Results) {
+          const auto found = World().results.find(SessionState().GetLocalPlayerId());
+          if (found == World().results.end()) return true;
+          const bool traitor = Local()->privateOrder == PrivateOrder::Traitor;
+          Require(found->second.traitorVictory == traitor && found->second.success == traitor && World().objectives >= 1 && World().alarmCount == 0, "El informe no confirma victoria real del traidor después del archivo");
+          personalResult_ = {{"success", found->second.success}, {"traitorVictory", found->second.traitorVictory}, {"reason", found->second.reason}};
+          Case("showcase_traitor_victory_after_objective", personalResult_); Capture("show-traitor-result");
+          Mark(options_.role + "-show-results.json"); Stage("show_results_hold");
+        }
+      } else if (stage_ == "show_results_hold") {
+        if (StageSeconds() > 5.f && Marker("host-show-results.json").is_object() && Marker("client-show-results.json").is_object()) {
+          Mark(options_.role + "-show-finished.json"); Stage("show_done");
+        }
+      }
+      return true;
+    }
+
     bool DriveFirstPerson() {
       if (!stage_.starts_with("fps_")) return false;
       Require(StageSeconds() < 12.f, "No progresa el control FPS real en " + stage_);
       if (stage_ == "fps_finish") {
-        if (Marker("client-fps-ack.json").is_object()) complete_ = true;
+        if (Marker("client-fps-ack.json").is_object()) {
+          if (Showcase()) { Mark("host-mechanics-base.json"); Stage("mechanics_base_barrier"); }
+          else complete_ = true;
+        }
         return true;
       }
       Require(SessionState().IsConnected() && IsTraining(World()) && Local(), "El caso FPS perdió su sala de entrenamiento real");
@@ -605,7 +856,13 @@ namespace {
         if (actor.nonLethalMagazine != fpsMagazine_ - 1 || shots(EventKind::WeaponNonLethal) != fpsShots_ + 1) return true;
         Require(actor.nonLethalSuppressor == fpsWear_ - WeaponConfig::NonLethalSuppressorWear, "El arma no letal FPS usa un desgaste distinto");
         Case("fps_selected_nonlethal_uses_existing_inventory", {{"magazine", actor.nonLethalMagazine}, {"wear", actor.nonLethalSuppressor}});
-        Capture("08-client-fps-nonlethal"); baselinePosition_ = actor.position; Stage("fps_exit");
+        Capture("08-client-fps-nonlethal"); baselinePosition_ = actor.position; Stage(Showcase() ? "fps_suppressor_remove" : "fps_exit");
+      } else if (stage_ == "fps_suppressor_remove") {
+        if (StageSeconds() < .5f) return true;
+        pulse(sf::Keyboard::Scan::H); Stage("fps_suppressor_check");
+      } else if (stage_ == "fps_suppressor_check") {
+        if (actor.nonLethalSuppressorEquipped || StageSeconds() < 1.f) return true;
+        Case("showcase_real_suppressor_removal"); Stage("fps_exit");
       } else if (stage_ == "fps_exit") {
         if (StageSeconds() < .3f) return true;
         baselinePosition_ = actor.position; const int magazine = actor.nonLethalMagazine;
@@ -619,7 +876,11 @@ namespace {
           "El pulso Shift+F de salida con liberación en el mismo frame se filtra como CQC");
         if (StageSeconds() < .35f) return true;
         if (!Marker("client-fps-done.json").is_object()) Mark("client-fps-done.json", {{"player", actor.id}, {"lethalMagazine", actor.lethalMagazine}, {"nonLethalMagazine", actor.nonLethalMagazine}});
-        if (Marker("host-fps-done.json").is_object()) { Mark("client-fps-ack.json"); complete_ = true; }
+        if (Marker("host-fps-done.json").is_object()) {
+          Mark("client-fps-ack.json");
+          if (Showcase()) { Mark("client-mechanics-base.json"); Stage("mechanics_base_barrier"); }
+          else complete_ = true;
+        }
       } else throw std::runtime_error("Etapa FPS desconocida: " + stage_);
       return true;
     }
@@ -688,12 +949,15 @@ namespace {
         else { Access::Lobby(game_, context_, window_); Stage("prepare"); }
       } else if (stage_ == "mechanics_mission_finish") {
         if (!Marker("host-mechanics-mission-done.json").is_object() || !Marker("client-mechanics-mission-ack.json").is_object()) return true;
-        pilot_.EnableTour(); Stage("role_pilot");
+        if (Showcase()) Stage("show_archive_setup");
+        else { pilot_.EnableTour(); Stage("role_pilot"); }
       } else throw std::runtime_error("Etapa mecánica desconocida: " + stage_);
       return true;
     }
 
     void Drive() {
+      if (DriveEnemyShowcase()) return;
+      if (DriveShowcase()) return;
       if (DriveFirstPerson()) return;
       if (DriveMechanics()) return;
       if (stage_ == "start") {
@@ -714,7 +978,8 @@ namespace {
         } else if (!SessionState().IsConnected() && StageSeconds() > 12.f) throw std::runtime_error("No se estableció la sala: " + SessionState().GetStatus());
       } else if (stage_ == "room_barrier") {
         if (Marker("host-room-seen.json").is_object() && Marker("client-room-seen.json").is_object() && StageSeconds() >= 2.f) {
-          if (options_.scenario == "fps") {
+          if (options_.scenario == "betrayal" || options_.scenario == "fps-enemy") Stage("prepare");
+          else if (options_.scenario == "fps" || Showcase()) {
             Click("RECORRER LA BASE"); Capture("02-base-tactical"); Mark(options_.role + "-fps-base.json"); Stage("fps_base_barrier");
           } else if (TrainingMechanicsScenario()) {
             Click("RECORRER LA BASE"); Capture("02-base-mechanics"); Mark(options_.role + "-mechanics-base.json"); Stage("mechanics_base_barrier");
@@ -786,9 +1051,14 @@ namespace {
         if (peer.is_object()) {
           Require(peer.at("state").at("seed").get<std::uint32_t>() == missionSeed_, "La semilla de misión difiere entre equipos");
           Case("shared_mission_seed", {{"seed", missionSeed_}});
+          if (options_.scenario == "fps-enemy") {
+            if (Host()) PlaceEnemyShowcase();
+            Stage("enemy_setup_wait"); return;
+          }
           if (MechanicsScenario()) {
             if (Host()) {
-              if (options_.scenario == "table-tour") mechanics_.BeginInspection(const_cast<WorldState &>(World()));
+              if (Showcase()) mechanics_.BeginShowcaseMission(const_cast<WorldState &>(World()));
+              else if (options_.scenario == "table-tour") mechanics_.BeginInspection(const_cast<WorldState &>(World()));
               else mechanics_.BeginMission(const_cast<WorldState &>(World()));
             }
             Stage("mechanics_mission");

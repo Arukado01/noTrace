@@ -1,13 +1,14 @@
 [CmdletBinding()]
 param(
   [string]$Executable = 'build/lan-release/NoTraceLanQa.exe',
-  [ValidateSet('mission', 'tour', 'table-tour', 'fps', 'mechanics', 'training', 'pipe')][string]$Scenario = 'mechanics',
+  [ValidateSet('mission', 'tour', 'table-tour', 'fps', 'mechanics', 'training', 'pipe', 'showcase', 'betrayal', 'fps-enemy')][string]$Scenario = 'mechanics',
   [string]$OutputRoot,
   [ValidateRange(1, 65535)][int]$Port = 55141,
   [ValidateRange(640, 7680)][int]$Width = 960,
   [ValidateRange(360, 4320)][int]$Height = 540,
   [ValidateRange(0, 1000)][int]$FrameLimit = 0,
   [switch]$Profile,
+  [string]$RecordFfmpeg,
   [ValidateRange(30, 3600)][int]$Timeout = 900
 )
 
@@ -16,6 +17,10 @@ $ErrorActionPreference = 'Stop'
 $workspace = [IO.Path]::GetFullPath((Split-Path -Parent $PSScriptRoot)).TrimEnd('\')
 if (-not [IO.Path]::IsPathRooted($Executable)) { $Executable = Join-Path $workspace $Executable }
 $Executable = (Resolve-Path -LiteralPath $Executable).Path
+if ($RecordFfmpeg) {
+  $RecordFfmpeg = (Resolve-Path -LiteralPath $RecordFfmpeg).Path
+  if ($FrameLimit -ne 30) { throw 'La grabación requiere -FrameLimit 30.' }
+}
 $runId = [Guid]::NewGuid().ToString('N')
 if (-not $OutputRoot) { $OutputRoot = Join-Path $workspace ('build/local-lan-' + $Scenario + '-' + $runId) }
 if (-not [IO.Path]::IsPathRooted($OutputRoot)) { $OutputRoot = Join-Path $workspace $OutputRoot }
@@ -48,6 +53,7 @@ try {
     $arguments = @('--role', $role, '--scenario', $Scenario, '--host', '127.0.0.1', '--port', "$Port", '--run-id', $runId,
       '--coord', ('"' + $coord + '"'), '--output', ('"' + $roleOutput + '"'), '--timeout', "$Timeout", '--frame-limit', "$FrameLimit",
       '--width', "$Width", '--height', "$Height", '--warmup', '60', '--window-x', $(if ($role -eq 'host') { '0' } else { "$Width" }), '--window-y', '0', '--profile', $(if ($Profile) { 'true' } else { 'false' }))
+    if ($RecordFfmpeg) { $arguments += @('--record-ffmpeg', ('"' + $RecordFfmpeg + '"')) }
     # Las ventanas visibles permiten comprobar ambos agentes durante el recorrido automático.
     $process = Start-Process -FilePath $Executable -ArgumentList $arguments -WorkingDirectory $workspace -WindowStyle Normal -PassThru -RedirectStandardOutput (Join-Path $OutputRoot ($role + '.stdout.log')) -RedirectStandardError (Join-Path $OutputRoot ($role + '.stderr.log'))
     $processes.Add([pscustomobject]@{ role = $role; process = $process; output = $roleOutput })
