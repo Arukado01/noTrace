@@ -38,13 +38,13 @@ namespace NoTrace {
     return true;
   }
 
-  bool AudioPlayback::PlayEvent(const SoundEvent &event, const WorldState &world, const Agent &listener) {
+  bool AudioPlayback::PlayEvent(const SoundEvent &event, const WorldState &world, const Agent &listener, std::optional<sf::Vector2f> cameraRight) {
     if (!Visibility::SoundAudible(world, listener, event)) return false;
     if (AudioConfig::IsSecurityCue(event.kind)) return Play(event.kind, 55.f);
     const float distance = WorldGeometry::SpatialDistance(WorldGeometry::Feet(listener), {event.position.x, event.position.y, event.elevation});
     const float gain = std::clamp(1.f - distance / std::max(1.f, event.radius) * .75f, .15f, 1.f);
     const float wall = AudioGeometry::Occluded(world, listener, event.position, event.elevation) ? AudioConfig::WallHearingFactor : 1.f;
-    const float pan = std::clamp((event.position.x - listener.position.x) / std::max(1.f, event.radius), -1.f, 1.f);
+    const float pan = AudioGeometry::Pan(event.position - listener.position, event.radius, cameraRight);
     return Play(event.kind, 65.f * gain * wall, pan);
   }
 

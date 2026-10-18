@@ -3,6 +3,7 @@
 #include "Types/NoTraceGameplayTypes.h"
 #include <array>
 #include <cstdint>
+#include <optional>
 
 struct EngineContext;
 
@@ -17,7 +18,7 @@ namespace NoTrace {
     AudioPlayback(const AudioPlayback &) = delete;
     AudioPlayback &operator=(const AudioPlayback &) = delete;
     bool Play(SoundKind kind, float volume = 65.f, float pan = 0.f, float pitch = 1.f);
-    bool PlayEvent(const SoundEvent &event, const WorldState &world, const Agent &listener);
+    bool PlayEvent(const SoundEvent &event, const WorldState &world, const Agent &listener, std::optional<sf::Vector2f> cameraRight = std::nullopt);
     void UpdateAmbience(const WorldState &world, PlayerId listener);
     void StopAmbience();
   };

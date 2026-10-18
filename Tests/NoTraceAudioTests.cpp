@@ -318,6 +318,20 @@ namespace {
     Require(!Visibility::FootstepAudible(world, listener, cue), "Una pista de pasos ignora su distancia vertical al oyente");
   }
 
+  void CameraPanUsesOnlyTheLocalListeningFrame() {
+    using namespace NoTrace;
+    Require(AudioGeometry::Pan({50.f, 0.f}, 100.f) == .5f && AudioGeometry::Pan({0.f, 50.f}, 100.f) == 0.f,
+      "El paneo táctico por defecto cambió sus coordenadas horizontales");
+    Require(AudioGeometry::Pan({0.f, 50.f}, 100.f, sf::Vector2f{0.f, 2.f}) == .5f &&
+      AudioGeometry::Pan({0.f, 50.f}, 100.f, sf::Vector2f{0.f, -1.f}) == -.5f &&
+      AudioGeometry::Pan({50.f, 0.f}, 100.f, sf::Vector2f{0.f, 1.f}) == 0.f,
+      "La escucha en primera persona no gira con el eje derecho normalizado de su cámara local");
+    Require(AudioGeometry::Pan({500.f, 0.f}, 100.f, sf::Vector2f{1.f, 0.f}) == 1.f &&
+      AudioGeometry::Pan({50.f, 0.f}, 100.f, sf::Vector2f{}) == .5f &&
+      AudioGeometry::Pan({50.f, 0.f}, 100.f, sf::Vector2f{std::numeric_limits<float>::quiet_NaN(), 0.f}) == .5f,
+      "Un eje local inválido o una fuente lejana deja paneo no finito o fuera de límites");
+  }
+
   void ShotImpactKeepsTheContactHeight() {
     using namespace NoTrace;
     Simulation simulation; auto &world = AcousticFloors(simulation);
@@ -596,6 +610,7 @@ int main() {
     DecoyFoleyTracksPreparationAndAcceptedThrows();
     CameraToolUsesItsOwnAcceptedMechanicalContact();
     FloorSlabsMuffleOnlyTheCrossingRay();
+    CameraPanUsesOnlyTheLocalListeningFrame();
     ShotImpactKeepsTheContactHeight();
     SurfaceImpactFoleyTracksTheFirstGeometry();
     ObjectiveFeedbackRequiresTheFirstAcceptedInteraction();
