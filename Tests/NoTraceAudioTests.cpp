@@ -1,6 +1,7 @@
 #include "NoTraceSimulation.h"
 #include "NoTraceVisibility.h"
 #include "Config/NoTraceAudioConfig.h"
+#include "Config/NoTraceDevicesConfig.h"
 #include <SFML/Audio/SoundBuffer.hpp>
 #include <algorithm>
 #include <array>
@@ -12,10 +13,52 @@
 namespace {
   int checks = 0;
   void Require(bool value, const char *message) { ++checks; if (!value) throw std::runtime_error(message); }
+
+  void GuardHearingUsesEventRadiusAcrossWalls() {
+    using namespace NoTrace;
+    struct AcousticCase { SoundKind kind; float radius; };
+    const std::array cases{
+      AcousticCase{SoundKind::StepHard, GameplayConfig::WalkingNoiseRadius},
+      AcousticCase{SoundKind::StepRunHard, GameplayConfig::RunningNoiseRadius},
+      AcousticCase{SoundKind::Pistol, GameplayConfig::LethalNoiseRadius},
+      AcousticCase{SoundKind::Suppressed, GameplayConfig::NonLethalNoiseRadius},
+      AcousticCase{SoundKind::Knock, DistractionConfig::KnockHearingDistance},
+      AcousticCase{SoundKind::Decoy, DistractionConfig::DecoyHearingDistance},
+      AcousticCase{SoundKind::Alarm, AudioConfig::AlarmRadius},
+      AcousticCase{SoundKind::Explosion, DevicesConfig::ExplosionNoiseRadius}};
+    for (const auto &acoustic : cases) for (const int walls : {0, 1, 2}) for (const float edge : {-1.f, 0.f, 1.f}) {
+      Simulation simulation; simulation.ResetBase(); simulation.Deploy(0);
+      auto &world = const_cast<WorldState &>(simulation.GetState());
+      world.size = {2000.f, 1600.f}; world.objects.clear(); world.obstacles.clear(); world.guards.clear();
+      world.noises.clear(); world.sounds.clear(); world.events.clear(); world.securityEntries.clear();
+      world.agents[0].position = {50.f, 1400.f}; world.agents[0].hidden = true;
+      const sf::Vector2f origin{300.f, 500.f};
+      Guard guard; guard.id = 81; guard.position = origin + sf::Vector2f{acoustic.radius + edge, 0.f}; guard.facing = {1.f, 0.f};
+      world.guards.push_back(guard);
+      for (int wall = 0; wall < walls; ++wall) world.obstacles.push_back({{{320.f + wall * 20.f, 450.f}, {2.f, 100.f}}, CoverKind::High, true, "Separación acústica"});
+      if (walls > 0) Require(!Visibility::HasLineOfSight(world, guard.position, origin), "El caso acústico debe tener una pared real entre emisor y guardia");
+      world.noises.push_back({origin, acoustic.radius, 0.6f, 1, 0, acoustic.kind});
+      simulation.Step(0.05f, {});
+      const auto &heard = world.guards[0];
+      Require(edge <= 0.f ? heard.state == GuardState::Investigate && heard.lastKnown == origin : heard.state == GuardState::Patrol,
+        "La audición enemiga debe respetar el borde del radio específico aun detrás de varias paredes");
+      Require(!world.alarm && world.securityAlert == SecurityAlert::Calm && heard.observedAgent == 0 && !world.agents[0].detectionConfirmed,
+        "Escuchar un evento no confirma visión, identidad ni ubicación actual del jugador");
+      if (edge <= 0.f) {
+        world.agents[0].position += sf::Vector2f{100.f, 0.f}; simulation.Step(0.05f, {});
+        Require(world.guards[0].lastKnown == origin, "La pista acústica debe permanecer en el evento y no seguir al emisor");
+      }
+    }
+  }
 }
 int main() {
   try {
     using namespace NoTrace;
+    GuardHearingUsesEventRadiusAcrossWalls();
+    Require(GameplayConfig::RunningNoiseRadius == 340.f * 0.90f && GameplayConfig::RunningNoiseRadius == 306.f,
+      "La carrera debe reducir exactamente un diez por ciento su radio anterior de 340 unidades");
+    Require(GameplayConfig::WalkingNoiseRadius == 70.f && GameplayConfig::CrouchedNoiseRadius == 12.f && GameplayConfig::CrouchedRunningNoiseRadius == 22.f,
+      "Reducir la carrera no debe cambiar los radios de caminar o moverse agachado");
     const auto root = std::filesystem::exists("Content") ? std::filesystem::path(".") : std::filesystem::path("..");
     std::set<std::uint64_t> hashes;
     std::set<std::string> files;

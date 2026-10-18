@@ -1218,7 +1218,7 @@ namespace NoTrace {
         guard.perceptionLostTime = std::min(SecurityConfig::GuardLostSightGrace + 1.f, guard.perceptionLostTime + dt);
         if (guard.perceptionLostTime > SecurityConfig::GuardLostSightGrace) guard.suspicion = std::max(0.f, guard.suspicion - dt * SuspicionDecay);
         if (guard.state == GuardState::Alert || (guard.state == GuardState::Suspicion && guard.suspicion == 0.f)) { guard.state = GuardState::Search; guard.stateTime = 0.f; }
-        if (guard.bodyTargetKind == BodyTargetKind::None && guard.state != GuardState::Retiring) for (const auto &noise : world_.noises) if (noise.guardId != guard.id && Distance(guard.position, noise.position) <= noise.radius * (Visibility::HasLineOfSight(world_, guard.position, noise.position) ? 1.f : AudioConfig::WallHearingFactor)) {
+        if (guard.bodyTargetKind == BodyTargetKind::None && guard.state != GuardState::Retiring) for (const auto &noise : world_.noises) if (noise.guardId != guard.id && Distance(guard.position, noise.position) <= noise.radius) {
           if (noise.kind == SoundKind::Alarm && guard.state == GuardState::Search) continue;
           guard.lastKnown = noise.position; guard.state = GuardState::Investigate; guard.stateTime = 0.f;
           break;

@@ -55,7 +55,7 @@ namespace NoTrace::GameplayConfig {
   inline constexpr float FootstepInterval = 0.4f;
   inline constexpr float RunningFootstepInterval = 0.23f;
   inline constexpr float CrouchedFootstepInterval = 0.6f;
-  inline constexpr float RunningNoiseRadius = 340.f;
+  inline constexpr float RunningNoiseRadius = 306.f;
   inline constexpr float WalkingNoiseRadius = 70.f;
   inline constexpr float CrouchedNoiseRadius = 12.f;
   inline constexpr float CrouchedRunningNoiseRadius = 22.f;

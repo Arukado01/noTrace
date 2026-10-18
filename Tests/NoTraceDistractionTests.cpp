@@ -88,10 +88,13 @@ namespace {
     auto &muffled = Fixture(simulation);
     Guard near; near.id = 8; near.position = {620.f, 500.f}; near.facing = {1.f, 0.f};
     Guard far = near; far.id = 9; far.position = {700.f, 500.f};
-    muffled.guards = {near, far}; muffled.obstacles.push_back({{{550.f, 450.f}, {20.f, 100.f}}, CoverKind::High, true, "Muro acústico"});
+    Guard outside = near; outside.id = 10; outside.position = {850.f, 500.f};
+    muffled.guards = {near, far, outside}; muffled.obstacles.push_back({{{550.f, 450.f}, {20.f, 100.f}}, CoverKind::High, true, "Muro acústico"});
     simulation.Step(0.1f, {{1, command}}); Land(simulation);
-    Require(DistractionConfig::DecoyHearingDistance == 420.f && 200.f < DistractionConfig::DecoyHearingDistance * AudioConfig::WallHearingFactor && 280.f > DistractionConfig::DecoyHearingDistance * AudioConfig::WallHearingFactor, "El fixture de audición no separa correctamente los dos alcances amortiguados");
-    Require(muffled.guards[0].state == GuardState::Investigate && muffled.guards[0].lastKnown == sf::Vector2f{420.f, 500.f} && muffled.guards[1].state == GuardState::Patrol, "El señuelo ignora el amortiguamiento de paredes o no atrae dentro de su alcance legítimo");
+    Require(DistractionConfig::DecoyHearingDistance == 420.f && 280.f < DistractionConfig::DecoyHearingDistance && 430.f > DistractionConfig::DecoyHearingDistance, "El fixture debe separar guardias dentro y fuera del alcance real del señuelo");
+    Require(muffled.guards[0].state == GuardState::Investigate && muffled.guards[1].state == GuardState::Investigate &&
+      muffled.guards[0].lastKnown == sf::Vector2f{420.f, 500.f} && muffled.guards[1].lastKnown == sf::Vector2f{420.f, 500.f} &&
+      muffled.guards[2].state == GuardState::Patrol && !muffled.alarm, "La pared debe permitir investigar el impacto dentro del radio sin alertar al guardia exterior ni revelar al jugador");
   }
 
   void ContextualWallKnock() {
