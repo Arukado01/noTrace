@@ -295,6 +295,7 @@ namespace NoTrace {
       if (guard.heldBy) return select(Clip::Damage, 0.f);
       if (guard.staggerRemaining > 0.f) return select(Clip::Damage, std::clamp(1.f - guard.staggerRemaining / CqcConfig::PunchStagger, 0.f, 1.f));
       if (guard.attackTime > 0.f) return select(guard.meleeAttack ? Clip::Punch : Clip::Shoot, 1.f - guard.attackTime / GameplayConfig::AttackAnimationDuration);
+      if (guard.state == GuardState::InspectBody) return ClipFrame(Clip::Interact, guard.facing, guard.bodyInspectionTime);
       const auto destination = guard.state == GuardState::Patrol && !guard.patrol.empty() ? guard.patrol[guard.waypoint % guard.patrol.size()] : guard.lastKnown;
       const bool moving = (guard.state != GuardState::Patrol || guard.patrolPauseRemaining <= 0.f) && (world.visibility.authoritative ? guard.stepTime > 0.f :
           (destination - guard.position).lengthSquared() > GameplayConfig::InvestigationStopDistance * GameplayConfig::InvestigationStopDistance);
@@ -373,7 +374,8 @@ namespace NoTrace {
       if (guard.state == GuardState::Incapacitated) return GuardIndicator::Unconscious;
       if (guard.detectedTime > 0.f) return GuardIndicator::Confirmed;
       if (guard.state == GuardState::Alert) return GuardIndicator::Combat;
-      if (guard.state == GuardState::Search) return GuardIndicator::Searching;
+      if (guard.state == GuardState::Search || guard.state == GuardState::ApproachBody || guard.state == GuardState::InspectBody || guard.state == GuardState::Vigilance)
+        return GuardIndicator::Searching;
       if (guard.suspicionRemaining > 0.f || guard.state == GuardState::Suspicion || guard.state == GuardState::Investigate) return GuardIndicator::Suspicion;
       return GuardIndicator::None;
     }

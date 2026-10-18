@@ -60,7 +60,7 @@ namespace NoTrace {
     const bool inactive = !world_.securityActive;
     if (inactive) { reinforcementTimer_ = SecurityConfig::InitialArrivalDelay; ++world_.alarmCount; }
     securityHasClue_ = true;
-    if (world_.securityAlert != SecurityAlert::Red) { securityLastKnown_ = position; securityContactAge_ = 0.f; SetSecurityAlert(SecurityAlert::Orange); }
+    if (world_.securityAlert != SecurityAlert::Red && world_.securityAlert != SecurityAlert::Orange) { securityLastKnown_ = position; securityContactAge_ = 0.f; SetSecurityAlert(SecurityAlert::Orange); }
     const auto clue = world_.securityAlert == SecurityAlert::Red ? securityLastKnown_ : position;
     Record(EventKind::BodyFound, 0, body);
     for (auto &guard : world_.guards) if (guard.state != GuardState::Dead && guard.state != GuardState::Incapacitated && guard.heldBy == 0 && guard.bodyTargetKind == BodyTargetKind::None && guard.state != GuardState::Alert) {
@@ -70,24 +70,44 @@ namespace NoTrace {
     world_.message = world_.securityAlert == SecurityAlert::Red ? "Cuerpo inspeccionado y comunicado: continúa la respuesta al contacto confirmado." : "Cuerpo inspeccionado y comunicado: alerta naranja, búsqueda distribuida en la zona.";
   }
 
+  void Simulation::WakeGuard(Guard &guard) {
+    if (guard.state != GuardState::Incapacitated || guard.health <= 0.f || guard.bodyHidden || guard.storedIn != 0) return;
+    guard.state = world_.securityActive ? GuardState::Search : guard.reinforcement ? GuardState::Retiring :
+        world_.securityAlert == SecurityAlert::Yellow ? GuardState::Vigilance : GuardState::Patrol;
+    guard.stateTime = 0.f; guard.incapacityRemaining = 0.f; guard.stun = 0.f; guard.staggerRemaining = 0.f;
+    guard.heldBy = 0; guard.cqcState = CqcState::None; guard.bodyReported = false; guard.observedAgent = 0;
+    guard.suspicion = 0.f; guard.indicatorProgress = 0.f; guard.suspicionRemaining = 0.f; guard.detectedTime = 0.f;
+    guard.attackTime = 0.f; guard.attackCooldown = GameplayConfig::GuardAttackInterval; guard.meleeAttack = false;
+    guard.navigation.clear(); guard.navigationTimer = 0.f; guard.navigationStuckTime = 0.f; guard.navigationFailures = 0; guard.navigationRejectTime = 0.f;
+    guard.patrolPauseRemaining = 0.f; guard.stepTime = 0.f; guard.knownHideout = 0; guard.hideoutInspectionTime = 0.f;
+    guard.bodyTargetKind = BodyTargetKind::None; guard.bodyTargetId = 0; guard.bodyInspectionTime = 0.f;
+    guard.lastKnown = securityHasClue_ && world_.securityAlert != SecurityAlert::Calm ? securityLastKnown_ : guard.position;
+    for (auto &agent : world_.agents) if (agent.draggingGuard == static_cast<int>(guard.id)) agent.draggingGuard = -1;
+  }
+
   bool Simulation::UpdateBodyInvestigation(Guard &guard, float dt) {
     if (guard.bodyTargetKind == BodyTargetKind::None) return false;
     sf::Vector2f position;
     bool *reported = nullptr;
+    Guard *unconscious = nullptr;
     if (guard.bodyTargetKind == BodyTargetKind::Guard) {
       const auto body = std::ranges::find_if(world_.guards, [&guard](const Guard &other) { return other.id == guard.bodyTargetId; });
-      if (body != world_.guards.end() && (body->state == GuardState::Dead || body->state == GuardState::Incapacitated) && !body->bodyHidden && body->storedIn == 0) { position = body->position; reported = &body->bodyReported; }
+      if (body != world_.guards.end() && (body->state == GuardState::Dead || body->state == GuardState::Incapacitated) && !body->bodyHidden && body->storedIn == 0) {
+        position = body->position; reported = &body->bodyReported;
+        if (body->state == GuardState::Incapacitated && body->health > 0.f && body->heldBy == 0 &&
+            std::ranges::none_of(world_.agents, [&body](const Agent &agent) { return agent.draggingGuard == static_cast<int>(body->id); })) unconscious = &*body;
+      }
     } else {
       const auto body = std::ranges::find_if(world_.agents, [&guard](const Agent &other) { return other.id == guard.bodyTargetId; });
       if (body != world_.agents.end() && body->connected && (!body->alive || body->incapacitated) && !body->hidden && body->hideoutId == 0) { position = body->position; reported = &body->bodyReported; }
     }
-    if (!reported || *reported) {
+    if (!reported || (*reported && !unconscious)) {
       guard.bodyTargetKind = BodyTargetKind::None; guard.bodyTargetId = 0; guard.bodyInspectionTime = 0.f; guard.state = GuardState::Search; guard.stateTime = 0.f;
       return false;
     }
     guard.lastKnown = position; guard.patrolPauseRemaining = 0.f; guard.attackTime = 0.f;
     const float distance = (position - guard.position).length();
-    if (distance > SecurityConfig::BodyInspectionReach || !Visibility::HasLineOfSight(world_, guard.position, position)) {
+    if (distance > SecurityConfig::BodyInspectionReach || !WorldGeometry::ClearMovementSegment(world_, guard.position, position, GameplayConfig::AgentRadius)) {
       guard.state = GuardState::ApproachBody; guard.bodyInspectionTime = 0.f;
       auto approach = position;
       float nearest = std::numeric_limits<float>::max();
@@ -95,7 +115,7 @@ namespace NoTrace {
         const float angle = static_cast<float>(sector) * 0.3926990817f;
         const auto candidate = position + sf::Vector2f{std::cos(angle), std::sin(angle)} * SecurityConfig::BodyApproachDistance;
         const float candidateDistance = (candidate - guard.position).lengthSquared();
-        if (candidateDistance < nearest && !Blocked(candidate, GameplayConfig::AgentRadius) && Visibility::HasLineOfSight(world_, candidate, position)) { nearest = candidateDistance; approach = candidate; }
+        if (candidateDistance < nearest && !Blocked(candidate, GameplayConfig::AgentRadius) && WorldGeometry::ClearMovementSegment(world_, candidate, position, GameplayConfig::AgentRadius)) { nearest = candidateDistance; approach = candidate; }
       }
       if (nearest != std::numeric_limits<float>::max()) Navigate(guard, approach, GameplayConfig::GuardSpeed, dt);
       return true;
@@ -104,10 +124,19 @@ namespace NoTrace {
     if (distance > 0.01f) guard.facing = (position - guard.position) / distance;
     guard.bodyInspectionTime = std::min(SecurityConfig::BodyInspectionDuration, guard.bodyInspectionTime + dt);
     if (guard.bodyInspectionTime >= SecurityConfig::BodyInspectionDuration) {
+      const bool discovered = !*reported;
       *reported = true;
       const auto body = guard.bodyTargetId;
       guard.bodyTargetKind = BodyTargetKind::None; guard.bodyTargetId = 0; guard.bodyInspectionTime = 0.f;
-      RegisterBodyDiscovery(guard, position, body);
+      if (discovered) RegisterBodyDiscovery(guard, position, body);
+      if (unconscious) {
+        WakeGuard(*unconscious);
+        guard.state = world_.securityActive ? GuardState::Search : guard.reinforcement ? GuardState::Retiring :
+            world_.securityAlert == SecurityAlert::Yellow ? GuardState::Vigilance : GuardState::Patrol;
+        guard.stateTime = 0.f; guard.navigation.clear();
+        guard.lastKnown = securityHasClue_ && world_.securityAlert != SecurityAlert::Calm ? securityLastKnown_ : guard.position;
+        world_.message = "Guardia asistido: el compañero vuelve al servicio sin reiniciar la respuesta de seguridad.";
+      }
     }
     return true;
   }

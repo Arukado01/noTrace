@@ -36,6 +36,7 @@ namespace NoTrace {
     void RegisterSecurityContact(sf::Vector2f position);
     void SetSecurityAlert(SecurityAlert alert);
     void RegisterBodyDiscovery(Guard &observer, sf::Vector2f position, std::uint32_t body);
+    void WakeGuard(Guard &guard);
     bool UpdateBodyInvestigation(Guard &guard, float dt);
     sf::Vector2f SecuritySearchDestination(const Guard &guard) const;
     void UpdateSecurity(float dt);

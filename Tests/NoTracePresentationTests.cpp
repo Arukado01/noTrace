@@ -459,6 +459,14 @@ int main() {
     Require(WorldRenderer::BodyIndicatorFor(bodyAgent) == WorldRenderer::GuardIndicator::None, "El icono vital revela un agente ya extraído");
     guard.bodyHidden = false; guard.state = NoTrace::GuardState::Search;
     Require(WorldRenderer::IndicatorFor(guard) == WorldRenderer::GuardIndicator::Searching, "La búsqueda pierde su indicador al romper el contacto visual");
+    for (const auto state : {NoTrace::GuardState::ApproachBody, NoTrace::GuardState::InspectBody, NoTrace::GuardState::Vigilance}) {
+      guard.state = state;
+      Require(WorldRenderer::IndicatorFor(guard) == WorldRenderer::GuardIndicator::Searching, "La aproximación, asistencia o vigilancia pierde su indicador de investigación");
+    }
+    guard.state = NoTrace::GuardState::InspectBody; guard.bodyInspectionTime = 0.6f;
+    const auto assistance = WorldRenderer::SelectGuardSprite(guard, NoTrace::WorldState{});
+    Require(assistance.index == WorldRenderer::ClipFrame(NoTrace::SpriteConfig::Clip::Interact, guard.facing, guard.bodyInspectionTime).index,
+      "La asistencia no utiliza el ciclo de interacción del guardia detenido");
     guard.state = NoTrace::GuardState::Patrol; guard.suspicionRemaining = 0.4f; guard.indicatorProgress = 0.5f;
     Require(WorldRenderer::IndicatorFor(guard) == WorldRenderer::GuardIndicator::Suspicion && WorldRenderer::GuardDetectionFor(guard).segments > 0,
       "La sospecha reciente desaparece antes de terminar su tiempo de presentación");

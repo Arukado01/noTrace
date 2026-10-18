@@ -97,6 +97,42 @@ namespace {
     Require(!world.alarm && !world.securityActive, "La alarma termina al cumplirse el periodo sin nuevos contactos observados");
   }
 
+  void AlertKeepsEveryConfirmedObserver() {
+    for (const std::size_t occluded : {std::size_t{0}, std::size_t{1}}) {
+      Simulation simulation;
+      auto &world = Fixture(simulation); world.securityEntries.clear();
+      world.agents[0].position = {400.f, 400.f};
+      Observer(world, 11, 1.f); Observer(world, 12, 1.f);
+      const std::size_t remaining = 1 - occluded;
+      world.guards[occluded].position = {500.f, 400.f}; world.guards[occluded].facing = {-1.f, 0.f};
+      world.guards[remaining].position = {400.f, 500.f}; world.guards[remaining].facing = {0.f, -1.f};
+      simulation.Step(0.1f, {});
+      Require(world.guards[0].state == GuardState::Alert && world.guards[1].state == GuardState::Alert && world.securityAlert == SecurityAlert::Red,
+        "La prueba multiguardia requiere dos observadores que hayan confirmado realmente al agente");
+      const auto observedPosition = world.agents[0].position;
+      world.obstacles.push_back({{{445.f, 300.f}, {10.f, 200.f}}, CoverKind::High, true, "Pared del primer observador"});
+      for (unsigned int step = 0; step < 4; ++step) {
+        Require(!simulation.CanSee(world.guards[occluded].position, world.guards[occluded].facing, world.agents[0], GameplayConfig::VisionDistance * GameplayConfig::AlarmVisionMultiplier) &&
+          simulation.CanSee(world.guards[remaining].position, world.guards[remaining].facing, world.agents[0], GameplayConfig::VisionDistance * GameplayConfig::AlarmVisionMultiplier),
+          "La pared debe ocultar al jugador sólo para uno de los observadores");
+        simulation.Step(0.1f, {});
+        Require(world.guards[occluded].state == GuardState::Search && world.guards[remaining].state == GuardState::Alert &&
+          world.securityAlert == SecurityAlert::Red && world.securityRemaining == 0.f && world.alarm && world.agents[0].detectionConfirmed,
+          "Perder un observador cancela la roja aunque otro todavía conserve contacto confirmado");
+      }
+      const auto lastKnown = world.guards[remaining].lastKnown;
+      world.obstacles.push_back({{{300.f, 425.f}, {130.f, 10.f}}, CoverKind::High, true, "Pared del último observador"});
+      for (const auto &guard : world.guards) Require(!WorldGeometry::PositionBlocked(world, guard.position, GameplayConfig::AgentRadius) &&
+        !simulation.CanSee(guard.position, guard.facing, world.agents[0], GameplayConfig::VisionDistance * GameplayConfig::AlarmVisionMultiplier),
+        "La segunda pared debe cortar el último contacto sin encerrar un guardia dentro de un sólido");
+      simulation.Step(0.1f, {});
+      Require(world.agents[0].position == observedPosition && world.securityAlert == SecurityAlert::Orange &&
+        std::abs(world.securityRemaining - SecurityConfig::SearchDuration) < 0.001f && world.guards[remaining].state == GuardState::Search &&
+        world.guards[0].lastKnown == lastKnown && world.guards[1].lastKnown == lastKnown,
+        "Sólo perder todos los contactos inicia veinte segundos completos de naranja y conserva la última pista observada");
+    }
+  }
+
   void EnemyDamageProducesCollapse() {
     Simulation simulation, replica;
     auto &world = Fixture(simulation, true); Observer(world, 1, 1.f);
@@ -296,6 +332,115 @@ namespace {
       "Ocultar el cuerpo antes de inspeccionarlo cancela la reserva sin inventar un aviso");
   }
 
+  void GuardAssistancePreservesTheOngoingSearch() {
+    Simulation simulation, replica;
+    auto &world = Fixture(simulation); world.securityEntries.clear(); Observer(world, 1, 1.f);
+    simulation.Step(0.1f, {});
+    world.agents[0].hidden = true; world.agents[0].position = {50.f, 700.f}; simulation.Step(0.1f, {});
+    Advance(simulation, 4.f);
+    world.guards.clear(); world.noises.clear(); world.events.clear();
+    Observer(world, 11); Observer(world, 12);
+    world.guards[0].position = {100.f, 300.f}; world.guards[0].facing = {1.f, 0.f};
+    world.guards[1].position = {120.f, 350.f}; world.guards[1].facing = {1.f, 0.f};
+    for (auto &guard : world.guards) { guard.state = GuardState::Search; guard.lastKnown = {200.f, 300.f}; }
+    Guard body; body.id = 91; body.position = {220.f, 300.f}; body.state = GuardState::Incapacitated;
+    body.health = 37.f; body.stun = CombatConfig::MaxGuardStun; body.incapacityRemaining = 80.f; body.bodyReported = true;
+    world.guards.push_back(body);
+    world.obstacles.push_back({{{148.f, 280.f}, {30.f, 40.f}}, CoverKind::Low, true, "Banco durante la asistencia"});
+    const auto searchingBefore = world.guards[1].position;
+    const float orangeBefore = world.securityRemaining;
+    bool detour = false, inspected = false, synchronized = false;
+    unsigned int steps = 0;
+    for (; steps < 120 && world.guards[2].state == GuardState::Incapacitated; ++steps) {
+      const auto previous = world.guards[0].position;
+      const float remaining = world.securityRemaining;
+      simulation.Step(0.1f, {});
+      Require(world.securityAlert == SecurityAlert::Orange && std::abs(world.securityRemaining - (remaining - 0.1f)) < 0.001f,
+        "Acercarse, asistir o despertar a un guardia reinicia o cancela la naranja existente");
+      Require((world.guards[0].position - previous).length() <= GameplayConfig::GuardSpeed * 0.1f + 0.01f &&
+        !WorldGeometry::PositionBlocked(world, world.guards[0].position, GameplayConfig::AgentRadius), "La asistencia salta o atraviesa la geometría");
+      detour |= std::abs(world.guards[0].position.y - 300.f) > 10.f;
+      if (world.guards[2].state == GuardState::Incapacitated) Require(std::ranges::count_if(world.guards, [](const Guard &guard) {
+        return guard.bodyTargetKind == BodyTargetKind::Guard && guard.bodyTargetId == 91;
+      }) == 1, "Dos guardias asisten al mismo compañero o pierden una reserva válida");
+      if (world.guards[0].state == GuardState::InspectBody) {
+        inspected = true;
+        Require(world.guards[0].position == previous && world.guards[0].stepTime == 0.f, "La asistencia no detiene al guardia durante la interacción");
+        if (!synchronized) {
+          std::string error;
+          Require(replica.LoadSnapshot(simulation.SnapshotFor(1), error), "La instantánea completa rechaza una asistencia a un guardia ya comunicado");
+          Require(replica.GetState().guards[0].bodyTargetId == 91 && replica.GetState().guards[0].bodyInspectionTime == world.guards[0].bodyInspectionTime,
+            "La réplica pierde la reserva o el progreso autoritativo de asistencia");
+          synchronized = true;
+        }
+      }
+    }
+    Require(detour && inspected && synchronized && steps < 120 && world.guards[2].state == GuardState::Search,
+      "El investigador no rodea el banco, inspecciona y devuelve al compañero a la búsqueda");
+    const auto &awake = world.guards[2];
+    Require(awake.health == 37.f && awake.stun == 0.f && awake.incapacityRemaining == 0.f && awake.cqcState == CqcState::None &&
+      awake.heldBy == 0 && awake.attackTime == 0.f && awake.observedAgent == 0 && awake.suspicion == 0.f &&
+      (awake.position - body.position).length() <= GameplayConfig::GuardSpeed * 0.1f + 0.01f,
+      "Despertar cambia vida o posición de forma incoherente, conserva aturdimiento o inventa una detección");
+    Require(world.guards[1].state == GuardState::Search && world.guards[1].position != searchingBefore &&
+      std::abs(world.securityRemaining - (orangeBefore - static_cast<float>(steps) * 0.1f)) < 0.002f && world.alarmCount == 1 && world.events.empty(),
+      "La asistencia detiene la búsqueda ajena, renueva el incidente o duplica su aviso");
+    Advance(simulation, 0.5f);
+    Require(world.guards[2].state == GuardState::Search && world.guards[2].stun == 0.f && world.guards[2].incapacityRemaining == 0.f,
+      "Una transición residual vuelve a incapacitar inmediatamente al guardia asistido");
+  }
+
+  void AssistanceRespectsWallsDeathAndThreats() {
+    {
+      Simulation simulation;
+      auto &world = Fixture(simulation); world.securityEntries.clear(); world.agents[0].hidden = true;
+      Observer(world, 11); world.guards[0].position = {100.f, 300.f}; world.guards[0].facing = {1.f, 0.f};
+      Guard body; body.id = 91; body.position = {220.f, 300.f}; body.state = GuardState::Incapacitated;
+      body.stun = CombatConfig::MaxGuardStun; body.incapacityRemaining = 80.f; body.bodyReported = true; world.guards.push_back(body);
+      world.obstacles = {{{{200.f, 280.f}, {40.f, 4.f}}, CoverKind::Low, true, "Cierre superior"},
+        {{{200.f, 316.f}, {40.f, 4.f}}, CoverKind::Low, true, "Cierre inferior"},
+        {{{200.f, 280.f}, {4.f, 40.f}}, CoverKind::Low, true, "Cierre izquierdo"},
+        {{{236.f, 280.f}, {4.f, 40.f}}, CoverKind::Low, true, "Cierre derecho"}};
+      Advance(simulation, 3.f);
+      Require(world.guards[1].state == GuardState::Incapacitated && world.guards[1].position == body.position &&
+        world.guards[0].bodyInspectionTime == 0.f && !world.alarm, "Un cuerpo visible pero inaccesible se despierta a través de sólidos");
+    }
+    for (const auto state : {GuardState::Dead, GuardState::Incapacitated}) {
+      Simulation simulation;
+      auto &world = Fixture(simulation); world.securityEntries.clear(); world.agents[0].hidden = true;
+      Observer(world, 11); world.guards[0].position = {200.f, 300.f}; world.guards[0].facing = {1.f, 0.f};
+      Guard body; body.id = 91; body.position = {228.f, 300.f}; body.state = state; body.health = 0.f; world.guards.push_back(body);
+      Advance(simulation, 3.f);
+      Require(world.guards[1].state == state && world.guards[1].health == 0.f && world.guards[1].position == body.position,
+        "La asistencia resucita un cadáver o un estado inconsistente sin vida");
+    }
+    {
+      Simulation simulation;
+      auto &world = Fixture(simulation); world.securityEntries.clear(); world.agents[0].hidden = true;
+      Observer(world, 11); world.guards[0].position = {200.f, 300.f}; world.guards[0].facing = {1.f, 0.f};
+      Guard body; body.id = 91; body.position = {228.f, 300.f}; body.state = GuardState::Incapacitated;
+      body.incapacityRemaining = 80.f; body.bodyReported = true; body.stun = CombatConfig::MaxGuardStun; world.guards.push_back(body);
+      Advance(simulation, 0.5f);
+      Require(world.guards[0].state == GuardState::InspectBody && world.guards[0].bodyInspectionTime >= 0.49f,
+        "La prueba no alcanza una interacción real de asistencia");
+      world.agents[0].hidden = false; world.agents[0].position = {210.f, 300.f}; world.guards[0].suspicion = 1.f;
+      simulation.Step(0.1f, {});
+      Require(world.guards[0].state == GuardState::Alert && world.guards[0].bodyTargetKind == BodyTargetKind::None &&
+        world.guards[0].bodyInspectionTime == 0.f && world.guards[1].state == GuardState::Incapacitated && world.securityAlert == SecurityAlert::Red,
+        "Una amenaza visual confirmada no interrumpe la asistencia con prioridad de combate");
+      world.agents[0].hidden = true; simulation.Step(0.1f, {});
+      Require(world.guards[0].bodyTargetId == 91 && world.guards[0].bodyInspectionTime <= 0.1001f,
+        "La asistencia no puede reanudarse o conserva progreso de antes de la interrupción");
+      world.guards[0].staggerRemaining = 0.6f; simulation.Step(0.1f, {});
+      Require(world.guards[0].bodyTargetKind == BodyTargetKind::None && world.guards[0].bodyInspectionTime == 0.f &&
+        world.guards[1].state == GuardState::Incapacitated, "Recibir una reacción de daño no libera la reserva ni interrumpe la asistencia");
+      Observer(world, 12); world.guards.back().position = {228.f, 328.f}; world.guards.back().facing = {0.f, -1.f};
+      simulation.Step(0.1f, {});
+      Require(world.guards.back().bodyTargetId == 91 && std::ranges::count_if(world.guards, [](const Guard &guard) { return guard.bodyTargetId == 91; }) == 1,
+        "Otro guardia no puede asumir de forma exclusiva una asistencia interrumpida");
+    }
+  }
+
   void AlertPhasesUseExactAuthoritativeDurations() {
     Simulation simulation, replica;
     auto &world = Fixture(simulation); world.securityEntries.clear(); Observer(world, 1, 1.f);
@@ -383,7 +528,7 @@ namespace {
 
 int main() {
   try {
-    IncapacitationEndsThreat(); DetectionUsesRealObservers(); EnemyDamageProducesCollapse(); WavesAreFiniteAndSpatiallyValid(); ContactLossPatrolAndWithdrawal(); VisibleExitDoesNotEraseGuard(); BodyInvestigationIsPhysicalAndAnonymous(); BodyOcclusionAndReservationRelease(); AlertPhasesUseExactAuthoritativeDurations(); PatrolPausesAndInterruptions(); DetectionPaceAndOcclusionMemory();
+    IncapacitationEndsThreat(); DetectionUsesRealObservers(); AlertKeepsEveryConfirmedObserver(); EnemyDamageProducesCollapse(); WavesAreFiniteAndSpatiallyValid(); ContactLossPatrolAndWithdrawal(); VisibleExitDoesNotEraseGuard(); BodyInvestigationIsPhysicalAndAnonymous(); BodyOcclusionAndReservationRelease(); GuardAssistancePreservesTheOngoingSearch(); AssistanceRespectsWallsDeathAndThreats(); AlertPhasesUseExactAuthoritativeDurations(); PatrolPausesAndInterruptions(); DetectionPaceAndOcclusionMemory();
     std::cout << "NoTraceSecurityTests: " << checks << " comprobaciones correctas\n";
     return 0;
   } catch (const std::exception &error) {
