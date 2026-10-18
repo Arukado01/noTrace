@@ -12,6 +12,7 @@ from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCES = ROOT / "Art/NoTrace/Environment/Sources"
+MATERIALS_SOURCE = SOURCES / "MilitaryMaterials16-v1.png"
 FURNITURE = (
     "FieldDesk", "FieldDeskOverturned", "LockerClosed", "LockerOpen",
     "AmmunitionCrates", "LogisticsCrate", "WasteBin", "ServerRack",
@@ -79,8 +80,8 @@ def furniture(output: Path) -> dict:
     return {"sources": [{"path": str(source.relative_to(ROOT)), "sha256": digest(source)} for source in sources], "frames": entries}
 
 
-def materials(output: Path) -> dict:
-    source = SOURCES / "MilitaryMaterials16-v1.png"
+def materials(output: Path, source: Path = MATERIALS_SOURCE) -> dict:
+    source = source.resolve()
     image = Image.open(source).convert("RGB")
     atlas = Image.new("RGB", (512, 512))
     entries = []
@@ -90,23 +91,49 @@ def materials(output: Path) -> dict:
         atlas.paste(cell, origin)
         entries.append({"name": MATERIALS[index], "index": index, "rect": [*origin, 128, 128], "sourceCell": source_bounds})
     atlas.save(output / "MilitaryMaterials.png")
-    return {"source": str(source.relative_to(ROOT)), "sourceSha256": digest(source), "frames": entries}
+    source_path = source.relative_to(ROOT) if source.is_relative_to(ROOT) else source
+    return {"source": str(source_path), "sourceSha256": digest(source), "frames": entries}
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=ROOT / "Art/NoTrace/Environment/Packed")
+    parser.add_argument("--materials-source", type=Path, default=MATERIALS_SOURCE, help="Fuente de 16 materiales; por defecto se conserva v1.")
+    parser.add_argument("--materials-only", action="store_true", help="Actualiza sólo materiales y conserva el catálogo de muebles del manifiesto base.")
+    parser.add_argument("--base-manifest", type=Path, help="Manifiesto base para --materials-only; por defecto usa el existente en --output.")
     args = parser.parse_args()
+    if not args.materials_source.is_file():
+        parser.error(f"No existe la fuente de materiales: {args.materials_source}")
+    if args.materials_only:
+        base = args.base_manifest or args.output / "MilitaryEnvironment.manifest.json"
+        try:
+            manifest = json.loads(base.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as error:
+            parser.error(f"No se pudo leer el manifiesto base {base}: {error}")
+        if not isinstance(manifest, dict) or not isinstance(manifest.get("furniture"), dict) or not isinstance(manifest.get("outputs"), dict):
+            parser.error("El manifiesto base debe conservar furniture y outputs.")
+        frames = manifest["furniture"].get("frames")
+        if not isinstance(frames, list) or len(frames) != len(FURNITURE) or not manifest["outputs"].get("MilitaryFurniture.png"):
+            parser.error("El manifiesto base debe contener los 24 muebles y su hash de salida.")
+    else:
+        if args.base_manifest is not None:
+            parser.error("--base-manifest requiere --materials-only.")
+        manifest = {
+            "schema": 1, "origin": "Fuentes originales generadas para NO TRACE con imagegen integrado.",
+            "processing": "Partición de celdas, recorte de margen y reducción nearest; se conserva el alfa generado.",
+        }
     args.output.mkdir(parents=True, exist_ok=True)
-    manifest = {
-        "schema": 1, "origin": "Fuentes originales generadas para NO TRACE con imagegen integrado.",
-        "processing": "Partición de celdas, recorte de margen y reducción nearest; se conserva el alfa generado.",
-        "furniture": furniture(args.output), "materials": materials(args.output),
-    }
-    for name in ("MilitaryFurniture.png", "MilitaryMaterials.png"):
-        manifest.setdefault("outputs", {})[name] = digest(args.output / name)
+    if not args.materials_only:
+        manifest["furniture"] = furniture(args.output)
+    # En modo aislado se conserva el manifiesto base sin leer ni reconstruir el PNG de muebles.
+    manifest["materials"] = materials(args.output, args.materials_source)
+    outputs = manifest.setdefault("outputs", {})
+    if not args.materials_only:
+        outputs["MilitaryFurniture.png"] = digest(args.output / "MilitaryFurniture.png")
+    outputs["MilitaryMaterials.png"] = digest(args.output / "MilitaryMaterials.png")
     (args.output / "MilitaryEnvironment.manifest.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    print(f"{len(FURNITURE)} objetos y 16 materiales: {args.output}")
+    result = "16 materiales; muebles conservados" if args.materials_only else f"{len(FURNITURE)} objetos y 16 materiales"
+    print(f"{result}: {args.output}")
 
 
 if __name__ == "__main__":
