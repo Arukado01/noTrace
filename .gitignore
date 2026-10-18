@@ -1,6 +1,9 @@
 # Directorios de build
 /Build/
 /build/
+/production/
+/play.exe
+/.play-*.exe
 
 # Archivos y carpetas generados por CMake
 CMakeFiles/
