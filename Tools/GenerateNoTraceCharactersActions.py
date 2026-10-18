@@ -143,6 +143,28 @@ def blend_poses(first, second, amount):
     return {name: mix(first[name], second[name], amount) for name in first}
 
 
+def blend_toes(points, first, second, amount):
+    # El pie gira alrededor del tobillo actual sin colapsar al mezclar puntas opuestas.
+    for side, sign in [("left", 1.0), ("right", -1.0)]:
+        ankle, toe = side + "_ankle", side + "_toe"
+        a = add(first[toe], scale(first[ankle], -1.0))
+        b = add(second[toe], scale(second[ankle], -1.0))
+        if a == b or amount <= 0.0:
+            offset = a
+        elif amount >= 1.0:
+            offset = b
+        else:
+            first_angle, second_angle = math.atan2(a[1], a[0]), math.atan2(b[1], b[0])
+            turn = math.atan2(math.sin(second_angle - first_angle), math.cos(second_angle - first_angle))
+            if abs(abs(turn) - math.pi) < 1e-8:
+                turn = sign * math.pi
+            angle = first_angle + turn * amount
+            horizontal = math.hypot(a[0], a[1]) * (1.0 - amount) + math.hypot(b[0], b[1]) * amount
+            offset = (math.cos(angle) * horizontal, math.sin(angle) * horizontal, a[2] + (b[2] - a[2]) * amount)
+        points[toe] = add(points[ankle], offset)
+    return points
+
+
 def recovery_pose(frame, stance):
     fallen = body_pose("Unconscious", 0)
     destination = prone_pose(0) if stance == "Prone" else skeleton("CrouchIdle" if stance == "Crouched" else "Idle", 0)
@@ -220,26 +242,31 @@ def body_pose(clip, frame, stance="Standing"):
         return solve(points)
     if clip in ["LieDown", "StandUp"]:
         if clip == "LieDown":
-            points = blend_poses(standing, crouched, smooth(t / 0.4)) if t < 0.4 else blend_poses(crouched, prone, smooth((t - 0.4) / 0.6))
+            first, second, amount = (standing, crouched, smooth(t / 0.4)) if t < 0.4 else (crouched, prone, smooth((t - 0.4) / 0.6))
+            points = blend_poses(first, second, amount)
             for side, sign in [("left", 1.0), ("right", -1.0)]:
                 points[side + "_wrist"] = mix(points[side + "_wrist"], (20.0, sign * 13.0, 3.0), math.sin(t * math.pi) * 0.8)
         else:
             kneel = blend_poses(crouched, prone, 0.25)
             kneel["left_ankle"] = (12.0, 6.0, 2.0)
             kneel["right_ankle"] = (-17.0, -6.0, 2.0)
+            blend_toes(kneel, crouched, prone, 0.25)
             kneel["right_wrist"] = (22.0, -12.0, 2.0)
-            points = blend_poses(prone, kneel, smooth(t / 0.55)) if t < 0.55 else blend_poses(kneel, standing, smooth((t - 0.55) / 0.45))
-        return solve(points, t > 0.7 if clip == "LieDown" else t < 0.3)
+            first, second, amount = (prone, kneel, smooth(t / 0.55)) if t < 0.55 else (kneel, standing, smooth((t - 0.55) / 0.45))
+            points = blend_poses(first, second, amount)
+        return blend_toes(solve(points, t > 0.7 if clip == "LieDown" else t < 0.3), first, second, amount)
     if clip == "Dive":
+        amount = smooth(t / 0.28) if t < 0.28 else 1.0
         if t < 0.28:
-            points = blend_poses(standing, prone, smooth(t / 0.28))
+            points = blend_poses(standing, prone, amount)
         else:
             points = prone.copy()
         airborne = math.sin(max(0.0, min(1.0, (t - 0.15) / 0.7)) * math.pi) * 15.0
         points = {name: add(point, (0.0, 0.0, airborne)) for name, point in points.items()}
         for side, sign in [("left", 1.0), ("right", -1.0)]:
             points[side + "_wrist"] = mix(points[side + "_wrist"], (32.0, sign * 11.0, 3.0 + airborne), math.sin(t * math.pi))
-        return solve(points, True)
+        points = solve(points, True)
+        return blend_toes(points, standing, prone, amount) if t < 0.28 else points
     if clip == "Roll":
         points = crouched.copy()
         tuck = math.sin(t * math.pi)
