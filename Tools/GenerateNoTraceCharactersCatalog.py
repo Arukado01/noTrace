@@ -10,12 +10,12 @@ from GenerateNoTraceCharactersPack import VERSIONS
 
 
 DIRECTIONS = ["S", "SE", "E", "NE", "N", "NW", "W", "SW"]
-FAMILIES = ["Locomotion", "Posture", "Melee", "StandingWeapons", "Context", "CrouchedWeapons", "ProneWeapons", "Push", "Drag", "Death", "GripVictim", "Suppressor", "WeaponSwitch", "Traversal"]
+FAMILIES = ["Locomotion", "Posture", "Melee", "StandingWeapons", "Context", "CrouchedWeapons", "ProneWeapons", "Push", "Drag", "Death", "GripVictim", "Suppressor", "WeaponSwitch", "Traversal", "Recovery"]
 MISSING = ["DragStart", "DragLoop", "DragStop", "Death", "GripVictimEnter", "GripVictimHold", "GripVictimRelease", "SuppressorAttach", "SuppressorDetach", "WeaponHolster", "WeaponDraw", "TraversalAttach", "TraversalMove", "TraversalRelease"]
 REUSE = {"CrouchIdle": "CrouchWalk first pose", "ProneIdle": "LieDown final pose", "StandUp": "LieDown reversed", "Push": "Grab cycle", "WallBang": "Punch cycle", "Damage": "Fall first poses", "Unconscious": "Fall final pose", "HideExit": "HideEnter reversed", "CoverIdle": "CoverEnter hold pose", "CoverMove": "CoverEnter cycle", "CrouchEnter": "LieDown first poses", "CrouchExit": "LieDown first poses reversed"}
 OFFLINE_ONLY = {"DragStop", "GripVictimEnter", "GripVictimRelease", "TraversalMove", "TraversalRelease"}
 EQUIPMENT = {"SuppressorAttach", "SuppressorDetach", "WeaponHolster", "WeaponDraw"}
-GUARD_CLIPS = {"Idle", "Walk", "Run", "Shoot", "Punch", "Damage", "Interact", "GripVictimHold", "Fall", "Unconscious", "Death"}
+GUARD_CLIPS = {"Idle", "Walk", "Run", "Shoot", "Punch", "Damage", "Interact", "GripVictimHold", "Fall", "Unconscious", "Death", "ReviveRise"}
 
 
 def entity_bindings(clip):

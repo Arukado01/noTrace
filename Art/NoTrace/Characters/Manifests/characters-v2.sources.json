@@ -1,12 +1,12 @@
 {
   "author": "Carlos Cortina",
   "organization": "CIO",
-  "generatedAtUtc": "2026-10-18T07:46:38.098638+00:00",
+  "generatedAtUtc": "2026-10-18T08:39:14.274643+00:00",
   "schemaVersion": 2,
   "scope": "original_sources_authored_rig_paged_raster_and_runtime_contract",
   "activeGameContentChanged": true,
   "originalClipCount": 33,
-  "currentClipCount": 52,
+  "currentClipCount": 53,
   "matrix": [
     {
       "clipId": 0,
@@ -1671,6 +1671,38 @@
       "integration": "CharacterArt paged raster and actual renderer states",
       "executedVisualTests": [],
       "status": "generated_and_integrated_runtime_validation_pending"
+    },
+    {
+      "clipId": 52,
+      "clip": "ReviveRise",
+      "entityBindings": [
+        {
+          "entity": "Jugador",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Aliado",
+          "binding": "active",
+          "consumer": "WorldRenderer::SelectActorSprite/SelectBodySprite"
+        },
+        {
+          "entity": "Guardia",
+          "binding": "active_shared_original_rig_with_guard_rifle",
+          "consumer": "WorldRenderer::SelectGuardSprite"
+        },
+        {
+          "entity": "Diana mecánica",
+          "binding": "not_humanoid_atlas",
+          "consumer": "WorldRenderer::DummyArt"
+        }
+      ],
+      "before": "New authored sequence",
+      "classification": "redesign",
+      "newSource": null,
+      "integration": "CharacterArt paged raster and actual renderer states",
+      "executedVisualTests": [],
+      "status": "generated_and_integrated_runtime_validation_pending"
     }
   ],
   "initialMissingClips": [
@@ -1759,6 +1791,11 @@
     {
       "id": 13,
       "name": "Traversal",
+      "status": "appended_authored_and_integrated"
+    },
+    {
+      "id": 14,
+      "name": "Recovery",
       "status": "appended_authored_and_integrated"
     }
   ],

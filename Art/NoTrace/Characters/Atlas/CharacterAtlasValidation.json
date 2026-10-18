@@ -1,14 +1,14 @@
 {
   "status": "PASS",
-  "checks": 81378,
-  "clips": 52,
-  "stanceVariants": 68,
-  "frames": 4352,
+  "checks": 93695,
+  "clips": 53,
+  "stanceVariants": 71,
+  "frames": 4544,
   "directions": 8,
   "phases": 8,
   "layers": 3,
   "pairedCqcLayers": 2,
-  "packedPages": 11,
+  "packedPages": 12,
   "weapons": 48,
   "maximumBoneLengthError": 1.0658141036401503e-14,
   "phaseMatrix": [
@@ -3275,7 +3275,323 @@
       "stance": "Prone",
       "direction": "SW",
       "distinctRasterPhases": 8
+    },
+    {
+      "clip": "ReviveRise",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "ReviveRise",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "ReviveRise",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "ReviveRise",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "ReviveRise",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "ReviveRise",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "ReviveRise",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "ReviveRise",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "ReviveRise",
+      "stance": "Crouched",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "ReviveRise",
+      "stance": "Crouched",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "ReviveRise",
+      "stance": "Crouched",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "ReviveRise",
+      "stance": "Crouched",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "ReviveRise",
+      "stance": "Crouched",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "ReviveRise",
+      "stance": "Crouched",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "ReviveRise",
+      "stance": "Crouched",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "ReviveRise",
+      "stance": "Crouched",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "ReviveRise",
+      "stance": "Prone",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "ReviveRise",
+      "stance": "Prone",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "ReviveRise",
+      "stance": "Prone",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "ReviveRise",
+      "stance": "Prone",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "ReviveRise",
+      "stance": "Prone",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "ReviveRise",
+      "stance": "Prone",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "ReviveRise",
+      "stance": "Prone",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "ReviveRise",
+      "stance": "Prone",
+      "direction": "SW",
+      "distinctRasterPhases": 8
     }
   ],
+  "recovery": [
+    {
+      "stance": "Standing",
+      "direction": "S",
+      "maximumJointHeight": 39.611111111111114,
+      "physicalHeight": 46.0,
+      "exactEndpoints": true
+    },
+    {
+      "stance": "Standing",
+      "direction": "SE",
+      "maximumJointHeight": 39.611111111111114,
+      "physicalHeight": 46.0,
+      "exactEndpoints": true
+    },
+    {
+      "stance": "Standing",
+      "direction": "E",
+      "maximumJointHeight": 39.611111111111114,
+      "physicalHeight": 46.0,
+      "exactEndpoints": true
+    },
+    {
+      "stance": "Standing",
+      "direction": "NE",
+      "maximumJointHeight": 39.611111111111114,
+      "physicalHeight": 46.0,
+      "exactEndpoints": true
+    },
+    {
+      "stance": "Standing",
+      "direction": "N",
+      "maximumJointHeight": 39.611111111111114,
+      "physicalHeight": 46.0,
+      "exactEndpoints": true
+    },
+    {
+      "stance": "Standing",
+      "direction": "NW",
+      "maximumJointHeight": 39.611111111111114,
+      "physicalHeight": 46.0,
+      "exactEndpoints": true
+    },
+    {
+      "stance": "Standing",
+      "direction": "W",
+      "maximumJointHeight": 39.611111111111114,
+      "physicalHeight": 46.0,
+      "exactEndpoints": true
+    },
+    {
+      "stance": "Standing",
+      "direction": "SW",
+      "maximumJointHeight": 39.611111111111114,
+      "physicalHeight": 46.0,
+      "exactEndpoints": true
+    },
+    {
+      "stance": "Crouched",
+      "direction": "S",
+      "maximumJointHeight": 30.666666666666668,
+      "physicalHeight": 34.0,
+      "exactEndpoints": true
+    },
+    {
+      "stance": "Crouched",
+      "direction": "SE",
+      "maximumJointHeight": 30.666666666666668,
+      "physicalHeight": 34.0,
+      "exactEndpoints": true
+    },
+    {
+      "stance": "Crouched",
+      "direction": "E",
+      "maximumJointHeight": 30.666666666666668,
+      "physicalHeight": 34.0,
+      "exactEndpoints": true
+    },
+    {
+      "stance": "Crouched",
+      "direction": "NE",
+      "maximumJointHeight": 30.666666666666668,
+      "physicalHeight": 34.0,
+      "exactEndpoints": true
+    },
+    {
+      "stance": "Crouched",
+      "direction": "N",
+      "maximumJointHeight": 30.666666666666668,
+      "physicalHeight": 34.0,
+      "exactEndpoints": true
+    },
+    {
+      "stance": "Crouched",
+      "direction": "NW",
+      "maximumJointHeight": 30.666666666666668,
+      "physicalHeight": 34.0,
+      "exactEndpoints": true
+    },
+    {
+      "stance": "Crouched",
+      "direction": "W",
+      "maximumJointHeight": 30.666666666666668,
+      "physicalHeight": 34.0,
+      "exactEndpoints": true
+    },
+    {
+      "stance": "Crouched",
+      "direction": "SW",
+      "maximumJointHeight": 30.666666666666668,
+      "physicalHeight": 34.0,
+      "exactEndpoints": true
+    },
+    {
+      "stance": "Prone",
+      "direction": "S",
+      "maximumJointHeight": 11.5,
+      "physicalHeight": 14.0,
+      "exactEndpoints": true
+    },
+    {
+      "stance": "Prone",
+      "direction": "SE",
+      "maximumJointHeight": 11.5,
+      "physicalHeight": 14.0,
+      "exactEndpoints": true
+    },
+    {
+      "stance": "Prone",
+      "direction": "E",
+      "maximumJointHeight": 11.5,
+      "physicalHeight": 14.0,
+      "exactEndpoints": true
+    },
+    {
+      "stance": "Prone",
+      "direction": "NE",
+      "maximumJointHeight": 11.5,
+      "physicalHeight": 14.0,
+      "exactEndpoints": true
+    },
+    {
+      "stance": "Prone",
+      "direction": "N",
+      "maximumJointHeight": 11.5,
+      "physicalHeight": 14.0,
+      "exactEndpoints": true
+    },
+    {
+      "stance": "Prone",
+      "direction": "NW",
+      "maximumJointHeight": 11.5,
+      "physicalHeight": 14.0,
+      "exactEndpoints": true
+    },
+    {
+      "stance": "Prone",
+      "direction": "W",
+      "maximumJointHeight": 11.5,
+      "physicalHeight": 14.0,
+      "exactEndpoints": true
+    },
+    {
+      "stance": "Prone",
+      "direction": "SW",
+      "maximumJointHeight": 11.5,
+      "physicalHeight": 14.0,
+      "exactEndpoints": true
+    }
+  ],
+  "unchangedPreviousFrames": 4352,
+  "unchangedPreviousPages": 11,
   "scope": "Offline raster, authored source hashes, atlas bounds, exact IK lengths and real phase coverage; runtime GUI pending"
 }

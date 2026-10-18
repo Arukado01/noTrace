@@ -30,6 +30,7 @@ CLIPS = [
     ("TraversalAttach", 13, 0, 16, False), ("TraversalMove", 13, 8, 8, True), ("TraversalRelease", 13, 16, 16, False),
     ("TraversalHang", 13, 24, 4, True), ("TraversalShimmy", 13, 32, 8, True), ("TraversalClimb", 13, 40, 8, True),
     ("TraversalTransfer", 13, 48, 12, False), ("TraversalDrop", 13, 56, 16, False),
+    ("ReviveRise", 14, 0, 28, False),
 ]
 WEAPON_CLIPS = ["Aim", "Shoot", "Reload", "Throw"]
 
@@ -70,9 +71,9 @@ namespace NoTrace::SpriteConfig {
   inline constexpr std::size_t Columns = 64;
   inline constexpr std::size_t Directions = 8;
   inline constexpr std::size_t FamilyFrames = Columns * Directions;
-  inline constexpr std::size_t FamilyCount = 14;
+  inline constexpr std::size_t FamilyCount = 15;
   inline constexpr std::size_t FrameCount = FamilyFrames * FamilyCount;
-  inline constexpr std::size_t AuthoredFrameCount = 4352;
+  inline constexpr std::size_t AuthoredFrameCount = 4544;
   inline constexpr std::size_t LegacyFrameCount = 896;
   inline constexpr float FeetX = 96.f;
   inline constexpr float FeetY = 144.f;
@@ -84,7 +85,7 @@ namespace NoTrace::SpriteConfig {
   inline constexpr float CrouchedTorsoPivotY = 124.f;
   inline constexpr float ProneTorsoPivotY = 133.f;
   enum class Clip { NAMES, Count };
-  enum class Family { Locomotion, Posture, Melee, StandingWeapons, Context, CrouchedWeapons, ProneWeapons, Push, Drag, Death, GripVictim, Suppressor, WeaponSwitch, Traversal };
+  enum class Family { Locomotion, Posture, Melee, StandingWeapons, Context, CrouchedWeapons, ProneWeapons, Push, Drag, Death, GripVictim, Suppressor, WeaponSwitch, Traversal, Recovery };
   struct Animation { std::size_t family, first, count; float fps; bool loop = true, reverse = false; };
   // Los índices de familias se conservan; cada clip tiene ocho poses propias y las páginas se resuelven por metadatos.
   inline constexpr std::array<Animation, static_cast<std::size_t>(Clip::Count)> Animations{{
@@ -142,9 +143,64 @@ def blend_poses(first, second, amount):
     return {name: mix(first[name], second[name], amount) for name in first}
 
 
+def recovery_pose(frame, stance):
+    fallen = body_pose("Unconscious", 0)
+    destination = prone_pose(0) if stance == "Prone" else skeleton("CrouchIdle" if stance == "Crouched" else "Idle", 0)
+    if frame == 0:
+        return fallen
+    if frame == 7:
+        return destination
+    t = frame / 7.0
+    if stance == "Prone":
+        yaw = math.pi * (1.0 - smooth(t))
+        axis = (math.cos(yaw), math.sin(yaw), 0.0)
+        lateral = (-axis[1], axis[0], 0.0)
+        pelvis = mix(fallen["pelvis"], destination["pelvis"], smooth(t))
+        neck = add(pelvis, add(scale(axis, 23.0), (0.0, 0.0, 2.0)))
+        points = {"pelvis": pelvis, "neck": neck, "head": add(neck, add(scale(axis, 7.0), (0.0, 0.0, 3.0))),
+                  "backpack": add(pelvis, add(scale(axis, 11.0), (0.0, 0.0, 7.0)))}
+        for side, sign in [("left", 1.0), ("right", -1.0)]:
+            stepping = max(0.0, math.sin(t * math.tau + (0.0 if sign > 0 else math.pi)))
+            points[side + "_hip"] = add(pelvis, add(scale(lateral, sign * 4.0), (0.0, 0.0, -1.0)))
+            foot_axis = (math.cos(yaw + sign * 0.18 * math.sin(t * math.pi)), math.sin(yaw + sign * 0.18 * math.sin(t * math.pi)), 0.0)
+            points[side + "_ankle"] = add(pelvis, add(scale(foot_axis, -31.0 + stepping * 6.0), add(scale(lateral, sign * 8.0), (0.0, 0.0, 2.0 - pelvis[2] + stepping * 2.0))))
+            points[side + "_toe"] = add(points[side + "_ankle"], add(scale(foot_axis, -4.0), (0.0, 0.0, -1.0)))
+            points[side + "_shoulder"] = add(pelvis, add(scale(axis, 20.0), add(scale(lateral, sign * 6.0), (0.0, 0.0, 1.0))))
+            points[side + "_wrist"] = add(pelvis, add(scale(axis, 28.0 - stepping * 5.0), add(scale(lateral, sign * (12.0 + stepping * 3.0)), (0.0, 0.0, 2.0 - pelvis[2] + stepping * 2.0))))
+    else:
+        crouched = stance == "Crouched"
+        pelvis_keys = [(0, fallen["pelvis"]), (1/7, (7, 0, 9)), (2/7, (8, 0, 12)), (3/7, (8, 0, 19)),
+                       (4/7, (6, 0, 19 if crouched else 24)), (5/7, (3, 0, 20 if crouched else 29)), (6/7, (1, 0, 20 if crouched else 33)), (1, destination["pelvis"])]
+        neck_keys = [(0, fallen["neck"]), (1/7, (-15, 0, 17)), (2/7, (-10, 0, 25)), (3/7, (-4, 0, 35)),
+                     (4/7, (1 if crouched else 0, 0, 39 if crouched else 43)), (5/7, (1 if crouched else 0, 0, 40.5 if crouched else 49)),
+                     (6/7, (2 if crouched else .3, 0, 41 if crouched else 53)), (1, destination["neck"])]
+        pelvis, neck = keyed(pelvis_keys, t), keyed(neck_keys, t)
+        axis = unit(add(neck, scale(pelvis, -1.0)))
+        points = {"pelvis": pelvis, "neck": neck, "head": add(neck, scale(axis, 7.0)), "backpack": add(neck, add(scale(axis, -9.0), (-3.0, 0.0, 0.0)))}
+        for side, sign in [("left", 1.0), ("right", -1.0)]:
+            ankle = keyed([(0, fallen[side + "_ankle"]), (1/7, (33, sign * 8, 2)), (2/7, (29 if sign > 0 else 27, sign * 8, 2)),
+                           (3/7, (18 if sign > 0 else 16, sign * 7, 2)), (4/7, (9 if sign > 0 else -3, sign * 6, 2)),
+                           (5/7, (2 if sign > 0 else -3, sign * 5.5, 2)), (6/7, (0, sign * 5.5, 2)), (1, destination[side + "_ankle"])], t)
+            wrist = keyed([(0, fallen[side + "_wrist"]), (1/7, (-18 if sign > 0 else -8, sign * 15, 2)), (2/7, (-16 if sign > 0 else -8, sign * 12, 2)),
+                           (3/7, (-10 if sign > 0 else -3, sign * 12, 7 if sign > 0 else 8)),
+                           (4/7, (-5 if sign > 0 else 3, sign * 10, (16 if crouched else 18) + (0 if sign > 0 else 2))),
+                           (5/7, (-3 if sign > 0 else 1, sign * 8, 19 if crouched else 24)),
+                           (6/7, (-1 if crouched else -2, sign * 7, 16 if crouched else 26)), (1, destination[side + "_wrist"])], t)
+            points.update({side + "_hip": add(pelvis, (0, sign * 4, 0)), side + "_ankle": ankle,
+                           side + "_toe": add(ankle, (5, sign * 1.5, -2)),
+                           side + "_shoulder": add(neck, add(scale(axis, -6), (-3, sign * 6.5, 0))), side + "_wrist": wrist})
+    # Las manos apoyadas resuelven los codos hacia fuera y no bajo el suelo.
+    points = solve(points)
+    for side, sign in [("left", 1.0), ("right", -1.0)]:
+        points[side + "_elbow"] = elbow(points[side + "_shoulder"], points[side + "_wrist"], (0.0, sign, 0.15), 13.0)
+    return points
+
+
 def body_pose(clip, frame, stance="Standing"):
     t = frame / 7.0
     phase = frame / 8.0 * math.tau
+    if clip == "ReviveRise":
+        return recovery_pose(frame, stance)
     if clip in ["Idle", "Walk", "Run", "CrouchIdle", "CrouchWalk"]:
         return skeleton(clip, frame)
     if clip == "CrouchRun":
@@ -338,9 +394,10 @@ def generate(root, content=None):
     output = root / "Atlas"
     output.mkdir(parents=True, exist_ok=True)
     pages, metadata, review_sequences = [], [], []
-    clip_variants = [(name, family, first, "Standing") for name, family, first, _, _ in CLIPS]
+    clip_variants = [(name, family, first, "Standing") for name, family, first, _, _ in CLIPS if family < 14]
     clip_variants += [(name, family, WEAPON_CLIPS.index(name) * 8, stance) for family, stance in [(5, "Crouched"), (6, "Prone")] for name in WEAPON_CLIPS]
     clip_variants += [(name, family, first + offset, stance) for name, family, first, _, _ in CLIPS if family in [11, 12] for stance, offset in [("Crouched", 16), ("Prone", 32)]]
+    clip_variants += [("ReviveRise", 14, offset, stance) for stance, offset in [("Standing", 0), ("Crouched", 8), ("Prone", 16)]]
     parts_by_direction = {direction: read_parts(root, direction)[0] for direction in DIRECTIONS}
     for name, family, first, stance in clip_variants:
         page_number = len(pages)
@@ -389,7 +446,7 @@ def generate(root, content=None):
     weapons = pack_weapons(root, output)
     report = {"author": "Carlos Cortina", "organization": "CIO", "date": "2026-10-18", "schemaVersion": 3,
               "cellSize": CELL, "standingPixels": 72, "groundAnchor": ANCHOR, "logicalColumns": 64, "directions": DIRECTIONS,
-              "families": ["Locomotion", "Posture", "Melee", "StandingWeapons", "Context", "CrouchedWeapons", "ProneWeapons", "Push", "Drag", "Death", "GripVictim", "Suppressor", "WeaponSwitch", "Traversal"],
+              "families": ["Locomotion", "Posture", "Melee", "StandingWeapons", "Context", "CrouchedWeapons", "ProneWeapons", "Push", "Drag", "Death", "GripVictim", "Suppressor", "WeaponSwitch", "Traversal", "Recovery"],
               "sourceRegistration": "../Manifests/rig-pieces.registration.json", "weaponRegistration": "../Manifests/weapons.registration.json",
               "clips": [{"name": name, "family": family, "first": first, "count": 8, "fps": fps, "loop": loop} for name, family, first, fps, loop in CLIPS],
               "pages": packed_pages, "authoringPages": pages, "weapons": weapons, "frames": metadata, "status": "generated_requires_runtime_and_visual_validation"}
@@ -441,9 +498,13 @@ def pack_layers(output, pages, metadata):
                     bounds = (0, 0, 1, 1)
                 bounds = (max(0, bounds[0] - 2), max(0, bounds[1] - 2), min(CELL, bounds[2] + 2), min(CELL, bounds[3] + 2))
                 items.append((entry, layer, cell.crop(bounds), bounds[:2]))
-    items.sort(key=lambda item: (-item[2].height, -item[2].width, item[0]["index"], item[1]))
+    items.sort(key=lambda item: (item[0]["index"] >= 14 * 512, -item[2].height, -item[2].width, item[0]["index"], item[1]))
     atlases, x, y, row_height = [Image.new("RGBA", (2048, 2048))], 2, 2, 0
+    appended = False
     for entry, layer, image, offset in items:
+        if entry["index"] >= 14 * 512 and not appended:
+            atlases.append(Image.new("RGBA", (2048, 2048)))
+            x, y, row_height, appended = 2, 2, 0, True
         if x + image.width + 2 > 2048:
             x, y, row_height = 2, y + row_height + 2, 0
         if y + image.height + 2 > 2048:
@@ -487,7 +548,8 @@ def quality_galleries(root, output, parts_by_direction):
     target = output / "QualityGate"
     target.mkdir(exist_ok=True)
     for clip, stance in [("Aim", "Prone"), ("Shoot", "Prone"), ("Walk", "Standing"), ("Roll", "Standing"), ("Dive", "Standing"),
-                         ("Grab", "Standing"), ("Push", "Standing"), ("CoverMove", "Standing"), ("TraversalClimb", "Standing")]:
+                         ("Grab", "Standing"), ("Push", "Standing"), ("CoverMove", "Standing"), ("TraversalClimb", "Standing"),
+                         ("ReviveRise", "Standing"), ("ReviveRise", "Crouched"), ("ReviveRise", "Prone")]:
         gallery = Image.new("RGBA", (CELL * 8, CELL * 8), (25, 33, 42, 255))
         animation = []
         for frame in range(8):

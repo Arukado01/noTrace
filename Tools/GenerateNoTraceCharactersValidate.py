@@ -18,7 +18,7 @@ def validate(root):
         if not condition:
             raise ValueError(message)
     require(metadata["schemaVersion"] == 3, "Contrato de atlas incorrecto")
-    require(len(metadata["clips"]) == 52 and len(metadata["frames"]) == 4352, "La matriz de clips no está completa")
+    require(len(metadata["clips"]) == 53 and len(metadata["frames"]) == 4544, "La matriz de clips no está completa")
     require(len({frame["index"] for frame in metadata["frames"]}) == len(metadata["frames"]), "Hay índices de pose repetidos")
     pages = []
     for entry in metadata["pages"]:
@@ -32,6 +32,19 @@ def validate(root):
         clips[(entry["clip"], entry["stance"], entry["direction"])].append(entry)
         require(entry["groundAnchor"] == [96.0, 144.0], "El suelo cambia entre poses")
         points = entry["joints"]
+        if entry["clip"] in ["Grab", "Choke"]:
+            axis = [(neck - pelvis) / 20.0 for neck, pelvis in zip(points["neck"], points["pelvis"])]
+            forward = [axis[2], 0.0, -axis[0]]
+            require(abs(math.dist(points["neck"], points["pelvis"]) - 20.0) < 1e-8, "El torso CQC cambia de longitud")
+            for name, local in [("head", (0.0, 0.0, 27.0)), ("backpack", (-3.0, 0.0, 11.0)),
+                                ("left_shoulder", (-3.0, 6.5, 14.0)), ("right_shoulder", (-3.0, -6.5, 14.0))]:
+                expected = [points["pelvis"][index] + forward[index] * local[0] + axis[index] * local[2] + (local[1] if index == 1 else 0.0) for index in range(3)]
+                require(math.dist(points[name], expected) < 1e-8, "Un socket CQC no comparte la transformación del torso: " + name)
+            squeeze = [0.0, 0.5, 1.1, 1.5, 2.1, 1.8, 1.0, 0.35][entry["phase"]] if entry["clip"] == "Choke" else math.sin(entry["phase"] / 8.0 * math.tau) * 0.35
+            for side, sign in [("left", 1.0), ("right", -1.0)]:
+                require(math.dist(points[side + "_ankle"], (0.0, sign * 5.5, 2.0)) < 1e-8, "CQC desplaza un apoyo plantado")
+                target = (33.5 if side == "right" else 33.0, sign * (4.5 - squeeze), 52.0 if side == "right" else 51.5)
+                require(math.dist(points[side + "_wrist"], target) < 1e-8, "CQC pierde el contacto al resolver el hombro")
         for side in ["left", "right"]:
             for first, second, expected in [("hip", "knee", 17.0), ("knee", "ankle", 17.0), ("shoulder", "elbow", 13.0), ("elbow", "wrist", 13.0)]:
                 distance = math.dist(points[side + "_" + first], points[side + "_" + second])
@@ -52,13 +65,35 @@ def validate(root):
         distinct = len({entry["pixelSha256"] for entry in sequence})
         require(distinct >= 2, "Un clip completo conserva un cuerpo estático: " + str(key))
         phase_report.append({"clip": key[0], "stance": key[1], "direction": key[2], "distinctRasterPhases": distinct})
+    previous = json.loads((root / "Manifests/pre-recovery-original-raster.json").read_text(encoding="utf-8"))
+    by_index = {entry["index"]: entry for entry in metadata["frames"]}
+    for entry in previous["pages"]:
+        require(hashlib.sha256((root / "Atlas/Packed" / entry["file"]).read_bytes()).hexdigest() == entry["sha256"], "Recovery modifica una página anterior")
+    for entry in previous["frames"]:
+        frame = by_index[entry["index"]]
+        require(frame["pixelSha256"] == entry["pixelSha256"], "Recovery modifica una pose anterior")
+        art_hash = hashlib.sha256(json.dumps(frame["art"], sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+        require(art_hash == entry["artSha256"], "Recovery desplaza una región anterior")
+    recovery = []
+    for stance in ["Standing", "Crouched", "Prone"]:
+        for direction in metadata["directions"]:
+            sequence = sorted(clips[("ReviveRise", stance, direction)], key=lambda entry: entry["phase"])
+            require(sequence[0]["pixelSha256"] == clips[("Unconscious", "Standing", direction)][0]["pixelSha256"], "La recuperación salta al comenzar")
+            destination = "ProneIdle" if stance == "Prone" else "CrouchIdle" if stance == "Crouched" else "Idle"
+            require(sequence[-1]["pixelSha256"] == clips[(destination, "Standing", direction)][0]["pixelSha256"], "La recuperación no alcanza su postura exacta")
+            maximum = max(point[2] for frame in sequence for point in frame["joints"].values()) * 46.0 / 72.0
+            limit = 14.0 if stance == "Prone" else 34.0 if stance == "Crouched" else 46.0
+            require(maximum <= limit, "La recuperación excede la altura física de su postura")
+            require(len({frame["pixelSha256"] for frame in sequence}) == 8, "La recuperación no tiene ocho fases propias")
+            recovery.append({"stance": stance, "direction": direction, "maximumJointHeight": maximum, "physicalHeight": limit, "exactEndpoints": True})
     registration = json.loads((root / "Manifests/rig-pieces.registration.json").read_text(encoding="utf-8"))
     for entry in registration["sources"]:
         require(hashlib.sha256(Path(entry["file"]).read_bytes()).hexdigest() == entry["sha256"], "Cambió una fuente original")
     require(len(runtime["weapons"]["frames"]) == 48, "Faltan variantes de armas")
-    report = {"status": "PASS", "checks": checks, "clips": len(metadata["clips"]), "stanceVariants": 68, "frames": len(metadata["frames"]),
+    report = {"status": "PASS", "checks": checks, "clips": len(metadata["clips"]), "stanceVariants": 71, "frames": len(metadata["frames"]),
               "directions": 8, "phases": 8, "layers": 3, "pairedCqcLayers": 2, "packedPages": len(pages), "weapons": 48, "maximumBoneLengthError": maximum_error,
-              "phaseMatrix": phase_report, "scope": "Offline raster, authored source hashes, atlas bounds, exact IK lengths and real phase coverage; runtime GUI pending"}
+              "phaseMatrix": phase_report, "recovery": recovery, "unchangedPreviousFrames": len(previous["frames"]), "unchangedPreviousPages": len(previous["pages"]),
+              "scope": "Offline raster, authored source hashes, atlas bounds, exact IK lengths and real phase coverage; runtime GUI pending"}
     (root / "Atlas/CharacterAtlasValidation.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
     print(json.dumps({key: value for key, value in report.items() if key != "phaseMatrix"}))
 

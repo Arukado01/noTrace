@@ -60,6 +60,11 @@
       "identical": true
     },
     {
+      "file": "Characters-11.png",
+      "sha256": "861d1b3b5ed35ee027c311cae57fbce670c9defbd8a0d174d528e36fc1153b27",
+      "identical": true
+    },
+    {
       "file": "WeaponProps.png",
       "sha256": "01bb968577a9d420218ff90fa35c5963d12a0af8f58595b4c3f33163114db349",
       "identical": true
@@ -71,21 +76,21 @@
     },
     {
       "file": "CharacterAtlasRuntime.json",
-      "sha256": "16ca8742d703cbd414224bada11db32839fc1b746c582b530996702294b5170a",
+      "sha256": "5bad05eea94f5a2475936e3d83ed88f7e3e483ca19fc397df5a84a1c1b9aa225",
       "identical": true
     }
   ],
   "runtimeMetadataByteIdentical": true,
-  "clips": 52,
-  "poses": 4352,
+  "clips": 53,
+  "poses": 4544,
   "tools": [
     {
       "file": "Tools/GenerateNoTraceCharactersActions.py",
-      "sha256": "8f9e4d14c397ab49a58cc5b934a1054d26572f4023a793b02f5bb717a55ba2d6"
+      "sha256": "e0138692041b4d73fa5b7a70e26f46fb5729c123158bdf30fb9d58057e67470f"
     },
     {
       "file": "Tools/GenerateNoTraceCharactersCatalog.py",
-      "sha256": "292973e3a5b223bac79e68f906e5413e7dff16ab8d4e243759b5c617371ba165"
+      "sha256": "54a6204d8818b94d2ea7019d717dbcd90b8e25d492b52cafeec0568b60cee61d"
     },
     {
       "file": "Tools/GenerateNoTraceCharactersCqcStudy.py",
@@ -101,11 +106,11 @@
     },
     {
       "file": "Tools/GenerateNoTraceCharactersRepro.py",
-      "sha256": "a7d1b025263902be45853ab34a6deb4c29f8830e9474968e8c132e984c85fe18"
+      "sha256": "635ec27459d7d9af30a6b114fc4899bcd46d6e755249b7a064f66fd41168c0cf"
     },
     {
       "file": "Tools/GenerateNoTraceCharactersReview.py",
-      "sha256": "670750f5971f53d6d009462df096653ccc6ba2407f1033e9e4f2c8c06234b220"
+      "sha256": "7bc036a29ec877dca195111bd0c65105b2ece4b530d57b07a683eeb5b90a9ee9"
     },
     {
       "file": "Tools/GenerateNoTraceCharactersRig.py",
@@ -113,7 +118,7 @@
     },
     {
       "file": "Tools/GenerateNoTraceCharactersValidate.py",
-      "sha256": "dd31eead57ea683f9d8e03176146f597f191f9b8469d51d2f267108a97ebe8e0"
+      "sha256": "b9d080d0fb5b0ef5af8d0aca44a912d65999c58a6d89a8f42c1f6f4068caa3ea"
     }
   ],
   "scope": "Regeneraci\u00f3n offline desde piezas originales; no modifica Content ni sustituye pruebas gr\u00e1ficas runtime"

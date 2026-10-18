@@ -20,7 +20,7 @@ def reproduce(root):
     records = [{"file": path.name, "sha256": digest(path), "identical": before[path] == digest(path)} for path in paths]
     tools = [{"file": path.as_posix(), "sha256": digest(path)} for path in sorted(Path("Tools").glob("GenerateNoTraceCharacters*.py"))]
     report = {"author": "Carlos Cortina", "organization": "CIO", "date": "2026-10-18", "status": "PASS" if all(item["identical"] for item in records) else "FAIL",
-              "sameSourceRegeneration": records, "runtimeMetadataByteIdentical": records[-1]["identical"], "clips": 52, "poses": 4352, "tools": tools,
+              "sameSourceRegeneration": records, "runtimeMetadataByteIdentical": records[-1]["identical"], "clips": 53, "poses": 4544, "tools": tools,
               "scope": "Regeneración offline desde piezas originales; no modifica Content ni sustituye pruebas gráficas runtime"}
     (root / "Manifests/production-reproducibility.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
     print(json.dumps({key: value for key, value in report.items() if key not in ["sameSourceRegeneration", "tools"]}))
