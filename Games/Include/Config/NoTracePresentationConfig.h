@@ -11,6 +11,7 @@
 
 namespace NoTrace::PresentationConfig {
   inline constexpr float PrivateOrderIntroDuration = 8.f;
+  inline constexpr std::size_t LabelCacheCapacity = 256;
   inline constexpr const char *ActorAtlas = "NoTrace/Characters/SoldiersAtlas.png";
   inline constexpr const char *ProneAtlas = "NoTrace/Characters/ProneAtlas.png";
   inline constexpr const char *ActorFrameTable = "Content/Textures/NoTrace/Characters/SoldiersAtlas.frames";

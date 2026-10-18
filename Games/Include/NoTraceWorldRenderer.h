@@ -13,16 +13,18 @@
 #include "NoTraceCharacterArt.h"
 #include <SFML/Graphics/Color.hpp>
 #include <SFML/Graphics/Image.hpp>
+#include <SFML/Graphics/Text.hpp>
 #include <SFML/Graphics/View.hpp>
 #include <algorithm>
 #include <cmath>
 #include <initializer_list>
+#include <list>
 #include <optional>
 #include <numbers>
 #include <unordered_map>
 
 struct EngineContext;
-namespace sf { class Font; class Texture; }
+namespace sf { class Font; class Texture; class VertexArray; }
 
 namespace NoTrace {
   class WorldRenderer {
@@ -38,11 +40,14 @@ namespace NoTrace {
     };
     struct GroundSupport { sf::Vector2f anchor{SpriteConfig::FeetX, SpriteConfig::FeetY}; float width = 0.f; };
   private:
+    struct RenderVisibility { std::vector<std::uint8_t> objects, guards; };
+    struct CachedLabel { std::string text; unsigned int size; sf::Text drawable; };
     EngineContext &ctx_;
     EnvironmentArt environmentArt_;
     CharacterArt characterArt_;
     mutable float cameraElevation_ = 0.f;
     const sf::Font *font_;
+    mutable std::list<CachedLabel> labelCache_;
     mutable std::unordered_map<PlayerId, std::size_t> agentSpriteDirections_;
     mutable std::unordered_map<std::uint32_t, std::size_t> guardSpriteDirections_;
     float zoom_ = PresentationConfig::DefaultZoom;
@@ -68,7 +73,7 @@ namespace NoTrace {
     void Label(const std::string &text, sf::Vector2f position, sf::Color color, unsigned int size = PresentationConfig::WorldLabelSize) const;
     void Box(sf::FloatRect bounds, float height, sf::Vector2f camera, sf::Color top, sf::Color left, sf::Color right) const;
     void Floor(const WorldState &world, sf::Vector2f camera) const;
-    void Fog(const WorldState &world, sf::Vector2f camera, const VisibilityGrid &visibility) const;
+    void Fog(const WorldState &world, const sf::VertexArray &mask) const;
     void RescueIndicators(const WorldState &world, const Agent *observer) const;
     void NameIndicators(const WorldState &world, const Agent *observer, sf::Vector2f camera) const;
     void ObstacleArt(const Obstacle &obstacle, sf::Vector2f camera) const;
@@ -97,7 +102,7 @@ namespace NoTrace {
     void DecoyArt(const DecoyProjectile &disc, sf::Vector2f camera) const;
     void AimLaser(const WorldState &world, sf::Vector2f camera, const Agent *observer) const;
     void Footsteps(const WorldState &world, sf::Vector2f camera, const Agent *observer) const;
-    void Minimap(const WorldState &world, PlayerId localPlayer, const VisibilityGrid &visibility) const;
+    void Minimap(const WorldState &world, PlayerId localPlayer, const sf::VertexArray &fogMask, const RenderVisibility &visibilityCache, const WorldGeometry::PreparedOccluders *geometry = nullptr) const;
     void DetectionEye(const WorldState &world, const Agent *observer) const;
     void EyeGlyph(sf::Vector2f center, DetectionVisual visual, float scale, bool brackets) const;
 
@@ -484,14 +489,14 @@ namespace NoTrace {
       const float extension = elapsed < windup ? -0.25f * (1.f - elapsed / windup) : std::max(0.f, 1.f - (elapsed - windup) / (duration - windup));
       return {extension, elapsed / duration, kick, false};
     }
-    static bool FootprintVisible(const WorldState &world, const Agent &observer, sf::FloatRect footprint) {
+    static bool FootprintVisible(const WorldState &world, const Agent &observer, sf::FloatRect footprint, const WorldGeometry::PreparedOccluders *geometry = nullptr) {
       if (!IsTactical(world)) return true;
       const auto end = footprint.position + footprint.size;
       const sf::Vector2f closest{std::clamp(observer.position.x, footprint.position.x, end.x), std::clamp(observer.position.y, footprint.position.y, end.y)};
       // Los bordes sólidos requieren rayos exactos; el centro de su celda puede caer dentro del muro.
-      if (Visibility::IsGeometricallyVisible(world, observer, closest)) return true;
+      if (Visibility::IsGeometricallyVisible(world, observer, closest, Stance::Standing, std::numeric_limits<float>::quiet_NaN(), geometry)) return true;
       for (const auto point : {footprint.position, sf::Vector2f{end.x, footprint.position.y}, end, sf::Vector2f{footprint.position.x, end.y}}) {
-        if (Visibility::IsGeometricallyVisible(world, observer, point)) return true;
+        if (Visibility::IsGeometricallyVisible(world, observer, point, Stance::Standing, std::numeric_limits<float>::quiet_NaN(), geometry)) return true;
       }
       return false;
     }

@@ -23,6 +23,7 @@
 #include "NoTraceCoordinationGuiTests.h"
 #include "NoTraceCleanHudGuiTests.h"
 #include "NoTraceFirstPersonGuiTests.h"
+#include "NoTraceRendererPerformanceGuiTests.h"
 #include "NoTraceInteraction.h"
 #include "NoTraceWorldGeometry.h"
 #include <SFML/Graphics/Image.hpp>
@@ -1339,6 +1340,11 @@ namespace {
     context.window.Initialize();
     Access::Sync(context);
     context.renderer.SetPostProcessingEnabled(false); context.renderer.SetTextureSmoothing(false);
+    if (visualSuite == "--renderer-performance-only") {
+      const auto captureWorld = [&](WorldRenderer &renderer, const WorldState &world, const std::filesystem::path &file, bool hudVisible = true) { return Access::CaptureWorld(renderer, world, context, window, file, hudVisible); };
+      EngineTests::RunRendererPerformanceFixtures(context, output, captureWorld);
+      window.close(); return nlohmann::json::array();
+    }
     if (visualSuite == "--first-person-only") {
       EngineTests::VerifyOptionsPreferences(window, output);
       Access::VerifyMainMenu(context, window, output);
@@ -1496,6 +1502,7 @@ namespace {
     Access::Require(Access::GetSession(game).GetWorld().phase == GamePhase::Mission, "No se pudo desplegar después de volver a base");
     Access::VerifyFinalVisuals(context,window,output);
     const auto captureWorld=[&](WorldRenderer &renderer,const WorldState &world,const std::filesystem::path &file,bool hudVisible=true) { return Access::CaptureWorld(renderer,world,context,window,file,hudVisible); };
+    EngineTests::RunRendererPerformanceFixtures(context,output,captureWorld);
     EngineTests::RunBodyStatusRenderFixtures(context,output,captureWorld);
     EngineTests::RunOrientationRenderFixtures(context,output,captureWorld);
     EngineTests::RunSecurityRenderFixtures(context,output,captureWorld);
@@ -1542,7 +1549,7 @@ int main(int argc, char **argv) {
   try {
     const std::string visualSuite = argc == 2 ? argv[1] : "";
     const bool focused = visualSuite == "--first-person-only" || visualSuite == "--coordination-visuals-only" || visualSuite == "--icons-visuals-only" || visualSuite == "--character-visuals-only" || visualSuite == "--level-visuals-only" || visualSuite == "--final-visuals-only" || visualSuite == "--alert-hud-visuals-only" || visualSuite == "--security-visuals-only" ||
-      visualSuite == "--orientation-visuals-only" || visualSuite == "--table-visuals-only" || visualSuite == "--world-visuals-only" || visualSuite == "--tactical-fixes-visuals-only" || visualSuite == "--clean-hud-visuals-only" || visualSuite == "--interaction-fixes-only";
+      visualSuite == "--orientation-visuals-only" || visualSuite == "--table-visuals-only" || visualSuite == "--world-visuals-only" || visualSuite == "--tactical-fixes-visuals-only" || visualSuite == "--clean-hud-visuals-only" || visualSuite == "--interaction-fixes-only" || visualSuite == "--renderer-performance-only";
     const auto project = std::filesystem::current_path();
     const auto userSave = ReadFile(project / "Content/Save.json");
     const auto sandbox = project / "build/gui-test-sandbox";

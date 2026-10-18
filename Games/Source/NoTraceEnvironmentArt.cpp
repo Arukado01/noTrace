@@ -1,4 +1,5 @@
 #include "NoTraceEnvironmentArt.h"
+#include "NoTracePerformance.h"
 #include "NoTraceSpatialGeometry.h"
 #include "Config/NoTracePresentationConfig.h"
 #include "Core/EngineContext.h"
@@ -143,6 +144,7 @@ namespace NoTrace {
   }
 
   void EnvironmentArt::Wall(const Obstacle &wall, const Project &project) const {
+    NO_TRACE_PROFILE_SCOPE(WallMesh);
     const float height = WorldGeometry::ObstacleHeight(wall), tile = PresentationConfig::FloorTileSize;
     const auto end = wall.bounds.position + wall.bounds.size;
     const auto face = [&](sf::Vector2f from, sf::Vector2f to, sf::Color tint) {

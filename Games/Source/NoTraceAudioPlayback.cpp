@@ -1,4 +1,5 @@
 #include "NoTraceAudioPlayback.h"
+#include "NoTracePerformance.h"
 #include "Config/NoTraceAudioConfig.h"
 #include "Core/EngineContext.h"
 #include "NoTraceVisibility.h"
@@ -39,6 +40,7 @@ namespace NoTrace {
   }
 
   bool AudioPlayback::PlayEvent(const SoundEvent &event, const WorldState &world, const Agent &listener, std::optional<sf::Vector2f> cameraRight) {
+    NO_TRACE_PROFILE_SCOPE(Audio);
     if (!Visibility::SoundAudible(world, listener, event)) return false;
     if (AudioConfig::IsSecurityCue(event.kind)) return Play(event.kind, 55.f);
     const float distance = WorldGeometry::SpatialDistance(WorldGeometry::Feet(listener), {event.position.x, event.position.y, event.elevation});
@@ -49,6 +51,7 @@ namespace NoTrace {
   }
 
   void AudioPlayback::UpdateAmbience(const WorldState &world, PlayerId listener) {
+    NO_TRACE_PROFILE_SCOPE(Audio);
     const auto agent = std::ranges::find(world.agents, listener, &Agent::id);
     if (agent == world.agents.end() || agent->extracted || world.phase == GamePhase::Results) { StopAmbience(); return; }
     constexpr std::array kinds{SoundKind::AmbientRoom, SoundKind::AmbientVentilation, SoundKind::AmbientElectrical, SoundKind::ElevatorMove};

@@ -1,5 +1,7 @@
 #include "NoTraceWorldRenderer.h"
 #include "NoTraceCoordination.h"
+#include "NoTracePerformance.h"
+#include "NoTraceOcclusionGeometry.h"
 
 #include "Config/NoTraceGameplayConfig.h"
 #include "Config/NoTraceAudioConfig.h"
@@ -58,19 +60,22 @@ namespace NoTrace {
       return origin + delta * nearest;
     }
 
-    template <typename Project>
-    sf::VertexArray FogMask(const WorldState &world, const VisibilityGrid &visibility, Project project) {
-      sf::VertexArray mask(sf::PrimitiveType::Triangles);
-      const auto quad = [&](sf::Vector2f a, sf::Vector2f b, sf::Vector2f c, sf::Vector2f d, sf::Color inner, sf::Color outer) {
-        for (const auto &vertex : std::array<sf::Vertex, 6>{{{project(a), inner}, {project(b), inner}, {project(c), outer},
-            {project(a), inner}, {project(c), outer}, {project(d), outer}}}) mask.append(vertex);
-      };
-      if (visibility.visualRadii.size() != VisibilityConfig::VisualRayCount) {
-        quad({}, {world.size.x, 0.f}, world.size, {0.f, world.size.y}, PresentationConfig::Fog, PresentationConfig::Fog);
-        return mask;
-      }
+    struct FogGeometry {
+      using Bands = std::array<sf::Vector2f, FogFeatherBands + 1>;
+      std::vector<Bands> feather;
+      std::vector<sf::Vector2f> exterior;
+      std::array<sf::Color, FogFeatherBands + 1> colors;
+      sf::Vector2f worldSize;
+    };
+
+    FogGeometry BuildFogGeometry(const WorldState &world, const VisibilityGrid &visibility) {
+      NO_TRACE_PROFILE_SCOPE(FogMesh);
+      FogGeometry geometry;
+      geometry.worldSize = world.size;
+      if (visibility.visualRadii.size() != VisibilityConfig::VisualRayCount) return geometry;
       const float turn = 2.f * std::numbers::pi_v<float>;
       std::vector<float> angles;
+      angles.reserve(visibility.visualRadii.size() + 4);
       for (std::size_t index = 0; index < visibility.visualRadii.size(); ++index) angles.push_back(turn * index / visibility.visualRadii.size());
       for (const auto corner : {sf::Vector2f{}, sf::Vector2f{world.size.x, 0.f}, world.size, sf::Vector2f{0.f, world.size.y}}) {
         const auto delta = corner - visibility.visualOrigin;
@@ -88,6 +93,7 @@ namespace NoTrace {
         return std::max(0.f, distance);
       };
       std::vector<sf::Vector2f> boundary, exterior, interior;
+      boundary.reserve(angles.size()); exterior.reserve(angles.size()); interior.reserve(angles.size());
       for (const float angle : angles) {
         const sf::Vector2f direction{std::cos(angle), std::sin(angle)};
         const float mapEdge = edge(direction);
@@ -107,20 +113,43 @@ namespace NoTrace {
         if (delta.length() > allowed && delta.lengthSquared() > 0.f) inner = visibility.visualOrigin + delta / delta.length() * std::max(0.f, allowed - FogFeatherWidth);
         interior.push_back(inner);
       }
-      for (std::size_t sector = 0; sector < boundary.size(); ++sector) {
-        const auto next = (sector + 1) % boundary.size();
-        const auto firstPoint = [&](float blend) { return interior[sector] + (boundary[sector] - interior[sector]) * blend; };
-        const auto lastPoint = [&](float blend) { return interior[next] + (boundary[next] - interior[next]) * blend; };
-        const auto tint = [](float blend) {
-          auto color = PresentationConfig::Fog;
-          color.a = static_cast<std::uint8_t>(255.f * blend * blend * (3.f - 2.f * blend));
-          return color;
-        };
-        for (unsigned int band = 0; band < FogFeatherBands; ++band) {
-          const float inner = static_cast<float>(band) / FogFeatherBands, outer = static_cast<float>(band + 1) / FogFeatherBands;
-          quad(firstPoint(inner), lastPoint(inner), lastPoint(outer), firstPoint(outer), tint(inner), tint(outer));
-        }
-        quad(firstPoint(1.f), lastPoint(1.f), exterior[next], exterior[sector], PresentationConfig::Fog, PresentationConfig::Fog);
+      geometry.feather.resize(boundary.size());
+      geometry.exterior = std::move(exterior);
+      for (unsigned int band = 0; band <= FogFeatherBands; ++band) {
+        const float blend = static_cast<float>(band) / FogFeatherBands;
+        auto color = PresentationConfig::Fog;
+        color.a = static_cast<std::uint8_t>(255.f * blend * blend * (3.f - 2.f * blend));
+        geometry.colors[band] = color;
+        // La banda final conserva la interpolación para evitar cambios de redondeo en el borde.
+        for (std::size_t index = 0; index < boundary.size(); ++index)
+          geometry.feather[index][band] = interior[index] + (boundary[index] - interior[index]) * blend;
+      }
+      return geometry;
+    }
+
+    template <typename Project>
+    sf::VertexArray ProjectFog(const FogGeometry &geometry, Project project) {
+      NO_TRACE_PROFILE_SCOPE(FogMesh);
+      const auto count = geometry.feather.size();
+      sf::VertexArray mask(sf::PrimitiveType::Triangles, count ? count * (FogFeatherBands + 1) * 6 : 6);
+      auto *vertices = &mask[0];
+      std::size_t written = 0;
+      const auto quad = [&](sf::Vector2f a, sf::Vector2f b, sf::Vector2f c, sf::Vector2f d, sf::Color inner, sf::Color outer) {
+        for (const auto &vertex : std::array<sf::Vertex, 6>{{{a, inner}, {b, inner}, {c, outer}, {a, inner}, {c, outer}, {d, outer}}}) vertices[written++] = vertex;
+      };
+      if (!count) {
+        quad(project({}), project({geometry.worldSize.x, 0.f}), project(geometry.worldSize), project({0.f, geometry.worldSize.y}), PresentationConfig::Fog, PresentationConfig::Fog);
+        return mask;
+      }
+      auto projected = geometry;
+      for (auto &bands : projected.feather) for (auto &point : bands) point = project(point);
+      for (auto &point : projected.exterior) point = project(point);
+      for (std::size_t sector = 0; sector < count; ++sector) {
+        const auto next = (sector + 1) % count;
+        const auto &first = projected.feather[sector], &last = projected.feather[next];
+        for (unsigned int band = 0; band < FogFeatherBands; ++band)
+          quad(first[band], last[band], last[band + 1], first[band + 1], geometry.colors[band], geometry.colors[band + 1]);
+        quad(first[FogFeatherBands], last[FogFeatherBands], projected.exterior[next], projected.exterior[sector], PresentationConfig::Fog, PresentationConfig::Fog);
       }
       return mask;
     }
@@ -185,8 +214,14 @@ namespace NoTrace {
   }
 
   void WorldRenderer::Label(const std::string &text, sf::Vector2f position, sf::Color color, unsigned int size) const {
+    NO_TRACE_PROFILE_SCOPE(LabelText);
     if (!font_) return;
-    sf::Text label(*font_, sf::String::fromUtf8(text.begin(), text.end()), size);
+    const auto cached = std::ranges::find_if(labelCache_, [&](const CachedLabel &label) { return label.size == size && label.text == text; });
+    if (cached == labelCache_.end()) {
+      if (labelCache_.size() >= PresentationConfig::LabelCacheCapacity) labelCache_.pop_back();
+      labelCache_.push_front({text, size, sf::Text(*font_, sf::String::fromUtf8(text.begin(), text.end()), size)});
+    } else if (cached != labelCache_.begin()) labelCache_.splice(labelCache_.begin(), labelCache_, cached);
+    auto &label = labelCache_.front().drawable;
     const auto bounds = label.getLocalBounds();
     position = SnapToPixels(position - sf::Vector2f{bounds.size.x * 0.5f, 0.f});
     PixelRect(position - sf::Vector2f{5.f, 1.f}, bounds.size + sf::Vector2f{10.f, 9.f}, {5, 9, 16, 220});
@@ -212,6 +247,7 @@ namespace NoTrace {
   }
 
   void WorldRenderer::Floor(const WorldState &world, sf::Vector2f camera) const {
+    NO_TRACE_PROFILE_SCOPE(FloorMesh);
     const EnvironmentArt::Project project = [&](sf::Vector2f point, float height) { return GroundToScreen(point, camera, height); };
     if (world.walkSurfaces.empty()) {
       WalkSurface base; base.bounds = {{}, world.size}; base.material = SurfaceMaterial::Industrial;
@@ -222,13 +258,9 @@ namespace NoTrace {
     }
   }
 
-  void WorldRenderer::Fog(const WorldState &world, sf::Vector2f camera, const VisibilityGrid &visibility) const {
+  void WorldRenderer::Fog(const WorldState &world, const sf::VertexArray &mask) const {
     if (world.phase != GamePhase::Mission) return;
-    const auto focus = LogicalCenter(ctx_.window.GetLogicalSize());
-    ctx_.renderer.Draw(FogMask(world, visibility, [&](sf::Vector2f point) {
-      const auto delta = point - camera;
-      return focus + sf::Vector2f{(delta.x - delta.y) * PresentationConfig::GroundProjection.x, (delta.x + delta.y) * PresentationConfig::GroundProjection.y};
-    }));
+    ctx_.renderer.Draw(mask);
   }
 
   void WorldRenderer::ObstacleArt(const Obstacle &obstacle, sf::Vector2f camera) const {
@@ -753,6 +785,9 @@ namespace NoTrace {
   }
 
   void WorldRenderer::FieldOfView(sf::Vector2f position, sf::Vector2f facing, float range, sf::Color color, const WorldState &world, sf::Vector2f camera, float cosHalfAngle, float elevation) const {
+    NO_TRACE_PROFILE_SCOPE(GuardCones);
+    const WorldGeometry::PreparedOccluders geometry(world);
+    WorldGeometry::PreparedOccluders::Query query(geometry);
     const float angle = std::atan2(facing.y, facing.x);
     const float halfAngle = std::acos(std::clamp(cosHalfAngle, -1.f, 1.f));
     const auto origin = GroundToScreen(position, camera, elevation);
@@ -761,11 +796,12 @@ namespace NoTrace {
     for (int step = 0; step <= PresentationConfig::VisionSegments; ++step) {
       const float rayAngle = angle - halfAngle + halfAngle * 2.f * step / PresentationConfig::VisionSegments;
       const sf::Vector2f delta{std::cos(rayAngle) * range, std::sin(rayAngle) * range};
+      query.Select(position, position + delta);
       float clear = 0.f, blocked = 1.f;
       for (unsigned int iteration = 0; iteration < VisibilityConfig::VisualRayIterations; ++iteration) {
         const float fraction = (clear + blocked) * .5f;
         const auto point = position + delta * fraction;
-        if (WorldGeometry::RayOccluded(world, {position.x, position.y, elevation + CombatConfig::StandingWeaponHeight}, {point.x, point.y, elevation + CombatConfig::StandingWeaponHeight})) blocked = fraction;
+        if (query.Occluded({position.x, position.y, elevation + CombatConfig::StandingWeaponHeight}, {point.x, point.y, elevation + CombatConfig::StandingWeaponHeight})) blocked = fraction;
         else clear = fraction;
       }
       const auto end = GroundToScreen(position + delta * clear, camera, elevation);
@@ -904,7 +940,7 @@ namespace NoTrace {
     }
   }
 
-  void WorldRenderer::Minimap(const WorldState &world, PlayerId localPlayer, const VisibilityGrid &visibility) const {
+  void WorldRenderer::Minimap(const WorldState &world, PlayerId localPlayer, const sf::VertexArray &fogMask, const RenderVisibility &visibilityCache, const WorldGeometry::PreparedOccluders *geometry) const {
     using namespace PresentationConfig;
     const auto origin = MinimapPosition + MinimapGroundOffset;
     const auto scale = MinimapGroundSize.componentWiseDiv(world.size);
@@ -916,9 +952,9 @@ namespace NoTrace {
     const bool fog = world.phase == GamePhase::Mission;
     const auto visible = [&](sf::Vector2f point) { return !fog || (player != world.agents.end() && Visibility::IsVisible(world, *player, point)); };
     PixelRect(origin, MinimapGroundSize, {22, 33, 42});
-    if (fog) ctx_.renderer.Draw(FogMask(world, visibility, map));
+    if (fog) ctx_.renderer.Draw(fogMask);
     for (const auto &obstacle : world.obstacles) {
-      if (fog && (player == world.agents.end() || !FootprintVisible(world, *player, obstacle.bounds))) continue;
+      if (fog && (player == world.agents.end() || !FootprintVisible(world, *player, obstacle.bounds, geometry))) continue;
       PixelRect(map(obstacle.bounds.position), obstacle.bounds.size.componentWiseMul(scale),
                 obstacle.cover == CoverKind::Low ? CrateTop : obstacle.cover == CoverKind::Hide ? sf::Color{38, 76, 62} : WallTop);
     }
@@ -936,7 +972,7 @@ namespace NoTrace {
     for (const auto &object : world.objects) {
       if (WorldGeometry::Properties(object).decorative) continue;
       if (object.kind == ObjectKind::Explosive && object.trap.state == TrapState::Armed) continue;
-      if (fog && (player == world.agents.end() || !Visibility::ObjectVisible(world, *player, object))) continue;
+      if (fog && (player == world.agents.end() || !visibilityCache.objects[static_cast<std::size_t>(&object - world.objects.data())])) continue;
       const auto point = map(object.position);
       const auto tint = object.completed || !object.active ? Shade(markerColor(object.kind), 0.45f) : markerColor(object.kind);
       ctx_.renderer.Draw(Icons::Geometry(Icons::ForObject(object.kind), point, 1.f, tint));
@@ -945,15 +981,15 @@ namespace NoTrace {
       if (!surface.enabled || (surface.kind != WalkSurfaceKind::Stair && surface.kind != WalkSurfaceKind::ElevatorCabin)) continue;
       const auto point = surface.bounds.position + surface.bounds.size * .5f;
       const float elevation = WorldGeometry::SurfaceHeight(surface, point);
-      if (fog && (player == world.agents.end() || !Visibility::IsGeometricallyVisible(world, *player, point, Stance::Prone, elevation))) continue;
+      if (fog && (player == world.agents.end() || !Visibility::IsGeometricallyVisible(world, *player, point, Stance::Prone, elevation, geometry))) continue;
       if (surface.kind == WalkSurfaceKind::ElevatorCabin && std::ranges::any_of(world.objects, [&](const Interactable &object) {
         return object.kind == ObjectKind::Elevator && (map(object.position) - map(point)).length() < IconsConfig::Size &&
-            (!fog || (player != world.agents.end() && Visibility::ObjectVisible(world, *player, object)));
+            (!fog || (player != world.agents.end() && visibilityCache.objects[static_cast<std::size_t>(&object - world.objects.data())]));
       })) continue;
       ctx_.renderer.Draw(Icons::Geometry(surface.kind == WalkSurfaceKind::Stair ? Icons::Kind::Stairs : Icons::Kind::Elevator, map(point), 1.f, Cyan));
     }
     for (const auto &guard : world.guards) {
-      if (guard.bodyHidden || guard.storedIn != 0 || (fog && (player == world.agents.end() || !Visibility::GuardVisible(world, *player, guard)))) continue;
+      if (guard.bodyHidden || guard.storedIn != 0 || (fog && (player == world.agents.end() || !visibilityCache.guards[static_cast<std::size_t>(&guard - world.guards.data())]))) continue;
       PixelRect(map(guard.position) - sf::Vector2f{2.f, 2.f}, {4.f, 4.f}, guard.trainingDummy ? DummyTarget : guard.state == GuardState::Incapacitated ? Amber : guard.state == GuardState::Dead ? WallTop : Red);
     }
     for (const auto &agent : world.agents) {
@@ -1058,6 +1094,7 @@ namespace NoTrace {
   }
 
   void WorldRenderer::Render(const WorldState &world, PlayerId localPlayer, bool hudVisible) const {
+    NO_TRACE_PROFILE_SCOPE(RenderTactical);
     ctx_.renderer.ResetView();
     PixelRect({}, ctx_.window.GetLogicalSize(), PresentationConfig::Void);
     ctx_.renderer.SetView(WorldView(ctx_.window.GetLogicalSize(), zoom_));
@@ -1066,13 +1103,34 @@ namespace NoTrace {
     const Agent *observer = player == world.agents.end() ? nullptr : &*player;
     cameraElevation_ = observer ? observer->elevation : 0.f;
     const bool fog = world.phase == GamePhase::Mission;
+    const WorldGeometry::PreparedOccluders geometry(world);
+    const auto visibilityCache = [&] {
+      NO_TRACE_PROFILE_SCOPE(WorldVisibility);
+      RenderVisibility cache;
+      cache.objects.reserve(world.objects.size()); cache.guards.reserve(world.guards.size());
+      for (const auto &object : world.objects) cache.objects.push_back((object.kind != ObjectKind::Explosive || object.trap.state != TrapState::Armed) && (!fog || (observer && Visibility::ObjectVisible(world, *observer, object, &geometry))));
+      for (const auto &guard : world.guards) cache.guards.push_back(!guard.bodyHidden && guard.storedIn == 0 && (!fog || (observer && Visibility::GuardVisible(world, *observer, guard, &geometry))));
+      return cache;
+    }();
     const auto visible = [&](sf::Vector2f point, Stance stance = Stance::Standing) { return !fog || (observer && Visibility::IsVisible(world, *observer, point, stance)); };
-    const auto objectVisible = [&](const Interactable &object) { return (object.kind != ObjectKind::Explosive || object.trap.state != TrapState::Armed) && (!fog || (observer && Visibility::ObjectVisible(world, *observer, object))); };
-    const auto guardVisible = [&](const Guard &guard) { return !guard.bodyHidden && guard.storedIn == 0 && (!fog || (observer && Visibility::GuardVisible(world, *observer, guard))); };
+    const auto objectVisible = [&](const Interactable &object) { return visibilityCache.objects[static_cast<std::size_t>(&object - world.objects.data())] != 0; };
+    const auto guardVisible = [&](const Guard &guard) { return visibilityCache.guards[static_cast<std::size_t>(&guard - world.guards.data())] != 0; };
     const auto obstacleVisible = [&](const Obstacle &obstacle) { return obstacle.elevation <= cameraElevation_ + CombatConfig::StandingHeight &&
-        (!fog || (observer && (Visibility::IsGeometricallyVisible(world, *observer, WorldGeometry::ClosestPoint(observer->position, obstacle.bounds), Stance::Standing, obstacle.elevation) ||
-          (std::abs(obstacle.elevation - observer->elevation) < LevelConfig::MaximumStepHeight && FootprintVisible(world, *observer, obstacle.bounds))))); };
+        (!fog || (observer && (Visibility::IsGeometricallyVisible(world, *observer, WorldGeometry::ClosestPoint(observer->position, obstacle.bounds), Stance::Standing, obstacle.elevation, &geometry) ||
+          (std::abs(obstacle.elevation - observer->elevation) < LevelConfig::MaximumStepHeight && FootprintVisible(world, *observer, obstacle.bounds, &geometry))))); };
     const auto visibility = observer ? Visibility::BuildGrid(world, *observer) : VisibilityGrid{};
+    sf::VertexArray worldFog(sf::PrimitiveType::Triangles), minimapFog(sf::PrimitiveType::Triangles);
+    if (fog) {
+      const auto fogGeometry = BuildFogGeometry(world, visibility);
+      const auto focus = LogicalCenter(ctx_.window.GetLogicalSize());
+      worldFog = ProjectFog(fogGeometry, [&](sf::Vector2f point) {
+        const auto delta = point - camera;
+        return focus + sf::Vector2f{(delta.x - delta.y) * PresentationConfig::GroundProjection.x, (delta.x + delta.y) * PresentationConfig::GroundProjection.y};
+      });
+      const auto origin = PresentationConfig::MinimapPosition + PresentationConfig::MinimapGroundOffset;
+      const auto scale = PresentationConfig::MinimapGroundSize.componentWiseDiv(world.size);
+      minimapFog = ProjectFog(fogGeometry, [&](sf::Vector2f position) { return origin + position.componentWiseMul(scale); });
+    }
     Floor(world, camera);
     for (const auto &node : world.objects) {
       if (!node.puzzle.parentDevice || !node.open || !objectVisible(node)) continue;
@@ -1096,7 +1154,7 @@ namespace NoTrace {
       }
       if (objectVisible(object)) ExplosionArt(object, world, camera);
     }
-    Fog(world, camera, visibility);
+    Fog(world, worldFog);
     Footsteps(world, camera, observer);
     DecoyPreview(world, camera, observer);
     AimLaser(world, camera, observer);
@@ -1129,7 +1187,7 @@ namespace NoTrace {
           (agent.position - observer->position).length() <= GameplayConfig::CqcDistance * GameplayConfig::CqcMaximumStretch;
       const float phase = entering ? std::clamp(1.f - agent.actionPoseTime / GameplayConfig::StanceTransitionDuration, 0.f, 1.f) : 1.f;
       const auto point = entering ? agent.hideoutExit + (agent.position - agent.hideoutExit) * phase : agent.position;
-      if (agent.id == localPlayer || partner || (!fog || (observer && (world.visibility.authoritative || Visibility::IsGeometricallyVisible(world, *observer, agent.position, agent.stance, agent.elevation))))) add(3, index, {point, {0.f, 0.f}}, agent.elevation);
+      if (agent.id == localPlayer || partner || (!fog || (observer && (world.visibility.authoritative || Visibility::IsGeometricallyVisible(world, *observer, agent.position, agent.stance, agent.elevation, &geometry))))) add(3, index, {point, {0.f, 0.f}}, agent.elevation);
     }
     for (std::size_t index = 0; index < world.walkSurfaces.size(); ++index) {
       const auto &surface = world.walkSurfaces[index];
@@ -1155,8 +1213,12 @@ namespace NoTrace {
       return false;
     };
     std::vector<std::size_t> cqcOverlays;
-    auto order = GroundDrawOrder(footprints);
-    std::stable_sort(order.begin(), order.end(), [&](std::size_t first, std::size_t second) { return items[first].elevation < items[second].elevation; });
+    auto order = [&] {
+      NO_TRACE_PROFILE_SCOPE(DrawOrder);
+      auto result = GroundDrawOrder(footprints);
+      std::stable_sort(result.begin(), result.end(), [&](std::size_t first, std::size_t second) { return items[first].elevation < items[second].elevation; });
+      return result;
+    }();
     const EnvironmentArt::Project project = [&](sf::Vector2f point, float height) { return GroundToScreen(point, camera, height); };
     for (const auto index : order) {
       const auto &item = items[index];
@@ -1182,11 +1244,15 @@ namespace NoTrace {
         break;
       }
       case 4: DecoyArt(world.decoys[item.index], camera); break;
-      case 5: environmentArt_.Surface(world.walkSurfaces[item.index], project, fog ? EnvironmentArt::Shade{[&](sf::Vector2f point) {
-        const auto offset = point - visibility.visualOrigin;
-        const float boundary = FogBoundaryRadius(visibility, std::atan2(offset.y, offset.x));
-        return std::clamp((boundary - offset.length()) / PresentationConfig::FogFeatherWidth, 0.f, 1.f);
-      }} : EnvironmentArt::Shade{}); break;
+      case 5: {
+        NO_TRACE_PROFILE_SCOPE(FloorMesh);
+        environmentArt_.Surface(world.walkSurfaces[item.index], project, fog ? EnvironmentArt::Shade{[&](sf::Vector2f point) {
+          const auto offset = point - visibility.visualOrigin;
+          const float boundary = FogBoundaryRadius(visibility, std::atan2(offset.y, offset.x));
+          return std::clamp((boundary - offset.length()) / PresentationConfig::FogFeatherWidth, 0.f, 1.f);
+        }} : EnvironmentArt::Shade{});
+        break;
+      }
       case 6: environmentArt_.Grip(world.gripSurfaces[item.index], project); break;
       }
     }
@@ -1205,13 +1271,16 @@ namespace NoTrace {
       if (noise.actor == observer->id) perceived.position += noise.visualDirection * PresentationConfig::FootstepVisualOffset;
       Noise(perceived, camera);
     }
-    ctx_.renderer.ResetView();
-    for (const auto &object : world.objects) if (object.kind == ObjectKind::Camera && objectVisible(object)) CameraIcon(object, camera);
-    for (const auto &guard : world.guards) if (guardVisible(guard)) GuardIcon(guard, camera);
-    for (const auto &guard : world.guards) if (guardVisible(guard)) DummyStatus(guard, world, camera, observer);
-    Minimap(world, localPlayer, visibility);
-    if (hudVisible) DetectionEye(world, observer);
-    RescueIndicators(world, observer);
-    NameIndicators(world, observer, camera);
+    {
+      NO_TRACE_PROFILE_SCOPE(WorldIndicators);
+      ctx_.renderer.ResetView();
+      for (const auto &object : world.objects) if (object.kind == ObjectKind::Camera && objectVisible(object)) CameraIcon(object, camera);
+      for (const auto &guard : world.guards) if (guardVisible(guard)) GuardIcon(guard, camera);
+      for (const auto &guard : world.guards) if (guardVisible(guard)) DummyStatus(guard, world, camera, observer);
+      Minimap(world, localPlayer, minimapFog, visibilityCache, &geometry);
+      if (hudVisible) DetectionEye(world, observer);
+      RescueIndicators(world, observer);
+      NameIndicators(world, observer, camera);
+    }
   }
 }
