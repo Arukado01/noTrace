@@ -65,6 +65,16 @@ namespace EngineTests {
         actor.transitionTime = GameplayConfig::StanceTransitionDuration * (1.f - phase - .0125f);
       };
     };
+    const auto weaponAction = [](Stance stance, bool reload) {
+      return [stance, reload](Agent &actor, float phase, WorldState &) {
+        actor.stance = stance; actor.aiming = true;
+        if (reload) actor.reloadRemaining = WeaponConfig::ReloadDuration * (1.f - phase - .0125f);
+        else {
+          actor.actionPose = ActionPose::Shoot;
+          actor.actionPoseTime = GameplayConfig::AttackAnimationDuration * (1.f - phase - .0125f);
+        }
+      };
+    };
     const auto maneuver = [](ManeuverKind kind) {
       return [kind](Agent &actor, float phase, WorldState &) {
         const auto frame = static_cast<unsigned int>(std::lround(phase * 8.f));
@@ -86,7 +96,14 @@ namespace EngineTests {
       {"idle-control", loop(SpriteConfig::Clip::Idle, Stance::Standing), true, false, true},
       {"walk-control", loop(SpriteConfig::Clip::Walk, Stance::Standing, true)},
       {"run-control", loop(SpriteConfig::Clip::Run, Stance::Standing, true, true)},
+      {"crouch-idle-control", loop(SpriteConfig::Clip::CrouchIdle, Stance::Crouched), true, false, true},
       {"crouch-walk-control", loop(SpriteConfig::Clip::CrouchWalk, Stance::Crouched, true)},
+      {"standing-aim", loop(SpriteConfig::Clip::Aim, Stance::Standing, false, false, true), true, false, true},
+      {"crouched-aim", loop(SpriteConfig::Clip::Aim, Stance::Crouched, false, false, true), true, false, true},
+      {"standing-shoot", weaponAction(Stance::Standing, false), true, false, true},
+      {"crouched-shoot", weaponAction(Stance::Crouched, false), true, false, true},
+      {"standing-reload", weaponAction(Stance::Standing, true), true, false, true},
+      {"crouched-reload", weaponAction(Stance::Crouched, true), true, false, true},
       {"prone-idle", loop(SpriteConfig::Clip::ProneIdle, Stance::Prone), true, false, true},
       {"prone-crawl", loop(SpriteConfig::Clip::Crawl, Stance::Prone, true)},
       {"prone-aim", loop(SpriteConfig::Clip::Aim, Stance::Prone, false, false, true), true, false, true},
