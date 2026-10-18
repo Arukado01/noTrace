@@ -450,6 +450,108 @@ namespace {
     }
   }
 
+  void OrientationAlertAndRecoveryStateRemainAuthoritative() {
+    {
+      Pair pair; pair.Deploy();
+      auto &world = const_cast<WorldState &>(pair.host.GetWorld());
+      world.objects.clear(); world.obstacles.clear(); world.guards.clear(); world.noises.clear(); world.events.clear(); world.sounds.clear();
+      world.agents[0].hidden = true; world.agents[0].position = {800.f, 650.f};
+      auto &remote = world.agents[1]; remote.position = {250.f, 300.f}; remote.facing = {1.f, 0.f}; remote.weaponAim = {};
+      remote.health = 137.f; remote.healthRecoveryRemaining = 6.25f;
+      ActionCommand command; command.moveY = 1.f; command.aimX = -1.f; command.aiming = true;
+      pair.client.Submit(command);
+      Until([&] {
+        const auto &hostAgent = FindAgent(world, 2); const auto &clientAgent = FindAgent(pair.client.GetWorld(), 2);
+        return hostAgent.facing == sf::Vector2f{0.f, 1.f} && hostAgent.weaponAim == sf::Vector2f{-1.f, 0.f} &&
+          clientAgent.facing == hostAgent.facing && clientAgent.weaponAim == hostAgent.weaponAim && clientAgent.aiming;
+      }, [&] { pair.Tick(true); });
+      Require(remote.position.y > 300.f && remote.health == 137.f && remote.healthRecoveryRemaining < 6.25f,
+        "El anfitrión no aplica desplazamiento, orientación corporal y cuenta de recuperación independientes del arma remota");
+      const auto &received = FindAgent(pair.client.GetWorld(), 2);
+      Require(received.health == remote.health && received.healthRecoveryRemaining >= remote.healthRecoveryRemaining - 0.001f &&
+        received.healthRecoveryRemaining - remote.healthRecoveryRemaining < 0.15f,
+        "El cliente perdió el plazo de recuperación calculado por el anfitrión");
+      command = {}; command.aimX = 1.f; pair.client.Submit(command);
+      Until([&] { return !remote.moving && !remote.aiming && !FindAgent(pair.client.GetWorld(), 2).moving && !FindAgent(pair.client.GetWorld(), 2).aiming; }, [&] { pair.Tick(true); });
+      Require(remote.facing == sf::Vector2f{0.f, 1.f} && remote.weaponAim == sf::Vector2f{-1.f, 0.f} &&
+        FindAgent(pair.client.GetWorld(), 2).facing == remote.facing,
+        "Mover el cursor sin apuntar cambia la última orientación corporal válida en LAN");
+      Guard observer; observer.id = 71; observer.position = remote.position + sf::Vector2f{75.f, 0.f}; observer.facing = {-1.f, 0.f};
+      observer.suspicion = 1.f; observer.attackCooldown = 60.f; world.guards.push_back(observer);
+      Until([&] { return world.securityAlert == SecurityAlert::Red && pair.client.GetWorld().securityAlert == SecurityAlert::Red; }, [&] { pair.Tick(true); });
+      Require(world.securityRemaining == 0.f && pair.client.GetWorld().securityRemaining == 0.f,
+        "El contacto visual confirmado debe replicar roja sin una cuenta atrás artificial");
+      remote.hidden = true;
+      Until([&] { return world.securityAlert == SecurityAlert::Orange && pair.client.GetWorld().securityAlert == SecurityAlert::Orange; }, [&] { pair.Tick(true); });
+      Require(world.securityRemaining > 19.f && pair.client.GetWorld().securityRemaining >= world.securityRemaining - 0.001f &&
+        pair.client.GetWorld().securityRemaining - world.securityRemaining < 0.15f,
+        "La pérdida de contacto no transmite la naranja y su plazo autoritativo de veinte segundos");
+      pair.client.Tick(0.f); pair.client.Tick(0.f);
+      const auto clientTick = pair.client.GetWorld().tick;
+      const auto remaining = pair.client.GetWorld().securityRemaining;
+      const auto recovery = FindAgent(pair.client.GetWorld(), 2).healthRecoveryRemaining;
+      pair.client.Tick(0.2f);
+      Require(pair.client.GetWorld().tick == clientTick && pair.client.GetWorld().securityRemaining == remaining &&
+        FindAgent(pair.client.GetWorld(), 2).healthRecoveryRemaining == recovery && pair.client.GetWorld().securityAlert == SecurityAlert::Orange,
+        "El cliente avanzó por su cuenta la alerta o la regeneración sin nuevos ticks del anfitrión");
+    }
+    Simulation authority, restored, recipient;
+    authority.ResetBase({{1, "Anfitrión"}, {2, "Cliente"}}); authority.Deploy(0);
+    auto &world = const_cast<WorldState &>(authority.GetState());
+    world.obstacles.clear(); world.objects.clear(); world.guards.clear(); world.securityEntries.clear(); world.events.clear(); world.noises.clear(); world.sounds.clear();
+    for (auto &agent : world.agents) { agent.hidden = true; agent.position = {50.f, 700.f}; }
+    auto &local = world.agents[1]; local.position = {100.f, 300.f}; local.facing = {1.f, 0.f}; local.weaponAim = {0.f, -1.f};
+    local.health = 137.f; local.healthRecoveryRemaining = 6.25f;
+    Guard inspector; inspector.id = 71; inspector.position = {220.f, 300.f}; inspector.facing = {1.f, 0.f}; world.guards.push_back(inspector);
+    Guard body; body.id = 91; body.position = {300.f, 300.f}; body.state = GuardState::Dead; body.health = 0.f; world.guards.push_back(body);
+    authority.Step(0.1f, {});
+    const auto full = authority.SnapshotFor(2), filtered = authority.SnapshotFor(2, true);
+    Require(full["guards"][0]["bodyTargetKind"] == static_cast<int>(BodyTargetKind::Guard) && full["guards"][0]["bodyTargetId"] == 91 &&
+      filtered["guards"][0]["bodyTargetKind"] == 0 && filtered["guards"][0]["bodyTargetId"] == 0 && !filtered.contains("securityInternal"),
+      "La instantánea filtrada revela el objetivo privado de inspección o la pista global de seguridad");
+    std::string error;
+    Require(restored.LoadSnapshot(full, error), (std::string("La réplica completa rechaza la inspección: ") + error).c_str());
+    Require(recipient.LoadSnapshot(filtered, error), (std::string("El destinatario rechaza una aproximación sin objetivo privado: ") + error).c_str());
+    Require(restored.GetState().guards[0].bodyTargetKind == BodyTargetKind::Guard && restored.GetState().guards[0].bodyTargetId == 91 &&
+      recipient.GetState().guards[0].bodyTargetKind == BodyTargetKind::None && recipient.GetState().guards[0].state == GuardState::ApproachBody,
+      "Las réplicas no distinguen la reserva privada de la acción de investigación visible");
+    Require(FindAgent(recipient.GetState(), 2).facing == local.facing && FindAgent(recipient.GetState(), 2).weaponAim == local.weaponAim &&
+      FindAgent(recipient.GetState(), 2).healthRecoveryRemaining == local.healthRecoveryRemaining,
+      "Los campos de cuerpo, arma y recuperación no sobreviven a una instantánea filtrada");
+    auto invalid = filtered; invalid["guards"][0]["bodyTargetKind"] = static_cast<int>(BodyTargetKind::Guard); invalid["guards"][0]["bodyTargetId"] = 91;
+    Require(!recipient.LoadSnapshot(invalid, error), "El cliente acepta una identidad privada de cuerpo inyectada en la instantánea filtrada");
+    invalid = full; invalid["agents"][1]["weaponAim"] = {2.f, 0.f};
+    Require(!restored.LoadSnapshot(invalid, error), "El cliente acepta una dirección de arma fuera del contrato normalizado");
+    invalid = full; invalid["agents"][1]["healthRecoveryRemaining"] = GameplayConfig::PassiveHealthRecoveryDelay + 0.1f;
+    Require(!restored.LoadSnapshot(invalid, error), "El cliente acepta un plazo de regeneración fuera de su configuración");
+    invalid = full; invalid["securityInternal"]["changeTick"] = full["tick"].get<std::uint64_t>() + 1;
+    Require(!restored.LoadSnapshot(invalid, error), "La réplica acepta una transición de alerta fechada en un tick futuro");
+    invalid = full; invalid["guards"][0]["bodyTargetKind"] = static_cast<int>(BodyTargetKind::None);
+    Require(!restored.LoadSnapshot(invalid, error), "La réplica acepta una reserva sin tipo que conserva identidad de cuerpo");
+    invalid = full; invalid["guards"][0]["bodyTargetId"] = 0;
+    Require(!restored.LoadSnapshot(invalid, error), "La réplica acepta un tipo de cuerpo reservado sin una identidad válida");
+    invalid = full; invalid["guards"][0]["bodyTargetId"] = 999;
+    Require(!restored.LoadSnapshot(invalid, error), "La réplica completa acepta investigar un cuerpo inexistente");
+    for (unsigned int step = 0; step < 100 && world.securityAlert != SecurityAlert::Orange; ++step) authority.Step(0.1f, {});
+    Require(world.securityAlert == SecurityAlert::Orange, "La investigación no alcanzó su aviso naranja en la simulación autoritativa");
+    const auto searching = authority.SnapshotFor(2);
+    Require(restored.LoadSnapshot(searching, error), (std::string("La réplica rechaza los relojes de búsqueda: ") + error).c_str());
+    authority.Step(0.1f, {}); restored.Step(0.1f, {});
+    Require(restored.GetState().securityAlert == world.securityAlert && restored.GetState().securityRemaining == world.securityRemaining &&
+      FindAgent(restored.GetState(), 2).healthRecoveryRemaining == local.healthRecoveryRemaining,
+      "Cargar una instantánea completa altera el siguiente paso de alerta o regeneración del anfitrión");
+    invalid = searching; invalid["securityAlert"] = 4;
+    Require(!restored.LoadSnapshot(invalid, error), "La réplica acepta una fase de alerta fuera del protocolo");
+    for (unsigned int step = 0; step < 210 && world.securityAlert != SecurityAlert::Yellow; ++step) authority.Step(0.1f, {});
+    Require(world.securityAlert == SecurityAlert::Yellow && world.securityRemaining == SecurityConfig::VigilanceDuration,
+      "La autoridad no inició una vigilancia de doce segundos después de la búsqueda");
+    const auto vigilant = authority.SnapshotFor(2, true);
+    Require(recipient.LoadSnapshot(vigilant, error) && recipient.GetState().securityAlert == SecurityAlert::Yellow && recipient.GetState().securityRemaining == world.securityRemaining,
+      "La instantánea filtrada perdió la fase amarilla o el plazo exacto calculado por el anfitrión");
+    invalid = vigilant; invalid["securityRemaining"] = SecurityConfig::VigilanceDuration + 0.1f;
+    Require(!recipient.LoadSnapshot(invalid, error), "El cliente acepta una vigilancia amarilla superior a los doce segundos configurados");
+  }
+
   void AimDirectionAndRestartAuthority() {
     Pair pair;
     ActionCommand aim; aim.aimX = 200.f; aim.aimY = 100.f; aim.aiming = true;
@@ -962,6 +1064,7 @@ int main() {
     run("SequenceTimeoutIdentityAndPulses", SequenceTimeoutIdentityAndPulses);
     run("PendingShotKeepsItsAim", PendingShotKeepsItsAim);
     run("AimDirectionAndRestartAuthority", AimDirectionAndRestartAuthority);
+    run("OrientationAlertAndRecoveryStateRemainAuthoritative", OrientationAlertAndRecoveryStateRemainAuthoritative);
     run("DisconnectAndRejoin", DisconnectAndRejoin);
     run("RejectMidMissionAndVersion", RejectMidMissionAndVersion);
     run("VisibilityAndCoverOnTheWire", VisibilityAndCoverOnTheWire);
