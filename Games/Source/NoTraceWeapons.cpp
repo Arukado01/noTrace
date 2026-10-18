@@ -36,14 +36,18 @@ namespace NoTrace {
       const auto choice = static_cast<WeaponKind>(command.weaponChoice);
       if (choice != agent.selectedWeapon) {
         CancelReload(agent); agent.selectedWeapon = choice; agent.reloadingWeapon = choice;
-        EmitSound(SoundKind::Lock, agent.position, AudioConfig::QuietRadius, agent.id);
+        agent.actionPose = ActionPose::WeaponSwitch; agent.actionPoseTime = EquipmentGestureDuration;
+        EmitSound(SoundKind::WeaponSwitch, agent.position, AudioConfig::QuietRadius, agent.id);
       }
     }
     if (command.toggleSuppressor) {
       auto &equipped = agent.selectedWeapon == WeaponKind::Pistol ? agent.pistolSuppressorEquipped : agent.nonLethalSuppressorEquipped;
       const float durability = agent.selectedWeapon == WeaponKind::Pistol ? agent.pistolSuppressor : agent.nonLethalSuppressor;
       equipped = durability > 0.f ? !equipped : false;
-      if (durability > 0.f) EmitSound(equipped ? SoundKind::SuppressorAttach : SoundKind::SuppressorDetach, agent.position, AudioConfig::QuietRadius, agent.id);
+      if (durability > 0.f) {
+        agent.actionPose = equipped ? ActionPose::SuppressorAttach : ActionPose::SuppressorDetach; agent.actionPoseTime = EquipmentGestureDuration;
+        EmitSound(equipped ? SoundKind::SuppressorAttach : SoundKind::SuppressorDetach, agent.position, AudioConfig::QuietRadius, agent.id);
+      }
       world_.message = durability <= 0.f ? "Silenciador roto; equipa otro en la preparación de una operación." : equipped ? "Silenciador instalado." : "Silenciador retirado; el arma producirá un ruido fuerte.";
     }
     if (agent.reloadRemaining > 0.f) {
@@ -52,6 +56,7 @@ namespace NoTrace {
         auto &magazine = agent.reloadingWeapon == WeaponKind::Pistol ? agent.lethalMagazine : agent.nonLethalMagazine;
         const int total = agent.reloadingWeapon == WeaponKind::Pistol ? agent.loadout.lethalAmmo : agent.loadout.nonLethalAmmo;
         magazine = std::min(agent.reloadingWeapon == WeaponKind::Pistol ? PistolCapacity : NonLethalCapacity, total);
+        EmitSound(SoundKind::ReloadFinish, agent.position, AudioConfig::QuietRadius, agent.id);
         world_.message = "Recarga completada.";
       }
     }
@@ -65,14 +70,14 @@ namespace NoTrace {
     durability = std::clamp(durability, 0.f, MaximumSuppressor);
     const bool suppressed = equipped && durability > 0.f;
     const float radius = suppressed ? lethal ? PistolSuppressedNoise : NonLethalSuppressedNoise : lethal ? PistolNoise : NonLethalNoise;
-    const auto sound = suppressed ? SoundKind::Suppressed : SoundKind::Pistol;
-    EmitNoise(agent.position, radius, agent.id, 0, sound);
+    const auto sound = lethal ? (suppressed ? SoundKind::Suppressed : SoundKind::Pistol) : (suppressed ? SoundKind::SuppressedNonLethal : SoundKind::NonLethal);
+    EmitNoise(agent.position, radius, agent.id, 0, suppressed ? SoundKind::Suppressed : SoundKind::Pistol);
     EmitSound(sound, agent.position, radius, agent.id);
     if (suppressed) {
       durability = std::max(0.f, durability - (lethal ? PistolSuppressorWear : NonLethalSuppressorWear));
       if (durability == 0.f) {
         equipped = false;
-        EmitSound(SoundKind::Impact, agent.position, AudioConfig::QuietRadius, agent.id);
+        EmitSound(SoundKind::SuppressorBreak, agent.position, AudioConfig::QuietRadius, agent.id);
         world_.message = "Silenciador agotado: los siguientes disparos serán audibles a mayor distancia.";
       }
     } else if (durability == 0.f) equipped = false;

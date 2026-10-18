@@ -15,6 +15,7 @@ namespace NoTrace {
     tgui::ComboBox::Ptr framerate;
     tgui::Slider::Ptr masterVolume;
     tgui::Slider::Ptr effectsVolume;
+    tgui::Slider::Ptr ambienceVolume;
     tgui::Slider::Ptr cursorSpeed;
     tgui::Label::Ptr status;
   };

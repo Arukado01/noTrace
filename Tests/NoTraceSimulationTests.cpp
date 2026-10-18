@@ -1,4 +1,7 @@
 #include "NoTraceSimulation.h"
+#include "NoTraceSpatialFixture.h"
+#include "NoTraceRecoveryFixtures.h"
+#include "NoTraceNavigation.h"
 #include "Config/NoTraceGameplayConfig.h"
 #include "NoTraceCombatGeometry.h"
 #include "NoTraceDistractionGeometry.h"
@@ -8,6 +11,7 @@
 #include <cmath>
 #include <iostream>
 #include <queue>
+#include <unordered_set>
 #include <stdexcept>
 
 namespace {
@@ -20,11 +24,17 @@ namespace {
   }
   void Load(Simulation &simulation, const nlohmann::json &snapshot) {
     std::string error;
-    if (!simulation.LoadSnapshot(snapshot, error)) throw std::runtime_error("Fixture: " + error);
+    auto fixture = snapshot;
+    if (fixture.at("surfaces").empty()) for (auto &object : fixture["objects"]) {
+      if (!object.contains("elevation")) object["elevation"] = 0.f;
+      if (!object.contains("supportId")) object["supportId"] = 0;
+      if (!object.contains("elevatorId")) object["elevatorId"] = 0;
+    }
+    if (!simulation.LoadSnapshot(fixture, error)) throw std::runtime_error("Fixture: " + error);
   }
   nlohmann::json EmptyMission(Simulation &simulation, sf::Vector2f position = {100.f, 600.f}) {
     simulation.ResetBase(); simulation.Deploy(0);
-    auto snapshot = simulation.SnapshotFor(1);
+    auto snapshot = simulation.SnapshotFor(1); TestFixture::LegacyPlane(snapshot);
     snapshot["obstacles"] = nlohmann::json::array();
     snapshot["guards"] = nlohmann::json::array();
     snapshot["objects"] = nlohmann::json::array();
@@ -35,16 +45,16 @@ namespace {
   void Advance(Simulation &simulation, ActionCommand command, int frames, float dt = 0.1f) {
     for (int index = 0; index < frames; ++index) simulation.Step(dt, {{1, command}});
   }
-  void AimHead(ActionCommand &command, const Agent &actor, sf::Vector2f position, sf::Vector2f facing, Stance stance = Stance::Standing) {
+  void AimHead(ActionCommand &command, const Agent &actor, sf::Vector2f position, sf::Vector2f facing, Stance stance = Stance::Standing, float elevation = 0.f) {
     const auto head = CombatGeometry::ActorVolumes(position, facing, stance).front().center;
     const auto offset = head - actor.position;
     command.aimX = offset.x; command.aimY = offset.y;
-    const float height = CombatGeometry::HeadCenterHeight(stance) + (stance == Stance::Prone ? 0.f : CombatConfig::HeadHeight * 0.25f);
-    command.aimSlope = (height - CombatGeometry::WeaponHeight(actor.stance)) / std::max(0.001f, offset.length());
+    const float height = elevation + CombatGeometry::HeadCenterHeight(stance) + (stance == Stance::Prone ? 0.f : CombatConfig::HeadHeight * 0.25f);
+    command.aimSlope = (height - actor.elevation - CombatGeometry::WeaponHeight(actor.stance)) / std::max(0.001f, offset.length());
   }
   nlohmann::json GuardJson(Simulation &simulation, sf::Vector2f position, sf::Vector2f facing) {
     simulation.ResetBase(); simulation.Deploy(0);
-    auto value = simulation.SnapshotFor(1)["guards"][0];
+    auto donorSnapshot = simulation.SnapshotFor(1); TestFixture::LegacyPlane(donorSnapshot); auto value = donorSnapshot["guards"][0];
     value["position"] = {position.x, position.y}; value["facing"] = {facing.x, facing.y};
     value["patrol"] = nlohmann::json::array(); value["waypoint"] = 0;
     return value;
@@ -203,7 +213,7 @@ namespace {
     snapshot = EmptyMission(simulation, {900.f, 700.f});
     snapshot["guards"].push_back(GuardJson(donor, {150.f, 200.f}, {1.f, 0.f}));
     snapshot["obstacles"].push_back({{"position", {190.f, 180.f}}, {"size", {20.f, 60.f}}, {"cover", 2}, {"solid", true}, {"name", "Muro entre guardia y ruido"}});
-    snapshot["noises"].push_back({{"position", {250.f, 200.f}}, {"radius", 300.f}, {"remaining", 0.6f}, {"actor", 1}, {"visualDirection", {0.f, 0.f}}});
+    snapshot["noises"].push_back({{"position", {250.f, 200.f}}, {"radius", 300.f}, {"remaining", 0.6f}, {"actor", 1}, {"visualDirection", {0.f, 0.f}}, {"elevation", 0.f}});
     Load(simulation, snapshot);
     const auto wallBounds = simulation.GetState().obstacles[0].bounds;
     const sf::Vector2f clearCorner{180.f, 170.f};
@@ -314,6 +324,34 @@ namespace {
     Require(!replica.LoadSnapshot(invalid, error), "El snapshot rechaza salud fuera de límites");
   }
 
+  void BallisticHeightRoundTrip() {
+    for (const float elevation : {0.f, 192.f}) {
+      Simulation simulation, replica;
+      if (elevation == 0.f) Load(simulation, EmptyMission(simulation, {300.f, 500.f}));
+      else {
+        simulation.ResetBase(); simulation.Deploy(0);
+        auto &world = const_cast<WorldState &>(simulation.GetState()); world.guards.clear();
+        auto &agent = world.agents.front(); agent.position = {1100.f, 110.f}; agent.elevation = elevation; agent.supportId = 20;
+      }
+      ActionCommand fire; fire.fireLethal = true; fire.aimX = 1.f; fire.aimSlope = CombatConfig::MaximumAimSlope;
+      simulation.Step(1.f / 60.f, {{1, fire}});
+      const auto &world = simulation.GetState();
+      Require(world.shots.size() == 1 && !world.shots.front().hit && !world.shots.front().blocked, "El disparo ascendente legal no alcanza un cuerpo ni un sólido");
+      const auto &shot = world.shots.front(); const float origin = elevation + CombatGeometry::WeaponHeight(world.agents.front().stance);
+      Require(shot.fromHeight == origin && std::abs(shot.toHeight - origin - GameplayConfig::WeaponRange * CombatConfig::MaximumAimSlope) < 0.01f,
+          "La trayectoria ascendente conserva la altura física del arma y el alcance completo");
+      const auto snapshot = simulation.SnapshotFor(1); std::string error;
+      Require(replica.LoadSnapshot(snapshot, error) && replica.GetState().shots.size() == 1 && replica.GetState().shots.front().fromHeight == shot.fromHeight && replica.GetState().shots.front().toHeight == shot.toHeight,
+          "El snapshot debe aceptar y conservar un disparo real al cielo desde suelo y techo");
+      const auto filtered = simulation.SnapshotFor(1, true);
+      Require(replica.LoadSnapshot(filtered, error) && !replica.GetState().shots.empty(), "El recorte privado de una trayectoria ascendente legal debe cargar en el cliente");
+      auto malformed = snapshot; malformed["shots"][0]["toHeight"] = GameplayConfig::MaximumShotEndpointHeight + 1.f;
+      Require(!replica.LoadSnapshot(malformed, error), "El límite balístico no acepta alturas de impacto superiores al máximo configurado");
+      malformed = snapshot; malformed["shots"][0]["fromHeight"] = LevelConfig::MaximumElevation + CombatConfig::StandingHeight + 1.f;
+      Require(!replica.LoadSnapshot(malformed, error), "Ampliar la cota del extremo no permite un origen de disparo fuera de la altura física");
+    }
+  }
+
   void GuardAttacksAndRecovery() {
     Simulation simulation, donor, replica;
     auto snapshot = EmptyMission(simulation, {300.f, 500.f});
@@ -352,12 +390,13 @@ namespace {
     Require(simulation.GetState().agents[0].incapacitated && simulation.GetState().phase == GamePhase::Results, "La derrota permanece reconocible sin reanimación ni reinicio automático");
     simulation.ResetBase({{1, "Uno"}, {2, "Dos"}}); simulation.Deploy(0);
     snapshot = simulation.SnapshotFor(1);
+    TestFixture::LegacyPlane(snapshot); snapshot["agents"][0]["privateOrder"] = static_cast<int>(PrivateOrder::CopyArchive);
     snapshot["guards"] = nlohmann::json::array(); snapshot["obstacles"] = nlohmann::json::array(); snapshot["objects"] = nlohmann::json::array();
     snapshot["agents"][0]["incapacitated"] = true; snapshot["agents"][0]["lifeState"] = static_cast<int>(LifeState::Incapacitated); snapshot["agents"][0]["incapacityRemaining"] = 0.15f; snapshot["agents"][0]["stamina"] = 0.f;
     snapshot["agents"][1]["position"] = {900.f, 700.f};
     Load(simulation, snapshot);
     Advance(simulation, {}, 2);
-    Require(simulation.GetState().phase == GamePhase::Results && simulation.GetState().agents[0].lifeState == LifeState::Dead && simulation.GetState().agents[0].rescueExpired, "Vencer el plazo de rescate termina la operación y nunca recupera por temporizador");
+    Require(simulation.GetState().phase == GamePhase::Mission && simulation.GetState().agents[0].lifeState == LifeState::Dead && simulation.GetState().agents[0].rescueExpired, "Vencer el plazo causa una baja individual sin recuperar al agente ni terminar la operación del superviviente");
 
     snapshot = EmptyMission(simulation, {300.f, 500.f});
     snapshot["guards"].push_back(GuardJson(donor, {400.f, 500.f}, {1.f, 0.f}));
@@ -401,7 +440,9 @@ namespace {
       simulation.ResetBase(partner ? std::vector<PlayerProfile>{{1, "Uno"}, {2, "Dos"}} : std::vector<PlayerProfile>{{1, "Uno"}});
       simulation.Deploy(7);
       auto &world = const_cast<WorldState &>(simulation.GetState());
+      TestFixture::LegacyPlane(world);
       world.guards.clear(); world.objects.clear(); world.obstacles.clear(); world.securityEntries.clear(); world.events.clear(); world.noises.clear();
+      for (auto &agent : world.agents) agent.privateOrder = PrivateOrder::CopyArchive;
       world.agents[0].position = {400.f, 400.f};
       if (partner) world.agents[1].position = {900.f, 700.f};
       return world;
@@ -447,13 +488,13 @@ namespace {
     Require(fullDeadline.phase == GamePhase::Mission && fullDeadline.agents[0].incapacitated && fullDeadline.agents[0].incapacityRemaining > 0.9f && fullDeadline.agents[0].incapacityRemaining < 1.1f,
       "Un compañero activo conserva la operación durante 54 segundos completos del plazo de rescate");
     Advance(cooperative, {}, 11);
-    Require(fullDeadline.phase == GamePhase::Results && fullDeadline.agents[0].rescueExpired && !fullDeadline.agents[0].alive,
-      "El plazo real de 55 segundos vence sin autorecuperar al agente y cancela la operación cooperativa");
+    Require(fullDeadline.phase == GamePhase::Mission && fullDeadline.agents[0].rescueExpired && !fullDeadline.agents[0].alive && fullDeadline.agents[1].alive,
+      "El plazo real de55segundos elimina al incapacitado y permite continuar al superviviente");
     auto &expired = prepare(cooperative, true);
     expired.agents[1].lifeState = LifeState::Incapacitated; expired.agents[1].incapacitated = true; expired.agents[1].health = expired.agents[1].stamina = 0.f;
     expired.agents[1].incapacityRemaining = 0.05f; expired.agents[1].position = {430.f, 400.f};
     cooperative.Step(0.1f, {{1, rescue}});
-    Require(expired.phase == GamePhase::Results && expired.agents[1].rescueExpired && expired.agents[1].lifeState == LifeState::Dead && expired.agents[1].health == 0.f,
+    Require(expired.phase == GamePhase::Mission && expired.agents[1].rescueExpired && expired.agents[1].lifeState == LifeState::Dead && expired.agents[1].health == 0.f,
       "El plazo vence antes de las órdenes incluso si el rescatador se actualiza primero");
     auto &allDown = prepare(cooperative, true);
     for (auto &agent : allDown.agents) { agent.lifeState = LifeState::Incapacitated; agent.incapacitated = true; agent.health = agent.stamina = 0.f; agent.incapacityRemaining = 55.f; }
@@ -512,17 +553,17 @@ namespace {
     auto snapshot = simulation.SnapshotFor(1);
     snapshot["guards"] = nlohmann::json::array();
     for (auto &object : snapshot["objects"]) if (object["kind"] == static_cast<int>(ObjectKind::Camera)) object["active"] = false;
-    snapshot["agents"][0]["position"] = {105.f, 665.f};
+    snapshot["agents"][0]["position"] = {105.f, 665.f}; snapshot["agents"][0]["elevation"] = 0.f; snapshot["agents"][0]["supportId"] = 5;
     Load(simulation, snapshot);
     ActionCommand interact; interact.interact = true;
     simulation.Step(0.1f, {{1, interact}});
     Require(simulation.GetState().phase == GamePhase::Mission && !simulation.GetState().agents[0].extracted, "No debe extraer antes del objetivo principal");
-    snapshot = simulation.SnapshotFor(1); snapshot["agents"][0]["position"] = {570.f, 275.f};
+    snapshot = simulation.SnapshotFor(1); snapshot["agents"][0]["position"] = {570.f, 275.f}; snapshot["agents"][0]["elevation"] = 96.f; snapshot["agents"][0]["supportId"] = 10;
     Load(simulation, snapshot); simulation.Step(0.1f, {{1, interact}});
     Require(simulation.GetState().objectives == 1, "El terminal debe completar un objetivo real");
     simulation.Step(0.1f, {{1, interact}});
     Require(simulation.GetState().objectives == 1, "Un objetivo no debe puntuar dos veces");
-    snapshot = simulation.SnapshotFor(1); snapshot["agents"][0]["position"] = {105.f, 665.f};
+    snapshot = simulation.SnapshotFor(1); snapshot["agents"][0]["position"] = {105.f, 665.f}; snapshot["agents"][0]["elevation"] = 0.f; snapshot["agents"][0]["supportId"] = 5;
     Load(simulation, snapshot); simulation.Step(0.1f, {{1, interact}});
     Require(simulation.GetState().phase == GamePhase::Results && simulation.GetState().results.at(1).success, "El bucle objetivo y extracción debe producir resultados");
     simulation.ReturnToBase();
@@ -534,7 +575,7 @@ namespace {
     simulation.SetContract(ContractId::SilentRelay); simulation.Deploy(2);
     snapshot = simulation.SnapshotFor(1); snapshot["guards"] = nlohmann::json::array();
     for (auto &object : snapshot["objects"]) if (object["kind"] == static_cast<int>(ObjectKind::Camera)) object["active"] = false;
-    snapshot["agents"][0]["position"] = {840.f, 360.f};
+    snapshot["agents"][0]["position"] = {1150.f, 460.f}; snapshot["agents"][0]["elevation"] = 96.f; snapshot["agents"][0]["supportId"] = 11;
     Load(simulation, snapshot); simulation.Step(0.1f, {{1, interact}});
     Require(simulation.GetState().agents[0].puzzle.family == PuzzleFamily::Coordination, "El repetidor debe abrir controles de coordinación autoritativos");
     ActionCommand hold; hold.puzzleTarget = simulation.GetState().agents[0].puzzle.target; hold.puzzleHeld = true;
@@ -566,7 +607,8 @@ namespace {
     simulation.ResetBase({{1, "Uno"}, {2, "Dos"}}); simulation.SetContract(ContractId::SilentRelay); simulation.Deploy(0);
     auto snapshot = simulation.SnapshotFor(1); snapshot["guards"] = nlohmann::json::array();
     for (auto &object : snapshot["objects"]) if (object["kind"] == static_cast<int>(ObjectKind::Camera)) object["active"] = false;
-    snapshot["agents"][0]["position"] = {840.f, 360.f};
+    snapshot["agents"][0]["position"] = {1150.f, 460.f}; snapshot["agents"][0]["elevation"] = 96.f; snapshot["agents"][0]["supportId"] = 11;
+    snapshot["agents"][0]["privateOrder"] = static_cast<int>(PrivateOrder::CopyArchive);
     Load(simulation, snapshot);
     ActionCommand interact; interact.interact = true;
     simulation.Step(0.1f, {{1, interact}});
@@ -576,28 +618,30 @@ namespace {
     Require(simulation.GetState().objectives == 1, "La desconexión no debe bloquear el objeto cooperativo");
 
     simulation.ResetBase({{1, "Uno"}, {2, "Dos"}}); simulation.SetContract(ContractId::DoubleCross); simulation.Deploy(0);
+    auto &roles = const_cast<WorldState &>(simulation.GetState()).agents; roles[0].privateOrder = PrivateOrder::Traitor; roles[1].privateOrder = PrivateOrder::CopyArchive;
     ActionCommand lethal; lethal.fireLethal = true;
     auto towardOther = (simulation.GetState().agents[1].position - simulation.GetState().agents[0].position).normalized();
     lethal.aimX = towardOther.x; lethal.aimY = towardOther.y;
     AimHead(lethal, simulation.GetState().agents[0], simulation.GetState().agents[1].position, simulation.GetState().agents[1].facing);
     simulation.Step(0.1f, {{1, lethal}});
-    if (simulation.GetState().phase != GamePhase::Results) {
-      const auto &state = simulation.GetState();
-      throw std::runtime_error("Traidor: salud objetivo=" + std::to_string(state.agents[1].health) + " zona=" + std::to_string(state.shots.empty() ? -1 : static_cast<int>(state.shots.back().zone)) + " slope=" + std::to_string(lethal.aimSlope) + " blocked=" + std::to_string(!state.shots.empty() && state.shots.back().blocked));
-    }
+    Require(simulation.GetState().agents[1].incapacitated && simulation.GetState().phase == GamePhase::Mission, "El disparo fatal conserva la ventana de rescate individual antes de una eliminación real");
+    Advance(simulation, {}, 551);
     Require(simulation.GetState().phase == GamePhase::Results && simulation.GetState().results.at(1).traitorVictory, "El traidor debe ganar solo después de eliminar al equipo sin alarma");
     Require(!simulation.GetState().agents[1].alive, "La victoria del traidor exige eliminación real");
     simulation.ResetBase({{1, "Uno"}, {2, "Dos"}}); simulation.SetContract(ContractId::DoubleCross); simulation.Deploy(0);
+    auto &nonLethalRoles = const_cast<WorldState &>(simulation.GetState()).agents; nonLethalRoles[0].privateOrder = PrivateOrder::Traitor; nonLethalRoles[1].privateOrder = PrivateOrder::CopyArchive;
     lethal.fireLethal = false; lethal.fireNonLethal = true;
     simulation.Step(0.1f, {{1, lethal}});
     Require(simulation.GetState().agents[1].alive && simulation.GetState().agents[1].incapacitated, "La fuerza no letal no debe contar como eliminación de un agente");
-    Require(simulation.GetState().phase == GamePhase::Results && !simulation.GetState().results.at(1).traitorVictory && !simulation.GetState().results.at(2).success, "Incapacitar a todo el equipo causa derrota y no cumple la orden letal del traidor");
+    Require(simulation.GetState().phase == GamePhase::Mission && simulation.GetState().results.empty(), "La incapacitación no cumple la orden de eliminación mientras la víctima siga viva");
   }
 
   void DisconnectNeutralizesMovement() {
     Simulation simulation;
     simulation.ResetBase({{1, "Anfitrión"}, {2, "Cliente"}});
     simulation.Deploy(0);
+    auto &roles = const_cast<WorldState &>(simulation.GetState()).agents;
+    roles[0].privateOrder = PrivateOrder::CopyArchive; roles[1].privateOrder = PrivateOrder::Traitor;
     const auto initial = simulation.GetState().agents[1].position;
     ActionCommand moving;
     moving.moveX = 1.f; moving.run = true; moving.aiming = true; moving.aimX = 1.f;
@@ -623,37 +667,45 @@ namespace {
   }
 
   void SeedReachability() {
+    struct Node { int x; int y; float elevation; std::uint32_t support; };
+    std::string previousLayout; std::unordered_set<std::uint64_t> visited; std::vector<Node> reached;
     for (std::uint32_t seed = 0; seed < 36; ++seed) {
       Simulation simulation;
       simulation.ResetBase({{1, "Uno"}, {2, "Dos"}, {3, "Tres"}, {4, "Cuatro"}}); simulation.Deploy(seed);
       const auto &world = simulation.GetState();
-      constexpr int columns = 50, rows = 38;
-      const auto blocked = [&world](int x, int y) {
-        const sf::Vector2f point{10.f + x * 20.f, 10.f + y * 20.f};
-        if (point.x < 12.f || point.y < 12.f || point.x > world.size.x - 12.f || point.y > world.size.y - 12.f) return true;
-        bool occupied = false;
-        WorldGeometry::ForEachSolid(world, [&](const sf::FloatRect &bounds) { occupied |= WorldGeometry::CircleOverlaps(point, GameplayConfig::AgentRadius, bounds); });
-        return occupied;
-      };
-      std::array<bool, columns * rows> visited{};
-      std::queue<std::pair<int, int>> queue;
-      const auto insertion = world.agents.front().position;
-      const int insertionX = static_cast<int>(insertion.x / 20.f), insertionY = static_cast<int>(insertion.y / 20.f);
-      queue.push({insertionX, insertionY}); visited[insertionY * columns + insertionX] = true;
-      while (!queue.empty()) {
-        const auto [x, y] = queue.front(); queue.pop();
-        for (const auto [dx, dy] : std::array<std::pair<int, int>, 4>{{{1, 0}, {-1, 0}, {0, 1}, {0, -1}}}) {
-          const int nx = x + dx, ny = y + dy;
-          if (nx < 0 || ny < 0 || nx >= columns || ny >= rows || visited[ny * columns + nx] || blocked(nx, ny)) continue;
-          visited[ny * columns + nx] = true; queue.push({nx, ny});
+      const int columns = static_cast<int>(std::ceil(world.size.x / 20.f)), rows = static_cast<int>(std::ceil(world.size.y / 20.f));
+      const auto key = [columns, rows](int x, int y, std::uint32_t support) { return static_cast<std::uint64_t>(support) * columns * rows + y * columns + x; };
+      const auto point = [](int x, int y) { return sf::Vector2f{10.f + x * 20.f, 10.f + y * 20.f}; };
+      const auto &insertion = world.agents.front();
+      const int sx = static_cast<int>(insertion.position.x / 20.f), sy = static_cast<int>(insertion.position.y / 20.f);
+      auto furniture = nlohmann::json::array();
+      for (const auto &object : world.objects) if (WorldGeometry::BlocksMovement(object)) {
+        const auto bounds = WorldGeometry::ObjectFootprint(object);
+        furniture.push_back({object.id, bounds.position.x, bounds.position.y, bounds.size.x, bounds.size.y, object.elevation, WorldGeometry::ObjectHeight(object)});
+      }
+      const auto layout = Level::GeometryHash(world) + furniture.dump() + std::to_string(insertion.position.x) + std::to_string(insertion.position.y) + std::to_string(insertion.elevation) + std::to_string(insertion.supportId);
+      // Las semillas comparten búsqueda sólo cuando toda su geometría física y su inserción son idénticas.
+      if (layout != previousLayout) {
+        previousLayout = layout; visited.clear(); reached.clear(); std::queue<Node> pending;
+        pending.push({sx, sy, insertion.elevation, insertion.supportId}); visited.insert(key(sx, sy, insertion.supportId));
+        while (!pending.empty()) {
+          const auto current = pending.front(); pending.pop(); reached.push_back(current);
+          for (const auto [dx, dy] : std::array<std::pair<int, int>, 4>{{{1, 0}, {-1, 0}, {0, 1}, {0, -1}}}) {
+            const int nx = current.x + dx, ny = current.y + dy;
+            if (nx < 0 || ny < 0 || nx >= columns || ny >= rows) continue;
+            auto position = point(current.x, current.y); auto elevation = current.elevation; auto support = current.support;
+            const auto target = point(nx, ny);
+            WorldGeometry::MoveOnSupports(world, position, elevation, support, target - position, GameplayConfig::AgentRadius, CombatConfig::StandingHeight);
+            if ((position - target).length() > 0.01f || !visited.insert(key(nx, ny, support)).second) continue;
+            pending.push({nx, ny, elevation, support});
+          }
         }
       }
       for (const auto &object : world.objects) if (object.kind == ObjectKind::Terminal || object.kind == ObjectKind::Secondary || object.kind == ObjectKind::CoopSwitch || object.kind == ObjectKind::Extraction) {
-        bool reachable = false;
-        for (int y = 0; y < rows; ++y) for (int x = 0; x < columns; ++x) if (visited[y * columns + x] && WorldGeometry::DistanceToBounds({10.f + x * 20.f, 10.f + y * 20.f}, WorldGeometry::ObjectFootprint(object)) < GameplayConfig::InteractionDistance) reachable = true;
-        Require(reachable, "Toda semilla necesita acceso a objetivos y extracción");
+        Require(std::ranges::any_of(reached, [&](const Node &node) { return std::abs(node.elevation - object.elevation) <= LevelConfig::MaximumStepHeight &&
+          WorldGeometry::DistanceToBounds(point(node.x, node.y), WorldGeometry::ObjectFootprint(object)) < GameplayConfig::InteractionDistance; }), "Toda semilla necesita acceso físico3D a objetivos y extracción");
       }
-      for (const auto &agent : world.agents) Require(visited[static_cast<int>(agent.position.y / 20.f) * columns + static_cast<int>(agent.position.x / 20.f)], "Los cuatro puntos de inserción deben compartir un corredor conectado");
+      for (const auto &agent : world.agents) Require(visited.contains(key(static_cast<int>(agent.position.x / 20.f), static_cast<int>(agent.position.y / 20.f), agent.supportId)), "Los cuatro puntos de inserción deben compartir un corredor conectado");
     }
   }
 
@@ -669,14 +721,22 @@ namespace {
         for (const auto &agent : world.agents) {
           const float radius = GameplayConfig::AgentRadius;
           Require(agent.position.x >= radius && agent.position.y >= radius && agent.position.x <= world.size.x - radius && agent.position.y <= world.size.y - radius, "Los cuatro agentes deben aparecer dentro del mapa");
-          WorldGeometry::ForEachSolid(world, [&](const sf::FloatRect &bounds) { Require(!WorldGeometry::CircleOverlaps(agent.position, radius, bounds), "La inserción no debe intersectar muros, muebles ni puertas sólidas"); });
-          for (const auto &other : world.agents) if (other.id != agent.id) Require((agent.position - other.position).length() >= radius * 2.f, "Los agentes no deben aparecer superpuestos");
+          Require(!WorldGeometry::PositionBlocked(world, agent.position, radius, agent.elevation, WorldGeometry::ActorHeight(agent), agent.supportId), "La inserción no debe intersectar muros, muebles ni plantas sólidas");
+          for (const auto &other : world.agents) if (other.id != agent.id) Require(WorldGeometry::SpatialDistance(WorldGeometry::Feet(agent), WorldGeometry::Feet(other)) >= radius * 2.f, "Los agentes no deben aparecer superpuestos");
           for (const auto &guard : world.guards) for (std::size_t index = 0; index < guard.patrol.size(); ++index) {
             const auto start = guard.patrol[index], end = guard.patrol[(index + 1) % guard.patrol.size()];
             const auto segment = end - start;
             const float t = std::clamp((agent.position - start).dot(segment) / segment.lengthSquared(), 0.f, 1.f);
-            Require((agent.position - (start + segment * t)).length() > GameplayConfig::VisionDistance, "Ningún tramo de patrulla debe observar la inserción de pie");
+            const auto observer = start + segment * t, toward = agent.position - observer;
+            const float startZ = guard.patrolElevations.empty() ? guard.elevation : guard.patrolElevations[index];
+            const float endZ = guard.patrolElevations.empty() ? guard.elevation : guard.patrolElevations[(index + 1) % guard.patrol.size()];
+            Require(toward.length() > GameplayConfig::VisionDistance || !simulation.CanSee(observer, toward.length() > 0.f ? toward.normalized() : sf::Vector2f{1.f, 0.f}, agent, GameplayConfig::VisionDistance, startZ + (endZ - startZ) * t), "Ningún tramo de patrulla debe observar la inserción de pie a través de su planta");
           }
+        }
+        for (const auto &guard : world.guards) for (std::size_t index = 0; index < guard.patrol.size(); ++index) {
+          const auto position = guard.patrol[index];
+          const float z = guard.patrolElevations.empty() ? guard.elevation : guard.patrolElevations[index];
+          Require(!WorldGeometry::PositionBlocked(world, position, GameplayConfig::AgentRadius, z, CombatConfig::StandingHeight, guard.supportId), "Una patrulla militar aparece dentro de un sólido de su planta");
         }
         for (int frame = 0; frame < 720; ++frame) simulation.Step(1.f / 60.f, {});
         Require(simulation.GetState().phase == GamePhase::Mission, "Una misión no debe terminar mientras el equipo se orienta en la inserción");
@@ -689,15 +749,51 @@ namespace {
 
   std::vector<sf::Vector2f> PlanRoute(const Simulation &simulation, const Interactable &target, bool stealth) {
     const auto &world = simulation.GetState();
-    constexpr int columns = 50, rows = 38;
-    const auto blocked = [&world, &simulation, stealth](sf::Vector2f point) {
+    const int columns = static_cast<int>(std::ceil(world.size.x / 20.f)), rows = static_cast<int>(std::ceil(world.size.y / 20.f));
+    const auto &actor = world.agents.front();
+    const auto *currentSupport = WorldGeometry::FindSurface(world, actor.supportId);
+    const WalkSurface *nextSupport = nullptr;
+    bool intermediate = false; sf::Vector2f intermediatePoint; float intermediateReach = 20.f;
+    if (currentSupport && actor.supportId != target.supportId) {
+      auto navigation = world;
+      // La infiltración limpia accede al archivo por la escalera este y el puente del ala de control.
+      if (stealth) for (auto &surface : navigation.walkSurfaces) if (surface.id == 2) surface.enabled = false;
+      const auto route = Navigation::Route(navigation, actor.supportId, target.supportId);
+      if (route.empty()) return {};
+      const auto &step = route.front(); nextSupport = WorldGeometry::FindSurface(world, step.toSupport); intermediate = true;
+      if (stealth && actor.supportId == 10)
+        std::cout << "Enlace sigiloso " << step.fromSupport << "->" << step.toSupport << " destino=" << target.supportId << " entrada=" << step.entry.x << ',' << step.entry.y << " salida=" << step.exit.x << ',' << step.exit.y << '\n';
+      auto entry = WorldGeometry::Ground(step.entry), exit = WorldGeometry::Ground(step.exit);
+      if (step.linkId == 0 && nextSupport && currentSupport->slope.lengthSquared() == 0.f && nextSupport->slope.lengthSquared() == 0.f) {
+        const auto firstEnd = currentSupport->bounds.position + currentSupport->bounds.size, nextEnd = nextSupport->bounds.position + nextSupport->bounds.size;
+        const sf::Vector2f minimum{std::max(currentSupport->bounds.position.x, nextSupport->bounds.position.x), std::max(currentSupport->bounds.position.y, nextSupport->bounds.position.y)};
+        const sf::Vector2f maximum{std::min(firstEnd.x, nextEnd.x), std::min(firstEnd.y, nextEnd.y)};
+        const auto crossing = WorldGeometry::ClosestPoint(actor.position, {minimum, maximum - minimum});
+        const auto inward = nextSupport->bounds.position + nextSupport->bounds.size * 0.5f - crossing;
+        const auto beyond = crossing + (inward.lengthSquared() > 0.f ? inward.normalized() * std::min(GameplayConfig::AgentRadius, inward.length()) : sf::Vector2f{});
+        if (WorldGeometry::ClearBodySegment(world, {crossing.x, crossing.y, actor.elevation}, {beyond.x, beyond.y, actor.elevation}, GameplayConfig::AgentRadius, stealth ? CombatConfig::ProneHeight : CombatConfig::CrouchedHeight, actor.supportId)) { entry = crossing; exit = beyond; }
+      }
+      if (const auto link = std::ranges::find(world.verticalLinks, step.linkId, &VerticalLink::id); link != world.verticalLinks.end())
+        intermediateReach = std::max(20.f, link->width * 0.5f - GameplayConfig::AgentRadius);
+      intermediatePoint = (actor.position - entry).length() <= intermediateReach ? exit : entry;
+    }
+    const auto supportAt = [&](sf::Vector2f point) -> const WalkSurface * {
+      if (nextSupport && nextSupport->kind == WalkSurfaceKind::Stair && WorldGeometry::ContainsSupport(*nextSupport, point) &&
+          (!currentSupport || WorldGeometry::SurfaceHeight(*nextSupport, point) > WorldGeometry::SurfaceHeight(*currentSupport, point) + LevelConfig::SupportTolerance)) return nextSupport;
+      if (currentSupport && WorldGeometry::ContainsSupport(*currentSupport, point)) return currentSupport;
+      if (nextSupport && WorldGeometry::ContainsSupport(*nextSupport, point)) return nextSupport;
+      return nullptr;
+    };
+    const auto blocked = [&world, &simulation, stealth, &actor, &supportAt, currentSupport](sf::Vector2f point) {
       if (point.x < 12.f || point.y < 12.f || point.x > world.size.x - 12.f || point.y > world.size.y - 12.f) return true;
-      bool occupied = false;
-      WorldGeometry::ForEachSolid(world, [&](const sf::FloatRect &bounds) { occupied |= WorldGeometry::CircleOverlaps(point, GameplayConfig::AgentRadius + 0.5f, bounds); });
-      if (occupied) return true;
+      const auto *support = supportAt(point);
+      if (currentSupport && !support) return true;
+      const float elevation = support ? WorldGeometry::SurfaceHeight(*support, point) : 0.f;
+      if (WorldGeometry::PositionBlocked(world, point, GameplayConfig::AgentRadius + 0.5f, elevation, stealth ? CombatConfig::ProneHeight : CombatConfig::CrouchedHeight, support ? support->id : 0)) return true;
       for (const auto &object : world.objects) {
+        if (std::abs(object.elevation - elevation) > GameplayConfig::InteractionDistance) continue;
         if (object.kind == ObjectKind::Explosive && object.active && object.trap.state != TrapState::Disarmed && object.trap.state != TrapState::Detonated &&
-            (point - object.position).length() <= object.trap.triggerRadius + 25.f && Visibility::HasLineOfSight(world, object.position, point, Stance::Standing, object.id)) return true;
+            (point - object.position).length() <= object.trap.triggerRadius + GameplayConfig::AgentRadius && Visibility::HasLineOfSight(world, object.position, point, Stance::Standing, object.id)) return true;
         if (object.kind == ObjectKind::Camera && object.active && object.camera.state == CameraState::Operating) {
           const auto delta = point - object.position;
           const float distance = delta.length();
@@ -713,16 +809,20 @@ namespace {
         }
       }
       if (stealth) for (const auto &guard : world.guards) if (guard.state != GuardState::Dead && guard.state != GuardState::Incapacitated) {
-        const float currentDistance = (guard.position - world.agents.front().position).length();
-        if ((guard.position - point).length() < std::min(140.f, currentDistance - 1.f)) return true;
+        if (std::abs(guard.elevation - elevation) > CombatConfig::StandingHeight) continue;
+        Agent candidate; candidate.position = point; candidate.elevation = elevation; candidate.stance = Stance::Prone;
+        const float currentDistance = WorldGeometry::SpatialDistance(WorldGeometry::Feet(guard), WorldGeometry::Feet(actor));
+        const float plannedDistance = WorldGeometry::SpatialDistance(WorldGeometry::Feet(guard), WorldGeometry::Feet(candidate));
+        const auto toward = candidate.position - guard.position;
+        if (plannedDistance < std::min(GameplayConfig::VisionDistance * GameplayConfig::ProneVisionFactor + GameplayConfig::AgentRadius, currentDistance - 1.f) &&
+            simulation.CanSee(guard.position, toward, candidate, GameplayConfig::VisionDistance + GameplayConfig::AgentRadius * 2.f, guard.elevation)) return true;
       }
       return false;
     };
     const auto position = world.agents.front().position;
     const int sx = std::clamp(static_cast<int>(position.x / 20.f), 0, columns - 1), sy = std::clamp(static_cast<int>(position.y / 20.f), 0, rows - 1);
     const int start = sy * columns + sx;
-    std::array<int, columns * rows> previous;
-    previous.fill(-1); previous[start] = start;
+    std::vector<int> previous(static_cast<std::size_t>(columns * rows), -1); previous[start] = start;
     std::queue<int> queue; queue.push(start);
     int finish = -1;
     while (!queue.empty()) {
@@ -730,22 +830,46 @@ namespace {
       const int x = current % columns, y = current / columns;
       const sf::Vector2f point{10.f + x * 20.f, 10.f + y * 20.f};
       const auto closest = WorldGeometry::ClosestPoint(point, WorldGeometry::ObjectFootprint(target));
-      Agent candidate; candidate.position = closest;
-      const bool interaction = (point - closest).length() < GameplayConfig::InteractionDistance * 0.5f &&
+      // El archivo se opera desde su cara este sin cruzar la ronda del vigilante.
+      const bool approachSide = !stealth || target.kind != ObjectKind::Terminal || (point.x >= target.position.x + 40.f && point.y <= target.position.y - 30.f);
+      const bool interaction = approachSide && (point - closest).length() < GameplayConfig::InteractionDistance - GameplayConfig::AgentRadius &&
           (target.kind != ObjectKind::CoopSwitch || (point - target.position).length() < GameplayConfig::InteractionDistance - 1.f);
-      const auto toward = closest - point;
-      if (interaction && !blocked(point) && (toward.length() < 0.01f || simulation.CanSee(point, toward.normalized(), candidate, GameplayConfig::InteractionDistance))) { finish = current; break; }
+      const auto *pointSupport = supportAt(point); const float pointZ = pointSupport ? WorldGeometry::SurfaceHeight(*pointSupport, point) : 0.f;
+      if (!blocked(point) && (intermediate ? (point - intermediatePoint).length() <= intermediateReach :
+          interaction && std::abs(pointZ - target.elevation) <= LevelConfig::MaximumStepHeight && !WorldGeometry::RayOccluded(world, {point.x, point.y, pointZ + CombatConfig::StandingWeaponHeight}, {closest.x, closest.y, target.elevation + CombatConfig::StandingWeaponHeight}, target.id))) { finish = current; break; }
       for (const auto [dx, dy] : std::array<std::pair<int, int>, 4>{{{1, 0}, {-1, 0}, {0, 1}, {0, -1}}}) {
         const int nx = x + dx, ny = y + dy, next = ny * columns + nx;
-        if (nx < 0 || ny < 0 || nx >= columns || ny >= rows || previous[next] != -1 || blocked({10.f + nx * 20.f, 10.f + ny * 20.f})) continue;
+        const sf::Vector2f nextPoint{10.f + nx * 20.f, 10.f + ny * 20.f};
+        if (nx < 0 || ny < 0 || nx >= columns || ny >= rows || previous[next] != -1 || blocked(nextPoint)) continue;
+        if (currentSupport) {
+          auto moved = point; auto z = pointZ; auto support = pointSupport ? pointSupport->id : 0;
+          WorldGeometry::MoveOnSupports(world, moved, z, support, nextPoint - point, GameplayConfig::AgentRadius, stealth ? CombatConfig::ProneHeight : CombatConfig::CrouchedHeight);
+          const auto *expected = supportAt(nextPoint);
+          if ((moved - nextPoint).length() > 0.01f || !expected || std::abs(z - WorldGeometry::SurfaceHeight(*expected, nextPoint)) > LevelConfig::SupportTolerance) continue;
+        }
         previous[next] = current; queue.push(next);
       }
     }
     std::vector<sf::Vector2f> route;
-    if (finish < 0) return route;
+    if (finish < 0) {
+      if (!stealth) {
+        const auto bounds = WorldGeometry::ObjectFootprint(target);
+        std::cout << "Sin ruta huella=" << bounds.position.x << ',' << bounds.position.y << '/' << bounds.size.x << ',' << bounds.size.y << '\n';
+        const int tx = static_cast<int>(target.position.x / 20.f), ty = static_cast<int>(target.position.y / 20.f);
+        for (int y = std::max(0, ty - 3); y <= std::min(rows - 1, ty + 3); ++y) for (int x = std::max(0, tx - 3); x <= std::min(columns - 1, tx + 3); ++x) {
+          const sf::Vector2f point{10.f + x * 20.f, 10.f + y * 20.f}; const auto closest = WorldGeometry::ClosestPoint(point, bounds);
+          if ((point - closest).length() < GameplayConfig::InteractionDistance - GameplayConfig::AgentRadius)
+            std::cout << "Candidato " << point.x << ',' << point.y << " bloqueado=" << blocked(point) << " alcanzado=" << (previous[y * columns + x] >= 0) << " los=" << !WorldGeometry::RayOccluded(world, {point.x, point.y, target.elevation + CombatConfig::StandingWeaponHeight}, {closest.x, closest.y, target.elevation + CombatConfig::StandingWeaponHeight}, target.id) << '\n';
+        }
+      }
+      if (!stealth) throw std::runtime_error("Buscador sin ruta: objeto=" + std::to_string(target.id) + " apoyo=" + std::to_string(actor.supportId) + " destino=" + std::to_string(target.supportId) +
+        " posición=" + std::to_string(actor.position.x) + "," + std::to_string(actor.position.y) + "," + std::to_string(actor.elevation) + " nodos=" + std::to_string(std::ranges::count_if(previous, [](int value) { return value >= 0; })));
+      return route;
+    }
     for (int index = finish; index != start; index = previous[index]) route.push_back({10.f + index % columns * 20.f, 10.f + index / columns * 20.f});
     if (route.empty()) route.push_back({10.f + finish % columns * 20.f, 10.f + finish / columns * 20.f});
     std::ranges::reverse(route);
+    if (intermediate) route.push_back(intermediatePoint);
     return route;
   }
 
@@ -753,11 +877,21 @@ namespace {
     const auto target = std::ranges::find_if(simulation.GetState().objects, [kind](const Interactable &object) { return object.kind == kind; });
     Require(target != simulation.GetState().objects.end(), "El escenario debe contener el objeto solicitado");
     std::vector<sf::Vector2f> route;
+    // La retirada del terminal conserva su lado este hasta cruzar el acceso del puente.
+    if (stealth && kind != ObjectKind::Terminal && simulation.GetState().agents.front().supportId == 10)
+      route = {{650.f, 210.f}, {650.f, 250.f}, {690.f, 250.f}};
+    unsigned int routeSearches = 0;
     constexpr float dt = 1.f / 30.f;
     for (int frame = 0; frame < 9000; ++frame) {
       const auto &state = simulation.GetState();
       if (state.phase != GamePhase::Mission) throw std::runtime_error("Operación terminada hacia " + std::to_string(static_cast<int>(kind)) + " seed=" + std::to_string(state.seed) + " contrato=" + std::to_string(static_cast<int>(state.contract)) + " en " + std::to_string(state.agents.front().position.x) + "," + std::to_string(state.agents.front().position.y) + " t=" + std::to_string(state.elapsed) + ": " + state.message);
       const auto &agent = state.agents.front();
+      if (frame % 900 == 0 || (stealth && kind == ObjectKind::Secondary && frame % 60 == 0 && agent.supportId == 10)) {
+        const auto next = route.empty() ? agent.position : route.front();
+        std::cout << "RUTA objeto=" << target->id << " frame=" << frame << " pos=" << agent.position.x << ',' << agent.position.y << ',' << agent.elevation << " apoyo=" << agent.supportId << " puntos=" << route.size() << " siguiente=" << next.x << ',' << next.y << " salud=" << agent.health << " vida=" << static_cast<int>(agent.lifeState) << " incapacidad=" << agent.incapacityRemaining << " t=" << state.elapsed << std::endl;
+        if (stealth && kind == ObjectKind::Secondary && agent.supportId == 10) for (const auto &guard : state.guards)
+          std::cout << "  Guardia=" << guard.id << " pos=" << guard.position.x << ',' << guard.position.y << ',' << guard.elevation << " estado=" << static_cast<int>(guard.state) << " frente=" << guard.facing.x << ',' << guard.facing.y << " sospecha=" << guard.suspicion << '\n';
+      }
       ActionCommand command;
       if (stealth && agent.stance != Stance::Prone) command.prone = true;
       if (!stealth && agent.stance != Stance::Crouched) command.crouch = true;
@@ -768,17 +902,34 @@ namespace {
       command.crawl = stealth;
       const auto closest = WorldGeometry::ClosestPoint(agent.position, WorldGeometry::ObjectFootprint(*target));
       const auto toward = closest - agent.position;
-      Agent interactionPoint; interactionPoint.position = closest;
-      if (toward.length() < GameplayConfig::InteractionDistance * 0.5f &&
+      const bool approachSide = !stealth || kind != ObjectKind::Terminal || (agent.position.x >= target->position.x + 40.f && agent.position.y <= target->position.y - 30.f);
+      if (approachSide && std::abs(agent.elevation - target->elevation) <= LevelConfig::MaximumStepHeight && toward.length() < GameplayConfig::InteractionDistance - GameplayConfig::AgentRadius &&
           (kind != ObjectKind::CoopSwitch || (agent.position - target->position).length() < GameplayConfig::InteractionDistance - 1.f) &&
-          (toward.length() < 0.01f || simulation.CanSee(agent.position, toward.normalized(), interactionPoint, GameplayConfig::InteractionDistance))) {
+          !WorldGeometry::RayOccluded(state, {agent.position.x, agent.position.y, agent.elevation + CombatConfig::StandingWeaponHeight}, {closest.x, closest.y, target->elevation + CombatConfig::StandingWeaponHeight}, target->id)) {
         if (agent.puzzle.target == target->id && agent.puzzle.family == PuzzleFamily::Coordination) { command.puzzleTarget = target->id; command.puzzleHeld = true; }
+        else if (kind == ObjectKind::AlarmPanel || kind == ObjectKind::Camera) command.tool = true;
         else command.interact = true;
         simulation.Step(dt, {{1, command}});
-        if (target->completed || simulation.GetState().agents.front().extracted || simulation.GetState().phase == GamePhase::Results) return;
+        if (target->completed || ((kind == ObjectKind::AlarmPanel || kind == ObjectKind::Camera) && !target->active) || simulation.GetState().agents.front().extracted || simulation.GetState().phase == GamePhase::Results) {
+          if (stealth) std::cout << "Planificación sigilosa objeto=" << target->id << " búsquedas=" << routeSearches << std::endl;
+          return;
+        }
         continue;
       }
-      if (frame % 6 == 0 || route.empty()) route = PlanRoute(simulation, *target, stealth);
+      const bool routeThreatened = stealth && std::ranges::any_of(state.guards, [&](const Guard &guard) {
+        if (guard.state == GuardState::Dead || guard.state == GuardState::Incapacitated || std::abs(guard.elevation - agent.elevation) > CombatConfig::StandingHeight) return false;
+        return std::any_of(route.begin(), route.begin() + std::min<std::size_t>(route.size(), 3), [&](sf::Vector2f point) {
+          auto candidate = agent; candidate.position = point;
+          if (const auto support = WorldGeometry::FindSupport(state, point, agent.elevation, agent.supportId, GameplayConfig::AgentRadius)) candidate.elevation = support->elevation;
+          const float currentDistance = WorldGeometry::SpatialDistance(WorldGeometry::Feet(guard), WorldGeometry::Feet(agent));
+          const float plannedDistance = WorldGeometry::SpatialDistance(WorldGeometry::Feet(guard), WorldGeometry::Feet(candidate));
+          return plannedDistance < std::min(GameplayConfig::VisionDistance * GameplayConfig::ProneVisionFactor + GameplayConfig::AgentRadius, currentDistance - 1.f) &&
+            simulation.CanSee(guard.position, candidate.position - guard.position, candidate, GameplayConfig::VisionDistance + GameplayConfig::AgentRadius * 2.f, guard.elevation);
+        });
+      });
+      if ((!stealth && route.empty()) || (stealth && frame % 6 == 0 && (route.empty() || routeThreatened))) {
+        route = PlanRoute(simulation, *target, stealth); ++routeSearches;
+      }
       while (!route.empty() && (route.front() - agent.position).length() < 0.25f) route.erase(route.begin());
       if (!route.empty()) {
         const auto offset = route.front() - agent.position;
@@ -792,29 +943,22 @@ namespace {
         Agent aimingAgent = agent;
         if (command.crouch) aimingAgent.stance = Stance::Crouched;
         for (const auto &guard : state.guards) if (guard.state != GuardState::Dead && guard.state != GuardState::Incapacitated) {
-          Agent candidate; candidate.position = guard.position;
+          Agent candidate; candidate.position = guard.position; candidate.elevation = guard.elevation;
           const auto offset = guard.position - agent.position;
-          if (offset.length() < 0.1f || offset.length() >= distance || !simulation.CanSee(agent.position, offset.normalized(), candidate, GameplayConfig::WeaponRange)) continue;
-          ActionCommand aim; AimHead(aim, aimingAgent, guard.position, guard.facing);
+          if (offset.length() < 0.1f || offset.length() >= distance || !simulation.CanSee(agent.position, offset.normalized(), candidate, GameplayConfig::WeaponRange, agent.elevation)) continue;
+          ActionCommand aim; AimHead(aim, aimingAgent, guard.position, guard.facing, Stance::Standing, guard.elevation);
           const sf::Vector2f direction = sf::Vector2f{aim.aimX, aim.aimY}.normalized();
-          const float height = CombatGeometry::WeaponHeight(aimingAgent.stance);
-          const auto hit = CombatGeometry::IntersectActor(agent.position, direction, height, aim.aimSlope, GameplayConfig::WeaponRange, guard.position, guard.facing, Stance::Standing);
+          const float height = aimingAgent.elevation + CombatGeometry::WeaponHeight(aimingAgent.stance);
+          const auto hit = CombatGeometry::IntersectActor(agent.position, direction, height, aim.aimSlope, GameplayConfig::WeaponRange, guard.position, guard.facing, Stance::Standing, false, guard.elevation);
           if (!hit || hit->zone != HitZone::Head) continue;
-          bool blocked = false;
-          const auto clip = [&](const sf::FloatRect &bounds, float top) {
-            const CombatGeometry::HitVolume volume{bounds.position + bounds.size * 0.5f, {1.f, 0.f}, bounds.size * 0.5f, 0.f, top, HitZone::None};
-            const auto obstruction = CombatGeometry::IntersectVolume(agent.position, direction, height, aim.aimSlope, hit->distance, volume);
-            blocked |= obstruction && *obstruction < hit->distance;
-          };
-          for (const auto &obstacle : state.obstacles) if (WorldGeometry::BlocksMovement(obstacle)) clip(obstacle.bounds, WorldGeometry::ObstacleHeight(obstacle));
-          for (const auto &object : state.objects) if (WorldGeometry::BlocksMovement(object)) clip(WorldGeometry::ObjectFootprint(object), WorldGeometry::ObjectHeight(object));
+          const bool blocked = WorldGeometry::RayOccluded(state, {agent.position.x, agent.position.y, height}, {guard.position.x, guard.position.y, hit->height});
           if (!blocked) { nearest = &guard; distance = offset.length(); }
         }
         if (nearest) {
           command.fireNonLethal = agent.nonLethalMagazine > 0 && agent.reloadRemaining <= 0.f && !command.reloadWeapon;
-          AimHead(command, aimingAgent, nearest->position, nearest->facing);
+          AimHead(command, aimingAgent, nearest->position, nearest->facing, Stance::Standing, nearest->elevation);
         }
-      } else if (agent.loadout.decoys > 0 && agent.actionCooldown <= 0.f) {
+      } else if (route.empty() && agent.loadout.decoys > 0 && agent.actionCooldown <= 0.f) {
         for (const auto &guard : state.guards) if ((guard.state == GuardState::Patrol || guard.state == GuardState::Suspicion) && (guard.position - agent.position).length() < 210.f) {
           const auto towardGuard = guard.position - agent.position;
           const auto forward = towardGuard.normalized();
@@ -824,7 +968,7 @@ namespace {
           for (float side : {-1.f, -0.5f, 0.f, 0.5f, 1.f}) {
             const auto desired = guard.position + forward * 110.f + lateral * (side * 150.f);
             const auto offset = desired - agent.position;
-            const auto path = DistractionGeometry::TraceDecoy(state, agent.position, offset, offset.length());
+            const auto path = DistractionGeometry::TraceDecoy(state, agent.position, offset, offset.length(), agent.elevation);
             const auto diversion = path.to - guard.position;
             if (!path.valid || diversion.length() > DistractionConfig::DecoyHearingDistance || diversion.dot(forward) < 55.f) continue;
             float separation = (path.to - agent.position).length();
@@ -855,6 +999,7 @@ namespace {
         simulation.SetContract(contract);
         simulation.SetLoadout(1, {0, 12, 6, 6});
         simulation.Deploy(seed);
+        ReachAndInteract(simulation, ObjectKind::AlarmPanel, false);
         ReachAndInteract(simulation, ObjectKind::Terminal, false);
         ReachAndInteract(simulation, ObjectKind::Secondary, false);
         ReachAndInteract(simulation, ObjectKind::CoopSwitch, false);
@@ -871,6 +1016,7 @@ namespace {
     clean.ResetBase(); clean.SetLoadout(1, {0, 0, 6, 6}); clean.Deploy(0);
     ActionCommand approach; approach.moveX = 1.f; approach.moveY = 0.25f; approach.run = true;
     Advance(clean, approach, 7, 1.f / 30.f);
+    ReachAndInteract(clean, ObjectKind::AlarmPanel, true);
     ReachAndInteract(clean, ObjectKind::Terminal, true);
     ReachAndInteract(clean, ObjectKind::Secondary, true);
     ReachAndInteract(clean, ObjectKind::Extraction, true);
@@ -897,8 +1043,10 @@ int main(int argc, char **argv) {
     run("PerceptionAndNoise", PerceptionAndNoise);
     run("CombatAndTools", CombatAndTools);
     run("WeaponTrajectoriesAndVitals", WeaponTrajectoriesAndVitals);
+    run("BallisticHeightRoundTrip", BallisticHeightRoundTrip);
     run("GuardAttacksAndRecovery", GuardAttacksAndRecovery);
     run("AtomicLifeAndExplicitRescue", AtomicLifeAndExplicitRescue);
+    run("RecoveryPresentationState", [] { checks += EngineTests::RunRecoverySimulationFixtures(); });
     run("ScoringAndObjectives", ScoringAndObjectives);
     run("PrivacyAndDisconnect", PrivacyAndDisconnect);
     run("DisconnectNeutralizesMovement", DisconnectNeutralizesMovement);

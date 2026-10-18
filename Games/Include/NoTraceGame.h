@@ -4,9 +4,9 @@
 #include "NoTraceSession.h"
 #include "NoTraceWorldRenderer.h"
 #include "NoTraceOptionsUi.h"
+#include "NoTraceAudioPlayback.h"
 #include "Config/NoTraceControlsConfig.h"
 #include "Types/DisplayTypes.h"
-#include <SFML/Audio/Sound.hpp>
 #include <array>
 #include <functional>
 #include <memory>
@@ -33,6 +33,7 @@ namespace NoTrace {
     enum class Page { Connection, Operations, Armory, Intelligence, Deployment, Results, Pause, Options, Puzzle, Weapons, Controls, None };
     Session session_;
     WorldRenderer worldRenderer_;
+    AudioPlayback audioPlayback_;
     tgui::Group::Ptr root_;
     tgui::Panel::Ptr panel_;
     tgui::Panel::Ptr footer_;
@@ -51,6 +52,8 @@ namespace NoTrace {
     tgui::ProgressBar::Ptr stamina_;
     tgui::ProgressBar::Ptr suppressor_;
     tgui::ProgressBar::Ptr puzzleProgress_;
+    std::array<tgui::Label::Ptr, 4> coordinationButtons_;
+    tgui::Button::Ptr coordinationHold_;
     tgui::ComboBox::Ptr resolutionBox_;
     tgui::ComboBox::Ptr modeBox_;
     OptionsWidgets options_;
@@ -64,8 +67,8 @@ namespace NoTrace {
     bool preparingDecoy_ = false;
     bool cancelledDecoy_ = false;
     bool cqcBlocked_ = false;
-    std::vector<std::shared_ptr<sf::Sound>> voices_;
     std::uint64_t lastSound_ = 0;
+    float lastNetworkTime_ = 0.f;
     MissionEvent puzzleFailure_;
     float puzzleFailureUntil_ = 0.f;
     GamePhase puzzleFailurePhase_ = GamePhase::Base;
@@ -87,6 +90,7 @@ namespace NoTrace {
     void BuildStation(Page page);
     void BuildResults();
     void BuildPuzzle();
+    void RefreshPuzzleControls();
     void BuildWeapons();
     void RefreshWeapons();
     void BuildControls();
@@ -98,6 +102,7 @@ namespace NoTrace {
     void PersistResults();
     void PlayCue(const std::string &file, float volume = 32.f, float pan = 0.f, float pitch = 1.f);
     const Agent *LocalAgent() const;
+    PlayerId ViewPlayer() const;
     bool Pressed(Action action, bool edge = false);
     tgui::Button::Ptr Button(const std::string &text, float y, std::function<void()> callback);
     tgui::Label::Ptr Label(const std::string &text, sf::Vector2f position, sf::Vector2f size, unsigned int textSize = 20);

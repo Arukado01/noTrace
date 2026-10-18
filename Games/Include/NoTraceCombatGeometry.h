@@ -39,13 +39,13 @@ namespace NoTrace::CombatGeometry {
         (CombatConfig::StandingTorsoBottom + CombatConfig::StandingHeight - CombatConfig::HeadHeight) * 0.5f;
   }
 
-  inline std::vector<HitVolume> ActorVolumes(sf::Vector2f position, sf::Vector2f facing, Stance stance, bool down = false) {
+  inline std::vector<HitVolume> ActorVolumes(sf::Vector2f position, sf::Vector2f facing, Stance stance, bool down = false, float elevation = 0.f) {
     using namespace CombatConfig;
     if (down) stance = Stance::Prone;
     const auto forward = Unit(facing);
     const sf::Vector2f side{-forward.y, forward.x};
     const auto volume = [&](sf::Vector2f center, sf::Vector2f halfSize, float bottom, float top, HitZone zone) {
-      return HitVolume{center, forward, halfSize, bottom, top, zone};
+      return HitVolume{center, forward, halfSize, bottom + elevation, top + elevation, zone};
     };
     if (stance == Stance::Prone) {
       return {
@@ -88,10 +88,10 @@ namespace NoTrace::CombatGeometry {
   }
 
   inline std::optional<HitIntersection> IntersectActor(sf::Vector2f from, sf::Vector2f direction, float fromHeight, float slope, float range,
-      sf::Vector2f position, sf::Vector2f facing, Stance stance, bool down = false) {
+      sf::Vector2f position, sf::Vector2f facing, Stance stance, bool down = false, float elevation = 0.f) {
     direction = Unit(direction);
     std::optional<HitIntersection> closest;
-    for (const auto &volume : ActorVolumes(position, facing, stance, down)) {
+    for (const auto &volume : ActorVolumes(position, facing, stance, down, elevation)) {
       const auto distance = IntersectVolume(from, direction, fromHeight, slope, range, volume);
       if (distance && (!closest || *distance < closest->distance)) closest = HitIntersection{*distance, fromHeight + slope * *distance, volume.zone};
     }

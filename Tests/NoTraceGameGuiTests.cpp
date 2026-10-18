@@ -1,3 +1,4 @@
+#include "NoTraceSpatialFixture.h"
 #include "NoTraceGame.h"
 #include "Bounce.h"
 #include "Clicker.h"
@@ -16,6 +17,10 @@
 #include "NoTraceSecurityGuiTests.h"
 #include "NoTraceAlertHudGuiTests.h"
 #include "NoTraceTableGuiTests.h"
+#include "NoTraceLevelGuiTests.h"
+#include "NoTraceCharacterGuiTests.h"
+#include "NoTraceIconsGuiTests.h"
+#include "NoTraceCoordinationGuiTests.h"
 #include "NoTraceCleanHudGuiTests.h"
 #include "NoTraceInteraction.h"
 #include "NoTraceWorldGeometry.h"
@@ -96,6 +101,14 @@ namespace EngineTests {
       { SaveManager save; save.Set("ProductionPersistence",55); }
       { SaveManager save; Require(save.Get("ProductionPersistence",0)==55,"El guardado común de producción no persiste al reabrir SaveManager"); }
     }
+    static void VerifyPrivateOrderIntroduction(Game &game) {
+      auto &world = const_cast<WorldState &>(game.session_.GetWorld()); const float elapsed = world.elapsed;
+      world.elapsed = 0.f; game.showOrders_ = false; game.worldRenderer_.SetNamesVisible(false); game.RefreshHud();
+      Require(game.private_->isVisible() && !game.private_->getText().empty() && !game.worldRenderer_.NamesVisible(), "El despliegue no muestra sólo la orden propia durante su aviso inicial");
+      world.elapsed = PresentationConfig::PrivateOrderIntroDuration + .01f; game.RefreshHud();
+      Require(!game.private_->isVisible(), "La orden inicial no desaparece tras su plazo");
+      world.elapsed = elapsed; game.RefreshHud();
+    }
     static void VerifyHud(Game &game) {
       auto &world = const_cast<WorldState &>(game.session_.GetWorld());
       auto &agent = world.agents.front();
@@ -119,6 +132,8 @@ namespace EngineTests {
       Require(world.phase == GamePhase::Mission && world.seed == seed && !world.agents[0].incapacitated && game.page_ == Game::Page::None, "Reintentar no restablece la operación tras el desmayo");
     }
     static void VerifyAudioRestart(Game &game) {
+      Require(!game.audioPlayback_.Play(SoundKind::Cabinet) && game.ctx.audio.ActiveVoices("NoTrace.Cabinet") == 0,
+        "El slot legado de armario reproduce un recurso retirado o crea una voz sin archivo");
       const auto previous = game.lastSound_;
       const auto *agent = game.LocalAgent();
       const auto expectedSound = agent->pistolSuppressorEquipped && agent->pistolSuppressor > 0.f ? SoundKind::Suppressed : SoundKind::Pistol;
@@ -127,7 +142,8 @@ namespace EngineTests {
       const auto &sounds = game.session_.GetWorld().sounds;
       Require(std::ranges::any_of(sounds, [previous, expectedSound](const SoundEvent &sound) { return sound.sequence > previous && sound.kind == expectedSound; }),
         "El disparo posterior al reinicio no genera una señal de audio nueva");
-      Require(!sounds.empty() && game.lastSound_ == sounds.back().sequence && game.lastSound_ > previous && !game.voices_.empty(),
+      const auto group = "NoTrace." + std::string(AudioConfig::Names[static_cast<std::size_t>(expectedSound)]);
+      Require(!sounds.empty() && game.lastSound_ == sounds.back().sequence && game.lastSound_ > previous && game.ctx.audio.ActiveVoices(group) > 0,
         "Reiniciar la misión impide reproducir las nuevas señales de audio de la simulación");
       const auto played = game.lastSound_;
       game.UpdateBackground();
@@ -182,7 +198,8 @@ namespace EngineTests {
       auto &world = const_cast<WorldState &>(game.session_.GetWorld());
       const auto saved = world;
       const auto previousPhase = game.previousPhase_;
-      world.phase = GamePhase::Mission; world.mode = SimulationMode::Operation;
+      world.phase = GamePhase::Mission; world.mode = SimulationMode::Operation; world.elapsed = PresentationConfig::PrivateOrderIntroDuration + 1.f;
+      NoTrace::TestFixture::LegacyPlane(world);
       world.obstacles.clear(); world.objects.clear(); world.guards.clear(); world.events.clear(); world.noises.clear(); world.sounds.clear(); world.securityEntries.clear();
       auto &agent = world.agents.front(); agent.position = {300.f, 300.f}; agent.facing = {1.f, 0.f}; agent.name = "NOMBRE_RESERVADO_TAB";
       agent.alive = true; agent.incapacitated = false; agent.hidden = false; agent.stance = Stance::Standing; agent.actionCooldown = 0.f;
@@ -246,10 +263,43 @@ namespace EngineTests {
       Key(game, context, sf::Keyboard::Scan::Z);
       Require(game.LocalAgent()->stance == Stance::Standing, "Z no permite levantarse después del arrastre");
     }
+    static void VerifyLevelControls(Game &game, EngineContext &context) {
+      auto &world = const_cast<WorldState &>(game.session_.GetWorld()); const auto saved = world;
+      Simulation fixture; const auto &map = MultilevelTests::QuietMission(fixture); world = map;
+      auto &agent = world.agents.front(); agent.position = {340.f, 326.f}; agent.elevation = 0.f; agent.supportId = 1;
+      game.previousPhase_ = GamePhase::Mission; game.ClosePanel(); context.input.Clear(); game.BindInputs(); game.held_.fill(false);
+      const auto press = [&](sf::Keyboard::Scan key) {
+        context.input.BeginFrame(); sf::Event::KeyPressed event; event.scancode = key; context.input.CaptureEvent(event); game.Update(); Step(game);
+      };
+      const auto release = [&](sf::Keyboard::Scan key) {
+        context.input.BeginFrame(); sf::Event::KeyReleased event; event.scancode = key; context.input.CaptureEvent(event); game.Update(); Step(game);
+      };
+      game.RefreshHud(); Require(game.hint_->getText().toStdString().starts_with("B ·"), "El HUD no anuncia el agarre de pared disponible");
+      press(sf::Keyboard::Scan::B); release(sf::Keyboard::Scan::B);
+      Require(agent.traversal.mode == TraversalMode::Attach, "B no envía el agarre a la simulación");
+      for (unsigned int frame = 0; frame < 120; ++frame) { context.input.BeginFrame(); game.Update(); Step(game); }
+      Require(agent.traversal.mode == TraversalMode::Hang, "El control real no completa la transición a pared");
+      press(sf::Keyboard::Scan::LShift); press(sf::Keyboard::Scan::B); release(sf::Keyboard::Scan::B); release(sf::Keyboard::Scan::LShift);
+      for (unsigned int frame = 0; frame < 120; ++frame) { context.input.BeginFrame(); game.Update(); Step(game); }
+      Require(agent.traversal.mode == TraversalMode::Grounded && agent.elevation == 0.f, "Mayús+B no suelta el agarre sobre un apoyo real");
+      Agent survivor = agent; survivor.id = 2; survivor.name = "Superviviente"; survivor.position = {400.f, 520.f}; survivor.privateOrder = PrivateOrder::Traitor;
+      world.agents.push_back(survivor); survivor.id = 3; survivor.name = "Compañero"; survivor.position = {520.f, 520.f}; survivor.privateOrder = PrivateOrder::CopyArchive; world.agents.push_back(survivor);
+      auto &dead = world.agents.front(); dead.alive = false; dead.lifeState = LifeState::Dead; dead.health = 0.f; dead.spectatorTarget = 2;
+      const auto deadPosition = dead.position; const int ammo = dead.loadout.lethalAmmo;
+      press(sf::Keyboard::Scan::D); press(sf::Keyboard::Scan::R); press(sf::Keyboard::Scan::E); release(sf::Keyboard::Scan::D); release(sf::Keyboard::Scan::R); release(sf::Keyboard::Scan::E);
+      Require(world.phase == GamePhase::Mission && dead.position == deadPosition && dead.loadout.lethalAmmo == ammo && game.ViewPlayer() == 2,
+        "El espectador interviene en la simulación o pierde al superviviente");
+      press(sf::Keyboard::Scan::PageDown); release(sf::Keyboard::Scan::PageDown);
+      Require(game.ViewPlayer() == 3 && !game.private_->isVisible() && game.agent_->getText().toStdString().find("ESPECTADOR") != std::string::npos,
+        "Av Pág no cambia de cámara o revela una orden privada");
+      press(sf::Keyboard::Scan::PageUp); release(sf::Keyboard::Scan::PageUp); Require(game.ViewPlayer() == 2, "Re Pág no recupera el objetivo anterior");
+      world = saved; context.input.Clear(); game.BindInputs(); game.held_.fill(false); game.previousPhase_ = world.phase; game.ClosePanel(); game.RefreshHud();
+    }
     static void VerifyTacticalControls(Game &game, EngineContext &context) {
       context.input.Clear(); game.BindInputs(); game.held_.fill(false);
       auto &world = const_cast<WorldState &>(game.session_.GetWorld());
       const auto saved = world;
+      NoTrace::TestFixture::LegacyPlane(world);
       world.objects.clear(); world.obstacles.clear(); world.guards.clear(); world.noises.clear(); world.shots.clear(); world.events.clear();
       auto &agent = world.agents[0]; agent.position = {150.f, 350.f}; agent.facing = {1.f, 0.f}; agent.actionCooldown = 0.f;
       context.cursor.SetPosition({1050.f, 480.f});
@@ -337,6 +387,7 @@ namespace EngineTests {
       auto &world = const_cast<WorldState &>(game.session_.GetWorld());
       const auto saved = world;
       const auto savedSound = game.lastSound_;
+      NoTrace::TestFixture::LegacyPlane(world);
       world.objects.clear(); world.obstacles.clear(); world.guards.clear(); world.noises.clear(); world.shots.clear(); world.events.clear();
       auto &agent = world.agents[0]; agent.position = {300.f, 350.f}; agent.stance = Stance::Standing; agent.cover = {}; agent.actionCooldown = 0.f;
       agent.selectedWeapon = WeaponKind::Pistol; agent.reloadRemaining = 0.f;
@@ -450,6 +501,7 @@ namespace EngineTests {
     static void VerifyCursorOrientation(Game &game, EngineContext &context, sf::RenderWindow &window, const std::filesystem::path &output) {
       auto &world=const_cast<WorldState &>(game.session_.GetWorld());
       const auto saved=world; const auto previousSettings=context.window.GetDisplaySettings(); const auto previousZoom=game.worldRenderer_.GetZoom();
+      NoTrace::TestFixture::LegacyPlane(world);
       world.obstacles.clear(); world.objects.clear(); world.guards.clear(); world.securityEntries.clear(); world.shots.clear(); world.visibility={};
       const std::array<sf::Keyboard::Scan,4> scans{sf::Keyboard::Scan::W,sf::Keyboard::Scan::D,sf::Keyboard::Scan::S,sf::Keyboard::Scan::A};
       const std::array<sf::Vector2f,8> movements{{{0.f,-1.f},{1.f,-1.f},{1.f,0.f},{1.f,1.f},{0.f,1.f},{-1.f,1.f},{-1.f,0.f},{-1.f,-1.f}}};
@@ -517,6 +569,7 @@ namespace EngineTests {
       const auto saved = world;
       const auto savedSound = game.lastSound_;
       const int savedDive = context.save.Get("NoTrace:DiveKey", 0), savedRoll = context.save.Get("NoTrace:RollKey", 1);
+      NoTrace::TestFixture::LegacyPlane(world);
       world.objects.clear(); world.obstacles.clear(); world.guards.clear(); world.noises.clear(); world.shots.clear(); world.events.clear();
       auto &agent = world.agents[0]; agent = Agent{}; agent.id = saved.agents[0].id; agent.name = saved.agents[0].name; agent.position = {300.f, 350.f};
       const auto idle = [&](int frames = 1) {
@@ -594,6 +647,7 @@ namespace EngineTests {
       const auto saved = world;
       const auto savedSound = game.lastSound_;
       nlohmann::json metrics = nlohmann::json::array();
+      NoTrace::TestFixture::LegacyPlane(world);
       world.objects.clear(); world.obstacles.clear(); world.guards.clear(); world.securityEntries.clear(); world.noises.clear(); world.shots.clear(); world.events.clear(); world.sounds.clear();
       auto &agent = world.agents[0]; agent.position = {200.f, 300.f}; agent.facing = {1.f, 0.f}; agent.health = GameplayConfig::MaxHealth; agent.stamina = GameplayConfig::MaxStamina;
       agent.actionCooldown = 0.f; agent.stance = Stance::Standing; agent.cover = {}; agent.puzzle = {}; agent.hidden = false; agent.hideoutId = 0; agent.draggingGuard = -1;
@@ -605,17 +659,23 @@ namespace EngineTests {
       door.footprint = {24.f, 24.f}; door.locked = true; door.puzzle.kind = PuzzleKind::Door; door.puzzle.difficulty = 3; world.objects.push_back(door);
       Interact(game, context);
       Require(game.page_ == Game::Page::Puzzle && agent.puzzle.target == 90, "E no abre la interfaz contextual del puzle autoritativo");
-      for (int choice = 1; choice <= 4; ++choice) Require(HasButton(game, std::to_string(choice)), "La interfaz no conserva las cuatro opciones del circuito");
+      for (const auto key : {"W", "D", "S", "A"}) Require(HasButton(game, key), "La interfaz no conserva los cuatro controles direccionales del circuito");
       Require(HasButton(game, "CANCELAR SIN RESOLVER"), "El circuito no ofrece una cancelación explícita");
       capture("12-puzzle-door");
       const auto elapsed = world.elapsed;
       Step(game, 0.2f);
       Require(world.elapsed > elapsed && world.objects[0].locked, "La interfaz de puzle congela el mundo o abre la puerta sin resolverla");
-      const auto answer = [&] { const auto value = agent.puzzle.sequence.at(agent.puzzle.stage); const std::array<const char *, 4> names{"ARRIBA", "DERECHA", "ABAJO", "IZQUIERDA"}; return std::to_string(value) + "  " + names.at(value - 1); };
-      Click(game, context, window, answer()); game.Update(); Step(game);
-      Require(agent.puzzle.stage == 1 && world.objects[0].locked && game.puzzleStageRendered_ == 1, "El clic de respuesta no actualiza la etapa real y su representación");
-      game.Update(); Step(game);
-      Require(agent.puzzle.stage == 1, "Un clic de circuito avanza varias etapas sin una nueva elección");
+      const auto answer = [&] { const auto value = agent.puzzle.sequence.at(agent.puzzle.stage); const std::array<const char *, 4> names{"ARRIBA", "DERECHA", "ABAJO", "IZQUIERDA"}; const std::array<const char *, 4> keys{"W", "D", "S", "A"}; return std::string(keys.at(value - 1)) + "  " + names.at(value - 1); };
+      const std::array<sf::Keyboard::Scan, 4> puzzleKeys{sf::Keyboard::Scan::W, sf::Keyboard::Scan::D, sf::Keyboard::Scan::S, sf::Keyboard::Scan::A};
+      sf::Event::KeyPressed physical; physical.scancode = puzzleKeys.at(agent.puzzle.sequence.front() - 1);
+      const auto puzzlePosition = agent.position;
+      context.input.BeginFrame(); context.input.CaptureEvent(physical); game.Update(); Step(game);
+      Require(agent.puzzle.stage == 1 && world.objects[0].locked && game.puzzleStageRendered_ == 1 && agent.position == puzzlePosition,
+        "La pulsación WASD no actualiza el circuito o también mueve al agente durante la interacción");
+      for (int repeat = 0; repeat < 3; ++repeat) { context.input.BeginFrame(); context.input.CaptureEvent(physical); game.Update(); Step(game); }
+      Require(agent.puzzle.stage == 1 && world.objects[0].puzzle.state == PuzzleState::InUse, "El auto-repeat WASD avanza o falla el circuito sin una nueva pulsación física");
+      sf::Event::KeyReleased released; released.scancode = physical.scancode;
+      context.input.BeginFrame(); context.input.CaptureEvent(released); game.Update(); Step(game);
       Escape(game); game.Update(); Step(game);
       Require(game.page_ == Game::Page::None && agent.puzzle.target == 0 && world.objects[0].user == 0 && world.objects[0].locked && !world.objects[0].open,
         "ESC desbloquea una cerradura o deja abierto su puzle");
@@ -748,6 +808,7 @@ namespace EngineTests {
       Simulation authority, replica;
       authority.ResetBase({{1, "Local"}, {2, "Ajeno"}}); authority.Deploy(17);
       auto &host = const_cast<WorldState &>(authority.GetState());
+      NoTrace::TestFixture::LegacyPlane(host);
       host.objects.clear(); host.obstacles.clear(); host.guards.clear(); host.securityEntries.clear(); host.events.clear(); host.sounds.clear(); host.noises.clear();
       for (unsigned int index = 0; index < 2; ++index) {
         host.agents[index].position = {200.f, 300.f + index * 70.f}; host.agents[index].facing = {1.f, 0.f};
@@ -797,6 +858,7 @@ namespace EngineTests {
       Require(game.puzzleFailure_.target == 0 && game.message_->getText().toStdString().find("Intervención fallida") == std::string::npos,
         "Regresar a la base conserva un fallo de la operación anterior");
       authority.Deploy(17);
+      NoTrace::TestFixture::LegacyPlane(host);
       host.objects.clear(); host.obstacles.clear(); host.guards.clear(); host.securityEntries.clear();
       host.agents[0].position = {200.f, 300.f}; host.agents[0].facing = {1.f, 0.f};
       Interactable remoteComputer{210, ObjectKind::Computer, {240.f, 300.f}, "Inteligencia remota"};
@@ -906,7 +968,7 @@ namespace EngineTests {
       for (unsigned int y=0;y<idle.getSize().y;++y) for (unsigned int x=0;x<idle.getSize().x;++x) if (idle.getPixel({x,y})!=rescue.getPixel({x,y})) ++changed;
       Require(changed>100,"El selector/ocultación del HUD elimina la flecha de rescate fuera de visión");
       demo.visibility={}; demo.rescueSignals.clear(); demo.obstacles.clear(); demo.agents[0].cover={};
-      Require(std::abs(GameplayConfig::RunningNoiseRadius - 340.f * 0.9f) < 0.001f, "El radio de carrera no equivale al noventa por ciento del valor anterior");
+      Require(std::abs(GameplayConfig::RunningNoiseRadius - 306.f * 0.8f) < 0.001f, "El radio de carrera no equivale al ochenta por ciento del valor anterior");
       const auto quiet=CaptureWorld(renderer,demo,context,window,output/"final-noise-silent.png",false);
       const auto noiseOrigin=demo.agents[0].position+sf::Vector2f{100.f,0.f};
       demo.noises={{noiseOrigin,GameplayConfig::RunningNoiseRadius,GameplayConfig::NoiseDuration * 0.25f,1,0,SoundKind::StepRunHard,GameplayConfig::NoiseDuration}};
@@ -1075,7 +1137,7 @@ namespace {
       EngineTests::RunAlertHudRenderFixtures(context,window,output,captureWorld);
       game.OnCleanup(); window.close(); return nlohmann::json::array();
     }
-    if (visualSuite == "--alert-hud-visuals-only" || visualSuite == "--security-visuals-only" ||
+    if (visualSuite == "--coordination-visuals-only" || visualSuite == "--icons-visuals-only" || visualSuite == "--character-visuals-only" || visualSuite == "--level-visuals-only" || visualSuite == "--alert-hud-visuals-only" || visualSuite == "--security-visuals-only" ||
         visualSuite == "--orientation-visuals-only" || visualSuite == "--table-visuals-only" || visualSuite == "--world-visuals-only" || visualSuite == "--tactical-fixes-visuals-only" || visualSuite == "--clean-hud-visuals-only") {
       const auto captureWorld=[&](WorldRenderer &renderer,const WorldState &world,const std::filesystem::path &file,bool hudVisible=true) { return Access::CaptureWorld(renderer,world,context,window,file,hudVisible); };
       if (visualSuite == "--alert-hud-visuals-only" || visualSuite == "--tactical-fixes-visuals-only") EngineTests::RunAlertHudRenderFixtures(context,window,output,captureWorld);
@@ -1084,6 +1146,10 @@ namespace {
       if (visualSuite == "--table-visuals-only" || visualSuite == "--tactical-fixes-visuals-only") EngineTests::RunTableRenderFixtures(context,output,captureWorld);
       if (visualSuite == "--world-visuals-only") EngineTests::RunWorldRenderFixtures(context,output,captureWorld);
       if (visualSuite == "--clean-hud-visuals-only") EngineTests::RunCleanHudRenderFixtures(context,window,output,captureWorld);
+      if (visualSuite == "--level-visuals-only") EngineTests::RunLevelRenderFixtures(context,output,captureWorld);
+      if (visualSuite == "--character-visuals-only") EngineTests::RunCharacterRenderFixtures(context,output,captureWorld);
+      if (visualSuite == "--icons-visuals-only") EngineTests::RunIconRenderFixtures(output);
+      if (visualSuite == "--coordination-visuals-only") EngineTests::RunCoordinationRenderFixtures(context,output,captureWorld);
       if (visualSuite == "--tactical-fixes-visuals-only") Access::VerifyFinalVisuals(context,window,output);
       window.close(); return nlohmann::json::array();
     }
@@ -1172,6 +1238,7 @@ namespace {
     capture("04-deployment");
     Access::Press(game, "DESPLEGAR OPERACIÓN");
     Access::Require(Access::GetSession(game).GetWorld().phase == GamePhase::Mission, "El callback no desplegó la operación");
+    Access::VerifyPrivateOrderIntroduction(game);
     Access::Capture(game, context, window, output / "05-mission.png");
     Access::VerifyGameOverAndRetry(game);
     Access::VerifyFireInput(game, context, window);
@@ -1179,6 +1246,7 @@ namespace {
     Access::VerifyAutomaticCrawl(game, context);
     Access::VerifyTacticalControls(game, context);
     Access::VerifyManeuverControls(game, context);
+    Access::VerifyLevelControls(game, context);
     for (const auto &entry : Access::VerifyPuzzleGui(game, context, window, output)) metrics.push_back(entry);
     Access::VerifyPrivatePuzzleFeedback(game);
     Access::Escape(game);
@@ -1204,6 +1272,10 @@ namespace {
     EngineTests::RunSecurityRenderFixtures(context,output,captureWorld);
     EngineTests::RunAlertHudRenderFixtures(context,window,output,captureWorld);
     EngineTests::RunTableRenderFixtures(context,output,captureWorld);
+    EngineTests::RunLevelRenderFixtures(context,output,captureWorld);
+    EngineTests::RunCharacterRenderFixtures(context,output,captureWorld);
+    EngineTests::RunIconRenderFixtures(output);
+    EngineTests::RunCoordinationRenderFixtures(context,output,captureWorld);
     EngineTests::RunCleanHudRenderFixtures(context,window,output,captureWorld);
     EngineTests::RunWorldRenderFixtures(context, output, [&](WorldRenderer &renderer, const WorldState &world, const std::filesystem::path &file, bool hudVisible = true) {
       return Access::CaptureWorld(renderer, world, context, window, file, hudVisible);
@@ -1240,7 +1312,7 @@ namespace {
 int main(int argc, char **argv) {
   try {
     const std::string visualSuite = argc == 2 ? argv[1] : "";
-    const bool focused = visualSuite == "--final-visuals-only" || visualSuite == "--alert-hud-visuals-only" || visualSuite == "--security-visuals-only" ||
+    const bool focused = visualSuite == "--coordination-visuals-only" || visualSuite == "--icons-visuals-only" || visualSuite == "--character-visuals-only" || visualSuite == "--level-visuals-only" || visualSuite == "--final-visuals-only" || visualSuite == "--alert-hud-visuals-only" || visualSuite == "--security-visuals-only" ||
       visualSuite == "--orientation-visuals-only" || visualSuite == "--table-visuals-only" || visualSuite == "--world-visuals-only" || visualSuite == "--tactical-fixes-visuals-only" || visualSuite == "--clean-hud-visuals-only" || visualSuite == "--interaction-fixes-only";
     const auto project = std::filesystem::current_path();
     const auto userSave = ReadFile(project / "Content/Save.json");

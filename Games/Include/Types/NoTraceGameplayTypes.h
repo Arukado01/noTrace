@@ -6,6 +6,8 @@
 #include "Config/NoTraceSpatialConfig.h"
 #include "Types/NoTraceDeviceTypes.h"
 #include "Types/NoTraceManeuverTypes.h"
+#include "Types/NoTraceSpatialTypes.h"
+#include "Types/NoTraceTraversalTypes.h"
 #include <SFML/System/Vector2.hpp>
 #include <SFML/Graphics/Rect.hpp>
 #include <algorithm>
@@ -25,8 +27,8 @@ namespace NoTrace {
   enum class LifeState { Alive, Incapacitated, Dead };
   enum class HitZone { None, Head, Torso, Limbs };
   enum class ShotTarget { None, Agent, Guard };
-  enum class ActionPose { None, ThrowDecoy, KnockWall, Push, Subdue, Punch, Kick, Recover, Grab, Choke, Aim, Shoot, Reload, TakeDamage, Fall, Interact, HideEnter, HideExit, CoverEnter };
-  enum class SoundKind { Pistol, Rifle, Suppressed, Reload, Impact, Punch, Kick, Grab, Choke, Fall, StepHard, StepSoft, Knock, TrapTick, Explosion, Lock, PuzzleStep, PuzzleFailed, PuzzleSolved, Camera, Alarm, Reinforcement, Cabinet, Hideout, Drag, Decoy, SuppressorAttach, SuppressorDetach, StepRunHard, StepRunSoft, StepCrouchHard, StepCrouchSoft };
+  enum class ActionPose { None, ThrowDecoy, KnockWall, Push, Subdue, Punch, Kick, Recover, Grab, Choke, Aim, Shoot, Reload, TakeDamage, Fall, Interact, HideEnter, HideExit, CoverEnter, SuppressorAttach, SuppressorDetach, WeaponSwitch, Revive };
+  enum class SoundKind { Pistol, Rifle, Suppressed, Reload, Impact, Punch, Kick, Grab, Choke, Fall, StepHard, StepSoft, Knock, TrapTick, Explosion, Lock, PuzzleStep, PuzzleFailed, PuzzleSolved, Camera, Alarm, Reinforcement, Cabinet, Hideout, Drag, Decoy, SuppressorAttach, SuppressorDetach, StepRunHard, StepRunSoft, StepCrouchHard, StepCrouchSoft, StepMetal, StepRunMetal, StepCrouchMetal, NonLethal, SuppressedNonLethal, Push, Roll, Dive, Land, GetUp, CoverEnter, CoverExit, DoorOpen, DoorClose, CabinetOpen, CabinetClose, TableFlip, WeaponSwitch, SuppressorBreak, ImpactBody, ImpactMetal, Lever, WireConnect, Button, ComputerKey, TrapArm, TrapDisarm, DetectionConfirmed, SearchStart, VigilanceStart, AlertEnd, ReinforcementExit, Hurt, Wake, Revive, Death, MissionSuccess, MissionFailure, AmbientVentilation, AmbientElectrical, AmbientRoom, Equipment, WeaponReady, ReloadFinish, ProneCrawl, GripAttach, GripMove, GripRelease, StepStair, StepRunStair, StepCrouchStair, ElevatorOpen, ElevatorClose, ElevatorStart, ElevatorStop, ElevatorMove, DryFire, DecoyPrepare, DecoyThrow, CameraDisable, Count };
   enum class GuardState { Patrol, Suspicion, Investigate, Alert, Search, Incapacitated, Dead, Retiring, ApproachBody, InspectBody, Vigilance };
   enum class SecurityAlert { Calm, Red, Orange, Yellow };
   enum class BodyTargetKind { None, Guard, Agent };
@@ -35,8 +37,9 @@ namespace NoTrace {
   enum class PeekSide { None, Left, Right };
   enum class HideoutKind { None, TrashBin, Closet, UnderTable };
   enum class CqcState { None, Grabbed, KnockedDown, Restrained };
-  enum class ObjectKind { Operations, Armory, Intelligence, Deployment, Door, Terminal, Secondary, Camera, Hideout, CoopSwitch, Extraction, AlarmPanel, Explosive, Computer, CameraPanel, TrainingReset, PuzzleNode };
+  enum class ObjectKind { Operations, Armory, Intelligence, Deployment, Door, Terminal, Secondary, Camera, Hideout, CoopSwitch, Extraction, AlarmPanel, Explosive, Computer, CameraPanel, TrainingReset, PuzzleNode, Elevator };
   enum class PrivateOrder { None, CopyArchive, RecoverDevice, Traitor };
+  enum class PropStyle { Automatic, Desk, Locker, Ammunition, Logistics, Waste, Server, Console, Lever, Buttons, SecurityDoor, Medical, Elevator, Chair, Bench, Barrels, Glass, Ventilation, SafetyLamp };
   enum class EventKind { Objective, Secondary, Extracted, ConfirmedDetection, AgentAlarm, Noise, WeaponLethal, WeaponNonLethal, Cqc, GuardKilled, GuardIncapacitated, BodyFound, CameraDisabled, Sabotage, PrivateObjective, AgentKilled, Disconnected, GuardShot, GuardMelee, AgentDamaged, AgentIncapacitated, AgentRevived, TrapTick, Explosion, PuzzleStarted, PuzzleStep, PuzzleFailed, PuzzleSolved, CameraSweep };
   enum class Rank { D, C, B, A, S, SPlus, Maestro };
 
@@ -77,6 +80,10 @@ namespace NoTrace {
     bool roll = false;
     bool toggleSuppressor = false;
     bool puzzleHeld = false;
+    bool traverse = false;
+    bool drop = false;
+    bool spectateNext = false;
+    bool spectatePrevious = false;
   };
   struct AgentCover {
     bool active = false;
@@ -176,6 +183,10 @@ namespace NoTrace {
     bool privateComplete = false;
     AgentCover cover;
     DecoyGuide decoyGuide;
+    float elevation = 0.f;
+    std::uint32_t supportId = 0;
+    TraversalState traversal;
+    PlayerId spectatorTarget = 0;
   };
   struct Guard {
     std::uint32_t id = 0;
@@ -225,6 +236,11 @@ namespace NoTrace {
     BodyTargetKind bodyTargetKind = BodyTargetKind::None;
     std::uint32_t bodyTargetId = 0;
     float bodyInspectionTime = 0.f;
+    float elevation = 0.f;
+    std::uint32_t supportId = 0;
+    float lastKnownElevation = 0.f;
+    std::vector<float> patrolElevations;
+    float wakeRemaining = 0.f;
   };
   struct Obstacle {
     sf::FloatRect bounds;
@@ -233,6 +249,8 @@ namespace NoTrace {
     std::string name;
     bool blocksVision = true;
     bool wallCover = true;
+    float elevation = 0.f;
+    float height = 0.f;
   };
   struct Interactable {
     std::uint32_t id = 0;
@@ -263,15 +281,21 @@ namespace NoTrace {
     CameraDevice camera;
     TrapDevice trap;
     PuzzleDevice puzzle;
+    float elevation = 0.f;
+    std::uint32_t supportId = 0;
+    std::uint32_t elevatorId = 0;
+    bool overturned = false;
+    PropStyle propStyle = PropStyle::Automatic;
   };
-  struct NoiseEvent { sf::Vector2f position; float radius = 0.f; float remaining = 0.f; PlayerId actor = 0; std::uint32_t guardId = 0; SoundKind kind = SoundKind::Impact; float duration = GameplayConfig::NoiseDuration; sf::Vector2f visualDirection{}; };
-  struct DecoyProjectile { sf::Vector2f from; sf::Vector2f to; float elapsed = 0.f; float duration = 0.f; float height = 0.f; PlayerId actor = 0; bool blocked = false; };
-  struct SoundEvent { std::uint64_t sequence = 0; SoundKind kind = SoundKind::Impact; sf::Vector2f position; float radius = 0.f; float remaining = 0.f; PlayerId actor = 0; };
+  struct NoiseEvent { sf::Vector2f position; float radius = 0.f; float remaining = 0.f; PlayerId actor = 0; std::uint32_t guardId = 0; SoundKind kind = SoundKind::Impact; float duration = GameplayConfig::NoiseDuration; sf::Vector2f visualDirection{}; float elevation = 0.f; };
+  struct DecoyProjectile { sf::Vector2f from; sf::Vector2f to; float elapsed = 0.f; float duration = 0.f; float height = 0.f; PlayerId actor = 0; bool blocked = false; float elevation = 0.f; };
+  struct SoundEvent { std::uint64_t sequence = 0; SoundKind kind = SoundKind::Impact; sf::Vector2f position; float radius = 0.f; float remaining = 0.f; PlayerId actor = 0; float elevation = 0.f; };
   struct FootstepCue {
     sf::Vector2f position;
     std::uint8_t direction = 0;
     float remaining = 0.f;
     std::uint32_t sourceGuard = 0;
+    float elevation = 0.f;
   };
   struct ShotTrace {
     sf::Vector2f from;
@@ -313,6 +337,7 @@ namespace NoTrace {
   };
   struct VisibilityGrid {
     sf::Vector2f visualOrigin;
+    float elevation = 0.f;
     std::vector<float> visualRadii;
     bool authoritative = false;
     PlayerId observer = 0;
@@ -347,6 +372,10 @@ namespace NoTrace {
     std::vector<Agent> agents;
     std::vector<Guard> guards;
     std::vector<Obstacle> obstacles;
+    std::vector<WalkSurface> walkSurfaces;
+    std::vector<VerticalLink> verticalLinks;
+    std::vector<GripSurface> gripSurfaces;
+    std::vector<ElevatorState> elevators;
     std::vector<Interactable> objects;
     std::vector<NoiseEvent> noises;
     std::vector<DecoyProjectile> decoys;

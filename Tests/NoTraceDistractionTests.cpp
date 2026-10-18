@@ -1,5 +1,6 @@
 #include "NoTraceDistractionGeometry.h"
 #include "NoTraceSimulation.h"
+#include "NoTraceSpatialFixture.h"
 #include "NoTraceVisibility.h"
 #include "Config/NoTraceAudioConfig.h"
 #include <algorithm>
@@ -18,6 +19,7 @@ namespace {
   WorldState &Fixture(Simulation &simulation) {
     simulation.ResetBase(); simulation.Deploy(0);
     auto &world = const_cast<WorldState &>(simulation.GetState());
+    TestFixture::LegacyPlane(world);
     world.mode = SimulationMode::Operation;
     world.objects.clear(); world.obstacles.clear(); world.guards.clear(); world.noises.clear(); world.shots.clear(); world.footsteps.clear(); world.decoys.clear(); world.sounds.clear(); world.events.clear(); world.securityEntries.clear();
     world.agents[0].position = {100.f, 500.f}; world.agents[0].facing = {1.f, 0.f};
@@ -146,6 +148,7 @@ namespace {
     Simulation simulation; auto &world = Fixture(simulation);
     Interactable door{91, ObjectKind::Door, {275.f, 500.f}, "Puerta móvil"}; door.open = true;
     world.objects.push_back(door);
+    Guard guard; guard.id = 8; guard.position = {500.f, 500.f}; guard.facing = {1.f, 0.f}; world.guards.push_back(guard);
     ActionCommand launch; launch.throwDecoy = true; launch.aimX = 1.f; launch.decoyDistance = 320.f;
     simulation.Step(0.1f, {{1, launch}});
     Require(world.decoys.size() == 1 && !world.decoys[0].blocked && world.noises.empty(), "La puerta abierta impide iniciar un vuelo silencioso");
@@ -154,6 +157,9 @@ namespace {
     const auto edge = WorldGeometry::ObjectFootprint(world.objects[0]).position.x;
     Require(world.decoys.empty() && world.noises.size() == 1 && world.noises[0].position.x < edge && world.noises[0].position.x > edge - 10.f,
       "Cerrar una puerta durante el vuelo deja pasar el disco o produce un impacto lejos de la colisión real");
+    Require(world.noises[0].elevation == 0.f && world.guards[0].state == GuardState::Investigate && world.guards[0].lastKnownElevation == 0.f &&
+      std::ranges::any_of(world.sounds, [](const SoundEvent &sound) { return sound.kind == SoundKind::Decoy && sound.elevation > 0.f; }),
+      "El impacto elevado conserva su sonido físico pero la investigación debe dirigirse al apoyo de la planta de origen");
     Advance(simulation, 12);
     Require(std::ranges::count_if(world.events, [](const MissionEvent &event) { return event.kind == EventKind::Noise; }) == 1,
       "La colisión dinámica repite el ruido después de retirar el disco");
@@ -163,6 +169,46 @@ namespace {
     simulation.Step(0.1f, {{1, launch}});
     Require(world.decoys.size() == DistractionConfig::MaximumFlyingDecoys && world.agents[0].loadout.decoys == stock && world.noises.empty(),
       "El límite de discos simultáneos consume inventario al rechazar el lanzamiento");
+  }
+
+  void DecoyStaysOnTheLaunchFloor() {
+    Simulation simulation;
+    auto &world = Fixture(simulation);
+    world.walkSurfaces = {{1, 0, WalkSurfaceKind::Floor, {{0.f, 0.f}, world.size}, 0.f}, {2, 1, WalkSurfaceKind::Floor, {{50.f, 400.f}, {500.f, 200.f}}, 96.f}};
+    auto &agent = world.agents[0]; agent.elevation = 96.f; agent.supportId = 2;
+    Obstacle lowerWall{{{220.f, 450.f}, {20.f, 100.f}}, CoverKind::High, true, "Muro sólo en planta inferior"};
+    world.obstacles.push_back(lowerWall);
+    const auto upper = DistractionGeometry::TraceDecoy(world, agent.position, {1.f, 0.f}, 320.f, agent.elevation);
+    Require(upper.valid && !upper.blocked && upper.to == sf::Vector2f{420.f, 500.f}, "Un mueble de otra planta bloquea la trayectoria superior");
+    world.obstacles[0].elevation = 96.f;
+    const auto blocked = DistractionGeometry::TraceDecoy(world, agent.position, {1.f, 0.f}, 320.f, agent.elevation);
+    Require(blocked.valid && blocked.blocked && blocked.to.x < lowerWall.bounds.position.x, "Una pared de la planta de origen no bloquea el arco real");
+    world.obstacles.clear();
+    ActionCommand launch; launch.throwDecoy = true; launch.aimX = 1.f; launch.decoyDistance = 320.f;
+    simulation.Step(.1f, {{1, launch}});
+    Require(world.decoys.size() == 1 && world.decoys[0].elevation == 96.f, "El proyectil no conserva la base de lanzamiento");
+    agent.elevation = 0.f; agent.supportId = 1;
+    Land(simulation);
+    Require(world.decoys.empty() && world.noises.size() == 1 && world.noises[0].elevation == 96.f && world.noises[0].position == upper.to &&
+      std::ranges::any_of(world.sounds, [](const SoundEvent &sound) { return sound.kind == SoundKind::Decoy && sound.elevation == 96.f; }),
+      "El dueño cambia de planta durante el vuelo y arrastra el impacto acústico a su cota actual");
+  }
+
+  void DecoyRequiresASupportedLandingAndClearArc() {
+    WorldState world;
+    world.walkSurfaces = {{1, 0, WalkSurfaceKind::Floor, {{0.f, 0.f}, world.size}, 0.f}, {2, 1, WalkSurfaceKind::Floor, {{50.f, 400.f}, {170.f, 200.f}}, 96.f}};
+    auto clipped = DistractionGeometry::TraceDecoy(world, {100.f, 500.f}, {1.f, 0.f}, 320.f, 96.f);
+    Require(clipped.valid && clipped.blocked && clipped.to.x <= 217.f && DistractionGeometry::DecoyLandingValid(world, clipped.to, 96.f),
+      "El disco termina flotando fuera de su apoyo o se traslada al piso inferior");
+    world.walkSurfaces.push_back({3, 1, WalkSurfaceKind::Bridge, {{300.f, 400.f}, {200.f, 200.f}}, 96.f});
+    const auto bridge = DistractionGeometry::TraceDecoy(world, {100.f, 500.f}, {1.f, 0.f}, 320.f, 96.f);
+    Require(bridge.valid && !bridge.blocked && bridge.to == sf::Vector2f{420.f, 500.f}, "Un hueco intermedio impide aterrizar en un puente de la misma cota");
+    world.walkSurfaces.push_back({4, 2, WalkSurfaceKind::Floor, {{50.f, 400.f}, {500.f, 200.f}}, 128.f});
+    const auto roof = DistractionGeometry::TraceDecoy(world, {100.f, 500.f}, {1.f, 0.f}, 320.f, 96.f);
+    Require(!roof.valid || (roof.blocked && DistractionGeometry::DecoyArcCollision(world, roof.from, roof.to, 96.f) == 1.f),
+      "Un techo interseca el arco aunque el segmento XY y el destino sean válidos");
+    world.walkSurfaces = {{1, 0, WalkSurfaceKind::Floor, {{0.f, 0.f}, world.size}, 0.f}, {2, 1, WalkSurfaceKind::Floor, {{95.f, 450.f}, {10.f, 100.f}}, 96.f}};
+    Require(!DistractionGeometry::TraceDecoy(world, {100.f, 500.f}, {1.f, 0.f}, 320.f, 96.f).valid, "Un apoyo demasiado corto permite un lanzamiento sin aterrizaje mínimo válido");
   }
 
   void ApproximateFootstepsAndPrivacy() {
@@ -177,7 +223,7 @@ namespace {
     Require(world.noises.empty() && !world.alarm, "Los pasos aliados no distraen artificialmente a otras patrullas");
     auto snapshot = simulation.SnapshotFor(1, true);
     Require(snapshot["guards"].empty() && snapshot["footsteps"].size() == 1 && !snapshot["footsteps"][0].contains("sourceGuard"), "El snapshot permite la pista acústica sin revelar identidad ni cuerpo oculto");
-    Require(snapshot["footsteps"][0].size() == 3 && !snapshot["footsteps"][0].contains("health"), "La pista autorizada contiene solo posición aproximada, dirección y duración");
+    Require(snapshot["footsteps"][0].size() == 4 && snapshot["footsteps"][0].contains("elevation") && !snapshot["footsteps"][0].contains("health"), "La pista autorizada contiene sólo posición aproximada, cota cuantizada, dirección y duración");
     std::string error;
     Require(client.LoadSnapshot(snapshot, error) && client.GetState().footsteps[0].sourceGuard == 0, "El cliente no reconstruye la identidad privada del emisor");
     world.guards[0].patrol.clear();
@@ -196,6 +242,8 @@ int main() {
     AuthoritativeDecoyAndHearing();
     ContextualWallKnock();
     DoorClosedDuringFlight();
+    DecoyStaysOnTheLaunchFloor();
+    DecoyRequiresASupportedLandingAndClearArc();
     ApproximateFootstepsAndPrivacy();
     std::cout << "PASS distracciones: " << checks << " comprobaciones de trayectoria, golpes, audición y pasos privados\n";
     return 0;

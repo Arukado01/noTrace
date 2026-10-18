@@ -192,7 +192,8 @@ namespace {
     std::uint64_t baselineTick_ = 0;
     sf::Vector2f baselinePosition_, pausedLocalPosition_;
     float progressAt_ = -1.f;
-    bool recovery_ = false, complete_ = false, objectiveSeen_ = false, hostExtracted_ = false;
+    float extractionDeniedAt_ = -1.f;
+    bool recovery_ = false, complete_ = false, objectiveSeen_ = false, clientLossEndedMission_ = false;
 
     Session &SessionState() { return Access::Session(game_); }
     const WorldState &World() { return SessionState().GetWorld(); }
@@ -206,11 +207,14 @@ namespace {
     }
     const Agent *AgentById(PlayerId id) { const auto &agents = World().agents; const auto found = std::ranges::find_if(agents, [id](const Agent &agent) { return agent.id == id; }); return found == agents.end() ? nullptr : &*found; }
     const Agent *Local() { return AgentById(SessionState().GetLocalPlayerId()); }
-    bool Room() { return SessionState().IsConnected() && World().phase == GamePhase::Base && SessionState().GetLobbyPlayers().size() == 2 && std::ranges::count_if(World().agents, [](const Agent &agent) { return agent.connected; }) == 2; }
+    bool Room() { return SessionState().IsConnected() && World().phase == GamePhase::Base && SessionState().GetLobbyPlayers().size() == 2 && Local() && Local()->connected &&
+      (!Host() || std::ranges::count_if(World().agents, [](const Agent &agent) { return agent.connected; }) == 2); }
     bool AllReady() { return Room() && std::ranges::all_of(SessionState().GetLobbyPlayers(), [](const LobbyPlayer &player) { return player.ready; }); }
     Json State() {
       Json state{{"connected", SessionState().IsConnected()}, {"phase", static_cast<int>(World().phase)}, {"tick", World().tick}, {"seed", World().seed}, {"elapsed", World().elapsed}, {"player", SessionState().GetLocalPlayerId()}, {"rosterCount", SessionState().GetLobbyPlayers().size()}, {"status", SessionState().GetStatus()}};
-      if (const auto *local = Local()) state["local"] = {{"position", {local->position.x, local->position.y}}, {"health", local->health}, {"extracted", local->extracted}};
+      if (const auto *local = Local()) state["local"] = {{"position", {local->position.x, local->position.y}}, {"elevation", local->elevation}, {"support", local->supportId},
+        {"traversal", static_cast<int>(local->traversal.mode)}, {"health", local->health}, {"stamina", local->stamina}, {"incapacitated", local->incapacitated},
+        {"lifeState", static_cast<int>(local->lifeState)}, {"draggingGuard", local->draggingGuard}, {"extracted", local->extracted}, {"pilot", pilot_.Stage()}};
       return state;
     }
     Json Report(const std::string &status, const std::string &reason) {
@@ -349,7 +353,7 @@ namespace {
           } else if (Host()) Stage("client_pause_wait");
           else {
             const auto *host = AgentById(GameplayConfig::HostPlayerId);
-            Require(host != nullptr, "El cliente no conoce la posición pública del anfitrión");
+            if (!host) { ActionCommand look; look.moveY = -1.f; SessionState().Submit(look); return; }
             baselineTick_ = World().tick; baselinePosition_ = host->position; pausedLocalPosition_ = Local()->position;
             Access::Lobby(game_, context_, window_); Require(Access::Pause(game_), "No se abrió la pausa local LAN");
             Capture("07-client-local-pause"); Mark("client-pause-start.json"); Stage("client_paused");
@@ -367,7 +371,7 @@ namespace {
         if (Marker("client-pause-finished.json").is_object()) {
           Require(World().tick > baselineTick_ && (Local()->position - baselinePosition_).length() > 5.f, "El anfitrión no avanzó durante la pausa del cliente");
           Case("remote_pause_keeps_host_active", {{"ticksAdvanced", World().tick - baselineTick_}, {"hostDistance", (Local()->position - baselinePosition_).length()}});
-          Stage("host_pilot");
+          Stage("role_pilot");
         }
       } else if (stage_ == "client_paused") {
         if (StageSeconds() >= 4.f) {
@@ -375,34 +379,31 @@ namespace {
           Require(host && World().tick > baselineTick_ && (host->position - baselinePosition_).length() > 5.f, "La pausa local detuvo el reloj remoto o al anfitrión");
           Require(Local() && (Local()->position - pausedLocalPosition_).length() < 0.1f, "La pausa local conserva movimiento del cliente");
           Case("local_pause_remote_world_continues", {{"ticksAdvanced", World().tick - baselineTick_}, {"hostDistance", (host->position - baselinePosition_).length()}, {"realSeconds", StageSeconds()}});
-          Capture("08-client-pause-world-advanced"); Click("REANUDAR OPERACIÓN"); Mark("client-pause-finished.json"); Stage("client_extraction_wait");
+          Capture("08-client-pause-world-advanced"); Click("REANUDAR OPERACIÓN"); Mark("client-pause-finished.json"); Stage("role_pilot");
         }
-      } else if (stage_ == "host_pilot") {
-        RequireMissionHealthy(); SubmitPilot(true);
-        if (World().objectives >= GetContract(World().contract).requiredObjectives && !objectiveSeen_) { objectiveSeen_ = true; Case("objective_collected_by_normal_interaction"); Capture("09-objective-collected"); Mark("objective-collected.json"); }
-        if (Local() && Local()->extracted) { hostExtracted_ = true; Case("host_extracted_first"); Capture("10-host-extracted-waiting-client"); Mark("host-extracted.json"); Stage("host_results_wait"); }
-      } else if (stage_ == "client_extraction_wait") {
+      } else if (stage_ == "role_pilot") {
+        if (World().phase == GamePhase::Results) { Stage("results"); return; }
         RequireMissionHealthy();
-        SubmitPilot(false, false);
-        const auto *host = AgentById(GameplayConfig::HostPlayerId);
-        if (Marker("host-extracted.json").is_object() && host && host->extracted) {
-          Require(Local() && !Local()->extracted && World().phase == GamePhase::Mission, "La extracción del anfitrión extrajo automáticamente al cliente");
-          Capture("10-client-observes-host-extracted"); Stage("client_extraction_hold");
+        const bool traitor = Local()->privateOrder == PrivateOrder::Traitor;
+        SubmitPilot(!traitor, traitor || Marker("extraction-denied.json").is_object());
+        if (World().objectives >= GetContract(World().contract).requiredObjectives && !objectiveSeen_) {
+          objectiveSeen_ = true; Case("objective_collected_by_normal_interaction"); Capture("09-objective-collected"); Mark("objective-collected.json");
         }
-      } else if (stage_ == "client_extraction_hold") {
-        RequireMissionHealthy();
-        if (StageSeconds() >= 2.f) { Case("first_extraction_waits_for_second"); Mark("extraction-wait-confirmed.json"); Stage("client_extract"); }
-      } else if (stage_ == "client_extract") {
-        if (World().phase == GamePhase::Mission) { RequireMissionHealthy(); SubmitPilot(false, true); }
-        else if (World().phase == GamePhase::Results) Stage("results");
-      } else if (stage_ == "host_results_wait") {
-        if (Marker("extraction-wait-confirmed.json").is_object() && !objectiveSeen_) throw std::runtime_error("Se extrajo antes de registrar el objetivo");
-        if (World().phase == GamePhase::Results) { Require(hostExtracted_, "Falta la extracción inicial del anfitrión"); Case("first_extraction_waits_for_second"); Stage("results"); }
+        if (traitor && objectiveSeen_ && pilot_.Stage() == "interactuando_extraccion") {
+          Require(!Local()->extracted, "El traidor logró extraerse mediante E");
+          if (extractionDeniedAt_ < 0.f) extractionDeniedAt_ = Elapsed();
+          if (Elapsed() - extractionDeniedAt_ >= 1.f && !Marker("extraction-denied.json").is_object()) {
+            Case("local_traitor_extraction_rejected", {{"seconds", Elapsed() - extractionDeniedAt_}}); Capture("10-extraction-denied"); Mark("extraction-denied.json");
+          }
+        }
       } else if (stage_ == "results") {
         const auto found = World().results.find(SessionState().GetLocalPlayerId());
-        Require(found != World().results.end() && found->second.success && Local() && Local()->extracted, "El informe personal no confirma misión y extracción satisfactorias");
-        personalResult_ = {{"success", found->second.success}, {"score", found->second.score}, {"rank", static_cast<int>(found->second.rank)}, {"reason", found->second.reason}};
-        Case("mission_success_personal_report", {{"score", found->second.score}, {"reason", found->second.reason}, {"seed", missionSeed_}});
+        Require(Local() && found != World().results.end(), "Falta el informe personal de la operación");
+        const bool traitor = Local()->privateOrder == PrivateOrder::Traitor;
+        Require(found->second.success == !traitor && Local()->extracted == !traitor && !found->second.traitorVictory &&
+          (Host() || World().results.size() == 1), "El informe personal no respeta la extracción cooperativa, el rol local o la privacidad");
+        personalResult_ = {{"success", found->second.success}, {"traitorVictory", found->second.traitorVictory}, {"extracted", Local()->extracted}, {"score", found->second.score}, {"rank", static_cast<int>(found->second.rank)}, {"reason", found->second.reason}};
+        Case(traitor ? "local_traitor_private_loss_report" : "mission_success_personal_report", {{"score", found->second.score}, {"reason", found->second.reason}, {"seed", missionSeed_}});
         Capture("11-success-report"); Mark(options_.role + "-results-seen.json"); Stage("return_base_wait");
       } else if (stage_ == "return_base_wait") {
         if (Host() && Marker("client-results-seen.json").is_object() && World().phase == GamePhase::Results) { Click("REGRESAR A LA BASE"); return; }
@@ -427,7 +428,13 @@ namespace {
         if (!Host()) { ActionCommand moving; moving.moveX = 1.f; moving.aimX = 1.f; SessionState().Submit(moving); }
       } else if (stage_ == "client_loss_wait") {
         if (SessionState().GetLobbyPlayers().size() == 1 && Marker("client-forced-drop.json").is_object()) {
-          Require(SessionState().IsConnected() && World().phase == GamePhase::Mission && World().tick > baselineTick_, "El anfitrión no mantiene la misión tras el corte del cliente");
+          Require(SessionState().IsConnected() && Local() && World().tick > baselineTick_, "El anfitrión perdió su autoridad al cortarse el cliente");
+          clientLossEndedMission_ = Local()->privateOrder == PrivateOrder::Traitor;
+          if (clientLossEndedMission_) {
+            const auto result = World().results.find(SessionState().GetLocalPlayerId());
+            Require(World().phase == GamePhase::Results && result != World().results.end() && !result->second.success && !result->second.traitorVictory,
+              "Quedar sólo el traidor tras una desconexión concede victoria o no produce su fracaso privado");
+          } else Require(World().phase == GamePhase::Mission, "Un normal operativo deja de continuar tras el corte del cliente");
           const auto disconnected = std::ranges::find_if(World().agents, [](const Agent &agent) { return agent.id != GameplayConfig::HostPlayerId; });
           Require(disconnected != World().agents.end() && !disconnected->connected, "El cliente cortado permanece conectado en la simulación");
           baselinePosition_ = disconnected->position; baselineTick_ = World().tick;
@@ -437,15 +444,20 @@ namespace {
         const auto disconnected = std::ranges::find_if(World().agents, [](const Agent &agent) { return agent.id != GameplayConfig::HostPlayerId; });
         Require(disconnected != World().agents.end() && !disconnected->connected && (disconnected->position - baselinePosition_).length() < 0.1f, "El mando remoto continúa desplazando al agente tras el corte");
         if (StageSeconds() >= 0.5f) {
-          Require(SessionState().IsConnected() && World().phase == GamePhase::Mission && World().tick > baselineTick_, "El anfitrión dejó de simular durante el corte remoto");
+          Require(SessionState().IsConnected() && (clientLossEndedMission_ ? World().phase == GamePhase::Results && World().tick == baselineTick_ :
+            World().phase == GamePhase::Mission && World().tick > baselineTick_), "El corte remoto pierde la autoridad, altera el resultado o detiene al normal operativo");
           Require(!disconnected->moving && !disconnected->running, "La presentación remota conserva movimiento tras el corte");
-          Case("abrupt_client_loss_host_continues", {{"ticksAdvanced", World().tick - baselineTick_}, {"neutralizedActiveCommand", true}, {"stableSeconds", StageSeconds()}});
+          Case(clientLossEndedMission_ ? "abrupt_client_loss_local_traitor_private_failure" : "abrupt_client_loss_host_continues",
+            {{"phase", static_cast<int>(World().phase)}, {"ticksAdvanced", World().tick - baselineTick_}, {"neutralizedActiveCommand", true}, {"stableSeconds", StageSeconds()}});
           Stage("rejoin_rejection_wait");
         }
       } else if (stage_ == "rejoin_rejection_wait") {
         if (Marker("rejoin-rejected.json").is_object()) {
-          Require(World().phase == GamePhase::Mission, "El rechazo de reingreso alteró la misión");
-          Case("mission_rejoin_rejected"); Access::Lobby(game_, context_, window_); Click("VOLVER A LA BASE"); Stage("host_recovery_base");
+          Require(World().phase == (clientLossEndedMission_ ? GamePhase::Results : GamePhase::Mission), "El rechazo de reingreso alteró la operación");
+          Case(clientLossEndedMission_ ? "results_rejoin_rejected" : "mission_rejoin_rejected");
+          if (clientLossEndedMission_) Click("REGRESAR A LA BASE");
+          else { Access::Lobby(game_, context_, window_); Click("VOLVER A LA BASE"); }
+          Stage("host_recovery_base");
         }
       } else if (stage_ == "host_recovery_base") {
         if (World().phase == GamePhase::Base) { Access::Lobby(game_, context_, window_); Mark("host-base-ready.json"); Stage("recovery_room_wait"); }

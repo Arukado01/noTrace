@@ -1,3 +1,4 @@
+#include "NoTraceSpatialFixture.h"
 #pragma once
 
 #include "Core/EngineContext.h"
@@ -70,6 +71,7 @@ namespace EngineTests {
 
     Simulation simulation; simulation.ResetBase({{1, "Observador"}}); simulation.Deploy(0);
     auto &live = const_cast<WorldState &>(simulation.GetState());
+    NoTrace::TestFixture::LegacyPlane(live);
     live.obstacles.clear(); live.objects.clear(); live.guards.clear(); live.securityEntries.clear(); live.noises.clear(); live.sounds.clear(); live.events.clear();
     live.agents[0].position = {300.f, 300.f}; live.agents[0].facing = {1.f, 0.f};
     Interactable closet; closet.id = 77; closet.kind = ObjectKind::Hideout; closet.hideoutKind = HideoutKind::Closet;

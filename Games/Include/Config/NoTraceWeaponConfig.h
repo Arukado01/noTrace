@@ -7,6 +7,7 @@ namespace NoTrace::WeaponConfig {
   inline constexpr int NonLethalCapacity = 4;
   inline constexpr int TrainingAmmo = GameplayConfig::MaximumAmmo;
   inline constexpr float ReloadDuration = 1.2f;
+  inline constexpr float EquipmentGestureDuration = .65f;
   inline constexpr float TrainingMinimumHealth = 1.f;
   inline constexpr float TrainingReaction = 0.2f;
   inline constexpr float MaximumSuppressor = 100.f;

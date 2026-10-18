@@ -1,4 +1,5 @@
 #include "NoTraceSimulation.h"
+#include "NoTraceSpatialFixture.h"
 #include "NoTraceWorldGeometry.h"
 #include "Config/NoTraceCqcConfig.h"
 #include "Config/NoTraceTrainingConfig.h"
@@ -211,16 +212,20 @@ namespace {
     Advance(simulation, 1.f);
     Require(simulation.GetState().agents[0].loadout.lethalAmmo == TrainingConfig::RefilledAmmo, "La práctica no permite reponer suministros");
     simulation.Deploy(23); auto &world = World(simulation);
-    Require(world.phase == GamePhase::Mission && world.mode == SimulationMode::Operation && !IsTraining(world) && world.size == sf::Vector2f{1000.f, 760.f},
+    Require(world.phase == GamePhase::Mission && world.mode == SimulationMode::Operation && !IsTraining(world) && world.size == sf::Vector2f{LevelConfig::Width, LevelConfig::Height},
       "El despliegue conserva el modo o las dimensiones ampliadas de entrenamiento");
     Require(!world.guards.empty() && std::ranges::none_of(world.guards, [](const Guard &guard) { return guard.trainingDummy; }) && !world.securityEntries.empty(),
       "La misión no restaura enemigos y accesos de refuerzos normales");
     Require(world.agents[0].loadout.lethalAmmo == 2 && world.agents[0].loadout.nonLethalAmmo == 1 && world.agents[0].loadout.decoys == 1,
       "Los suministros infinitos sobrescriben el equipo elegido para la misión");
     world.objects.clear(); world.obstacles.clear(); world.guards.clear(); world.securityEntries.clear();
+    TestFixture::LegacyPlane(world);
+    for (auto &agent : world.agents) agent.privateOrder = PrivateOrder::CopyArchive;
     world.agents[0].position = {200.f, 300.f}; world.agents[1].position = {250.f, 300.f};
     Shoot(simulation, true, 50.f);
-    Require(!world.agents[1].alive && !world.agents[1].incapacitated, "La protección de entrenamiento persiste ante un disparo letal en una misión");
+    Require(world.agents[1].alive && world.agents[1].incapacitated && world.agents[1].health == 0.f && world.agents[1].incapacityRemaining > 0.f, "La protección de entrenamiento persiste ante un disparo letal en una misión");
+    Advance(simulation, GameplayConfig::IncapacityDuration);
+    Require(!world.agents[1].alive && !world.agents[1].incapacitated && world.agents[1].lifeState == LifeState::Dead && world.phase == GamePhase::Mission, "El plazo de rescate no confirma la muerte individual o finaliza la misión del superviviente");
     simulation.ReturnToBase();
     Require(IsTraining(simulation.GetState()) && simulation.GetState().guards.size() == TrainingConfig::DummyCount,
       "Regresar de una misión no recupera la sala segura y sus objetivos de prácticas");

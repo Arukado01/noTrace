@@ -10,6 +10,7 @@
 #include <string_view>
 
 namespace NoTrace::PresentationConfig {
+  inline constexpr float PrivateOrderIntroDuration = 8.f;
   inline constexpr const char *ActorAtlas = "NoTrace/Characters/SoldiersAtlas.png";
   inline constexpr const char *ProneAtlas = "NoTrace/Characters/ProneAtlas.png";
   inline constexpr const char *ActorFrameTable = "Content/Textures/NoTrace/Characters/SoldiersAtlas.frames";
@@ -26,6 +27,7 @@ namespace NoTrace::PresentationConfig {
   inline constexpr float CrawlFramesPerSecond = 4.f;
   inline constexpr sf::Vector2f GroundProjection{1.35f, 0.675f};
   inline constexpr sf::Vector2f CameraFocusRatio{0.5f, 0.535f};
+  inline constexpr std::array<sf::Vector2f, 4> CoordinationButtonSockets{{{76.f, 103.f}, {128.f, 93.f}, {76.f, 74.f}, {128.f, 64.f}}};
   inline constexpr float PixelSize = 2.f;
   inline constexpr float DefaultZoom = 2.f;
   inline constexpr float MinimumZoom = 1.8f;
@@ -60,18 +62,6 @@ namespace NoTrace::PresentationConfig {
   inline constexpr std::size_t BodyIconWidth = 24;
   inline constexpr std::size_t BodyIconHeight = 16;
   inline constexpr float BodyIconPixelSize = 2.f;
-  inline constexpr std::array<std::string_view, BodyIconHeight> UnconsciousGlyph{{
-    "........................", "................VVVVV...", "......OOOOO........V....", "....OSSSSSSO......V.....",
-    "...OSSSSSSSSO....V......", "..OSSSSSSSSSSO..VVVVV...", "..OSXXSSSSSSSO..........", "...OSSXSSSSSSSO....VVVV.",
-    "...OSSSSSSXXXSO......V..", "....OSSSSSSSSSO.....V...", ".....OSXXSSSSO.....VVVV.", "......OSSSSSO...........",
-    ".......OOOOO....VVV.....", ".................V......", "................VVV.....", "........................"
-  }};
-  inline constexpr std::array<std::string_view, BodyIconHeight> DeadGlyph{{
-    "........................", "........................", ".......RRRRRRRR.........", ".....RLLLLLLLLLLR.......",
-    "....RLLLLLLLLLLLLR......", "....RLLLLLLLLLLLLR......", "....RLLXLXLLXLXLLR......", "....RLLLXLLLLXLLLR......",
-    ".....RLXLXLLXLXLR.......", "......RLLLXXLLLR........", ".......RLLLLLLR.........", ".......RLLLLLLR.........",
-    ".......RXLXLXLX.........", "........RLLLLR..........", "........................", "........................"
-  }};
   inline constexpr float FogEffectStep = 12.f;
   inline constexpr float FogFeatherWidth = 34.f;
   inline constexpr unsigned int FogFeatherBands = 6;

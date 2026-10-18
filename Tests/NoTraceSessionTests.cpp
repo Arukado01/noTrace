@@ -3,6 +3,8 @@
 #include "NoTraceCombatGeometry.h"
 #include "NoTraceWorldGeometry.h"
 #include "NoTraceVisibility.h"
+#include "NoTraceSpatialFixture.h"
+#include "NoTraceSpatialGeometry.h"
 #include "Config/NoTraceDistractionConfig.h"
 #include "Config/NoTraceVisibilityConfig.h"
 #include "Config/NoTraceManeuverConfig.h"
@@ -355,6 +357,31 @@ namespace {
     advance(5.f);
   }
 
+  void SlowHostUsesRealNetworkSeconds() {
+    Pair pair;
+    sf::Clock duration, hostFrame, clientFrame;
+    const auto initialTick = pair.host.GetWorld().tick;
+    unsigned int hostFrames = 0, clientFrames = 0;
+    while (duration.getElapsedTime().asSeconds() < 4.f) {
+      const float clientDt = clientFrame.restart().asSeconds();
+      pair.client.Tick(clientDt, true, clientDt);
+      ++clientFrames;
+      if (hostFrame.getElapsedTime().asSeconds() >= .1f) {
+        const float networkDt = hostFrame.restart().asSeconds();
+        pair.host.Tick(.03f, true, networkDt);
+        ++hostFrames;
+      }
+      Require(pair.client.IsConnected() && pair.host.GetLobbyPlayers().size() == 2,
+        "El reloj recortado del anfitrión rechazó comandos legítimos de un cliente a30Hz");
+      sf::sleep(sf::milliseconds(2));
+    }
+    Require(hostFrames >= 30 && clientFrames > 100 && pair.client.GetWorld().tick > initialTick,
+      "El caso de anfitrión lento no ejercitó actualizaciones y réplicas reales");
+    const float simulated = static_cast<float>(pair.host.GetWorld().tick - initialTick) / GameplayConfig::SimulationHz;
+    Require(simulated > .7f && simulated < 1.5f,
+      "Separar el reloj LAN alteró el avance recortado de la simulación");
+  }
+
   void SequenceTimeoutIdentityAndPulses() {
     RawPeer pair;
     Require(pair.id == 2, "Cliente de protocolo no asignado");
@@ -399,6 +426,11 @@ namespace {
   }
 
   void PendingShotKeepsItsAim() {
+    const auto headshot = [](const WorldState &world, PlayerId victim) {
+      const auto &agent = FindAgent(world, victim);
+      return agent.health == 0.f && agent.alive && agent.incapacitated && agent.lifeState == LifeState::Incapacitated && agent.incapacityRemaining > 54.f &&
+        std::ranges::any_of(world.shots, [victim](const ShotTrace &shot) { return shot.targetKind == ShotTarget::Agent && shot.targetId == victim && shot.zone == HitZone::Head; });
+    };
     {
       Pair pair;
       pair.host.SetContract(ContractId::DoubleCross);
@@ -413,7 +445,7 @@ namespace {
       pointerMoved.aimX = -direction.x; pointerMoved.aimY = -direction.y;
       pair.host.Submit(pointerMoved);
       pair.host.Tick(0.02f);
-      Require(!FindAgent(pair.host.GetWorld(), 2).alive, "El anfitrión cambió la dirección de un disparo pendiente");
+      Require(headshot(pair.host.GetWorld(), 2), "El anfitrión cambió la dirección de un disparo pendiente o perdió el rescate del herido");
     }
     {
       Pair pair;
@@ -429,7 +461,7 @@ namespace {
       pointerMoved.aimX = -direction.x; pointerMoved.aimY = -direction.y;
       pair.client.Submit(pointerMoved);
       pair.Advance(10);
-      Require(!FindAgent(pair.host.GetWorld(), 1).alive, "El envío del cliente cambió la dirección capturada al disparar");
+      Require(headshot(pair.host.GetWorld(), 1), "El envío del cliente cambió la dirección capturada al disparar o perdió el rescate del herido");
     }
     {
       RawPeer pair;
@@ -447,7 +479,7 @@ namespace {
                               {"move", {0, 0}}, {"aim", {-direction.x, -direction.y}}, {"slope", 0.f}, {"decoyDistance", 340.f}, {"flags", 0}};
       Require(pair.clientNetwork.Send(1, fire.dump()) && pair.clientNetwork.Send(1, pointerMoved.dump()), "No se enviaron ambos mandos de regresión");
       pair.Advance(8);
-      Require(!FindAgent(pair.host.GetWorld(), 1).alive, "La recepción de varios mandos cambió la dirección del disparo pendiente");
+      Require(headshot(pair.host.GetWorld(), 1), "La recepción de varios mandos cambió la dirección del disparo pendiente o perdió el rescate del herido");
     }
   }
 
@@ -455,6 +487,7 @@ namespace {
     {
       Pair pair; pair.Deploy();
       auto &world = const_cast<WorldState &>(pair.host.GetWorld());
+      TestFixture::LegacyPlane(world);
       world.objects.clear(); world.obstacles.clear(); world.guards.clear(); world.noises.clear(); world.events.clear(); world.sounds.clear();
       world.agents[0].hidden = true; world.agents[0].position = {800.f, 650.f};
       auto &remote = world.agents[1]; remote.position = {250.f, 300.f}; remote.facing = {1.f, 0.f}; remote.weaponAim = {};
@@ -499,6 +532,7 @@ namespace {
     Simulation authority, restored, recipient;
     authority.ResetBase({{1, "Anfitrión"}, {2, "Cliente"}}); authority.Deploy(0);
     auto &world = const_cast<WorldState &>(authority.GetState());
+    TestFixture::LegacyPlane(world);
     world.obstacles.clear(); world.objects.clear(); world.guards.clear(); world.securityEntries.clear(); world.events.clear(); world.noises.clear(); world.sounds.clear();
     for (auto &agent : world.agents) { agent.hidden = true; agent.position = {50.f, 700.f}; }
     auto &local = world.agents[1]; local.position = {100.f, 300.f}; local.facing = {1.f, 0.f}; local.weaponAim = {0.f, -1.f};
@@ -572,7 +606,6 @@ namespace {
     const auto seed = pair.host.GetWorld().seed;
     const auto contract = pair.host.GetWorld().contract;
     const auto original = FindAgent(pair.host.GetWorld(), 1).loadout;
-    const auto order = FindAgent(pair.host.GetWorld(), 2).privateOrder;
     Require(!pair.client.RestartOperation(), "El cliente reinició la operación sin autoridad");
     ActionCommand shoot; shoot.fireLethal = true; shoot.aimX = 1.f;
     pair.host.Submit(shoot);
@@ -580,8 +613,11 @@ namespace {
     Require(FindAgent(pair.host.GetWorld(), 1).loadout.lethalAmmo == original.lethalAmmo - 1, "La prueba de reinicio no consumió munición real");
     Require(pair.host.RestartOperation(), "El anfitrión no pudo reiniciar la misión activa");
     Require(pair.host.GetWorld().seed == seed && pair.host.GetWorld().contract == contract && pair.host.GetWorld().elapsed == 0.f && pair.host.GetWorld().events.empty(), "El reinicio no conservó semilla/contrato o dejó registro de la misión anterior");
-    Require(FindAgent(pair.host.GetWorld(), 1).loadout.lethalAmmo == original.lethalAmmo && FindAgent(pair.host.GetWorld(), 2).privateOrder == order, "El reinicio no restauró el equipo preparado o cambió órdenes determinísticas");
-    Until([&] { return pair.client.GetWorld().events.empty() && pair.client.GetWorld().elapsed < 0.15f && FindAgent(pair.client.GetWorld(), 1).loadout.lethalAmmo == original.lethalAmmo; }, [&] { pair.Tick(); });
+    const auto order = FindAgent(pair.host.GetWorld(), 2).privateOrder;
+    Require(FindAgent(pair.host.GetWorld(), 1).loadout.lethalAmmo == original.lethalAmmo && order != PrivateOrder::None &&
+      std::ranges::count(pair.host.GetWorld().agents, PrivateOrder::Traitor, &Agent::privateOrder) == 1, "El reinicio no restauró el equipo preparado o asignó roles cooperativos inválidos");
+    Until([&] { return pair.client.GetWorld().events.empty() && pair.client.GetWorld().elapsed < 0.15f && FindAgent(pair.client.GetWorld(), 1).loadout.lethalAmmo == original.lethalAmmo &&
+      FindAgent(pair.client.GetWorld(), 2).privateOrder == order; }, [&] { pair.Tick(); });
     Require(pair.client.IsConnected() && pair.client.GetLobbyPlayers().size() == 2 && HasAgent(pair.client.GetWorld(), pair.client.GetLocalPlayerId()) && pair.client.GetWorld().seed == seed, "El reinicio perdió participantes o no se propagó al cliente");
   }
 
@@ -597,6 +633,7 @@ namespace {
     Pair pair;
     pair.Deploy();
     auto &world = const_cast<WorldState &>(pair.host.GetWorld());
+    TestFixture::LegacyPlane(world);
     world.objects.clear(); world.guards.clear(); world.noises.clear(); world.shots.clear(); world.events.clear();
     world.obstacles = {{{{220.f, 80.f}, {20.f, 220.f}}, CoverKind::High, true, "Separacion"}};
     world.agents[0].position = {120.f, 180.f}; world.agents[0].facing = {1.f, 0.f};
@@ -622,6 +659,7 @@ namespace {
   void HideoutsDraggingAndDistractionsOnTheWire() {
     Pair pair; pair.Deploy();
     auto &world = const_cast<WorldState &>(pair.host.GetWorld());
+    TestFixture::LegacyPlane(world);
     world.objects.clear(); world.obstacles.clear(); world.guards.clear(); world.noises.clear(); world.events.clear(); world.footsteps.clear();
     world.agents[0].position = {800.f, 650.f};
     auto &remote = world.agents[1]; remote.position = {150.f, 180.f}; remote.facing = {1.f, 0.f}; remote.actionCooldown = 0.f;
@@ -685,6 +723,7 @@ namespace {
   void AuthoritativeDecoyGuideOnTheWire() {
     Pair pair; pair.Deploy();
     auto &world = const_cast<WorldState &>(pair.host.GetWorld());
+    TestFixture::LegacyPlane(world);
     world.objects.clear(); world.obstacles.clear(); world.guards.clear(); world.noises.clear(); world.events.clear(); world.footsteps.clear();
     world.agents[0].position = {250.f, 350.f}; world.agents[0].facing = {1.f, 0.f};
     auto &remote = world.agents[1]; remote.position = {150.f, 350.f}; remote.facing = {1.f, 0.f}; remote.stance = Stance::Prone;
@@ -715,6 +754,7 @@ namespace {
   void HiddenFootstepsOnTheWire() {
     Pair pair; pair.Deploy();
     auto &world = const_cast<WorldState &>(pair.host.GetWorld());
+    TestFixture::LegacyPlane(world);
     world.objects.clear(); world.guards.clear(); world.obstacles.clear(); world.events.clear();
     world.agents[0].position = {800.f, 650.f}; world.agents[1].position = {150.f, 180.f}; world.agents[1].facing = {1.f, 0.f};
     world.obstacles.push_back({{{240.f, 80.f}, {20.f, 220.f}}, CoverKind::High, true, "Pared"});
@@ -730,6 +770,7 @@ namespace {
   void CqcAndPushOnTheWire() {
     Pair pair; pair.Deploy();
     auto &world = const_cast<WorldState &>(pair.host.GetWorld());
+    TestFixture::LegacyPlane(world);
     world.guards.clear(); world.objects.clear(); world.obstacles.clear(); world.noises.clear(); world.shots.clear(); world.events.clear();
     for (auto &agent : world.agents) { agent.privateOrder = PrivateOrder::None; agent.actionCooldown = 0.f; }
     world.agents[0].position = {700.f, 650.f}; world.agents[1].position = {200.f, 300.f}; world.agents[1].facing = {1.f, 0.f};
@@ -765,6 +806,7 @@ namespace {
   void PuzzleOwnershipAndDoorsOnTheWire() {
     Pair pair; pair.Deploy();
     auto &world = const_cast<WorldState &>(pair.host.GetWorld());
+    TestFixture::LegacyPlane(world);
     world.guards.clear(); world.objects.clear(); world.obstacles.clear(); world.securityEntries.clear(); world.noises.clear(); world.events.clear(); world.sounds.clear();
     world.agents[0].position = {230.f, 200.f}; world.agents[0].facing = {1.f, 0.f};
     world.agents[1].position = {150.f, 280.f}; world.agents[1].facing = {1.f, 0.f};
@@ -810,6 +852,7 @@ namespace {
   void CameraTrapAndIntelligenceOnTheWire() {
     Pair pair; pair.Deploy();
     auto &world = const_cast<WorldState &>(pair.host.GetWorld());
+    TestFixture::LegacyPlane(world);
     world.guards.clear(); world.objects.clear(); world.obstacles.clear(); world.securityEntries.clear(); world.noises.clear(); world.events.clear(); world.sounds.clear();
     world.agents[0].position = {800.f, 650.f}; world.agents[1].position = {200.f, 300.f}; world.agents[1].facing = {1.f, 0.f};
     world.objects.reserve(4);
@@ -876,6 +919,7 @@ namespace {
   void CoordinationAndPhysicalLeversOnTheWire() {
     Pair pair; pair.Deploy();
     auto &world = const_cast<WorldState &>(pair.host.GetWorld());
+    TestFixture::LegacyPlane(world);
     world.guards.clear(); world.objects.clear(); world.obstacles.clear(); world.securityEntries.clear(); world.noises.clear(); world.events.clear(); world.sounds.clear();
     world.objects.reserve(6);
     world.agents[0].position = {220.f, 300.f}; world.agents[0].facing = {1.f, 0.f};
@@ -979,6 +1023,7 @@ namespace {
     Until([&] { return FindAgent(pair.host.GetWorld(), 2).operationLoadout.lethalAmmo == 12 && FindAgent(pair.host.GetWorld(), 2).operationLoadout.nonLethalAmmo == 12; }, [&] { pair.Tick(); });
     pair.Deploy();
     auto &world = const_cast<WorldState &>(pair.host.GetWorld());
+    TestFixture::LegacyPlane(world);
     world.guards.clear(); world.objects.clear(); world.obstacles.clear(); world.securityEntries.clear(); world.noises.clear(); world.sounds.clear(); world.events.clear(); world.shots.clear(); world.decoys.clear();
     world.agents[0].position = {800.f, 650.f}; world.agents[1].position = {150.f, 300.f}; world.agents[1].facing = {1.f, 0.f};
     const auto remote = [&]() -> const Agent & { return FindAgent(world, 2); };
@@ -1080,11 +1125,15 @@ namespace {
     Require(world.mode == SimulationMode::Operation && pair.client.GetWorld().mode == SimulationMode::Operation &&
       std::ranges::none_of(world.guards, [](const Guard &guard) { return guard.trainingDummy; }), "El despliegue LAN conserva el modo o los muñecos protegidos de la sala");
     world.objects.clear(); world.obstacles.clear(); world.guards.clear(); world.securityEntries.clear();
+    TestFixture::LegacyPlane(world);
     world.agents[0].position = {200.f, 300.f}; world.agents[1].position = {250.f, 300.f};
+    world.agents[1].facing = {-1.f, 0.f};
     fire.aimX = -1.f; fire.aimSlope = (CombatConfig::StandingHeight - CombatConfig::HeadHeight * 0.5f - CombatConfig::StandingWeaponHeight) / 50.f;
     pair.client.Submit(fire); pair.client.Submit({});
-    Until([&] { return !FindAgent(world, 1).alive; }, [&] { pair.Tick(true); });
-    Require(!FindAgent(world, 1).alive && world.mode == SimulationMode::Operation, "La protección amistosa de la sala contamina el daño letal de una misión LAN");
+    Until([&] { return FindAgent(world, 1).lifeState == LifeState::Incapacitated && HasAgent(pair.client.GetWorld(), 1) &&
+      FindAgent(pair.client.GetWorld(), 1).lifeState == LifeState::Incapacitated; }, [&] { pair.Tick(true); });
+    Require(FindAgent(world, 1).health == 0.f && FindAgent(world, 1).alive && FindAgent(world, 1).incapacityRemaining > 54.f && world.mode == SimulationMode::Operation,
+      "La protección de entrenamiento contamina el daño letal o el rescate de una misión LAN");
   }
 
   void RejectInvalidCommandAndFlood() {
@@ -1100,15 +1149,80 @@ namespace {
     Until([&] { return flood.rejected || flood.disconnected; }, [&] { flood.Tick(); });
   }
 
+  void MultilevelAudioAndSpectatorRemainAuthoritative() {
+    Pair pair; pair.Deploy();
+    auto &world = const_cast<WorldState &>(pair.host.GetWorld());
+    world.guards.clear(); world.securityEntries.clear();
+    for (auto &object : world.objects) if (object.kind == ObjectKind::Camera || object.kind == ObjectKind::Explosive) object.active = false;
+    auto &host = world.agents[0]; auto &remote = world.agents[1];
+    host.position = {80.f, 1080.f}; host.elevation = 0.f; host.supportId = 5; host.privateOrder = PrivateOrder::RecoverDevice;
+    remote.position = {240.f, 510.f}; remote.elevation = 0.f; remote.supportId = 1; remote.privateOrder = PrivateOrder::CopyArchive;
+    const auto hostPosition = host.position;
+    const int ammo = remote.loadout.lethalAmmo, magazine = remote.lethalMagazine, decoys = remote.loadout.decoys;
+    const auto tick = [&] { pair.Tick(true); Require(pair.client.IsConnected(), pair.client.GetStatus().c_str()); };
+    Until([&] { return Distance(FindAgent(pair.client.GetWorld(), 2).position, remote.position) < .01f; }, tick);
+    const auto &replica = pair.client.GetWorld();
+    Require(replica.walkSurfaces.size() == world.walkSurfaces.size() && replica.verticalLinks.size() == world.verticalLinks.size() &&
+      replica.gripSurfaces.size() == world.gripSurfaces.size() && replica.elevators.size() == world.elevators.size() &&
+      Level::GeometryHash(replica) == Level::GeometryHash(world), "El transporte altera las superficies, materiales o conexiones del nivel");
+    Require(std::ranges::any_of(replica.walkSurfaces, [](const WalkSurface &surface) { return surface.kind == WalkSurfaceKind::Stair; }),
+      "La sesión multinivel carece de escalera física");
+    ActionCommand climb; climb.moveY = -1.f; pair.client.Submit(climb);
+    bool sawStair = false;
+    float previousElevation = 0.f;
+    Until([&] { return FindAgent(pair.client.GetWorld(), 2).supportId == 10; }, [&] {
+      tick();
+      const auto &agent = FindAgent(pair.client.GetWorld(), 2);
+      Require(agent.elevation >= previousElevation - .01f && agent.elevation <= 96.f, "La réplica de la escalera invierte o excede su altura");
+      if (agent.supportId == 2 && agent.elevation > 0.f && agent.elevation < 96.f) sawStair = true;
+      previousElevation = agent.elevation;
+    });
+    pair.client.Submit({});
+    Until([&] { return !remote.moving && !FindAgent(pair.client.GetWorld(), 2).moving; }, tick);
+    Require(sawStair && remote.supportId == 10 && remote.elevation == 96.f && FindAgent(replica, 2).elevation == 96.f && host.position == hostPosition,
+      "El mando remoto no recorre la pendiente hasta su apoyo real mientras el anfitrión está pausado");
+    ActionCommand launch; launch.throwDecoy = true; launch.aimX = 1.f; launch.decoyDistance = 100.f;
+    pair.client.Submit(launch); pair.client.Submit({});
+    Until([&] { return std::ranges::any_of(replica.decoys, [](const DecoyProjectile &disc) { return disc.actor == 2; }); }, tick);
+    Require(std::ranges::all_of(replica.decoys, [](const DecoyProjectile &disc) { return disc.actor != 2 || disc.elevation == 96.f; }),
+      "El proyectil remoto pierde la cota de lanzamiento durante su réplica");
+    Until([&] { return std::ranges::any_of(replica.noises, [](const NoiseEvent &noise) { return noise.kind == SoundKind::Decoy; }); }, tick);
+    Require(std::ranges::any_of(replica.noises, [](const NoiseEvent &noise) { return noise.kind == SoundKind::Decoy && noise.elevation == 96.f; }) &&
+      std::ranges::any_of(replica.sounds, [](const SoundEvent &sound) { return sound.kind == SoundKind::Decoy && sound.elevation == 96.f; }) &&
+      remote.loadout.decoys == decoys - 1 && remote.loadout.lethalAmmo == ammo && remote.lethalMagazine == magazine,
+      "El impacto acústico no cruza la sesión con su altura e inventario autoritativos");
+    remote.position = {340.f, 326.f}; remote.elevation = 0.f; remote.supportId = 1; remote.traversal = {};
+    Until([&] { return Distance(FindAgent(replica, 2).position, remote.position) < .01f && FindAgent(replica, 2).elevation == 0.f; }, tick);
+    ActionCommand attach; attach.traverse = true; pair.client.Submit(attach); pair.client.Submit({});
+    Until([&] { return FindAgent(replica, 2).traversal.mode == TraversalMode::Hang; }, tick);
+    Require(remote.traversal.surfaceId == 41 && remote.supportId == 0 && remote.elevation == 18.f &&
+      FindAgent(replica, 2).traversal.surfaceId == 41 && FindAgent(replica, 2).supportId == 0 && FindAgent(replica, 2).elevation == 18.f,
+      "El agarre enviado por el cliente no conserva superficie, modo y altura físicos");
+    remote.traversal = {}; remote.position = {340.f, 326.f}; remote.elevation = 0.f; remote.supportId = 1;
+    remote.lifeState = LifeState::Dead; remote.alive = false; remote.health = 0.f;
+    Until([&] { return FindAgent(replica, 2).spectatorTarget == 1 && replica.visibility.observer == 1 && HasAgent(replica, 1); }, tick);
+    Require(FindAgent(replica, 1).privateOrder == PrivateOrder::None && !FindAgent(replica, 1).privateComplete &&
+      FindAgent(replica, 2).privateOrder == remote.privateOrder && FindAgent(replica, 2).loadout.lethalAmmo == ammo,
+      "El espectador hereda los secretos del superviviente o pierde su equipo privado");
+    Simulation encoding; const_cast<WorldState &>(encoding.GetState()) = world;
+    const auto snapshot = encoding.SnapshotFor(2, true);
+    Require(snapshot.at("version") == 11 && snapshot.at("spectatorTarget") == 1 && snapshot.dump().size() < GameplayConfig::MaximumSnapshotBytes,
+      "La réplica multinivel y su vista autorizada exceden el presupuesto o cambian el protocolo");
+    for (const auto &agent : snapshot.at("agents")) if (agent.at("id") != 2)
+      Require(!agent.contains("privateOrder") && !agent.contains("privateComplete") && !agent.contains("operationLoadout"), "El paquete del espectador contiene secretos ajenos");
+    std::cout << "Session multinivel: " << snapshot.dump().size() << " bytes, escalera/agarre/audioZ/espectador verificados\n";
+  }
+
   void AcousticRangeAndWallsRemainAuthoritative() {
     Pair pair; pair.Deploy();
     auto &world = const_cast<WorldState &>(pair.host.GetWorld());
+    TestFixture::LegacyPlane(world);
     world.objects.clear(); world.obstacles.clear(); world.guards.clear(); world.securityEntries.clear();
     world.noises.clear(); world.sounds.clear(); world.events.clear();
     world.agents[0].position = {800.f, 650.f}; world.agents[0].hidden = true;
     auto &remote = world.agents[1]; remote.position = {100.f, 500.f}; remote.facing = {0.f, 1.f};
-    Guard inside; inside.id = 81; inside.position = {370.f, 500.f}; inside.facing = {1.f, 0.f};
-    Guard outside = inside; outside.id = 82; outside.position = {440.f, 500.f};
+    Guard inside; inside.id = 81; inside.position = {330.f, 500.f}; inside.facing = {1.f, 0.f};
+    Guard outside = inside; outside.id = 82; outside.position = {385.f, 500.f};
     world.guards = {inside, outside};
     world.obstacles.push_back({{{220.f, 400.f}, {12.f, 220.f}}, CoverKind::High, true, "Separación acústica LAN"});
     ActionCommand run; run.moveY = 1.f; run.run = true; pair.client.Submit(run);
@@ -1120,7 +1234,7 @@ namespace {
     const auto emitted = std::ranges::find_if(world.noises, runningNoise);
     const auto replicated = std::ranges::find_if(pair.client.GetWorld().noises, runningNoise);
     Require(emitted != world.noises.end() && replicated != pair.client.GetWorld().noises.end() &&
-      emitted->radius == 306.f && replicated->radius == emitted->radius && replicated->position == emitted->position,
+      emitted->radius == 244.8f && replicated->radius == emitted->radius && replicated->position == emitted->position,
       "El radio y origen real de carrera no se replican desde el anfitrión");
     Require(world.guards[0].lastKnown == emitted->position && world.guards[0].observedAgent == 0 &&
       world.guards[1].state == GuardState::Patrol && world.securityAlert == SecurityAlert::Calm && !world.alarm,
@@ -1136,14 +1250,15 @@ namespace {
   void TableVisionAndInstantTransitionsOnTheWire() {
     Pair pair; pair.Deploy();
     auto &world = const_cast<WorldState &>(pair.host.GetWorld());
+    TestFixture::LegacyPlane(world);
     world.objects.clear(); world.obstacles.clear(); world.guards.clear(); world.securityEntries.clear(); world.noises.clear();
     world.agents[0].position = {800.f, 650.f}; world.agents[0].hidden = true;
-    auto &remote = world.agents[1]; remote.position = {230.f, 300.f}; remote.facing = {1.f, 0.f};
+    auto &remote = world.agents[1]; remote.position = {230.f, 300.f}; remote.facing = {1.f, 0.f}; remote.weaponAim = {-1.f, 0.f};
     Interactable table{77, ObjectKind::Hideout, {300.f, 300.f}, "Mesa LAN"}; table.hideoutKind = HideoutKind::UnderTable;
     world.objects.push_back(table);
-    Guard west; west.id = 81; west.position = {150.f, 300.f}; west.facing = {-1.f, 0.f};
-    Guard east = west; east.id = 82; east.position = {450.f, 300.f}; east.facing = {1.f, 0.f}; world.guards = {west, east};
-    world.obstacles.push_back({{{380.f, 250.f}, {12.f, 100.f}}, CoverKind::High, true, "Oclusión LAN"});
+    Guard west; west.id = 81; west.position = {180.f, 300.f}; west.facing = {-1.f, 0.f};
+    Guard east = west; east.id = 82; east.position = {420.f, 300.f}; east.facing = {1.f, 0.f}; world.guards = {west, east};
+    world.obstacles.push_back({{{360.f, 250.f}, {12.f, 100.f}}, CoverKind::High, true, "Oclusión LAN"});
     ActionCommand use; use.interact = true; pair.client.Submit(use);
     Until([&] { return remote.hideoutId == 77 && FindAgent(pair.client.GetWorld(), 2).hideoutId == 77; }, [&] { pair.Tick(true); });
     const auto &received = FindAgent(pair.client.GetWorld(), 2);
@@ -1152,22 +1267,50 @@ namespace {
       "La mesa remota debe ocultar y recolocar inmediatamente sin transición ni pose de entrada");
     Require(std::ranges::any_of(pair.client.GetWorld().guards, [](const Guard &guard) { return guard.id == 81; }) &&
       std::ranges::none_of(pair.client.GetWorld().guards, [](const Guard &guard) { return guard.id == 82; }),
-      "La instantánea bajo mesa debe revelar detrás del cuerpo y conservar oculta la patrulla tras la pared");
-    ActionCommand mouse; mouse.aimX = -1.f; mouse.aiming = true; pair.client.Submit(mouse);
-    Until([&] { return remote.weaponAim.x < -0.99f && FindAgent(pair.client.GetWorld(), 2).weaponAim.x < -0.99f; }, [&] { pair.Tick(true); });
+      "El cono bajo mesa debe seguir el arma hacia atrás del cuerpo y conservar oculta la patrulla tras la pared");
+    ActionCommand mouse; mouse.aimX = 1.f; mouse.aiming = true; pair.client.Submit(mouse);
+    Until([&] { return remote.weaponAim.x > 0.99f && FindAgent(pair.client.GetWorld(), 2).weaponAim.x > 0.99f && pair.client.GetWorld().guards.empty(); }, [&] { pair.Tick(true); });
     Require(remote.hidden && remote.position == table.position && remote.facing == sf::Vector2f{1.f, 0.f} && !remote.aiming,
       "El cursor debe actualizar el arma remota sin sacar al cuerpo de la mesa ni permitir disparar escondido");
+    Require(!Visibility::GuardVisible(world, remote, world.guards[1]), "Mirar hacia la patrulla delantera a120 unidades atraviesa una pared real");
+    world.obstacles.clear();
+    const std::array<sf::Vector2f, 8> directions{{{1.f, 0.f}, {1.f, 1.f}, {0.f, 1.f}, {-1.f, 1.f}, {-1.f, 0.f}, {-1.f, -1.f}, {0.f, -1.f}, {1.f, -1.f}}};
+    for (const auto direction : directions) {
+      const auto aim = direction.normalized(); const auto previousTick = world.tick;
+      mouse.aimX = aim.x; mouse.aimY = aim.y; pair.client.Submit(mouse);
+      Until([&] { return WeaponFacing(remote).dot(aim) > .999f && WeaponFacing(FindAgent(pair.client.GetWorld(), 2)).dot(aim) > .999f && pair.client.GetWorld().tick > previousTick; }, [&] { pair.Tick(true); });
+      const auto &replica = FindAgent(pair.client.GetWorld(), 2);
+      const auto near = table.position + aim * 120.f, far = table.position + aim * (VisibilityConfig::ProneRange + 1.f), back = table.position - aim * 120.f;
+      Require(Visibility::IsGeometricallyVisible(world, remote, near, Stance::Prone) && !Visibility::IsGeometricallyVisible(world, remote, far, Stance::Prone) &&
+        !Visibility::IsGeometricallyVisible(world, remote, back, Stance::Prone) && Visibility::IsGeometricallyVisible(pair.client.GetWorld(), replica, near, Stance::Prone) &&
+        remote.position == table.position && remote.facing == sf::Vector2f{1.f, 0.f} && replica.facing == remote.facing,
+        "El cono tumbado LAN pierde una de sus ocho orientaciones, cambia rango130 o mueve el cuerpo con el ratón");
+    }
+    const auto weaponAim = WeaponFacing(remote);
+    ActionCommand bodyTurn; bodyTurn.moveY = 1.f; bodyTurn.aimX = weaponAim.x; bodyTurn.aimY = weaponAim.y;
+    pair.client.Submit(bodyTurn);
+    Until([&] { return remote.facing == sf::Vector2f{0.f, 1.f} && FindAgent(pair.client.GetWorld(), 2).facing == remote.facing; }, [&] { pair.Tick(true); });
+    Require(remote.position == table.position && WeaponFacing(remote).dot(weaponAim) > .999f, "WASD bajo mesa altera el arma o desplaza el cuerpo oculto");
     pair.client.Submit({}); pair.Advance(3, true); pair.client.Submit(use);
     Until([&] { return remote.hideoutId == 0 && FindAgent(pair.client.GetWorld(), 2).hideoutId == 0; }, [&] { pair.Tick(true); });
-    Require(!remote.hidden && remote.position.x > table.position.x && !WorldGeometry::PositionBlocked(world, remote.position, GameplayConfig::AgentRadius) &&
+    Require(!remote.hidden && remote.position.y > table.position.y && !WorldGeometry::PositionBlocked(world, remote.position, GameplayConfig::AgentRadius) &&
       remote.actionPose == ActionPose::None && remote.actionPoseTime == 0.f && remote.transitionTime == 0.f &&
       FindAgent(pair.client.GetWorld(), 2).actionPose == ActionPose::None,
       "Salir de la mesa LAN debe aparecer fuera de geometría y sin animación de salida");
+    const int tools = remote.loadout.tools;
+    ActionCommand clearance; clearance.moveY = 1.f; pair.client.Submit(clearance);
+    Until([&] { return remote.position.y >= table.position.y + 46.f; }, [&] { pair.Tick(true); });
+    pair.client.Submit({}); pair.Advance(4, true);
+    ActionCommand flip; flip.tool = true; pair.client.Submit(flip); pair.client.Submit({});
+    Until([&] { return world.objects[0].overturned && std::ranges::any_of(pair.client.GetWorld().objects, [](const Interactable &object) { return object.id == 77 && object.overturned; }); }, [&] { pair.Tick(true); });
+    Require(!remote.hidden && remote.hideoutId == 0 && remote.loadout.tools == tools && WorldGeometry::ObjectHeight(world.objects[0]) == SpatialConfig::OverturnedTableHeight &&
+      !WorldGeometry::PositionBlocked(world, remote.position, GameplayConfig::AgentRadius), "T no replica el volteo físico de mesa o consume una herramienta/oculta al agente como E");
   }
 
   void GuardAssistanceAndOrangeClockOnTheWire() {
     Pair pair; pair.Deploy();
     auto &world = const_cast<WorldState &>(pair.host.GetWorld());
+    TestFixture::LegacyPlane(world);
     world.objects.clear(); world.obstacles.clear(); world.guards.clear(); world.securityEntries.clear(); world.noises.clear(); world.events.clear();
     world.agents[0].position = {800.f, 650.f}; world.agents[0].hidden = true;
     auto &remote = world.agents[1]; remote.position = {100.f, 200.f}; remote.facing = sf::Vector2f{1.f, 1.f}.normalized();
@@ -1224,6 +1367,7 @@ int main(int argc, char **argv) {
     run("PrivateSnapshotAndClientDoesNotSimulate", PrivateSnapshotAndClientDoesNotSimulate);
     run("PausedHostStillRunsRemoteAgent", PausedHostStillRunsRemoteAgent);
     run("SlowClientKeepsLobbyAndPhaseChanges", SlowClientKeepsLobbyAndPhaseChanges);
+    run("SlowHostUsesRealNetworkSeconds", SlowHostUsesRealNetworkSeconds);
     run("SequenceTimeoutIdentityAndPulses", SequenceTimeoutIdentityAndPulses);
     run("PendingShotKeepsItsAim", PendingShotKeepsItsAim);
     run("AimDirectionAndRestartAuthority", AimDirectionAndRestartAuthority);
@@ -1242,6 +1386,7 @@ int main(int argc, char **argv) {
     run("RejectInvalidPuzzleCommands", RejectInvalidPuzzleCommands);
     run("TrainingAndMissionRulesOnTheWire", TrainingAndMissionRulesOnTheWire);
     run("AcousticRangeAndWallsRemainAuthoritative", AcousticRangeAndWallsRemainAuthoritative);
+    run("MultilevelAudioAndSpectatorRemainAuthoritative", MultilevelAudioAndSpectatorRemainAuthoritative);
     run("TableVisionAndInstantTransitionsOnTheWire", TableVisionAndInstantTransitionsOnTheWire);
     run("GuardAssistanceAndOrangeClockOnTheWire", GuardAssistanceAndOrangeClockOnTheWire);
     run("RejectInvalidCommandAndFlood", RejectInvalidCommandAndFlood);

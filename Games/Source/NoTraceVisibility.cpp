@@ -1,8 +1,9 @@
 #include "NoTraceVisibility.h"
+#include "NoTraceAudioGeometry.h"
 #include "Config/NoTraceVisibilityConfig.h"
 #include "Config/NoTraceDistractionConfig.h"
 #include "Config/NoTraceAudioConfig.h"
-#include "NoTraceWorldGeometry.h"
+#include "NoTraceSpatialGeometry.h"
 #include "NoTraceCombatGeometry.h"
 #include <algorithm>
 #include <cmath>
@@ -20,26 +21,27 @@ namespace NoTrace::Visibility {
 
   }
 
-  bool IsGeometricallyVisible(const WorldState &world, const Agent &observer, sf::Vector2f point, Stance targetStance) {
+  bool IsGeometricallyVisible(const WorldState &world, const Agent &observer, sf::Vector2f point, Stance targetStance, float targetElevation) {
     using namespace VisibilityConfig;
     if (!std::isfinite(point.x) || !std::isfinite(point.y) || point.x < 0.f || point.y < 0.f || point.x > world.size.x || point.y > world.size.y) return false;
     const auto delta = point - observer.position;
-    const float distance = std::hypot(delta.x, delta.y);
+    const float planarDistance = std::hypot(delta.x, delta.y);
+    const float targetZ = std::isfinite(targetElevation) ? targetElevation : observer.elevation;
+    const float distance = std::hypot(planarDistance, targetZ - observer.elevation);
+    const auto clear = [&](float eyeHeight, std::uint32_t ignoredObject = 0) {
+      const float targetHeight = CombatGeometry::HeadCenterHeight(targetStance);
+      return !WorldGeometry::RayOccluded(world, {observer.position.x, observer.position.y, observer.elevation + eyeHeight}, {point.x, point.y, targetZ + targetHeight}, ignoredObject);
+    };
     if (distance < SurfaceOffset) return true;
     if (observer.hideoutId != 0) {
       const auto hideout = std::ranges::find_if(world.objects, [&observer](const Interactable &object) { return object.id == observer.hideoutId; });
       if (hideout == world.objects.end() || hideout->occupantAgent != observer.id) return false;
       const auto kind = WorldGeometry::HideoutType(*hideout);
       if (kind == HideoutKind::UnderTable && !hideout->lifted) {
-        if (distance > SpatialConfig::UnderTableViewRange) return false;
-        const float targetHeight = targetStance == Stance::Standing ? CombatConfig::StandingHeight - CombatConfig::HeadHeight * 0.5f : targetStance == Stance::Crouched ? CombatConfig::CrouchedHeight - CombatConfig::HeadHeight * 0.5f : SpatialConfig::UnderTableEyeHeight;
-        const float rise = targetHeight - SpatialConfig::UnderTableEyeHeight;
-        if (rise > 0.f) {
-          const float underside = WorldGeometry::ObjectHeight(*hideout) - SpatialConfig::UnderTableTopThickness;
-          const float crossing = (underside - SpatialConfig::UnderTableEyeHeight) / rise;
-          if (crossing >= 0.f && crossing <= 1.f && WorldGeometry::ObjectFootprint(*hideout).contains(observer.position + delta * crossing)) return false;
-        }
-        return HasLineOfSight(world, observer.position, point, Stance::Prone, hideout->id);
+        if (distance > ProneRange) return false;
+        const auto facing = WeaponFacing(observer);
+        if (planarDistance > CloseRange && facing.lengthSquared() > 0.f && facing.dot(delta) / (facing.length() * planarDistance) < CosHalfAngle) return false;
+        return clear(SpatialConfig::UnderTableEyeHeight);
       }
       if (kind != HideoutKind::Closet || !hideout->open || hideout->hideoutAperture <= 0.f || distance > SpatialConfig::ClosetViewRange) return false;
       const auto normal = WorldGeometry::HideoutFrontNormal(*hideout);
@@ -50,14 +52,13 @@ namespace NoTrace::Visibility {
       const float halfWidth = (std::abs(tangent.x) * size.x + std::abs(tangent.y) * size.y) * 0.5f * std::clamp(hideout->hideoutAperture, 0.f, 1.f);
       const float forward = normal.dot(delta);
       if (forward <= 0.f || std::abs(tangent.dot(delta) * depth / forward) > halfWidth) return false;
-      return HasLineOfSight(world, observer.position, point, Stance::Prone, hideout->id);
+      return clear(SpatialConfig::UnderTableEyeHeight, hideout->id);
     }
     const float range = observer.stance == Stance::Prone ? ProneRange : observer.stance == Stance::Crouched ? CrouchedRange : StandingRange;
     if (distance > range) return false;
     const float facingLength = std::hypot(observer.facing.x, observer.facing.y);
     if (distance > CloseRange && facingLength > 0.f && observer.facing.dot(delta) / (facingLength * distance) < CosHalfAngle) return false;
-    const auto lowStance = observer.stance == Stance::Standing ? targetStance : observer.stance;
-    return HasLineOfSight(world, observer.position, point, lowStance);
+    return clear(CombatGeometry::HeadCenterHeight(observer.stance));
   }
 
   bool HasLineOfSight(const WorldState &world, sf::Vector2f from, sf::Vector2f to, Stance stance, std::uint32_t ignoredObject) {
@@ -75,34 +76,16 @@ namespace NoTrace::Visibility {
 
   bool AgentExposed(const WorldState &world, sf::Vector2f from, const Agent &target, std::uint32_t ignoredObject, float eyeHeight) {
     if (target.extracted) return false;
-    const Interactable *table = nullptr;
     if (target.hidden) {
       const auto hideout = std::ranges::find_if(world.objects, [&target](const Interactable &object) {
         return object.id == target.hideoutId && object.occupantAgent == target.id && WorldGeometry::HideoutType(object) == HideoutKind::UnderTable && !object.lifted;
       });
       if (hideout == world.objects.end()) return false;
-      table = &*hideout;
     }
     const auto clear = [&](sf::Vector2f point, float height) {
-      const auto delta = point - from;
-      const float distance = delta.length();
-      if (distance < 0.001f) return true;
-      const auto direction = delta / distance;
-      const float slope = (height - eyeHeight) / distance;
-      const auto blocked = [&](sf::FloatRect bounds, float bottom, float top) {
-        const CombatGeometry::HitVolume volume{bounds.position + bounds.size * 0.5f, {1.f, 0.f}, bounds.size * 0.5f, bottom, top, HitZone::None};
-        const auto hit = CombatGeometry::IntersectVolume(from, direction, eyeHeight, slope, distance, volume);
-        return hit && *hit < distance - VisibilityConfig::SurfaceOffset;
-      };
-      for (const auto &wall : world.obstacles) if (wall.blocksVision && blocked(wall.bounds, 0.f, WorldGeometry::ObstacleHeight(wall))) return false;
-      for (const auto &object : world.objects) if (object.id != ignoredObject && WorldGeometry::Properties(object).blocksVision) {
-        const float top = WorldGeometry::ObjectHeight(object);
-        const float bottom = table == &object ? std::max(0.f, top - SpatialConfig::UnderTableTopThickness) : 0.f;
-        if (blocked(WorldGeometry::ObjectFootprint(object), bottom, top)) return false;
-      }
-      return true;
+      return !WorldGeometry::RayOccluded(world, {from.x, from.y, eyeHeight}, {point.x, point.y, height}, ignoredObject);
     };
-    for (const auto &volume : CombatGeometry::ActorVolumes(target.position, target.facing, target.stance, target.incapacitated)) {
+    for (const auto &volume : CombatGeometry::ActorVolumes(target.position, target.facing, target.stance, target.incapacitated, target.elevation)) {
       if (volume.zone != HitZone::Head && volume.zone != HitZone::Torso) continue;
       const sf::Vector2f side{-volume.forward.y, volume.forward.x};
       const float height = (volume.bottom + volume.top) * 0.5f;
@@ -119,35 +102,36 @@ namespace NoTrace::Visibility {
 
   bool GuardVisible(const WorldState &world, const Agent &observer, const Guard &guard) {
     if (guard.bodyHidden) return false;
+    if (world.phase != GamePhase::Mission) return true;
     if (world.visibility.authoritative && world.visibility.observer == observer.id) return true;
-    return !guard.bodyHidden && IsVisible(world, observer, guard.position,
-      guard.state == GuardState::Dead || guard.state == GuardState::Incapacitated || (!guard.trainingDummy && guard.heldBy == 0 && (guard.cqcState == CqcState::KnockedDown || guard.cqcState == CqcState::Restrained)) ? Stance::Prone : Stance::Standing);
+    return !guard.bodyHidden && IsGeometricallyVisible(world, observer, guard.position,
+      guard.state == GuardState::Dead || guard.state == GuardState::Incapacitated || (!guard.trainingDummy && guard.heldBy == 0 && (guard.cqcState == CqcState::KnockedDown || guard.cqcState == CqcState::Restrained)) ? Stance::Prone : Stance::Standing, guard.elevation);
   }
 
   bool ObjectVisible(const WorldState &world, const Agent &observer, const Interactable &object) {
     if (object.kind == ObjectKind::Explosive && object.trap.state == TrapState::Armed) return false;
     if (observer.hideoutId != 0 && observer.hideoutId == object.id) return true;
     if (world.visibility.authoritative && world.visibility.observer == observer.id) return true;
-    if (IsVisible(world, observer, object.position)) return true;
+    if (IsGeometricallyVisible(world, observer, object.position, Stance::Standing, object.elevation)) return true;
     const auto bounds = WorldGeometry::ObjectFootprint(object);
     const float offset = VisibilityConfig::SurfaceOffset;
     const auto end = bounds.position + bounds.size;
     const auto nearest = WorldGeometry::ClosestPoint(observer.position, bounds);
     const auto approach = observer.position - nearest;
     const float length = std::hypot(approach.x, approach.y);
-    if (length > 0.f && IsVisible(world, observer, nearest + approach * (offset / length))) return true;
+    if (length > 0.f && IsGeometricallyVisible(world, observer, nearest + approach * (offset / length), Stance::Standing, object.elevation)) return true;
     for (const auto point : {sf::Vector2f{bounds.position.x - offset, bounds.position.y - offset},
                              sf::Vector2f{end.x + offset, bounds.position.y - offset},
                              sf::Vector2f{bounds.position.x - offset, end.y + offset},
                              sf::Vector2f{end.x + offset, end.y + offset}}) {
-      if (IsVisible(world, observer, point)) return true;
+      if (IsGeometricallyVisible(world, observer, point, Stance::Standing, object.elevation)) return true;
     }
     return false;
   }
 
   bool FootstepAudible(const WorldState &world, const Agent &observer, const FootstepCue &cue) {
     if (!IsTactical(world) || !observer.alive || observer.incapacitated || observer.extracted || cue.remaining <= 0.f) return false;
-    if ((cue.position - observer.position).lengthSquared() > DistractionConfig::PlayerHearingDistance * DistractionConfig::PlayerHearingDistance) return false;
+    if (WorldGeometry::SpatialDistance(WorldGeometry::Feet(observer), {cue.position.x, cue.position.y, cue.elevation}) > DistractionConfig::PlayerHearingDistance) return false;
     if (world.visibility.authoritative && world.visibility.observer == observer.id) return true;
     const auto source = std::ranges::find_if(world.guards, [&cue](const Guard &guard) { return guard.id == cue.sourceGuard; });
     return source != world.guards.end() && !source->bodyHidden && source->state != GuardState::Dead && source->state != GuardState::Incapacitated && !GuardVisible(world, observer, *source);
@@ -155,15 +139,16 @@ namespace NoTrace::Visibility {
 
   bool SoundAudible(const WorldState &world, const Agent &observer, const SoundEvent &sound) {
     if (observer.extracted || sound.remaining <= 0.f) return false;
-    if ((!observer.alive || observer.incapacitated) && sound.kind != SoundKind::Explosion && sound.kind != SoundKind::Fall) return false;
+    const bool ownLife = sound.actor == observer.id && (sound.kind == SoundKind::Death || sound.kind == SoundKind::Hurt || sound.kind == SoundKind::Revive);
+    if ((!observer.alive || observer.incapacitated) && sound.kind != SoundKind::Explosion && sound.kind != SoundKind::Fall && !ownLife) return false;
     if (world.visibility.authoritative && world.visibility.observer == observer.id) return true;
     if (sound.actor == observer.id) return true;
-    const float muffling = HasLineOfSight(world, observer.position, sound.position) ? 1.f : AudioConfig::WallHearingFactor;
-    return (observer.position - sound.position).length() <= sound.radius * muffling;
+    const float muffling = AudioGeometry::Occluded(world, observer, sound.position, sound.elevation) ? AudioConfig::WallHearingFactor : 1.f;
+    return WorldGeometry::SpatialDistance(WorldGeometry::Feet(observer), {sound.position.x, sound.position.y, sound.elevation}) <= sound.radius * muffling;
   }
 
   bool NoiseAudible(const WorldState &world, const Agent &observer, const NoiseEvent &noise) {
-    return SoundAudible(world, observer, {0, noise.kind, noise.position, noise.radius, noise.remaining, noise.actor});
+    return SoundAudible(world, observer, {0, noise.kind, noise.position, noise.radius, noise.remaining, noise.actor, noise.elevation});
   }
 
   VisibilityGrid BuildGrid(const WorldState &world, const Agent &observer) {

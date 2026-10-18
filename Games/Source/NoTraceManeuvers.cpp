@@ -18,7 +18,7 @@ namespace NoTrace {
     using namespace ManeuverConfig;
     auto &motion = agent.maneuver;
     motion.cooldown = std::max(0.f, motion.cooldown - dt);
-    const bool unavailable = !IsTactical(world_) || !agent.connected || !agent.alive || agent.incapacitated || agent.hidden || agent.extracted || agent.hideoutId != 0 || agent.staggerRemaining > 0.f;
+    const bool unavailable = !IsTactical(world_) || !agent.connected || !agent.alive || agent.incapacitated || agent.hidden || agent.extracted || agent.hideoutId != 0 || agent.staggerRemaining > 0.f || agent.traversal.mode != TraversalMode::Grounded;
     if (unavailable) { CancelManeuver(agent); return false; }
     if (motion.kind == ManeuverKind::None) {
       if ((!command.dive && !command.roll) || motion.cooldown > 0.f || agent.cover.active || agent.puzzle.target != 0 || agent.draggingGuard >= 0 || agent.reloadRemaining > 0.f ||
@@ -34,16 +34,16 @@ namespace NoTrace {
       direction /= direction.length();
       const float cost = dive ? DiveStamina : RollStamina;
       if (agent.stamina < cost) return false;
-      auto probe = agent.position;
-      Move(probe, direction * StartProbe, GameplayConfig::AgentRadius);
-      if ((probe - agent.position).length() < CollisionTolerance) return false;
+      auto probe = agent;
+      MoveAgent(probe, direction * StartProbe);
+      if ((probe.position - agent.position).length() < CollisionTolerance) return false;
       CancelReload(agent);
       motion = {}; motion.kind = dive ? ManeuverKind::Dive : ManeuverKind::Roll; motion.phase = ManeuverPhase::Start; motion.direction = direction;
       agent.stamina -= cost; agent.facing = direction; agent.running = false; agent.moving = false; agent.cover = {}; agent.decoyGuide = {};
       agent.aiming = false;
       agent.actionPose = ActionPose::None; agent.actionPoseTime = 0.f;
       EmitNoise(agent.position, dive ? DiveNoise : RollNoise, agent.id, 0, SoundKind::StepSoft);
-      EmitSound(SoundKind::StepSoft, agent.position, dive ? DiveNoise : RollNoise, agent.id);
+      EmitSound(dive ? SoundKind::Dive : SoundKind::Roll, agent.position, dive ? DiveNoise : RollNoise, agent.id);
       world_.message = dive ? "Zambullida táctica: impulso y aterrizaje tumbado." : "Rodada táctica: desplazamiento y recuperación agachado.";
       return true;
     }
@@ -59,7 +59,7 @@ namespace NoTrace {
       if (dive) agent.stance = Stance::Prone;
       const auto previous = agent.position;
       const float requested = (dive ? DiveSpeed : RollSpeed) * travelTime;
-      Move(agent.position, motion.direction * requested, GameplayConfig::AgentRadius);
+      MoveAgent(agent, motion.direction * requested);
       const float travelled = (agent.position - previous).length();
       motion.travelled += travelled; agent.moving = travelled > CollisionTolerance;
       if (travelled + CollisionTolerance < requested) { motion.blocked = true; motion.time = std::max(motion.time, travelEnd); }
@@ -67,7 +67,7 @@ namespace NoTrace {
     if (previousTime < travelEnd && motion.time >= travelEnd) {
       agent.stance = dive ? Stance::Prone : Stance::Crouched;
       EmitNoise(agent.position, dive ? LandingNoise : RollNoise, agent.id, 0, SoundKind::Impact);
-      EmitSound(SoundKind::Impact, agent.position, dive ? LandingNoise : RollNoise, agent.id);
+      if (motion.travelled > CollisionTolerance) EmitSound(SoundKind::Land, agent.position, dive ? LandingNoise : RollNoise, agent.id);
     }
     motion.phase = motion.time < start ? ManeuverPhase::Start : motion.time < travelEnd ? ManeuverPhase::Travel : motion.time < landEnd ? ManeuverPhase::Land : ManeuverPhase::Recover;
     if (motion.time >= Duration(motion.kind)) {

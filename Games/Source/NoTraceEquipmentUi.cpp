@@ -4,8 +4,7 @@
 #include <algorithm>
 #include <format>
 #include <TGUI/Backend/Renderer/SFML-Graphics/CanvasSFML.hpp>
-#include <SFML/Graphics/ConvexShape.hpp>
-#include <SFML/Graphics/RectangleShape.hpp>
+#include <SFML/Graphics/Sprite.hpp>
 
 namespace NoTrace {
   void Game::BuildWeapons() {
@@ -15,21 +14,9 @@ namespace NoTrace {
       slot->onPress([this, index] { pendingWeaponChoice_ = index; }); panel_->add(slot); weaponSlots_[index] = slot;
       auto art = tgui::CanvasSFML::create({310.f, 180.f}); art->setPosition({48.f + index * 375.f, 45.f}); art->setIgnoreMouseEvents(true);
       art->clear(sf::Color::Transparent);
-      const sf::Color steel{175, 192, 197}, shadow{54, 70, 78}, accent = index == 0 ? sf::Color{214, 151, 116} : sf::Color{102, 203, 194};
-      const auto block = [&](sf::Vector2f position, sf::Vector2f size, sf::Color color) {
-        sf::RectangleShape shape(size); shape.setPosition(position); shape.setFillColor(color); art->draw(shape);
-      };
-      if (index == 0) {
-        block({38.f, 50.f}, {225.f, 36.f}, steel); block({246.f, 56.f}, {29.f, 24.f}, shadow);
-        block({72.f, 86.f}, {45.f, 12.f}, steel); block({72.f, 98.f}, {9.f, 22.f}, steel); block({72.f, 120.f}, {45.f, 8.f}, steel);
-        sf::ConvexShape grip(4); grip.setPoint(0,{39.f,84.f}); grip.setPoint(1,{74.f,84.f}); grip.setPoint(2,{92.f,155.f}); grip.setPoint(3,{47.f,155.f}); grip.setFillColor(shadow); art->draw(grip);
-        block({44.f, 59.f}, {21.f, 6.f}, accent); block({229.f, 44.f}, {7.f, 6.f}, shadow);
-      } else {
-        block({28.f, 57.f}, {218.f, 30.f}, shadow); block({112.f, 42.f}, {102.f, 49.f}, steel);
-        block({245.f, 50.f}, {39.f, 42.f}, accent); block({61.f, 90.f}, {34.f, 66.f}, steel);
-        block({103.f, 91.f}, {58.f, 8.f}, steel); block({153.f, 91.f}, {8.f, 29.f}, steel); block({100.f, 113.f}, {61.f, 8.f}, steel);
-        for (int cell = 0; cell < 3; ++cell) block({122.f + cell * 26.f, 52.f}, {14.f, 25.f}, accent);
-        block({37.f, 87.f}, {15.f, 19.f}, accent);
+      if (const auto *texture = ctx.resources.FetchTexture("NoTrace/Characters/V2/WeaponSelection.png")) {
+        sf::Sprite sprite(*texture, {{index * 320, 0}, {320, 192}});
+        sprite.setPosition({5.f, 0.f}); sprite.setScale({.9375f, .9375f}); art->draw(sprite);
       }
       art->display(); panel_->add(art);
       weaponAmmo_[index] = Label("", {55.f + index * 375.f, 239.f}, {295.f, 48.f}, 30);

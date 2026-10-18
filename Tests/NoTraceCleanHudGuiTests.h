@@ -1,3 +1,4 @@
+#include "NoTraceSpatialFixture.h"
 #pragma once
 
 #include "Core/EngineContext.h"
@@ -148,11 +149,12 @@ namespace EngineTests {
 
     Simulation simulation; simulation.ResetBase({{1, "LOCAL"}}); simulation.Deploy(0);
     auto &live = const_cast<WorldState &>(simulation.GetState());
+    NoTrace::TestFixture::LegacyPlane(live);
     live.size = {1000.f, 1000.f}; live.obstacles.clear(); live.objects.clear(); live.guards.clear(); live.noises.clear(); live.sounds.clear(); live.events.clear(); live.securityEntries.clear();
     live.agents[0].position = {400.f, 400.f}; live.agents[0].footstepTime = GameplayConfig::RunningFootstepInterval;
     ActionCommand running; running.moveX = 1.f; running.run = true; simulation.Step(0.05f, {{1, running}});
-    require(!live.noises.empty() && live.agents[0].moving && live.agents[0].running && live.noises[0].radius == GameplayConfig::RunningNoiseRadius && live.noises[0].radius == 306.f,
-      "el movimiento real no produce el radio de carrera de 306");
+    require(!live.noises.empty() && live.agents[0].moving && live.agents[0].running && live.noises[0].radius == GameplayConfig::RunningNoiseRadius && live.noises[0].radius == 244.8f,
+      "el movimiento real no produce el radio de carrera de 244,8");
     auto runningView = live; runningView.noises.resize(1); runningView.noises[0].remaining = runningView.noises[0].duration * 0.6f;
     const auto runningEvent = runningView.noises[0];
     const auto waveCenter = [&](const WorldState &view, const std::string &prefix) {
@@ -195,6 +197,7 @@ namespace EngineTests {
 
     Simulation covered; covered.ResetBase(); covered.Deploy(0);
     auto &coverWorld = const_cast<WorldState &>(covered.GetState());
+    NoTrace::TestFixture::LegacyPlane(coverWorld);
     coverWorld.size = {1000.f, 1000.f}; coverWorld.obstacles.clear(); coverWorld.objects.clear(); coverWorld.guards.clear(); coverWorld.noises.clear(); coverWorld.sounds.clear(); coverWorld.events.clear(); coverWorld.securityEntries.clear();
     coverWorld.agents[0].position = {387.f, 400.f}; coverWorld.agents[0].footstepTime = 0.f;
     coverWorld.obstacles.push_back({{{412.f, 200.f}, {24.f, 400.f}}, CoverKind::High, true, "Pared de pasos laterales"});
@@ -243,6 +246,7 @@ namespace EngineTests {
     const auto interactionFixture = [&]() -> WorldState & {
       interactionSimulation.ResetBase({{1, "LOCAL"}, {2, "ALIADO"}}); interactionSimulation.Deploy(0);
       auto &state = const_cast<WorldState &>(interactionSimulation.GetState());
+      NoTrace::TestFixture::LegacyPlane(state);
       state.size = {1000.f, 1000.f}; state.obstacles.clear(); state.objects.clear(); state.guards.clear(); state.noises.clear();
       state.sounds.clear(); state.shots.clear(); state.events.clear(); state.securityEntries.clear();
       state.agents[0].position = {400.f, 400.f}; state.agents[1].position = {100.f, 100.f};

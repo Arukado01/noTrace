@@ -2,6 +2,7 @@
 
 #include "Core/EngineContext.h"
 #include "NoTraceWorldRenderer.h"
+#include "NoTraceCharacterAtlasFixture.h"
 #include <array>
 #include <filesystem>
 #include <fstream>
@@ -14,17 +15,7 @@ namespace EngineTests {
   template <typename Capture>
   nlohmann::json RunOrientationRenderFixtures(EngineContext &context, const std::filesystem::path &output, Capture capture) {
     using namespace NoTrace;
-    struct Frame { sf::IntRect rectangle; sf::Vector2f muzzle; };
-    std::ifstream rectangles(SpriteConfig::FrameTable), muzzles(SpriteConfig::MuzzleTable);
-    std::vector<Frame> frames;
-    Frame frame;
-    while (rectangles >> frame.rectangle.position.x >> frame.rectangle.position.y >> frame.rectangle.size.x >> frame.rectangle.size.y) {
-      if (!(muzzles >> frame.muzzle.x >> frame.muzzle.y)) throw std::runtime_error("Falta una boca del atlas en el fixture de orientación");
-      frames.push_back(frame);
-    }
-    sf::Image atlas;
-    if (!atlas.loadFromFile(std::filesystem::path("Content/Textures") / SpriteConfig::Atlas) || frames.size() != SpriteConfig::FrameCount)
-      throw std::runtime_error("No se puede inspeccionar el atlas real para comparar las piernas");
+    CharacterAtlasFixture atlas;
     int checks = 0;
     const auto require = [&](bool condition, const std::string &message) {
       ++checks;
@@ -56,34 +47,48 @@ namespace EngineTests {
         const auto first = capture(renderer, world, output / ("orientation-" + name + "-forward.png"), false);
         const auto body = WorldRenderer::SelectBodySprite(agent);
         const auto feet = WorldRenderer::ProjectGround(agent.position, observer.position, logical);
-        const auto placement = WorldRenderer::PlaceSprite(feet, agent.facing, stance, false, body, frames.at(body.index).rectangle.size);
-        const auto pivot = WorldRenderer::TorsoPivot(stance), lowerNormal = WorldRenderer::TorsoForward(stance, agent.facing);
+        const auto placement = WorldRenderer::PlaceSprite(feet, agent.facing, stance, false, body, {192, 192});
         std::map<std::pair<int, int>, unsigned int> legs;
         std::set<std::pair<int, int>> weaponPixels;
+        std::set<std::pair<int, int>> lowerPixels;
         const auto markWeapon = [&] {
           const auto upper = WorldRenderer::SelectWeaponSprite(agent);
-          const auto &rect = frames.at(upper.index).rectangle;
-          const auto upperPlacement = WorldRenderer::PlaceSprite(feet, WeaponFacing(agent), stance, false, upper, rect.size);
-          const auto normal = WorldRenderer::TorsoForward(stance, WeaponFacing(agent));
+          const auto rect = atlas.Rect(upper.index, "upper");
+          const auto offset = atlas.Offset(upper.index, "upper");
+          const auto &image = atlas.ImageFor(upper.index, "upper");
+          const auto upperFeet = renderer.CharacterSprites().AlignUpper(body.index, upper.index, feet);
+          const auto upperPlacement = WorldRenderer::PlaceSprite(upperFeet, WeaponFacing(agent), stance, false, upper, {192, 192});
+          const auto mark = [&](sf::Vector2f point) {
+            const auto firstPixel = physical(point - sf::Vector2f{CharacterArt::Scale() * .5f, CharacterArt::Scale() * .5f});
+            const auto lastPixel = physical(point + sf::Vector2f{CharacterArt::Scale() * .5f, CharacterArt::Scale() * .5f});
+            for (int y = firstPixel.y - 1; y <= lastPixel.y + 1; ++y) for (int x = firstPixel.x - 1; x <= lastPixel.x + 1; ++x) weaponPixels.emplace(x, y);
+          };
           for (int y = 0; y < rect.size.y; ++y) for (int x = 0; x < rect.size.x; ++x) {
-            const sf::Vector2f point{x + 0.5f, y + 0.5f};
-            const auto color = atlas.getPixel(sf::Vector2u(rect.position + sf::Vector2i{x, y}));
-            const int maximum = std::max({color.r, color.g, color.b}), minimum = std::min({color.r, color.g, color.b});
-            if (color.a < SpriteConfig::SupportAlpha || maximum - minimum > 18 || maximum > 140 || (point - pivot).dot(normal) < 0.f) continue;
-            const auto pixel = physical(upperPlacement.Map(point));
-            weaponPixels.emplace(pixel.x, pixel.y);
+            if (image.getPixel(sf::Vector2u(rect.position + sf::Vector2i{x, y})).a == 0) continue;
+            mark(upperPlacement.Map(offset + sf::Vector2f{x + .5f, y + .5f}));
+          }
+          const auto &prop = renderer.CharacterSprites().WeaponMetadata(CharacterArt::Weapon::Pistol, true, upper.index / SpriteConfig::Columns % SpriteConfig::Directions);
+          const auto grip = renderer.CharacterSprites().Map(upper.index, renderer.CharacterSprites().Metadata(upper.index).grip, upperFeet);
+          for (int y = 0; y < prop.rect.size.y; ++y) for (int x = 0; x < prop.rect.size.x; ++x) {
+            if (atlas.weapons.getPixel(sf::Vector2u(prop.rect.position + sf::Vector2i{x, y})).a == 0) continue;
+            mark(grip + (sf::Vector2f{x + .5f, y + .5f} - prop.grip) * CharacterArt::Scale());
           }
         };
         markWeapon();
         agent.weaponAim = -agent.facing;
         const auto second = capture(renderer, world, output / ("orientation-" + name + "-backward.png"), false);
         markWeapon();
-        const auto &rect = frames.at(body.index).rectangle;
+        const auto rect = atlas.Rect(body.index, "lower");
+        const auto lowerOffset = atlas.Offset(body.index, "lower");
+        const auto &lowerImage = atlas.ImageFor(body.index, "lower");
         for (int y = 0; y < rect.size.y; ++y) for (int x = 0; x < rect.size.x; ++x) {
-          const sf::Vector2f point{x + 0.5f, y + 0.5f};
-          if ((point - pivot).dot(lowerNormal) > -6.f || atlas.getPixel(sf::Vector2u(rect.position + sf::Vector2i{x, y})).a < SpriteConfig::SupportAlpha) continue;
+          const sf::Vector2f point = lowerOffset + sf::Vector2f{x + 0.5f, y + 0.5f};
+          const auto alpha = lowerImage.getPixel(sf::Vector2u(rect.position + sf::Vector2i{x, y})).a;
+          const auto lowerPixel = physical(placement.Map(point));
+          if (alpha > 0) for (int dy = -2; dy <= 2; ++dy) for (int dx = -2; dx <= 2; ++dx) lowerPixels.emplace(lowerPixel.x + dx, lowerPixel.y + dy);
+          if (alpha < SpriteConfig::SupportAlpha) continue;
           const auto pixel = physical(placement.Map(point));
-          if (inImage(pixel) && !weaponPixels.contains({pixel.x, pixel.y})) legs.emplace(std::pair{pixel.x, pixel.y}, atlas.getPixel(sf::Vector2u(rect.position + sf::Vector2i{x, y})).a);
+          if (inImage(pixel) && (stance == Stance::Prone || !weaponPixels.contains({pixel.x, pixel.y}))) legs.emplace(std::pair{pixel.x, pixel.y}, alpha);
         }
         int changedLegs = 0, visibleLegs = 0, blendedLegEdges = 0;
         for (const auto &[position, alpha] : legs) {
@@ -98,21 +103,25 @@ namespace EngineTests {
         }
         require(visibleLegs > 12, "la máscara del atlas no conserva piernas visibles: " + name);
         require(changedLegs == 0, "la puntería contraria cambia " + std::to_string(changedLegs) + " píxeles de piernas: " + name);
-        const auto start = body.index / 4 * 4;
-        const auto support = WorldRenderer::MeasureGroundSupport(atlas, {frames.at(start).rectangle, frames.at(start + 1).rectangle,
-          frames.at(start + 2).rectangle, frames.at(start + 3).rectangle});
-        const auto shadow = placement.Map(support.anchor);
+        const auto shadow = placement.Map(renderer.CharacterSprites().Metadata(body.index).anchor);
         int shadowSamples = 0;
-        for (const float x : {-6.f, 0.f, 6.f}) {
-          const auto sample = physical(shadow + sf::Vector2f{x, 5.f});
+        std::set<std::pair<int, int>> testedShadow;
+        const float footprint = std::max(stance == Stance::Prone ? 34.f : 24.f, renderer.CharacterSprites().Metadata(body.index).supportWidth * CharacterArt::Scale());
+        for (const float y : {-3.f, -1.f, 1.f, 3.f, 5.f}) {
+          const float row = y - 1.f, width = footprint * (1.f - row * row / 36.f);
+          for (float x = -width * .5f + .5f; x < width * .5f - .5f; x += 1.f) {
+          const auto sample = physical(shadow + sf::Vector2f{x, y});
           if (!inImage(sample)) continue;
+          if (weaponPixels.contains({sample.x, sample.y}) || lowerPixels.contains({sample.x, sample.y})) continue;
+          if (!testedShadow.emplace(sample.x, sample.y).second) continue;
           const auto pixel = sf::Vector2u(sample);
           require(first.getPixel(pixel) == second.getPixel(pixel), "la puntería mueve la sombra del apoyo corporal: " + name);
           if (first.getPixel(pixel) != absent.getPixel(pixel)) ++shadowSamples;
+          }
         }
         require(shadowSamples > 0, "no se capturan los píxeles reales de sombra: " + name);
         int changedUpper = 0;
-        const auto topLeft = physical(placement.Map({0.f, 0.f})), bottomRight = physical(placement.Map(sf::Vector2f(rect.size)));
+        const auto topLeft = physical(placement.Map({0.f, 0.f})), bottomRight = physical(placement.Map({192.f, 192.f}));
         for (int y = std::max(0, topLeft.y); y <= std::min(static_cast<int>(first.getSize().y) - 1, bottomRight.y); ++y)
           for (int x = std::max(0, topLeft.x); x <= std::min(static_cast<int>(first.getSize().x) - 1, bottomRight.x); ++x)
             if (first.getPixel({static_cast<unsigned int>(x), static_cast<unsigned int>(y)}) != second.getPixel({static_cast<unsigned int>(x), static_cast<unsigned int>(y)})) ++changedUpper;
@@ -124,7 +133,8 @@ namespace EngineTests {
       }
     }
     nlohmann::json report{{"status", "PASS"}, {"checks", checks}, {"cases", evidence},
-      {"legComparison", "Los píxeles opacos exigen igualdad exacta; los bordes admiten sólo la contribución posterior 255-alfa y un nivel de redondeo. El fallo previo de seis muestras provenía de alfa248–252 y diferencias RGB de uno o dos niveles."}};
+      {"legComparison", "Máscara de capa lower autorada; se excluye cobertura real del torso/arma. Píxeles opacos exigen igualdad exacta y bordes sólo255-alfa más un nivel de redondeo."},
+      {"shadowComparison", "Igualdad exacta de sombra visible fuera de las máscaras lower/upper/arma; el cañón agachado podía tapar la muestra fija+5."}, {"atlasSchema", 3}};
     std::ofstream file(output / "orientation-fixtures.json"); file << report.dump(2);
     return report;
   }

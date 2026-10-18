@@ -7,7 +7,7 @@
 
 namespace NoTrace::ControlsConfig {
   enum Action : int { Left, Right, Up, Down, Run, Crouch, Prone, Interact, Cqc, Lethal, NonLethal, Decoy, Knock, Drag, Tool,
-    Orders, Lobby, WallCover, Peek, Shove, Reload, SelectPistol, SelectNonLethal, Dive, Roll, Suppressor, WeaponMenu, Count };
+    Orders, Lobby, WallCover, Peek, Shove, Reload, SelectPistol, SelectNonLethal, Dive, Roll, Suppressor, WeaponMenu, Traverse, SpectateNext, SpectatePrevious, Count };
   inline constexpr std::array<sf::Keyboard::Scancode, static_cast<std::size_t>(Action::Count)> DefaultKeys{
     sf::Keyboard::Scan::A, sf::Keyboard::Scan::D, sf::Keyboard::Scan::W, sf::Keyboard::Scan::S,
     sf::Keyboard::Scan::LShift, sf::Keyboard::Scan::C, sf::Keyboard::Scan::Z,
@@ -15,7 +15,8 @@ namespace NoTrace::ControlsConfig {
     sf::Keyboard::Scan::G, sf::Keyboard::Scan::Unknown, sf::Keyboard::Scan::Unknown, sf::Keyboard::Scan::T,
     sf::Keyboard::Scan::Tab, sf::Keyboard::Scan::F2, sf::Keyboard::Scan::LAlt, sf::Keyboard::Scan::Unknown, sf::Keyboard::Scan::V,
     sf::Keyboard::Scan::R, sf::Keyboard::Scan::Num1, sf::Keyboard::Scan::Num2,
-    sf::Keyboard::Scan::Unknown, sf::Keyboard::Scan::Unknown, sf::Keyboard::Scan::H, sf::Keyboard::Scan::Q
+    sf::Keyboard::Scan::Unknown, sf::Keyboard::Scan::Unknown, sf::Keyboard::Scan::H, sf::Keyboard::Scan::Q,
+    sf::Keyboard::Scan::B, sf::Keyboard::Scan::PageDown, sf::Keyboard::Scan::PageUp
   };
   inline constexpr std::array<sf::Keyboard::Scancode, 5> MovementKeys{
     sf::Keyboard::Scan::Space, sf::Keyboard::Scan::LControl, sf::Keyboard::Scan::X, sf::Keyboard::Scan::J, sf::Keyboard::Scan::K

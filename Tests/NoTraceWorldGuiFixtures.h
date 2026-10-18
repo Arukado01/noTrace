@@ -1,3 +1,5 @@
+#include "NoTraceSpatialFixture.h"
+#include "NoTraceCharacterAtlasFixture.h"
 #pragma once
 
 #include "NoTraceWorldRenderer.h"
@@ -19,6 +21,8 @@ namespace EngineTests {
   template <typename Capture>
   nlohmann::json RunWorldRenderFixtures(EngineContext &context, const std::filesystem::path &output, Capture capture) {
     using namespace NoTrace;
+    WorldRenderer renderer(context);
+    CharacterAtlasFixture characterAtlas;
     struct BitmapFrame { sf::IntRect rectangle; sf::Vector2f muzzle; };
     const auto readBitmapFrames = [](const char *name) {
       const auto directory = std::filesystem::path("Content/Textures/NoTrace/Characters");
@@ -31,17 +35,23 @@ namespace EngineTests {
       }
       return frames;
     };
-    const auto bitmapFrames = readBitmapFrames("SoldiersAtlas"), proneBitmapFrames = readBitmapFrames("ProneAtlas"), operativeBitmapFrames = readBitmapFrames("OperativeAtlas");
-    if (operativeBitmapFrames.size() != SpriteConfig::FrameCount) throw std::runtime_error("Los fixtures y el atlas operativo no tienen la misma cantidad de celdas");
-    sf::Image operativeImage;
-    if (!operativeImage.loadFromFile("Content/Textures/NoTrace/Characters/OperativeAtlas.png")) throw std::runtime_error("No se puede comprobar el apoyo visible del atlas en los fixtures");
+    const auto bitmapFrames = readBitmapFrames("SoldiersAtlas"), proneBitmapFrames = readBitmapFrames("ProneAtlas");
+    std::vector<BitmapFrame> operativeBitmapFrames(SpriteConfig::FrameCount);
     std::vector<WorldRenderer::GroundSupport> operativeSupports(operativeBitmapFrames.size());
-    for (std::size_t first = 0; first < operativeBitmapFrames.size(); first += 4) {
-      const auto support = WorldRenderer::MeasureGroundSupport(operativeImage, {operativeBitmapFrames[first].rectangle, operativeBitmapFrames[first + 1].rectangle,
-        operativeBitmapFrames[first + 2].rectangle, operativeBitmapFrames[first + 3].rectangle});
-      std::fill_n(operativeSupports.begin() + first, 4, support);
+    for (const auto &[index, entry] : characterAtlas.frames) {
+      operativeBitmapFrames[index] = {{{0, 0}, {192, 192}}, CharacterAtlasFixture::Vector(entry.at("muzzle"))};
+      operativeSupports[index] = {CharacterAtlasFixture::Vector(entry.at("groundAnchor")), entry.at("supportWidth").get<float>()};
     }
-    const auto bitmapMuzzle = [&](WorldRenderer::SpriteFrame selected, sf::Vector2f position, sf::Vector2f facing, Stance stance, sf::Vector2f camera, float zoom) {
+    const auto bitmapMuzzle = [&](WorldRenderer::SpriteFrame selected, sf::Vector2f position, sf::Vector2f facing, Stance stance, sf::Vector2f camera, float zoom, bool guard = false, std::optional<WorldRenderer::SpriteFrame> lower = std::nullopt) {
+      if (selected.operative) {
+        const auto logical = context.window.GetLogicalSize();
+        const auto feet = WorldRenderer::ProjectGround(position, camera, logical);
+        const auto upperFeet = lower ? renderer.CharacterSprites().AlignUpper(lower->index, selected.index, feet) : feet;
+        const auto point = renderer.CharacterSprites().Muzzle(selected.index, upperFeet, guard ? CharacterArt::Weapon::GuardRifle : CharacterArt::Weapon::Pistol, !guard,
+            selected.index / SpriteConfig::Columns % SpriteConfig::Directions);
+        const auto center = WorldRenderer::ProjectGround(camera, camera, logical);
+        return center + (point - center) * zoom;
+      }
       const auto &frame = (selected.operative ? operativeBitmapFrames : selected.prone ? proneBitmapFrames : bitmapFrames).at(selected.index);
       if (frame.muzzle.x < 0.f) throw std::runtime_error("La pose disparando no tiene una boca real visible en el PNG");
       const auto size = context.window.GetLogicalSize();
@@ -60,7 +70,8 @@ namespace EngineTests {
         barrel = barrel || body.getPixel(point) != absent.getPixel(point);
         flash = flash || firing.getPixel(point) == PresentationConfig::Light;
       }
-      if (!barrel || !flash) throw std::runtime_error("La boca del PNG y el destello capturado se separan: " + scenario);
+      if (!barrel || !flash) throw std::runtime_error("La boca del PNG y el destello capturado se separan: " + scenario +
+          " (PNG " + (barrel ? "presente" : "ausente") + "; destello " + (flash ? "presente" : "ausente") + ")");
     };
     WorldState world;
     world.phase = GamePhase::Base;
@@ -70,6 +81,7 @@ namespace EngineTests {
         {{{300.f, 300.f}, {100.f, 100.f}}, CoverKind::High, true, "Caja principal"},
         {{{455.f, 380.f}, {85.f, 50.f}}, CoverKind::Low, true, "Caja secundaria"}};
     Interactable terminal;
+    terminal.id = 90;
     terminal.kind = ObjectKind::Terminal;
     terminal.position = {275.f, 460.f};
     terminal.name = "TERMINAL";
@@ -86,7 +98,6 @@ namespace EngineTests {
     front.id = 2;
     front.position = {425.f, 350.f};
     world.guards = {back, front};
-    WorldRenderer renderer(context);
     const std::array<const char *, 5> names{{"behind", "front", "lateral-x", "lateral-y", "diagonal"}};
     const std::array<sf::Vector2f, 5> positions{{{350.f, 270.f}, {350.f, 430.f}, {430.f, 390.f}, {390.f, 430.f}, {430.f, 430.f}}};
     const std::array<const char *, 3> zoomNames{{"min", "normal", "max"}};
@@ -147,6 +158,8 @@ namespace EngineTests {
     const std::array<Stance, 4> shotStances{{Stance::Standing, Stance::Crouched, Stance::Prone, Stance::Prone}};
     renderer.ResetZoom();
     for (std::size_t index = 0; index < shotNames.size(); ++index) {
+      // Cada estado aislado parte sin la histéresis corporal de las escenas anteriores de oclusión.
+      WorldRenderer shotRenderer(context);
       auto &shooter = world.agents[0];
       shooter.position = {350.f, 470.f};
       shooter.stance = shotStances[index];
@@ -164,16 +177,16 @@ namespace EngineTests {
       const auto file = output / (stem + ".png");
       const auto shot = world.shots;
       world.shots.clear();
-      const auto body = capture(renderer, world, output / (stem + "-weapon.png"));
+      const auto body = capture(shotRenderer, world, output / (stem + "-weapon.png"));
       shooter.hidden = true;
-      const auto absent = capture(renderer, world, output / (stem + "-absent.png"));
+      const auto absent = capture(shotRenderer, world, output / (stem + "-absent.png"));
       shooter.hidden = false; world.shots = shot;
-      const auto pixels = capture(renderer, world, file);
+      const auto pixels = capture(shotRenderer, world, file);
       const auto logicalSize = context.window.GetLogicalSize();
       const auto selected = WorldRenderer::SelectWeaponSprite(shooter);
       // La boca corresponde al torso apuntado, cuya dirección es independiente de la histéresis de las piernas.
       const auto visualDirection = WorldRenderer::SpriteDirection(WeaponFacing(shooter));
-      const auto muzzle = bitmapMuzzle(selected, shooter.position, WeaponFacing(shooter), shooter.stance, shooter.position, renderer.GetZoom());
+      const auto muzzle = bitmapMuzzle(selected, shooter.position, WeaponFacing(shooter), shooter.stance, shooter.position, shotRenderer.GetZoom(), false, WorldRenderer::SelectBodySprite(shooter));
       const auto pixel = muzzle.componentWiseDiv(logicalSize).componentWiseMul(sf::Vector2f(pixels.getSize()));
       const sf::Vector2u sample{static_cast<unsigned int>(std::floor(pixel.x)), static_cast<unsigned int>(std::floor(pixel.y))};
       requireBitmapFlash(body, absent, pixels, muzzle, stem);
@@ -209,7 +222,7 @@ namespace EngineTests {
     fogWorld.obstacles = {{{{290.f, 100.f}, {20.f, 168.f}}, CoverKind::High, true, "Muro norte"},
         {{{290.f, 332.f}, {20.f, 168.f}}, CoverKind::High, true, "Muro sur"}};
     Interactable door;
-    door.kind = ObjectKind::Door; door.position = {300.f, 300.f};
+    door.id = 91; door.kind = ObjectKind::Door; door.position = {300.f, 300.f};
     fogWorld.objects.push_back(door); fogWorld.guards.push_back(hidden);
     if (Visibility::GuardVisible(fogWorld, observer, hidden)) throw std::runtime_error("La puerta cerrada permite ver al enemigo");
     capture(renderer, fogWorld, output / "world-fog-door-closed.png");
@@ -217,6 +230,7 @@ namespace EngineTests {
     if (!Visibility::GuardVisible(fogWorld, observer, hidden)) throw std::runtime_error("Abrir la puerta no actualiza la visión del corredor");
     capture(renderer, fogWorld, output / "world-fog-door-open.png");
     metadata.push_back({{"file", "world-fog-door-open.png"}, {"visibleAfterOpeningDoor", true}});
+    NoTrace::TestFixture::LegacyPlane(world);
     world.shots.clear(); world.obstacles.clear(); world.objects.clear(); world.guards.clear();
     world.agents[0].position = {350.f, 350.f}; world.agents[0].stance = Stance::Standing;
     for (std::size_t index = 0; index < 4; ++index) {
@@ -280,7 +294,7 @@ namespace EngineTests {
       for (std::size_t actorIndex = 1; actorIndex < sprites.agents.size(); ++actorIndex) {
         const auto &actor = sprites.agents[actorIndex];
         const auto selected = WorldRenderer::SelectActorSprite(actor);
-        const auto muzzle = bitmapMuzzle(selected, actor.position, actor.facing, actor.stance, sprites.agents[0].position, renderer.GetZoom());
+        const auto muzzle = bitmapMuzzle(selected, actor.position, actor.facing, actor.stance, sprites.agents[0].position, renderer.GetZoom(), false, WorldRenderer::SelectBodySprite(actor));
         requireBitmapFlash(body, absent, firing, muzzle, file + " dirección=" + std::to_string(actorIndex - 1));
       }
       sprites.shots.clear();
@@ -316,7 +330,7 @@ namespace EngineTests {
       const auto firing = capture(renderer, sprites, output / (stem + "-flash.png"));
       for (const auto &actor : sprites.guards) {
         const auto selected = WorldRenderer::SelectGuardSprite(actor, sprites);
-        const auto muzzle = bitmapMuzzle(selected, actor.position, actor.facing, Stance::Standing, sprites.agents[0].position, renderer.GetZoom());
+        const auto muzzle = bitmapMuzzle(selected, actor.position, actor.facing, Stance::Standing, sprites.agents[0].position, renderer.GetZoom(), true);
         requireBitmapFlash(body, absent, firing, muzzle, stem + " dirección=" + std::to_string(actor.id - 1));
       }
       sprites.shots.clear(); sprites.guards.clear();
@@ -346,6 +360,7 @@ namespace EngineTests {
     Simulation hostAnimation;
     hostAnimation.ResetBase();
     auto &animationWorld = const_cast<WorldState &>(hostAnimation.GetState());
+    NoTrace::TestFixture::LegacyPlane(animationWorld);
     animationWorld.phase = GamePhase::Mission; animationWorld.mode = SimulationMode::Operation; animationWorld.size = {700.f, 600.f}; animationWorld.objects.clear(); animationWorld.obstacles.clear();
     animationWorld.agents[0].position = {200.f, 300.f}; animationWorld.agents[0].facing = {1.f, 0.f};
     Guard walkingGuard;
@@ -441,6 +456,7 @@ namespace EngineTests {
     const std::array<const char *, 7> fogScenarios{{"open-room", "near-wall", "open-door", "corner", "hidden-corridor", "moving", "zoom"}};
     const auto wall = [](sf::Vector2f position, sf::Vector2f size) { return Obstacle{{position, size}, CoverKind::High, true, "Oclusión"}; };
     for (std::size_t scenario = 0; scenario < fogScenarios.size(); ++scenario) {
+      NoTrace::TestFixture::LegacyPlane(continuousFog);
       continuousFog.objects.clear(); continuousFog.obstacles.clear(); continuousFog.agents[0] = fogAgent;
       if (scenario == 1) continuousFog.obstacles = {wall({590.f, 180.f}, {20.f, 640.f})};
       if (scenario == 2) {
@@ -476,6 +492,7 @@ namespace EngineTests {
             {"continuousRayCount", continuousBoundary.visualRadii.size()}, {"featherWidth", PresentationConfig::FogFeatherWidth}, {"tileMaskDrawn", false}});
       }
     }
+    NoTrace::TestFixture::LegacyPlane(continuousFog);
     continuousFog.objects.clear(); continuousFog.obstacles.clear(); continuousFog.agents[0] = fogAgent;
     const std::array<const char *, 4> eyeStates{{"quiet", "yellow", "orange", "confirmed"}};
     const std::array<SecurityAlert, 4> eyeAlerts{{SecurityAlert::Calm, SecurityAlert::Yellow, SecurityAlert::Orange, SecurityAlert::Red}};
@@ -520,12 +537,13 @@ namespace EngineTests {
     if (!identical(eyePrivate, eyeRedacted)) throw std::runtime_error("El indicador de vigilancia revela la posición de un observador privado");
     metadata.push_back({{"file", "world-eye-private-observer.png"}, {"hiddenObserverIdenticalToRedacted", true}});
     const auto eyeMenuHidden = capture(renderer, continuousFog, output / "world-eye-menu-hidden.png", false);
-    const auto pupil = PresentationConfig::DetectionHudCenter.componentWiseDiv(context.window.GetLogicalSize()).componentWiseMul(sf::Vector2f(eyeMenuHidden.getSize()));
-    if (eyeRedacted.getPixel(sf::Vector2u(pupil)) != PresentationConfig::Light || eyeMenuHidden.getPixel(sf::Vector2u(pupil)) == PresentationConfig::Light || eyeCrop(eyeMenuHidden) == eyeCrop(eyeRedacted)) {
+    const auto pupil = (PresentationConfig::DetectionHudCenter + sf::Vector2f{-4.f, 0.f}).componentWiseDiv(context.window.GetLogicalSize()).componentWiseMul(sf::Vector2f(eyeMenuHidden.getSize()));
+    if (eyeRedacted.getPixel(sf::Vector2u(pupil)) != PresentationConfig::Red || eyeMenuHidden.getPixel(sf::Vector2u(pupil)) == PresentationConfig::Red || eyeCrop(eyeMenuHidden) == eyeCrop(eyeRedacted)) {
       throw std::runtime_error("El ojo de vigilancia permanece detrás de los menús o pausa");
     }
     metadata.push_back({{"file", "world-eye-menu-hidden.png"}, {"hudVisible", false}, {"eyeSuppressedForMenus", true}});
     WorldState inspectedFurniture = furniture;
+    NoTrace::TestFixture::LegacyPlane(inspectedFurniture);
     inspectedFurniture.visibility = {}; inspectedFurniture.objects.clear(); inspectedFurniture.obstacles.clear();
     inspectedFurniture.agents[0].position = {350.f, 420.f};
     Interactable inspectionTable;
@@ -534,26 +552,39 @@ namespace EngineTests {
     const auto restingTable = capture(renderer, inspectedFurniture, output / "world-table-resting.png");
     inspectedFurniture.objects[0].inspectionProgress = 0.5f;
     const auto inspectingTable = capture(renderer, inspectedFurniture, output / "world-table-inspecting.png");
-    inspectedFurniture.objects[0].inspectionProgress = 0.f; inspectedFurniture.objects[0].lifted = true;
+    inspectedFurniture.objects[0].inspectionProgress = 0.f; inspectedFurniture.objects[0].overturned = true;
     const auto liftedTable = capture(renderer, inspectedFurniture, output / "world-table-lifted.png");
     if (identical(restingTable, inspectingTable) || identical(inspectingTable, liftedTable)) throw std::runtime_error("La mesa no representa la transición lógica de inspección y levantamiento");
     metadata.push_back({{"file", "world-table-inspecting.png"}, {"inspectionProgress", 0.5f}, {"distinctLiftedState", true}});
     WorldState partialHideout;
     partialHideout.phase = GamePhase::Mission; partialHideout.size = {1200.f, 1000.f};
-    fogAgent.position = {500.f, 500.f}; fogAgent.hidden = true; fogAgent.hideoutId = inspectionTable.id; fogAgent.stance = Stance::Prone;
+    fogAgent.position = {500.f, 500.f}; fogAgent.hidden = true; fogAgent.hideoutId = inspectionTable.id; fogAgent.stance = Stance::Prone; fogAgent.weaponAim = {1.f, 0.f};
     partialHideout.agents = {fogAgent}; inspectionTable.position = fogAgent.position; inspectionTable.occupantAgent = fogAgent.id; inspectionTable.occupied = true;
     partialHideout.objects = {inspectionTable};
     const auto tableForward = capture(renderer, partialHideout, output / "world-table-view-forward.png");
     partialHideout.agents[0].facing = {-1.f, 0.f};
     const auto tableBackward = capture(renderer, partialHideout, output / "world-table-view-backward.png");
-    if (!identical(tableForward, tableBackward)) throw std::runtime_error("La visión de 360 grados bajo la mesa cambia al girar solamente el cuerpo oculto");
+    if (!identical(tableForward, tableBackward)) throw std::runtime_error("El cuerpo oculto altera el cono de visión dirigido por una puntería constante");
+    const auto &tableObserver = partialHideout.agents[0];
+    const float tableRange = VisibilityConfig::ProneRange, probeDistance = tableRange * .75f;
+    const auto tableVisible = [&](sf::Vector2f offset) { return Visibility::IsGeometricallyVisible(partialHideout, tableObserver, tableObserver.position + offset, Stance::Prone); };
+    const float insideCos = VisibilityConfig::CosHalfAngle + .05f, outsideCos = VisibilityConfig::CosHalfAngle - .05f;
+    if (!tableVisible({probeDistance, 0.f}) || tableVisible({tableRange + 1.f, 0.f}) || tableVisible({-probeDistance, 0.f}) ||
+        !tableVisible(sf::Vector2f{insideCos, std::sqrt(1.f - insideCos * insideCos)} * probeDistance) ||
+        tableVisible(sf::Vector2f{outsideCos, std::sqrt(1.f - outsideCos * outsideCos)} * probeDistance))
+      throw std::runtime_error("La visión manual bajo mesa amplía el alcance o la apertura tumbados");
+    partialHideout.agents[0].weaponAim = {-1.f, 0.f};
+    const auto tableTurned = capture(renderer, partialHideout, output / "world-table-view-manual-turned.png");
+    if (identical(tableBackward, tableTurned)) throw std::runtime_error("Girar la puntería no gira manualmente el cono bajo la mesa");
     partialHideout.objects[0].hideoutKind = HideoutKind::Closet; partialHideout.objects[0].facing = {1.f, 0.f};
     partialHideout.agents[0].facing = {1.f, 0.f};
     const auto closetClosed = capture(renderer, partialHideout, output / "world-closet-view-closed.png");
     partialHideout.objects[0].open = true;
     const auto closetOpen = capture(renderer, partialHideout, output / "world-closet-view-open.png");
     if (identical(closetClosed, closetOpen)) throw std::runtime_error("Abrir el armario no modifica su abertura ni su visión exterior limitada");
-    metadata.push_back({{"file", "world-table-view-forward.png"}, {"allDirectionsVisible", true}, {"hiddenSilhouetteOmitted", true}});
+    metadata.push_back({{"file", "world-table-view-forward.png"}, {"allDirectionsVisible", false}, {"manualCone", true}, {"weaponAimIndependentOfBody", true},
+        {"range", tableRange}, {"cosHalfAngle", VisibilityConfig::CosHalfAngle}, {"hiddenSilhouetteOmitted", true}});
+    metadata.push_back({{"file", "world-table-view-manual-turned.png"}, {"manualConeRotates", true}, {"rangeAndAperturePreserved", true}});
     metadata.push_back({{"file", "world-closet-view-open.png"}, {"closedAndOpenDiffer", true}, {"limitedAperture", partialHideout.objects[0].hideoutAperture}});
     renderer.ResetZoom();
     WorldState tactical;
@@ -587,6 +618,8 @@ namespace EngineTests {
         metadata.push_back({{"file", file}, {"action", kick ? "kick" : "punch"}, {"phase", phases[phase]}, {"remaining", times[phase]}, {"atlasFrame", selected.index}, {"distinctBitmapPhases", true}});
       }
     }
+    opponent.position = fighter.position + fighter.facing * CqcConfig::GripSeparation;
+    tactical.guards[0].position = opponent.position;
     tactical.agents[0] = fighter; tactical.agents[0].cqcHoldingGuard = opponent.id;
     tactical.guards[0].staggerRemaining = 0.f; tactical.guards[0].heldBy = fighter.id;
     sf::Image precedingGrip;
@@ -760,12 +793,12 @@ namespace EngineTests {
     const auto reload = [](Stance stance) { return [stance](Agent &actor, float phase) { actor.stance = stance; actor.reloadRemaining = WeaponConfig::ReloadDuration * (1.f - phase); }; };
     const auto aim = [](Stance stance) { return [stance](Agent &actor, float phase) { actor.stance = stance; actor.aiming = true; actor.animationTime = phase; }; };
     const std::vector<ClipFixture> clips{
-      {"idle", locomotion(SpriteConfig::Clip::Idle, Stance::Standing, false)},
+      {"idle", locomotion(SpriteConfig::Clip::Idle, Stance::Standing, false), 8},
       {"walk", locomotion(SpriteConfig::Clip::Walk, Stance::Standing, true)},
       {"run", locomotion(SpriteConfig::Clip::Run, Stance::Standing, true, true)},
       {"crouch-walk", locomotion(SpriteConfig::Clip::CrouchWalk, Stance::Crouched, true)},
       {"crouch-run", locomotion(SpriteConfig::Clip::CrouchRun, Stance::Crouched, true, true)},
-      {"crawl", locomotion(SpriteConfig::Clip::Crawl, Stance::Prone, true)},
+      {"crawl", locomotion(SpriteConfig::Clip::Crawl, Stance::Prone, true), 8},
       {"crouch-idle", locomotion(SpriteConfig::Clip::CrouchIdle, Stance::Crouched, false), 1},
       {"prone-idle", locomotion(SpriteConfig::Clip::ProneIdle, Stance::Prone, false), 1},
       {"crouch-down", [](Agent &actor, float phase) { actor.stance = Stance::Crouched; actor.transitionFrom = Stance::Standing; actor.transitionTime = GameplayConfig::StanceTransitionDuration * (1.f - phase); }, 2},
@@ -795,7 +828,7 @@ namespace EngineTests {
         actor.puzzle.target = 90; actor.puzzle.kind = PuzzleKind::Door; actor.puzzle.family = PuzzleFamily::Arrows; actor.puzzle.length = 3; actor.puzzle.sequence = {1, 2, 3};
         actor.actionPose = ActionPose::Interact; actor.actionPoseTime = GameplayConfig::StanceTransitionDuration;
         actor.animationTime = phase * static_cast<float>(animation.count) / animation.fps;
-      }},
+      }, 8},
       {"fall", [](Agent &actor, float phase) { actor.incapacitated = true; actor.actionPose = ActionPose::Fall; actor.actionPoseTime = GameplayConfig::AttackAnimationDuration * (1.f - phase); }}
     };
     const std::array<float, 4> clipPhases{{0.01f, 0.31f, 0.65f, 0.94f}};
@@ -816,9 +849,9 @@ namespace EngineTests {
     for (const auto &clip : clips) for (std::size_t zoomIndex = 0; zoomIndex < zoomNames.size(); ++zoomIndex) {
       renderer.ResetZoom(); if (zoomIndex != 1) renderer.AdjustZoom(zoomIndex == 0 ? -100.f : 100.f);
       std::array<std::set<std::size_t>, 8> framesByDirection;
-      sf::Image precedingPhase;
+      sf::Image precedingPhase, initialPhase;
       for (std::size_t phaseIndex = 0; phaseIndex < clip.frames; ++phaseIndex) {
-        const float phase = clip.frames == 4 ? clipPhases[phaseIndex] : clip.frames == 1 ? 0.f : phaseIndex == 0 ? 0.01f : 0.94f;
+        const float phase = clip.frames == 8 ? (static_cast<float>(phaseIndex) + .1f) / 8.f : clip.frames == 4 ? clipPhases[phaseIndex] : clip.frames == 1 ? 0.f : phaseIndex == 0 ? 0.01f : 0.94f;
         matrix.agents = {matrixObserver};
         nlohmann::json selected = nlohmann::json::array();
         for (unsigned int direction = 0; direction < 8; ++direction) {
@@ -855,10 +888,13 @@ namespace EngineTests {
           actor["verifiedShadowPixels"] = shadowPixels;
         }
         if (phaseIndex > 0 && identical(precedingPhase, pixels)) throw std::runtime_error("La matriz conserva el mismo bitmap en dos fases de " + std::string(clip.name));
+        if (clip.frames == 8 && phaseIndex == 0) initialPhase = pixels;
         precedingPhase = pixels;
         metadata.push_back({{"file", name}, {"clip", clip.name}, {"directions", 8}, {"phase", phase}, {"expectedDistinctFrames", clip.frames}, {"zoom", renderer.GetZoom()},
-            {"nativeSpriteScale", PresentationConfig::ActorHeight / SpriteConfig::StandingPixels}, {"renderedSpriteScale", renderer.GetZoom() * PresentationConfig::ActorHeight / SpriteConfig::StandingPixels}, {"selectedFrames", selected}});
+            {"nativeSpriteScale", PresentationConfig::ActorHeight / SpriteConfig::StandingPixels}, {"renderedSpriteScale", renderer.GetZoom() * PresentationConfig::ActorHeight / SpriteConfig::StandingPixels},
+            {"consecutiveLoopPhases", clip.frames == 8}, {"loopClosureVerified", clip.frames == 8}, {"selectedFrames", selected}});
       }
+      if (clip.frames == 8 && identical(precedingPhase, initialPhase)) throw std::runtime_error("El cierre 7→0 no avanza el ciclo consecutivo de " + std::string(clip.name));
       for (const auto &frames : framesByDirection) if (frames.size() != clip.frames) throw std::runtime_error("Una dirección no recorre las celdas PNG previstas de " + std::string(clip.name));
     }
     for (std::size_t zoomIndex = 0; zoomIndex < zoomNames.size(); ++zoomIndex) {

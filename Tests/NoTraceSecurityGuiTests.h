@@ -1,3 +1,4 @@
+#include "NoTraceSpatialFixture.h"
 #pragma once
 
 #include "Core/EngineContext.h"
@@ -25,6 +26,7 @@ namespace EngineTests {
     Simulation simulation;
     simulation.ResetBase({{1, "Observador"}}); simulation.Deploy(0);
     auto &world = const_cast<WorldState &>(simulation.GetState());
+    NoTrace::TestFixture::LegacyPlane(world);
     world.obstacles.clear(); world.objects.clear(); world.guards.clear(); world.noises.clear(); world.events.clear(); world.sounds.clear(); world.securityEntries.clear();
     world.guards.reserve(4);
     const sf::Vector2f camera{210.f, 300.f}, initialGuard{280.f, 300.f}, bodyPosition{350.f, 300.f};

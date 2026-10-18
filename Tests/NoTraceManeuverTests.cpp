@@ -1,4 +1,5 @@
 #include "NoTraceSimulation.h"
+#include "NoTraceSpatialFixture.h"
 #include "NoTraceWorldGeometry.h"
 #include "Config/NoTraceManeuverConfig.h"
 #include <algorithm>
@@ -14,6 +15,7 @@ namespace {
   WorldState &Fixture(Simulation &simulation, bool training = false) {
     simulation.ResetBase(); if (!training) simulation.Deploy(17);
     auto &world = const_cast<WorldState &>(simulation.GetState());
+    TestFixture::LegacyPlane(world);
     world.phase = training ? GamePhase::Base : GamePhase::Mission; world.mode = training ? SimulationMode::Training : SimulationMode::Operation;
     world.guards.clear(); world.objects.clear(); world.obstacles.clear(); world.noises.clear(); world.sounds.clear(); world.shots.clear(); world.events.clear(); world.securityEntries.clear();
     world.agents[0].position = {150.f, 300.f}; world.agents[0].facing = {1.f, 0.f}; world.agents[0].privateOrder = PrivateOrder::None;
@@ -41,7 +43,7 @@ namespace {
     Require(travel && land && recovery && world.agents[0].stance == Stance::Prone && world.agents[0].maneuver.kind == ManeuverKind::None, "La zambullida omite fases o no termina tumbada");
     Require(std::abs((world.agents[0].position - start).length() - ManeuverConfig::DiveSpeed * ManeuverConfig::DiveTravel) < 0.1f, "El impulso no desplaza la distancia configurada");
     Require(world.shots.empty() && world.agents[0].cqcHoldingGuard == 0 && world.agents[0].maneuver.cooldown > 0.f, "Disparar o CQC interrumpe el movimiento o evita su recuperación");
-    Require(std::ranges::any_of(world.sounds, [](const SoundEvent &sound) { return sound.kind == SoundKind::Impact; }), "Aterrizar no genera un sonido de impacto real");
+    Require(std::ranges::any_of(world.sounds, [](const SoundEvent &sound) { return sound.kind == SoundKind::Land; }), "Aterrizar no genera el sonido de contacto correspondiente");
     Require(std::ranges::count_if(world.events, [](const MissionEvent &event) { return event.kind == EventKind::Noise; }) == 2, "La zambullida no emite exactamente impulso y aterrizaje, o repite ruido cada fotograma");
     auto repeat = Run(); repeat.dive = true; Tick(simulation, repeat);
     Require(world.agents[0].maneuver.kind == ManeuverKind::None && world.agents[0].maneuver.cooldown > 0.f, "Se puede encadenar otra zambullida durante la recuperación");

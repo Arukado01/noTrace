@@ -61,8 +61,8 @@ namespace NoTrace::WorldGeometry {
     if (object.kind == ObjectKind::Door && object.open) {
       properties.solid = false; properties.blocksVision = false; properties.wallCover = false;
     }
-    if (HideoutType(object) == HideoutKind::UnderTable && object.lifted) {
-      properties.solid = false; properties.blocksVision = false; properties.cover = CoverKind::None;
+    if (HideoutType(object) == HideoutKind::UnderTable && object.overturned) {
+      properties.solid = true; properties.blocksVision = true; properties.cover = CoverKind::None;
     }
     return properties;
   }
@@ -72,13 +72,22 @@ namespace NoTrace::WorldGeometry {
     auto fallback = index < SpatialConfig::ObjectGroundSizes.size() ? SpatialConfig::ObjectGroundSizes[index] : sf::Vector2f{};
     if (HideoutType(object) == HideoutKind::TrashBin) fallback = SpatialConfig::TrashBinSize;
     else if (HideoutType(object) == HideoutKind::Closet) fallback = SpatialConfig::ClosetSize;
-    else if (HideoutType(object) == HideoutKind::UnderTable) fallback = SpatialConfig::UnderTableSize;
+    else if (HideoutType(object) == HideoutKind::UnderTable) fallback = object.overturned ? SpatialConfig::OverturnedTableSize : SpatialConfig::UnderTableSize;
     const auto size = object.footprint.x > 0.f && object.footprint.y > 0.f ? object.footprint : fallback;
     return {object.position - size * 0.5f, size};
   }
 
   inline float ObjectHeight(const Interactable &object) {
-    if (HideoutType(object) == HideoutKind::UnderTable && object.lifted) return 0.f;
+    switch (object.propStyle) {
+    case PropStyle::Chair: return SpatialConfig::ChairHeight;
+    case PropStyle::Bench: return SpatialConfig::BenchHeight;
+    case PropStyle::Barrels: return SpatialConfig::BarrelsHeight;
+    case PropStyle::Glass: return SpatialConfig::GlassHeight;
+    case PropStyle::Ventilation: return SpatialConfig::VentilationHeight;
+    case PropStyle::SafetyLamp: return SpatialConfig::SafetyLampHeight;
+    default: break;
+    }
+    if (HideoutType(object) == HideoutKind::UnderTable && object.overturned) return SpatialConfig::OverturnedTableHeight;
     if (HideoutType(object) == HideoutKind::TrashBin) return SpatialConfig::HideoutHeight;
     if (HideoutType(object) == HideoutKind::Closet) return SpatialConfig::ClosetHeight;
     if (HideoutType(object) == HideoutKind::UnderTable) return SpatialConfig::UnderTableHeight;
@@ -87,7 +96,16 @@ namespace NoTrace::WorldGeometry {
     return Properties(object).cover == CoverKind::Low ? std::max(height, SpatialConfig::LowCoverHeight) : height;
   }
 
+  inline SurfaceMaterial ObjectMaterial(const Interactable &object) {
+    switch (object.propStyle) {
+    case PropStyle::Locker: case PropStyle::Ammunition: case PropStyle::Server: case PropStyle::SecurityDoor:
+    case PropStyle::Elevator: case PropStyle::Barrels: case PropStyle::Ventilation: return SurfaceMaterial::Steel;
+    default: return SurfaceMaterial::Concrete;
+    }
+  }
+
   inline float ObstacleHeight(const Obstacle &obstacle) {
+    if (obstacle.height > 0.f) return obstacle.height;
     if (obstacle.cover == CoverKind::High) return SpatialConfig::HighCoverHeight;
     if (obstacle.cover == CoverKind::Hide) return SpatialConfig::HideoutHeight;
     return SpatialConfig::LowCoverHeight;
@@ -166,11 +184,9 @@ namespace NoTrace::WorldGeometry {
     for (const auto &obstacle : world.obstacles) if (BlocksMovement(obstacle)) visit(obstacle.bounds);
     for (const auto &object : world.objects) if (BlocksMovement(object)) visit(ObjectFootprint(object));
   }
+  inline bool PositionBlocked(const WorldState &world, sf::Vector2f position, float radius, float elevation, float height, std::uint32_t ignoreSupport, std::uint32_t ignoreObject);
   inline bool PositionBlocked(const WorldState &world, sf::Vector2f position, float radius) {
-    if (!std::isfinite(position.x) || !std::isfinite(position.y) || position.x < radius || position.y < radius || position.x > world.size.x - radius || position.y > world.size.y - radius) return true;
-    bool blocked = false;
-    ForEachSolid(world, [&](const sf::FloatRect &bounds) { blocked |= CircleOverlaps(position, radius, bounds); });
-    return blocked;
+    return PositionBlocked(world, position, radius, 0.f, CombatConfig::StandingHeight, 0, 0);
   }
   inline bool ClearMovementSegment(const WorldState &world, sf::Vector2f from, sf::Vector2f to, float radius) {
     const auto displacement = to - from;
@@ -192,3 +208,5 @@ namespace NoTrace::WorldGeometry {
     return true;
   }
 }
+
+#include "NoTraceSpatialGeometry.h"

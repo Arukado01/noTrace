@@ -23,6 +23,7 @@ namespace NoTrace::Qa {
   private:
     std::vector<sf::Vector2f> route_;
     std::uint32_t target_ = 0;
+    std::uint32_t support_ = 0;
     float nextPlan_ = 0.f;
     std::string stage_ = "esperando_mision";
   };

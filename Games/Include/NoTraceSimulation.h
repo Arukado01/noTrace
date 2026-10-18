@@ -3,6 +3,7 @@
 #include "NoTraceMission.h"
 #include <nlohmann/json.hpp>
 #include <optional>
+#include <limits>
 #include <unordered_map>
 
 namespace NoTrace {
@@ -22,7 +23,7 @@ namespace NoTrace {
     const WorldState &GetState() const { return world_; }
     nlohmann::json SnapshotFor(PlayerId player, bool visibilityFiltered = false) const;
     bool LoadSnapshot(const nlohmann::json &snapshot, std::string &error);
-    bool CanSee(sf::Vector2f from, sf::Vector2f facing, const Agent &agent, float range = 260.f) const;
+    bool CanSee(sf::Vector2f from, sf::Vector2f facing, const Agent &agent, float range = 260.f, float fromElevation = 0.f) const;
 
   private:
     WorldState world_;
@@ -32,14 +33,15 @@ namespace NoTrace {
     float securityContactAge_ = 0.f;
     float reinforcementTimer_ = 0.f;
     sf::Vector2f securityLastKnown_;
+    float securityLastKnownElevation_ = 0.f;
     bool securityHasClue_ = false;
     std::uint64_t securityContactTick_ = 0;
     std::uint64_t securityAlertChangeTick_ = 0;
     std::uint32_t nextGuardId_ = 1;
     void ResetSecurity();
-    void RegisterSecurityContact(sf::Vector2f position);
+    void RegisterSecurityContact(sf::Vector2f position, float elevation = 0.f);
     void SetSecurityAlert(SecurityAlert alert);
-    void RegisterBodyDiscovery(Guard &observer, sf::Vector2f position, std::uint32_t body);
+    void RegisterBodyDiscovery(Guard &observer, sf::Vector2f position, std::uint32_t body, float elevation = 0.f);
     void WakeGuard(Guard &guard);
     bool UpdateBodyInvestigation(Guard &guard, float dt);
     sf::Vector2f SecuritySearchDestination(const Guard &guard) const;
@@ -60,6 +62,11 @@ namespace NoTrace {
     void BuildPuzzleNodes();
     void UpdateDecoys(float dt);
     void BuildMission(std::uint32_t seed);
+    bool UpdateTraversal(Agent &agent, const ActionCommand &command, float dt);
+    void CancelTraversal(Agent &agent);
+    void UpdateElevators(float dt);
+    bool UseElevator(Agent &agent, Interactable &object);
+    void MoveAgent(Agent &agent, sf::Vector2f displacement) const;
     void UpdateAgent(Agent &agent, const ActionCommand &command, float dt);
     void UpdateGuards(float dt);
     void UpdateObjects(float dt);
@@ -77,14 +84,15 @@ namespace NoTrace {
     void ReleaseCqc(Agent &agent);
     void Push(Agent &agent);
     bool Fire(Agent &agent, bool lethal);
-    sf::Vector2f TraceWeapon(sf::Vector2f from, sf::Vector2f direction, float range, bool &blocked, float fromHeight = CombatConfig::StandingWeaponHeight, float slope = 0.f) const;
+    sf::Vector2f TraceWeapon(sf::Vector2f from, sf::Vector2f direction, float range, bool &blocked, float fromHeight = CombatConfig::StandingWeaponHeight, float slope = 0.f, SurfaceMaterial *impactMaterial = nullptr) const;
     void DamageAgent(Agent &agent, float healthDamage, float staminaDamage, PlayerId actor, std::uint32_t source, bool enemyBullet = false);
     void HitGuard(Guard &guard, HitZone zone, bool lethal, PlayerId actor);
     void ConfirmDeath(Agent &agent, PlayerId actor, bool rescueExpired);
     void Incapacitate(Agent &agent, PlayerId actor, std::uint32_t source);
     void Revive(Agent &agent, PlayerId actor);
-    void EmitNoise(sf::Vector2f position, float radius, PlayerId actor, std::uint32_t guardId = 0, SoundKind kind = SoundKind::Impact, sf::Vector2f visualDirection = {});
-    void EmitSound(SoundKind kind, sf::Vector2f position, float radius, PlayerId actor = 0);
+    void EmitNoise(sf::Vector2f position, float radius, PlayerId actor, std::uint32_t guardId = 0, SoundKind kind = SoundKind::Impact, sf::Vector2f visualDirection = {}, float elevation = std::numeric_limits<float>::quiet_NaN());
+    void EmitSound(SoundKind kind, sf::Vector2f position, float radius, PlayerId actor = 0, float elevation = std::numeric_limits<float>::quiet_NaN());
+    float EmissionElevation(sf::Vector2f position, PlayerId actor, std::uint32_t guardId = 0) const;
     void HandleDistractions(Agent &agent, const ActionCommand &command);
     void Record(EventKind kind, PlayerId actor, std::uint32_t target = 0);
     void Detect(Agent &agent, std::uint32_t observer);
@@ -92,12 +100,12 @@ namespace NoTrace {
     void Move(sf::Vector2f &position, sf::Vector2f displacement, float radius) const;
     bool Blocked(sf::Vector2f position, float radius) const;
     bool Occluded(sf::Vector2f from, sf::Vector2f to, Stance targetStance) const;
-    void Navigate(Guard &guard, sf::Vector2f target, float speed, float dt);
+    void Navigate(Guard &guard, sf::Vector2f target, float speed, float dt, float targetElevation = std::numeric_limits<float>::quiet_NaN());
     void ResolvePenetration(sf::Vector2f &position, float radius) const;
     void ToggleCover(Agent &agent);
     bool UpdateCover(Agent &agent, const ActionCommand &command, sf::Vector2f direction, float dt);
-    bool CoverSurfaceValid(const AgentCover &cover) const;
-    bool CoverPeekTarget(const AgentCover &cover, PeekSide side, sf::Vector2f &target) const;
+    bool CoverSurfaceValid(const AgentCover &cover, float elevation = 0.f) const;
+    bool CoverPeekTarget(const AgentCover &cover, PeekSide side, sf::Vector2f &target, float elevation = 0.f, std::uint32_t support = 0) const;
     void ReleaseHideout(Agent &agent);
     bool HideoutPathClear(const Interactable &object, sf::Vector2f from, sf::Vector2f to) const;
     bool HideoutExit(const Agent &agent, const Interactable &object, sf::Vector2f &position) const;

@@ -22,10 +22,10 @@ namespace EngineTests {
       EngineContext &context;
       struct Entry { std::string_view key; bool present; nlohmann::json value; };
       std::vector<Entry> entries;
-      float master, effects, cursor;
+      float master, effects, ambience, cursor;
       explicit RestorePreferences(EngineContext &ctx)
-          : context(ctx), master(ctx.audio.GetGlobalVolume()), effects(ctx.audio.GetEffectsVolume()), cursor(ctx.cursor.GetSpeed()) {
-        for (const auto key : std::array<std::string_view, 5>{NoTrace::VOLUME_SAVE_KEY, NoTrace::OptionsConfig::EffectsVolumeSaveKey,
+          : context(ctx), master(ctx.audio.GetGlobalVolume()), effects(ctx.audio.GetEffectsVolume()), ambience(ctx.audio.GetAmbienceVolume()), cursor(ctx.cursor.GetSpeed()) {
+        for (const auto key : std::array<std::string_view, 6>{NoTrace::VOLUME_SAVE_KEY, NoTrace::OptionsConfig::EffectsVolumeSaveKey, NoTrace::OptionsConfig::AmbienceVolumeSaveKey,
              NoTrace::CURSOR_SPEED_SAVE_KEY, "NoTrace:DiveKey", "NoTrace:RollKey"})
           entries.push_back({key, ctx.save.Has(key), ctx.save.Get(key, nlohmann::json{})});
       }
@@ -34,7 +34,7 @@ namespace EngineTests {
           if (entry.present) context.save.Set(entry.key, entry.value);
           else context.save.Erase(entry.key);
         }
-        context.audio.SetGlobalVolume(master); context.audio.SetEffectsVolume(effects); context.cursor.SetSpeed(cursor);
+        context.audio.SetGlobalVolume(master); context.audio.SetEffectsVolume(effects); context.audio.SetAmbienceVolume(ambience); context.cursor.SetSpeed(cursor);
       }
     } restore(context);
     const auto initialRoots = getWidgets().size();
@@ -112,7 +112,7 @@ namespace EngineTests {
       if (const auto combo = std::dynamic_pointer_cast<tgui::ComboBox>(widget)) combos.push_back(combo);
       if (const auto slider = std::dynamic_pointer_cast<tgui::Slider>(widget)) sliders.push_back(slider);
     }
-    require(combos.size() == 4 && sliders.size() == 3, "El menú real ofrece cuatro selectores de vídeo y tres ajustes de audio y mando");
+    require(combos.size() == 4 && sliders.size() == 4, "El menú real ofrece cuatro selectores de vídeo y ajustes de volumen general, efectos, ambiente y mando");
     require(combos[1]->getItems().size() == 3 && combos[1]->getItems()[2] == "Ventana sin bordes", "El menú real ofrece ventana, pantalla completa y sin bordes");
     require(combos[3]->getItemById("0") == "Sin límite" && combos[3]->getItemById("360") == "360", "El menú real ofrece límites de FPS funcionales e ilimitado");
     combos[1]->setSelectedItemByIndex(1); require(!combos[0]->isEnabled(), "El menú real deshabilita resolución de ventana al elegir pantalla completa");
@@ -123,10 +123,11 @@ namespace EngineTests {
     sf::Event::KeyPressed right; right.scancode = sf::Keyboard::Scan::Right; menu.OnEvent(right);
     require(context.audio.GetGlobalVolume() == 26.f && context.save.Get(NoTrace::VOLUME_SAVE_KEY, 0.f) == 26.f,
             "El teclado del menú aplica y guarda el volumen general inmediatamente");
-    sliders[1]->setValue(44.f); sliders[2]->setValue(1200.f);
-    require(context.audio.GetEffectsVolume() == 44.f && context.cursor.GetSpeed() == 1200.f &&
-            context.save.Get(NoTrace::OptionsConfig::EffectsVolumeSaveKey, 0.f) == 44.f && context.save.Get(NoTrace::CURSOR_SPEED_SAVE_KEY, 0.f) == 1200.f,
-            "Los ajustes reales del menú aplican y guardan efectos y velocidad del mando");
+    sliders[1]->setValue(44.f); sliders[2]->setValue(40.f); sliders[3]->setValue(1200.f);
+    require(context.audio.GetEffectsVolume() == 44.f && context.audio.GetAmbienceVolume() == 40.f && context.cursor.GetSpeed() == 1200.f &&
+            context.save.Get(NoTrace::OptionsConfig::EffectsVolumeSaveKey, 0.f) == 44.f && context.save.Get(NoTrace::OptionsConfig::AmbienceVolumeSaveKey, 0.f) == 40.f &&
+            context.save.Get(NoTrace::CURSOR_SPEED_SAVE_KEY, 0.f) == 1200.f,
+            "Los ajustes reales del menú aplican y guardan efectos, ambiente y velocidad del mando");
     capture(menu, output / "main-menu-options.png");
     require(std::filesystem::is_regular_file(output / "main-menu-options.png"), "El menú real produce una captura de sus opciones");
     measure("main-menu-options");

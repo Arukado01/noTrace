@@ -1,8 +1,10 @@
 #include "NoTraceSimulation.h"
+#include "NoTraceSpatialFixture.h"
 #include "Config/NoTraceDevicesConfig.h"
 #include "Config/NoTraceNavigationConfig.h"
 #include "NoTraceVisibility.h"
 #include "NoTraceWorldGeometry.h"
+#include "NoTraceCoordination.h"
 #include <algorithm>
 #include <cmath>
 #include <iostream>
@@ -18,6 +20,7 @@ namespace {
     simulation.ResetBase(cooperative ? std::vector<PlayerProfile>{{1, "Uno"}, {2, "Dos"}} : std::vector<PlayerProfile>{{1, "Uno"}});
     simulation.Deploy(17);
     auto &world = const_cast<WorldState &>(simulation.GetState());
+    TestFixture::LegacyPlane(world);
     world.guards.clear(); world.objects.clear(); world.obstacles.clear(); world.securityEntries.clear(); world.events.clear(); world.sounds.clear(); world.noises.clear();
     world.objects.reserve(12);
     for (auto &agent : world.agents) { agent.privateOrder = PrivateOrder::None; agent.position = {200.f, 300.f}; agent.facing = {1.f, 0.f}; }
@@ -50,48 +53,60 @@ namespace {
     for (unsigned int stage = 0; stage < DevicesConfig::PuzzleMaximumStages && simulation.GetState().agents[player - 1].puzzle.target != 0; ++stage)
       simulation.Step(0.1f, {{player, Choice(simulation.GetState().agents[player - 1])}});
   }
-  struct NavigationGrid {
-    int columns = 0;
-    int rows = 0;
-    sf::Vector2f origin;
-    std::vector<int> previous;
-    sf::Vector2f Point(int index) const { return {(index % columns + 0.5f) * NavigationConfig::CellSize, (index / columns + 0.5f) * NavigationConfig::CellSize}; }
+  struct NavigationNode {
+    sf::Vector2f point;
+    float elevation = 0.f;
+    std::uint32_t support = 0;
+    int previous = 0;
   };
-  NavigationGrid ReachableGrid(const WorldState &world, sf::Vector2f origin) {
-    NavigationGrid grid;
-    grid.columns = static_cast<int>(std::ceil(world.size.x / NavigationConfig::CellSize));
-    grid.rows = static_cast<int>(std::ceil(world.size.y / NavigationConfig::CellSize)); grid.origin = origin;
-    grid.previous.assign(static_cast<std::size_t>(grid.columns * grid.rows), -1);
-    std::queue<int> pending;
-    const int startX = static_cast<int>(origin.x / NavigationConfig::CellSize), startY = static_cast<int>(origin.y / NavigationConfig::CellSize);
-    for (int y = std::max(0, startY - 1); y <= std::min(grid.rows - 1, startY + 1); ++y) for (int x = std::max(0, startX - 1); x <= std::min(grid.columns - 1, startX + 1); ++x) {
-      const int index = y * grid.columns + x;
-      if (WorldGeometry::ClearMovementSegment(world, origin, grid.Point(index), GameplayConfig::AgentRadius)) { grid.previous[index] = index; pending.push(index); }
+  struct NavigationGrid {
+    std::vector<NavigationNode> nodes;
+  };
+  NavigationGrid ReachableGrid(const WorldState &world, const Agent &origin) {
+    static std::string cachedLayout;
+    static NavigationGrid cached;
+    auto furniture = nlohmann::json::array();
+    for (const auto &object : world.objects) if (WorldGeometry::BlocksMovement(object)) {
+      const auto bounds = WorldGeometry::ObjectFootprint(object);
+      furniture.push_back({object.id, bounds.position.x, bounds.position.y, bounds.size.x, bounds.size.y, object.elevation, WorldGeometry::ObjectHeight(object)});
     }
-    while (!pending.empty()) {
-      const int current = pending.front(); pending.pop();
-      const int x = current % grid.columns, y = current / grid.columns;
+    const auto layout = Level::GeometryHash(world) + furniture.dump() + std::to_string(origin.position.x) + std::to_string(origin.position.y) + std::to_string(origin.elevation) + std::to_string(origin.supportId);
+    if (layout == cachedLayout) return cached;
+    NavigationGrid grid; grid.nodes.push_back({origin.position, origin.elevation, origin.supportId, 0});
+    const int columns = static_cast<int>(std::ceil(world.size.x / NavigationConfig::CellSize));
+    const int rows = static_cast<int>(std::ceil(world.size.y / NavigationConfig::CellSize));
+    const auto key = [columns, rows](int x, int y, std::uint32_t support) { return static_cast<std::uint64_t>(support) * columns * rows + y * columns + x; };
+    std::unordered_set<std::uint64_t> visited;
+    visited.insert(key(static_cast<int>(origin.position.x / NavigationConfig::CellSize), static_cast<int>(origin.position.y / NavigationConfig::CellSize), origin.supportId));
+    for (std::size_t current = 0; current < grid.nodes.size(); ++current) {
+      const auto node = grid.nodes[current];
+      const int x = static_cast<int>(node.point.x / NavigationConfig::CellSize), y = static_cast<int>(node.point.y / NavigationConfig::CellSize);
       for (const auto [dx, dy] : std::array<std::pair<int, int>, 4>{{{1, 0}, {-1, 0}, {0, 1}, {0, -1}}}) {
         const int nx = x + dx, ny = y + dy;
-        if (nx < 0 || ny < 0 || nx >= grid.columns || ny >= grid.rows) continue;
-        const int next = ny * grid.columns + nx;
-        if (grid.previous[next] >= 0 || !WorldGeometry::ClearMovementSegment(world, grid.Point(current), grid.Point(next), GameplayConfig::AgentRadius)) continue;
-        grid.previous[next] = current; pending.push(next);
+        if (nx < 0 || ny < 0 || nx >= columns || ny >= rows) continue;
+        const sf::Vector2f target{(nx + 0.5f) * NavigationConfig::CellSize, (ny + 0.5f) * NavigationConfig::CellSize};
+        auto moved = node.point; auto z = node.elevation; auto support = node.support;
+        WorldGeometry::MoveOnSupports(world, moved, z, support, target - moved, GameplayConfig::AgentRadius, CombatConfig::StandingHeight);
+        if ((moved - target).length() > 0.01f || !visited.insert(key(nx, ny, support)).second) continue;
+        grid.nodes.push_back({moved, z, support, static_cast<int>(current)});
       }
     }
-    return grid;
+    cachedLayout = layout; cached = grid; return grid;
   }
-  std::vector<sf::Vector2f> NavigationRoute(const WorldState &world, const NavigationGrid &grid, sf::Vector2f destination) {
-    const int goalX = static_cast<int>(destination.x / NavigationConfig::CellSize), goalY = static_cast<int>(destination.y / NavigationConfig::CellSize);
+  std::vector<sf::Vector3f> NavigationRoute(const WorldState &world, const NavigationGrid &grid, const Interactable &destination) {
     int finish = -1;
-    for (int y = std::max(0, goalY - 1); y <= std::min(grid.rows - 1, goalY + 1) && finish < 0; ++y) for (int x = std::max(0, goalX - 1); x <= std::min(grid.columns - 1, goalX + 1); ++x) {
-      const int index = y * grid.columns + x;
-      if (grid.previous[index] >= 0 && WorldGeometry::ClearMovementSegment(world, grid.Point(index), destination, GameplayConfig::AgentRadius)) { finish = index; break; }
+    for (std::size_t index = 0; index < grid.nodes.size(); ++index) {
+      const auto &node = grid.nodes[index];
+      if ((node.point - destination.position).length() > NavigationConfig::CellSize * 2.f || std::abs(node.elevation - destination.elevation) > LevelConfig::SupportTolerance) continue;
+      if (WorldGeometry::ClearBodySegment(world, {node.point.x, node.point.y, node.elevation}, {destination.position.x, destination.position.y, destination.elevation}, GameplayConfig::AgentRadius, CombatConfig::StandingHeight, node.support, destination.id)) { finish = static_cast<int>(index); break; }
     }
-    std::vector<sf::Vector2f> route;
+    std::vector<sf::Vector3f> route;
     if (finish < 0) return route;
-    for (int current = finish;; current = grid.previous[current]) { route.push_back(grid.Point(current)); if (grid.previous[current] == current) break; }
-    route.push_back(grid.origin); std::ranges::reverse(route); route.push_back(destination); return route;
+    for (int current = finish;; current = grid.nodes[current].previous) {
+      const auto &node = grid.nodes[current]; route.push_back({node.point.x, node.point.y, node.elevation});
+      if (node.previous == current) break;
+    }
+    std::ranges::reverse(route); route.push_back({destination.position.x, destination.position.y, destination.elevation}); return route;
   }
   void CameraSweepAndPerception() {
     Simulation simulation; auto &world = Fixture(simulation);
@@ -388,6 +403,73 @@ namespace {
     for (int frame = 0; frame < 21; ++frame) simulation.Step(0.1f, {{1, first}});
     Require(disabledRelay.completed, "La desconexión real del segundo jugador no habilita el relé individual");
   }
+  void CoordinationControlsAndCodec() {
+    Simulation simulation, replica; auto &world = Fixture(simulation, true);
+    auto &panel = Device(world, ObjectKind::CoopSwitch, PuzzleKind::Coordination);
+    world.agents[0].position = {210.f, 280.f}; world.agents[1].position = {210.f, 320.f};
+    ActionCommand join; join.interact = true; simulation.Step(0.1f, {{1, join}, {2, join}});
+    const auto buttonSounds = [&world] { return std::ranges::count(world.sounds, SoundKind::Button, &SoundEvent::kind); };
+    Require(buttonSounds() == 0 && world.noises.empty(), "Reservar el panel reproduce un botón prematuro o ruido de IA");
+    const auto first = world.agents[0].puzzle.coordinationButton, second = world.agents[1].puzzle.coordinationButton;
+    Require(first && second && first != second && Coordination::ButtonPosition(panel, first) != Coordination::ButtonPosition(panel, second),
+      "Dos operadores no reciben controles físicos distintos del mismo panel");
+    Require(panel.puzzle.coordinationReservedMask == 3 && panel.puzzle.coordinationMask == 0, "El panel no distingue controles reservados de controles pulsados");
+    ActionCommand hold; hold.puzzleTarget = panel.id; hold.puzzleHeld = true;
+    simulation.Step(0.1f, {{1, hold}});
+    Require(buttonSounds() == 1 && world.sounds.back().position == Coordination::ButtonPosition(panel, first) && world.sounds.back().elevation == panel.elevation && world.noises.empty(),
+      "El primer flanco no suena una sola vez desde su botón físico o crea ruido de IA");
+    Require(panel.puzzle.coordinationMask == Coordination::ButtonBit(first) && panel.puzzle.coordinationReservedMask == 3 && panel.puzzle.coordinationProgress == 0.f,
+      "Un solo control pulsado energiza la conexión cooperativa completa");
+    for (unsigned int frame = 0; frame < 5; ++frame) simulation.Step(0.1f, {{1, hold}, {2, hold}});
+    Require(buttonSounds() == 2, "Mantener los dos controles repite el sonido de pulsación por fotograma");
+    Require(panel.puzzle.coordinationMask == 3 && panel.puzzle.coordinationProgress > 0.4f && world.agents[0].puzzle.coordinationButton == first && world.agents[1].puzzle.coordinationButton == second,
+      "Mantener la sesión cambia de botón o pierde su señal física simultánea");
+    const auto encoded = simulation.SnapshotFor(1, true); std::string error;
+    Require(replica.LoadSnapshot(encoded, error) && replica.GetState().objects.front().puzzle.coordinationMask == 3 && replica.GetState().objects.front().puzzle.coordinationReservedMask == 3,
+      "Las máscaras públicas del panel no conservan el estado autoritativo en la réplica");
+    for (const auto &agent : encoded.at("agents")) Require(agent.at("id") == 1 ? agent.at("puzzle").at("coordinationButton") == first : !agent.contains("puzzle"),
+      "El índice privado del control se publica a otro operador");
+    for (unsigned int mutation = 0; mutation < 6; ++mutation) {
+      auto invalid = encoded;
+      if (mutation == 0) invalid["objects"][0]["puzzleDevice"]["coordinationMask"] = 16;
+      if (mutation == 1) invalid["objects"][0]["puzzleDevice"]["coordinationReservedMask"] = 16;
+      if (mutation == 2) invalid["objects"][0]["puzzleDevice"]["coordinationReservedMask"] = 0;
+      if (mutation == 3) invalid["agents"][0]["puzzle"]["coordinationButton"] = 5;
+      if (mutation == 4) invalid["agents"][0]["puzzle"]["coordinationButton"] = 0;
+      if (mutation == 5) invalid["agents"][0]["puzzle"]["coordinationButton"] = 3;
+      Require(!replica.LoadSnapshot(invalid, error), "El codec acepta máscaras o índices de botón manipulados");
+    }
+    simulation.Step(0.1f, {{1, hold}});
+    Require(panel.puzzle.coordinationMask == Coordination::ButtonBit(first) && panel.puzzle.coordinationProgress == 0.f && world.agents[1].puzzle.coordinationButton == second,
+      "Soltar no interrumpe la señal o cambia la reserva estable del segundo control");
+    ActionCommand cancel; cancel.puzzleTarget = panel.id; cancel.puzzleInput = 0;
+    simulation.Step(0.1f, {{1, hold}, {2, cancel}});
+    Require(panel.puzzle.coordinationReservedMask == Coordination::ButtonBit(first) && !world.agents[1].puzzle.coordinationButton,
+      "Cancelar conserva un botón bloqueado sin operador");
+    simulation.Step(0.1f, {{1, hold}, {2, join}});
+    for (unsigned int frame = 0; frame < 21; ++frame) simulation.Step(0.1f, {{1, hold}, {2, hold}});
+    Require(panel.completed && panel.puzzle.coordinationMask == 3 && panel.puzzle.coordinationReservedMask == 3 && !world.agents[0].puzzle.coordinationButton && !world.agents[1].puzzle.coordinationButton,
+      "Completar no fija la conexión energizada o conserva controles privados activos");
+    auto &larger = Fixture(simulation, true); auto &four = Device(larger, ObjectKind::CoopSwitch, PuzzleKind::Coordination); four.puzzle.requiredAgents = 4;
+    for (PlayerId id : {3u, 4u}) { auto extra = larger.agents.front(); extra.id = id; larger.agents.push_back(extra); }
+    simulation.Step(0.1f, {{1, join}, {2, join}, {3, join}, {4, join}});
+    hold.puzzleTarget = four.id;
+    for (unsigned int frame = 0; frame < 6; ++frame) simulation.Step(0.1f, {{1, hold}, {2, hold}});
+    Require(Coordination::ButtonCount(four) == 4 && four.puzzle.coordinationReservedMask == 15 && !four.puzzle.coordinationProgress,
+      "Configurar cuatro controles reduce silenciosamente el requisito de operadores");
+    for (unsigned int frame = 0; frame < 21; ++frame) simulation.Step(0.1f, {{1, hold}, {2, hold}, {3, hold}, {4, hold}});
+    Require(four.completed && four.puzzle.coordinationMask == 15, "Cuatro operadores reales no completan los cuatro controles físicos");
+    auto &survivors = Fixture(simulation, true); auto &lastPanel = Device(survivors, ObjectKind::CoopSwitch, PuzzleKind::Coordination);
+    survivors.agents[1].health = 0.f; simulation.Step(0.1f, {});
+    Require(survivors.agents[1].incapacitated && Coordination::RequiredAgents(survivors, lastPanel) == 2, "Un KO con rescate pendiente activa indebidamente el relé auxiliar");
+    Advance(simulation, GameplayConfig::IncapacityDuration + 0.1f);
+    Require(survivors.agents[1].connected && survivors.agents[1].lifeState == LifeState::Dead && Coordination::RequiredAgents(survivors, lastPanel) == 1,
+      "El espectador muerto y conectado impide continuar al último superviviente");
+    InteractWith(simulation); hold.puzzleTarget = lastPanel.id;
+    for (unsigned int frame = 0; frame < 21; ++frame) simulation.Step(0.1f, {{1, hold}});
+    Require(lastPanel.completed && lastPanel.puzzle.coordinationMask == 3, "El relé auxiliar no conserva la misión del único superviviente");
+  }
+
   void MissionDevicesAreReachable() {
     for (std::uint32_t seed = 0; seed < 6; ++seed) {
       Simulation simulation; simulation.ResetBase(); simulation.Deploy(seed);
@@ -401,7 +483,7 @@ namespace {
         Require(std::ranges::count_if(world.objects, [&parent](const Interactable &node) { return node.puzzle.parentDevice == parent.id; }) == 4,
           "El computador no tiene cuatro palancas físicas accesibles");
         for (const auto &node : world.objects) if (node.puzzle.parentDevice == parent.id)
-          Require(!WorldGeometry::PositionBlocked(world, node.position, GameplayConfig::AgentRadius), "Una palanca distribuida aparece dentro de un sólido");
+          Require(!WorldGeometry::PositionBlocked(world, node.position, GameplayConfig::AgentRadius, node.elevation, CombatConfig::StandingHeight, node.supportId), "Una palanca distribuida aparece dentro de un sólido de su planta");
       }
     }
   }
@@ -411,7 +493,7 @@ namespace {
       const auto &world = simulation.GetState();
       ++checks; if (std::ranges::none_of(world.objects, [](const Interactable &object) { return object.kind == ObjectKind::Computer && object.puzzle.parentDevice == 0; }))
         throw std::runtime_error("Falta el computador distribuido contrato=" + std::to_string(static_cast<int>(contract)) + " semilla=" + std::to_string(seed));
-      const auto grid = ReachableGrid(world, world.agents.front().position);
+      const auto grid = ReachableGrid(world, world.agents.front());
       const auto verify = [&](bool condition, const std::string &message, const Interactable &object) {
         ++checks; if (!condition) throw std::runtime_error(message + " contrato=" + std::to_string(static_cast<int>(contract)) + " semilla=" + std::to_string(seed) +
           " objeto=" + std::to_string(object.id) + " posición=" + std::to_string(object.position.x) + "," + std::to_string(object.position.y));
@@ -424,10 +506,13 @@ namespace {
         for (const auto node : computer.puzzle.leverOrder) if (node >= 1 && node <= 4) sequence |= 1u << (node - 1);
         verify(computer.puzzle.leverOrder.size() == 4 && sequence == 15, "La secuencia del computador no corresponde a sus cuatro palancas", computer);
         bool panelAccessible = false;
-        for (std::size_t index = 0; index < grid.previous.size() && !panelAccessible; ++index) if (grid.previous[index] >= 0) {
-          const auto point = grid.Point(static_cast<int>(index)); const auto footprint = WorldGeometry::ObjectFootprint(computer);
-          panelAccessible = WorldGeometry::DistanceToBounds(point, footprint) < GameplayConfig::InteractionDistance &&
-            Visibility::HasLineOfSight(world, point, WorldGeometry::ClosestPoint(point, footprint), Stance::Standing, computer.id);
+        for (const auto &node : grid.nodes) {
+          if (std::abs(node.elevation - computer.elevation) > LevelConfig::SupportTolerance) continue;
+          const auto footprint = WorldGeometry::ObjectFootprint(computer);
+          const auto closest = WorldGeometry::ClosestPoint(node.point, footprint);
+          panelAccessible |= WorldGeometry::DistanceToBounds(node.point, footprint) < GameplayConfig::InteractionDistance &&
+            !WorldGeometry::RayOccluded(world, {node.point.x, node.point.y, node.elevation + CombatConfig::StandingWeaponHeight}, {closest.x, closest.y, computer.elevation + CombatConfig::StandingWeaponHeight}, computer.id);
+          if (panelAccessible) break;
         }
         verify(panelAccessible, "El panel no tiene una posición de interacción alcanzable desde el agente", computer);
         std::unordered_set<std::uint32_t> ids;
@@ -438,13 +523,19 @@ namespace {
           indices |= 1u << (node->puzzle.nodeIndex - 1);
           const auto footprint = WorldGeometry::ObjectFootprint(*node);
           const float radius = GameplayConfig::AgentRadius + std::max(footprint.size.x, footprint.size.y) * 0.5f;
-          verify(!WorldGeometry::PositionBlocked(world, node->position, radius), "La huella y el acceso físico de la palanca intersectan un sólido", *node);
+          verify(!WorldGeometry::PositionBlocked(world, node->position, radius, node->elevation, CombatConfig::StandingHeight, node->supportId), "La huella y el acceso físico de la palanca intersectan un sólido", *node);
           verify(std::ranges::all_of(nodes, [node](const Interactable *other) { return node == other || (node->position - other->position).length() >= DevicesConfig::PuzzleNodeMinimumSeparation; }),
             "Dos palancas se superponen o comparten posición", *node);
-          const auto route = NavigationRoute(world, grid, node->position);
+          const auto route = NavigationRoute(world, grid, *node);
           verify(!route.empty(), "La palanca carece de ruta física desde el agente y el panel accesible", *node);
-          for (std::size_t point = 1; point < route.size(); ++point) verify(WorldGeometry::ClearMovementSegment(world, route[point - 1], route[point], GameplayConfig::AgentRadius),
-            "La ruta de la palanca corta una colisión", *node);
+          for (std::size_t point = 1; point < route.size(); ++point) {
+            auto position = WorldGeometry::Ground(route[point - 1]); auto z = route[point - 1].z;
+            const auto supportAt = WorldGeometry::FindSupport(world, position, z, 0, GameplayConfig::AgentRadius);
+            auto support = supportAt ? supportAt->id : 0;
+            WorldGeometry::MoveOnSupports(world, position, z, support, WorldGeometry::Ground(route[point]) - position, GameplayConfig::AgentRadius, CombatConfig::StandingHeight);
+            verify((position - WorldGeometry::Ground(route[point])).length() < 0.01f && std::abs(z - route[point].z) <= LevelConfig::SupportTolerance,
+              "La ruta de la palanca corta una colisión o cambia de planta sin apoyo", *node);
+          }
         }
         verify(indices == 15, "El circuito no dispone de las cuatro palancas distintas", computer);
       }
@@ -455,7 +546,7 @@ namespace {
 int main() {
   try {
     CameraSweepAndPerception(); CameraTrackingAndMemory(); CameraAndGuardPosturePace(); DoorPuzzleLifecycle(); ComputerAndCameraPanel(); BrokenCameraSurvivesCentralAndPanelReset(); TrapLifecycleAndDamage(); PuzzleFailureAndInvalidation();
-    WiresRequireActualPairs(); DistributedLeversNeedPhysicalInteraction(); CoordinationNeedsConcurrentHolds(); MissionDevicesAreReachable(); DistributedPuzzleRoutesAcrossMissions();
+    WiresRequireActualPairs(); DistributedLeversNeedPhysicalInteraction(); CoordinationNeedsConcurrentHolds(); CoordinationControlsAndCodec(); MissionDevicesAreReachable(); DistributedPuzzleRoutesAcrossMissions();
     std::cout << "NoTraceDeviceTests: " << checks << " comprobaciones correctas.\n"; return 0;
   } catch (const std::exception &exception) { std::cerr << "NoTraceDeviceTests: " << exception.what() << '\n'; return 1; }
 }

@@ -24,8 +24,16 @@ namespace NoTrace::SpatialConfig {
   inline constexpr sf::Vector2f TrashBinSize{48.f, 48.f};
   inline constexpr sf::Vector2f ClosetSize{48.f, 28.f};
   inline constexpr sf::Vector2f UnderTableSize{78.f, 48.f};
+  inline constexpr sf::Vector2f OverturnedTableSize{84.f, 54.f};
+  inline constexpr float OverturnedTableHeight = 7.f;
   inline constexpr float ClosetHeight = 64.f;
   inline constexpr float UnderTableHeight = 28.f;
+  inline constexpr float ChairHeight = 34.f;
+  inline constexpr float BenchHeight = 18.f;
+  inline constexpr float BarrelsHeight = 42.f;
+  inline constexpr float GlassHeight = 64.f;
+  inline constexpr float VentilationHeight = 38.f;
+  inline constexpr float SafetyLampHeight = 42.f;
   inline constexpr float UnderTableEyeHeight = 8.f;
   inline constexpr float UnderTableTopThickness = 6.f;
   inline constexpr float UnderTableViewRange = 180.f;

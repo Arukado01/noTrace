@@ -87,14 +87,15 @@ namespace NoTrace {
              (command.throwDecoy ? 256u : 0u) | (command.knock ? 512u : 0u) |
              (command.dragBody ? 1024u : 0u) | (command.tool ? 2048u : 0u) |
              (command.coverToggle ? 4096u : 0u) | (command.peekLeft ? 8192u : 0u) | (command.peekRight ? 16384u : 0u) | (command.prepareDecoy ? 32768u : 0u) |
-             (command.cqcHeld ? 65536u : 0u) | (command.push ? 131072u : 0u) | (command.reloadWeapon ? 262144u : 0u) | (command.fireSelected ? 524288u : 0u) | (command.aiming ? 1048576u : 0u) | (command.dive ? 2097152u : 0u) | (command.roll ? 4194304u : 0u) | (command.toggleSuppressor ? 8388608u : 0u) | (command.puzzleHeld ? 16777216u : 0u);
+             (command.cqcHeld ? 65536u : 0u) | (command.push ? 131072u : 0u) | (command.reloadWeapon ? 262144u : 0u) | (command.fireSelected ? 524288u : 0u) | (command.aiming ? 1048576u : 0u) | (command.dive ? 2097152u : 0u) | (command.roll ? 4194304u : 0u) | (command.toggleSuppressor ? 8388608u : 0u) | (command.puzzleHeld ? 16777216u : 0u) |
+             (command.traverse ? 1u << 25 : 0u) | (command.drop ? 1u << 26 : 0u) | (command.spectateNext ? 1u << 27 : 0u) | (command.spectatePrevious ? 1u << 28 : 0u);
     }
 
     bool ReadCommand(const Json &message, ActionCommand &command) {
       std::uint64_t flags = 0;
       if (!ReadVector(message.at("move"), command.moveX, command.moveY) ||
           !ReadVector(message.at("aim"), command.aimX, command.aimY) ||
-          !ReadUnsigned(message.at("flags"), flags) || flags > 33554431 || !message.at("slope").is_number() || !message.at("decoyDistance").is_number()) {
+          !ReadUnsigned(message.at("flags"), flags) || flags > (1u << 29) - 1u || !message.at("slope").is_number() || !message.at("decoyDistance").is_number()) {
         return false;
       }
       command.run = (flags & 1) != 0;
@@ -118,6 +119,8 @@ namespace NoTrace {
       command.reloadWeapon = (flags & 262144) != 0; command.fireSelected = (flags & 524288) != 0;
       command.aiming = (flags & 1048576) != 0; command.dive = (flags & 2097152) != 0; command.roll = (flags & 4194304) != 0;
       command.toggleSuppressor = (flags & 8388608) != 0; command.puzzleHeld = (flags & 16777216) != 0;
+      command.traverse = (flags & (1u << 25)) != 0; command.drop = (flags & (1u << 26)) != 0;
+      command.spectateNext = (flags & (1u << 27)) != 0; command.spectatePrevious = (flags & (1u << 28)) != 0;
       command.aimSlope = message.at("slope").get<float>();
       if (!std::isfinite(command.aimSlope) || std::abs(command.aimSlope) > CombatConfig::MaximumAimSlope) return false;
       command.decoyDistance = message.at("decoyDistance").get<float>();
@@ -148,11 +151,14 @@ namespace NoTrace {
       command.puzzleInput = -1; if (!command.puzzleHeld) command.puzzleTarget = 0;
       command.reloadWeapon = false; command.fireSelected = false; command.weaponChoice = -1;
       command.dive = false; command.roll = false; command.toggleSuppressor = false;
+      command.traverse = command.drop = command.spectateNext = command.spectatePrevious = false;
     }
 
     void MergePulses(ActionCommand &command, const ActionCommand &previous) {
       command.reloadWeapon |= previous.reloadWeapon;
       command.dive |= previous.dive; command.roll |= previous.roll; command.toggleSuppressor |= previous.toggleSuppressor;
+      command.traverse |= previous.traverse; command.drop |= previous.drop;
+      command.spectateNext |= previous.spectateNext; command.spectatePrevious |= previous.spectatePrevious;
       if (command.weaponChoice == -1) command.weaponChoice = previous.weaponChoice;
       if (command.puzzleInput == -1 && previous.puzzleInput != -1) { command.puzzleInput = previous.puzzleInput; command.puzzleTarget = previous.puzzleTarget; }
       if ((previous.fireLethal || previous.fireNonLethal || previous.fireSelected) && !command.fireLethal && !command.fireNonLethal && !command.fireSelected) {
@@ -711,9 +717,11 @@ namespace NoTrace {
     }
   }
 
-  void Session::Tick(float deltaTime, bool localPaused) {
+  void Session::Tick(float deltaTime, bool localPaused, float networkDeltaTime) {
     const float dt = std::isfinite(deltaTime) ? std::clamp(deltaTime, 0.f, 1.f) : 0.f;
-    elapsed_ += dt;
+    // La red conserva segundos reales aunque el motor recorte el avance de la simulación.
+    const float networkDt = std::isfinite(networkDeltaTime) && networkDeltaTime >= 0.f ? networkDeltaTime : dt;
+    elapsed_ += networkDt;
     network_.Update();
     for (const auto &event : network_.DrainEvents()) {
       HandleEvent(event);
@@ -742,7 +750,7 @@ namespace NoTrace {
         localCommand_ = {};
       }
       if (connected_) {
-        commandAccumulator_ += dt;
+        commandAccumulator_ += networkDt;
         if (commandAccumulator_ >= 1.f / GameplayConfig::CommandHz) {
           commandAccumulator_ = std::fmod(commandAccumulator_, 1.f / GameplayConfig::CommandHz);
           SendCommand();
@@ -752,7 +760,7 @@ namespace NoTrace {
     }
     StepSimulation(dt, localPaused);
     if (IsHost()) {
-      snapshotAccumulator_ += dt;
+      snapshotAccumulator_ += networkDt;
       const bool periodic = snapshotAccumulator_ >= 1.f / GameplayConfig::SnapshotHz;
       if (periodic) {
         snapshotAccumulator_ = std::fmod(snapshotAccumulator_, 1.f / GameplayConfig::SnapshotHz);

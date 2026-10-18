@@ -21,7 +21,7 @@ namespace NoTrace {
     bool Host(const std::string &name, std::uint16_t port = NetworkConfig::DefaultPort);
     bool Join(const std::string &ip, std::uint16_t port, const std::string &name);
     void Stop();
-    void Tick(float deltaTime, bool localPaused = false);
+    void Tick(float deltaTime, bool localPaused = false, float networkDeltaTime = -1.f);
     void Submit(ActionCommand command);
     void SetReady(bool ready);
     void SetContract(ContractId contract);

@@ -8,6 +8,7 @@ namespace NoTrace::DistractionConfig {
   inline constexpr float LandingClearance = 0.5f;
   inline constexpr float DecoyHearingDistance = 420.f;
   inline constexpr float DecoyArcHeight = 64.f;
+  inline constexpr unsigned int MaximumTrajectoryCorrections = 8;
   inline constexpr float DecoyFlightSpeed = 340.f;
   inline constexpr float DecoyMinimumFlightTime = 0.25f;
   inline constexpr std::size_t MaximumFlyingDecoys = 32;

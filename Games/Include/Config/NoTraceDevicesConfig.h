@@ -32,6 +32,9 @@ namespace NoTrace::DevicesConfig {
   inline constexpr std::uint32_t PuzzleChoiceCount = 4;
   inline constexpr unsigned int WireCount = 4;
   inline constexpr float CoordinationHoldDuration = 2.f;
+  inline constexpr unsigned int CoordinationMinimumButtons = 2;
+  inline constexpr unsigned int CoordinationMaximumButtons = 4;
+  inline constexpr float CoordinationButtonSpacing = 20.f;
   inline constexpr float PuzzleNodeSpacing = 80.f;
   inline constexpr float PuzzleNodeMinimumSeparation = 35.f;
   inline constexpr float PuzzleNodeSize = 16.f;

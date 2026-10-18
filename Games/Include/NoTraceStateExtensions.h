@@ -1,12 +1,14 @@
 #pragma once
 
 #include "NoTraceVisibility.h"
+#include "NoTraceWorldGeometry.h"
 #include "NoTraceTacticalState.h"
 #include "Config/NoTraceAudioConfig.h"
 #include "Config/NoTraceWeaponConfig.h"
 #include "Config/NoTraceTrainingConfig.h"
 #include <nlohmann/json.hpp>
 #include <stdexcept>
+#include <limits>
 
 namespace NoTrace::StateExtensions {
   using Json = nlohmann::json;
@@ -40,6 +42,7 @@ namespace NoTrace::StateExtensions {
       j["lethalMagazine"] = a.lethalMagazine; j["nonLethalMagazine"] = a.nonLethalMagazine; j["reloadRemaining"] = a.reloadRemaining;
       if (!filtered || a.id == player) j["operationLoadout"] = {a.operationLoadout.lethalAmmo, a.operationLoadout.nonLethalAmmo, a.operationLoadout.decoys, a.operationLoadout.tools};
       if (!filtered || a.id == player) j["puzzle"] = TacticalState::Puzzle(a.puzzle);
+      if (!filtered || a.id == player) j["spectatorTarget"] = filtered ? snapshot.value("spectatorTarget", PlayerId{0}) : a.spectatorTarget;
     }
     for (auto &j : snapshot["guards"]) {
       const auto &g = *std::ranges::find_if(world.guards, [&](const Guard &g) { return g.id == j["id"]; });
@@ -52,6 +55,7 @@ namespace NoTrace::StateExtensions {
       const auto &o = *std::ranges::find_if(world.objects, [&](const Interactable &o) { return o.id == j["id"]; });
       const auto &c = o.camera; const auto &t = o.trap; const auto &p = o.puzzle;
       j["locked"] = o.locked; j["user"] = !filtered || o.user == player ? o.user : 0;
+      j["overturned"] = o.overturned; j["propStyle"] = static_cast<int>(o.propStyle);
       j["camera"] = {{"state", static_cast<int>(c.state)}, {"baseAngle", c.baseAngle}, {"sweepAngle", c.sweepAngle},
         {"minAngle", c.minAngle}, {"maxAngle", c.maxAngle}, {"speed", c.speed}, {"pauseRemaining", c.pauseRemaining},
         {"direction", c.direction}, {"range", c.range}, {"cosHalfAngle", c.cosHalfAngle}, {"confirmationTime", c.confirmationTime},
@@ -63,15 +67,17 @@ namespace NoTrace::StateExtensions {
         {"cooldown", p.cooldown}, {"intelligence", !filtered || p.state == PuzzleState::Solved ? p.intelligence : ""}};
     }
     TacticalState::Write(snapshot, world, player, filtered);
-    const auto observer = std::ranges::find_if(world.agents, [player](const Agent &a) { return a.id == player; });
+    const PlayerId listener = filtered ? snapshot.value("spectatorTarget", PlayerId{0}) : 0;
+    const auto observer = std::ranges::find_if(world.agents, [player, listener](const Agent &a) { return a.id == (listener ? listener : player); });
     snapshot["sounds"] = Json::array();
     for (const auto &s : world.sounds) {
       if (filtered && (observer == world.agents.end() || !Visibility::SoundAudible(world, *observer, s))) continue;
       auto point = s.position;
-      const bool hidden = filtered && !Visibility::IsVisible(world, *observer, point);
-      if (hidden && s.actor != player) { point.x = std::floor(point.x / AudioConfig::PositionQuantization) * AudioConfig::PositionQuantization; point.y = std::floor(point.y / AudioConfig::PositionQuantization) * AudioConfig::PositionQuantization; }
+      float elevation = s.elevation;
+      const bool hidden = filtered && !Visibility::IsGeometricallyVisible(world, *observer, point, Stance::Prone, elevation);
+      if (hidden && s.actor != player) { point.x = std::floor(point.x / AudioConfig::PositionQuantization) * AudioConfig::PositionQuantization; point.y = std::floor(point.y / AudioConfig::PositionQuantization) * AudioConfig::PositionQuantization; elevation = std::floor(elevation / AudioConfig::PositionQuantization) * AudioConfig::PositionQuantization; }
       snapshot["sounds"].push_back({{"sequence", s.sequence}, {"kind", static_cast<int>(s.kind)}, {"position", Vec(point)},
-        {"radius", s.radius}, {"remaining", s.remaining}, {"actor", !filtered || s.actor == player ? s.actor : 0}});
+        {"radius", s.radius}, {"remaining", s.remaining}, {"actor", !filtered || s.actor == player ? s.actor : 0}, {"elevation", elevation}});
     }
   }
   inline void Read(const Json &snapshot, WorldState &world, PlayerId recipient) {
@@ -84,6 +90,15 @@ namespace NoTrace::StateExtensions {
       a.friendlyIncapacitated = j.value("friendlyIncapacitated", false); a.cqcPressPending = j.value("cqcPressPending", false);
       a.cqcInputDown = j.value("cqcInputDown", false); a.cqcNextKick = j.value("cqcNextKick", false); a.cqcStrikePending = j.value("cqcStrikePending", false);
       a.cqcAttackTime = Number(j, "cqcAttackTime", 0.f, 0.f, 1.f);
+      if (j.contains("spectatorTarget")) {
+        if (filtered && a.id != recipient) throw std::runtime_error("Cámara privada ajena");
+        if (!j.at("spectatorTarget").is_number_integer() || j.at("spectatorTarget") < 0 || j.at("spectatorTarget") > 1000000) throw std::runtime_error("Objetivo de espectador inválido");
+        a.spectatorTarget = j.at("spectatorTarget").get<PlayerId>();
+        if (a.spectatorTarget) {
+          const auto target = std::ranges::find(world.agents, a.spectatorTarget, &Agent::id);
+          if (a.alive || a.spectatorTarget == a.id || target == world.agents.end() || !target->connected || !target->alive || target->extracted) throw std::runtime_error("Espectador sin superviviente autorizado");
+        }
+      }
       a.selectedWeapon = j.contains("selectedWeapon") ? Enum<WeaponKind>(j,"selectedWeapon",1) : WeaponKind::Pistol;
       a.reloadingWeapon = j.contains("reloadingWeapon") ? Enum<WeaponKind>(j,"reloadingWeapon",1) : WeaponKind::Pistol;
       a.lethalMagazine = j.value("lethalMagazine", std::min(WeaponConfig::PistolCapacity,a.loadout.lethalAmmo)); a.nonLethalMagazine = j.value("nonLethalMagazine", std::min(WeaponConfig::NonLethalCapacity,a.loadout.nonLethalAmmo));
@@ -124,6 +139,9 @@ namespace NoTrace::StateExtensions {
     for (std::size_t i = 0; i < world.objects.size(); ++i) {
       auto &o = world.objects[i]; const auto &j = snapshot.at("objects")[i];
       o.locked = j.value("locked", false); o.user = j.value("user", PlayerId{0});
+      o.overturned = j.value("overturned", false);
+      o.propStyle = j.contains("propStyle") ? Enum<PropStyle>(j, "propStyle", static_cast<int>(PropStyle::SafetyLamp)) : PropStyle::Automatic;
+      if (o.overturned && (WorldGeometry::HideoutType(o) != HideoutKind::UnderTable || o.lifted || WorldGeometry::HideoutOccupied(o))) throw std::runtime_error("Mesa volcada con estado u ocupante inválido");
       if (filtered && o.user != 0 && o.user != recipient) throw std::runtime_error("Operador privado ajeno");
       if (o.locked && o.open) throw std::runtime_error("Puerta cerrada con apertura inválida");
       if (j.contains("camera")) {
@@ -154,9 +172,9 @@ namespace NoTrace::StateExtensions {
     TacticalState::Read(snapshot, world);
     for (std::size_t i = 0; i < world.noises.size(); ++i) {
       auto &noise = world.noises[i]; noise.visualDirection = Vector(snapshot.at("noises")[i].at("visualDirection"));
+      noise.elevation = Number(snapshot.at("noises")[i], "elevation", std::numeric_limits<float>::quiet_NaN(), AudioConfig::MinimumElevation, AudioConfig::MaximumElevation);
       const float length = noise.visualDirection.lengthSquared();
-      const bool step = noise.kind == SoundKind::StepHard || noise.kind == SoundKind::StepSoft || noise.kind == SoundKind::StepRunHard ||
-          noise.kind == SoundKind::StepRunSoft || noise.kind == SoundKind::StepCrouchHard || noise.kind == SoundKind::StepCrouchSoft;
+      const bool step = AudioConfig::IsFootstep(noise.kind);
       if (length != 0.f && (std::abs(length - 1.f) > 0.001f || !step || (filtered && noise.actor != recipient))) throw std::runtime_error("Dirección visual de ruido inválida o privada");
     }
     for (const auto &a : world.agents) {
@@ -176,7 +194,7 @@ namespace NoTrace::StateExtensions {
       const auto &list=snapshot.at("sounds"); if (!list.is_array() || list.size()>AudioConfig::MaximumCues) throw std::runtime_error("Demasiadas señales de audio");
       std::uint64_t previous=0;
       for (const auto &j:list) {
-        SoundEvent s{j.at("sequence").get<std::uint64_t>(),Enum<SoundKind>(j,"kind",31),Vector(j.at("position")),Number(j,"radius",0.f,0.f,10000.f),Number(j,"remaining",0.f,0.f,AudioConfig::CueLifetime),j.value("actor",PlayerId{0})};
+        SoundEvent s{j.at("sequence").get<std::uint64_t>(),Enum<SoundKind>(j,"kind",static_cast<int>(SoundKind::Count)-1),Vector(j.at("position")),Number(j,"radius",0.f,0.f,10000.f),Number(j,"remaining",0.f,0.f,AudioConfig::CueLifetime),j.value("actor",PlayerId{0}),Number(j,"elevation",std::numeric_limits<float>::quiet_NaN(),AudioConfig::MinimumElevation,AudioConfig::MaximumElevation)};
         if (s.sequence<=previous || (filtered && s.actor!=0 && s.actor!=recipient)) throw std::runtime_error("Señal de audio inválida");
         previous=s.sequence; world.sounds.push_back(s);
       }

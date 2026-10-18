@@ -1,5 +1,7 @@
 #include "NoTraceCombatGeometry.h"
 #include "NoTraceSimulation.h"
+#include "NoTraceSpatialFixture.h"
+#include "NoTraceSpatialGeometry.h"
 #include "NoTraceWorldGeometry.h"
 #include "Config/NoTraceWeaponConfig.h"
 #include "Config/NoTraceTrainingConfig.h"
@@ -21,6 +23,7 @@ namespace {
     if (cooperative) simulation.SetContract(ContractId::DoubleCross);
     simulation.Deploy(0);
     auto &world = const_cast<WorldState &>(simulation.GetState());
+    TestFixture::LegacyPlane(world);
     world.phase = GamePhase::Mission; world.mode = SimulationMode::Operation;
     world.obstacles.clear(); world.objects.clear(); world.guards.clear(); world.noises.clear(); world.shots.clear(); world.securityEntries.clear();
     world.agents[0].position = {200.f, 300.f}; world.agents[0].facing = {1.f, 0.f};
@@ -121,6 +124,28 @@ namespace {
         Require(world.guards[0].state == GuardState::Incapacitated && world.guards[0].health == CombatConfig::MaxGuardHealth, "Los impactos no letales acumulados terminan en inconsciencia recuperable");
       }
     }
+  }
+
+  void PartialHitKeepsTheGuardsCurrentFloor() {
+    Simulation simulation; auto &world = Fixture(simulation);
+    world.walkSurfaces = {{1, 0, WalkSurfaceKind::Floor, {{0.f, 0.f}, world.size}, 0.f},
+      {2, 1, WalkSurfaceKind::Floor, {{100.f, 200.f}, {700.f, 400.f}}, 96.f}};
+    auto &actor = world.agents[0]; actor.elevation = 96.f; actor.supportId = 2;
+    Guard guard; guard.id = 93; guard.position = {400.f, 300.f}; guard.elevation = 96.f; guard.supportId = 2; guard.facing = {1.f, 0.f};
+    guard.state = GuardState::Search; guard.lastKnown = {500.f, 300.f}; guard.lastKnownElevation = 0.f;
+    world.guards.push_back(guard);
+    Require(!WorldGeometry::PositionBlocked(world, guard.position, GameplayConfig::AgentRadius, guard.elevation, CombatConfig::StandingHeight, guard.supportId) &&
+      !WorldGeometry::PositionBlocked(world, actor.position, GameplayConfig::AgentRadius, actor.elevation, CombatConfig::StandingHeight, actor.supportId),
+      "El impacto multinivel necesita cuerpos apoyados físicamente en la misma planta");
+    const auto command = AtZone(actor, guard.position, guard.facing, Stance::Standing, HitZone::Torso, false);
+    simulation.Step(1.f / 60.f, {{actor.id, command}});
+    const auto &wounded = world.guards.front();
+    Require(!world.shots.empty() && world.shots.back().targetId == guard.id && world.shots.back().zone == HitZone::Torso &&
+      wounded.stun > 0.f && wounded.stun < CombatConfig::MaxGuardStun && wounded.health == CombatConfig::MaxGuardHealth && wounded.state == GuardState::Search,
+      "Un impacto lejano no letal debe herir sin incapacitar ni convertirse en una percepción visual");
+    Require(wounded.lastKnown == guard.position && wounded.lastKnownElevation == 96.f && wounded.lastKnownElevation == wounded.elevation && !world.alarm &&
+      std::ranges::all_of(world.noises, [&](const NoiseEvent &noise) { return WorldGeometry::SpatialDistance(WorldGeometry::Feet(wounded), {noise.position.x, noise.position.y, noise.elevation}) > noise.radius; }),
+      "El daño reemplaza la pista de otra planta por la posición y altura físicas del guardia sin apoyarse en oír el disparo");
   }
 
   void BulletOcclusionAndPosture() {
@@ -297,10 +322,10 @@ namespace {
     Require(down.health == 90.f && down.stamina == 0.f && down.incapacitated && down.incapacityRemaining == 0.0625f && expired.phase == GamePhase::Mission,
       "La inconsciencia con salud positiva tampoco se recupera al esperar ni al regenerar resistencia");
     simulation.Step(0.0625f, {});
-    Require(down.health == 0.f && down.lifeState == LifeState::Dead && down.rescueExpired && expired.phase == GamePhase::Results,
-      "Al cumplirse exactamente cincuenta y cinco segundos vence el rescate y la recuperación no revierte la derrota");
+    Require(down.health == 0.f && down.lifeState == LifeState::Dead && down.rescueExpired && expired.phase == GamePhase::Mission && expired.agents[1].alive,
+      "Al cumplirse exactamente cincuenta y cinco segundos vence el rescate individual y el compañero conserva la misión");
     for (int step = 0; step < 240; ++step) simulation.Step(0.0625f, {});
-    Require(down.health == 0.f && down.stamina == 0.f && !expired.results.at(1).success, "La muerte y la derrota impiden cualquier regeneración posterior");
+    Require(down.health == 0.f && down.stamina == 0.f && down.lifeState == LifeState::Dead && expired.phase == GamePhase::Mission, "La continuidad del compañero no regenera ni reanima al agente muerto");
 
     auto &solo = Fixture(simulation); solo.agents[0].health = 0.f; solo.agents[0].stamina = 0.f; solo.agents[0].healthRecoveryRemaining = 0.f;
     simulation.Step(0.0625f, {});
@@ -330,6 +355,7 @@ int main() {
   try {
     LogicalVolumes();
     LethalAndNonLethalZones();
+    PartialHitKeepsTheGuardsCurrentFloor();
     BulletOcclusionAndPosture();
     ProneProtectionAndMelee();
     MissionSurvivabilityAndDiscreteDamage();

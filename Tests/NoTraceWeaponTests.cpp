@@ -1,4 +1,5 @@
 #include "NoTraceSimulation.h"
+#include "NoTraceSpatialFixture.h"
 #include "NoTraceCombatGeometry.h"
 #include "Config/NoTraceWeaponConfig.h"
 #include <algorithm>
@@ -14,6 +15,7 @@ namespace {
     simulation.SetLoadout(1, {8, 8, 3, 2});
     if (!training) simulation.Deploy(31);
     auto &world = const_cast<WorldState &>(simulation.GetState());
+    TestFixture::LegacyPlane(world);
     world.phase = training ? GamePhase::Base : GamePhase::Mission;
     world.mode = training ? SimulationMode::Training : SimulationMode::Operation;
     world.guards.clear(); world.objects.clear(); world.obstacles.clear(); world.events.clear(); world.sounds.clear(); world.shots.clear(); world.noises.clear(); world.footsteps.clear(); world.securityEntries.clear();
@@ -27,6 +29,7 @@ namespace {
   void IncreasedStartingAmmoAndConservation() {
     Simulation simulation; simulation.ResetBase(); simulation.Deploy(17);
     auto &world = const_cast<WorldState &>(simulation.GetState());
+    TestFixture::LegacyPlane(world);
     world.guards.clear(); world.objects.clear(); world.obstacles.clear(); world.securityEntries.clear();
     auto &agent = world.agents[0];
     Require(agent.loadout.lethalAmmo == GameplayConfig::StartingPistolAmmo && agent.loadout.nonLethalAmmo == GameplayConfig::StartingNonLethalAmmo && agent.loadout.lethalAmmo > 4 && agent.loadout.nonLethalAmmo > 4,
@@ -132,6 +135,7 @@ namespace {
     Require(world.phase == GamePhase::Mission && !IsTraining(world) && !world.guards.empty() && std::ranges::none_of(world.guards, [](const Guard &guard) { return guard.trainingDummy; }), "Desplegar conserva muñecos o reglas de práctica en la operación");
     Require(world.agents[0].loadout.lethalAmmo == 2 && world.agents[0].lethalMagazine == 2 && world.agents[0].loadout.nonLethalAmmo == 3, "El reabastecimiento de entrenamiento contamina el equipo preparado de misión");
     world.contract = ContractId::DoubleCross; world.guards.clear(); world.objects.clear(); world.obstacles.clear(); world.securityEntries.clear();
+    TestFixture::LegacyPlane(world);
     world.agents[0].position = {200.f, 300.f}; world.agents[1].position = {260.f, 300.f}; world.agents[0].actionCooldown = 0.f;
     auto lethal = Shoot(); lethal.aimSlope = head.aimSlope;
     simulation.Step(0.1f, {{1, lethal}});
@@ -177,8 +181,38 @@ namespace {
     simulation.Step(0.1f, {{1, reload}}); Advance(simulation, 13);
     Require(world.agents[0].loadout.lethalAmmo == 0 && world.agents[0].lethalMagazine == 0 && world.agents[0].pistolSuppressor == 0.f, "Una recarga sin reserva repone cartuchos o repara el silenciador");
   }
+  void EquipmentActionsReplicateWithoutAudioIdentity() {
+    Simulation simulation, replica; auto &world = Fixture(simulation, true);
+    world.agents[1].position = {240.f, 300.f};
+    ActionCommand toggle; toggle.toggleSuppressor = true;
+    simulation.Step(.1f, {{2, toggle}});
+    Require(world.agents[1].actionPose == ActionPose::SuppressorDetach && world.agents[1].actionPoseTime == WeaponConfig::EquipmentGestureDuration,
+      "Retirar el silenciador no inicia su pose autoritativa completa");
+    const auto snapshot = simulation.SnapshotFor(1, true);
+    Require(std::ranges::any_of(snapshot.at("sounds"), [](const nlohmann::json &sound) {
+      return sound.at("kind") == static_cast<int>(SoundKind::SuppressorDetach) && sound.at("actor") == 0;
+    }), "La prueba no conserva la redacción real del emisor de sonido ajeno");
+    std::string error;
+    Require(replica.LoadSnapshot(snapshot, error), "El cliente rechaza la nueva pose de equipo");
+    const auto remote = std::ranges::find(replica.GetState().agents, PlayerId{2}, &Agent::id);
+    Require(remote != replica.GetState().agents.end() && remote->actionPose == ActionPose::SuppressorDetach && remote->actionPoseTime == WeaponConfig::EquipmentGestureDuration,
+      "La animación visible ajena depende de la identidad privada de un sonido");
+    simulation.Step(.1f, {{2, toggle}});
+    Require(world.agents[1].actionPose == ActionPose::SuppressorAttach && world.agents[1].pistolSuppressorEquipped,
+      "Montar el silenciador no conserva su pose propia");
+    ActionCommand select; select.weaponChoice = 1;
+    simulation.Step(.1f, {{2, select}});
+    Require(world.agents[1].actionPose == ActionPose::WeaponSwitch && world.agents[1].selectedWeapon == WeaponKind::NonLethal,
+      "Seleccionar otra arma no inicia la animación de cambio replicada");
+    auto invalid = simulation.SnapshotFor(1, true); invalid["agents"][1]["actionPose"] = 22;
+    Require(!replica.LoadSnapshot(invalid, error), "El protocolo acepta una pose fuera del rango vigente");
+    invalid = simulation.SnapshotFor(1, true); invalid["agents"][1]["actionPoseTime"] = WeaponConfig::EquipmentGestureDuration + 1.f;
+    Require(!replica.LoadSnapshot(invalid, error), "El protocolo acepta un gesto con duración imposible");
+    simulation.Step(.1f, {{2, Shoot()}});
+    Require(world.agents[1].actionPose == ActionPose::Shoot, "Un gesto cosmético de equipo sustituye un disparo autoritativo");
+  }
 }
 int main() {
-  try { IncreasedStartingAmmoAndConservation(); ReloadAndInventory(); SelectionAndInterruption(); ProneReload(); TrainingProtectionAndTransition(); SuppressorWearAndFiniteAmmo(); std::cout << "PASS armas y seguridad: " << checks << " comprobaciones\n"; return 0; }
+  try { IncreasedStartingAmmoAndConservation(); ReloadAndInventory(); SelectionAndInterruption(); ProneReload(); TrainingProtectionAndTransition(); SuppressorWearAndFiniteAmmo(); EquipmentActionsReplicateWithoutAudioIdentity(); std::cout << "PASS armas y seguridad: " << checks << " comprobaciones\n"; return 0; }
   catch (const std::exception &error) { std::cerr << "FAIL armas tras " << checks << ": " << error.what() << '\n'; return 1; }
 }

@@ -32,6 +32,8 @@ namespace NoTrace {
       if (key == sf::Keyboard::Scan::LShift) return "Mayús";
       if (key == sf::Keyboard::Scan::LAlt) return "Alt izq.";
       if (key == sf::Keyboard::Scan::Tab) return "Tab";
+      if (key == sf::Keyboard::Scan::PageUp) return "RePág";
+      if (key == sf::Keyboard::Scan::PageDown) return "AvPág";
       const auto encoded = sf::Keyboard::getDescription(key).toUtf8();
       return {encoded.begin(), encoded.end()};
     }
@@ -86,9 +88,11 @@ namespace NoTrace {
   void ApplyUserPreferences(EngineContext &context) {
     const float master = Preference(context.save, VOLUME_SAVE_KEY, gConfig.globalVolume, MIN_VOLUME, MAX_VOLUME);
     const float effects = Preference(context.save, OptionsConfig::EffectsVolumeSaveKey, OptionsConfig::EffectsVolume, MIN_VOLUME, MAX_VOLUME);
+    const float ambience = Preference(context.save, OptionsConfig::AmbienceVolumeSaveKey, OptionsConfig::AmbienceVolume, MIN_VOLUME, MAX_VOLUME);
     const float cursor = Preference(context.save, CURSOR_SPEED_SAVE_KEY, gConfig.cursorSpeed, MIN_CURSOR_SPEED, MAX_CURSOR_SPEED);
-    context.audio.SetGlobalVolume(master); context.audio.SetEffectsVolume(effects); context.cursor.SetSpeed(cursor);
+    context.audio.SetGlobalVolume(master); context.audio.SetEffectsVolume(effects); context.audio.SetAmbienceVolume(ambience); context.cursor.SetSpeed(cursor);
     context.save.Set(VOLUME_SAVE_KEY, master); context.save.Set(OptionsConfig::EffectsVolumeSaveKey, effects);
+    context.save.Set(OptionsConfig::AmbienceVolumeSaveKey, ambience);
     context.save.Set(CURSOR_SPEED_SAVE_KEY, cursor);
     const int dive = ControlPreference(context.save, ControlsConfig::DiveSaveKey, 0);
     int roll = ControlPreference(context.save, ControlsConfig::RollSaveKey, 1);
@@ -126,11 +130,14 @@ namespace NoTrace {
       });
       panel->add(slider); return slider;
     };
-    widgets.masterVolume = volume("Volumen general", 228.f, context.audio.GetGlobalVolume(), [&context](float value) {
+    widgets.masterVolume = volume("Volumen general", 210.f, context.audio.GetGlobalVolume(), [&context](float value) {
       context.audio.SetGlobalVolume(value); context.save.Set(VOLUME_SAVE_KEY, context.audio.GetGlobalVolume());
     });
-    widgets.effectsVolume = volume("Volumen de efectos", 270.f, context.audio.GetEffectsVolume(), [&context](float value) {
+    widgets.effectsVolume = volume("Volumen de efectos", 244.f, context.audio.GetEffectsVolume(), [&context](float value) {
       context.audio.SetEffectsVolume(value); context.save.Set(OptionsConfig::EffectsVolumeSaveKey, context.audio.GetEffectsVolume());
+    });
+    widgets.ambienceVolume = volume("Volumen de ambiente", 278.f, context.audio.GetAmbienceVolume(), [&context](float value) {
+      context.audio.SetAmbienceVolume(value); context.save.Set(OptionsConfig::AmbienceVolumeSaveKey, context.audio.GetAmbienceVolume());
     });
     auto cursorLabel = Text(panel, "Cursor del mando: " + std::to_string(static_cast<int>(context.cursor.GetSpeed())), 30.f, 312.f, 300.f);
     widgets.cursorSpeed = tgui::Slider::create(MIN_CURSOR_SPEED, MAX_CURSOR_SPEED);
@@ -153,6 +160,7 @@ namespace NoTrace {
     });
     Action(context, panel, "RESTABLECER AUDIO Y MANDO", 399.f, 474.f, 345.f, [widgets] {
       widgets.masterVolume->setValue(gConfig.globalVolume); widgets.effectsVolume->setValue(OptionsConfig::EffectsVolume);
+      widgets.ambienceVolume->setValue(OptionsConfig::AmbienceVolume);
       widgets.cursorSpeed->setValue(gConfig.cursorSpeed);
       widgets.status->setText("Audio y velocidad del mando restaurados y guardados.");
     });
@@ -181,6 +189,7 @@ namespace NoTrace {
     widgets.framerate->setEnabled(!settings.verticalSync);
     widgets.masterVolume->setValue(context.audio.GetGlobalVolume());
     widgets.effectsVolume->setValue(context.audio.GetEffectsVolume());
+    widgets.ambienceVolume->setValue(context.audio.GetAmbienceVolume());
     widgets.cursorSpeed->setValue(context.cursor.GetSpeed());
   }
 
@@ -195,9 +204,9 @@ namespace NoTrace {
         KeyName(Control::Run), KeyName(Control::Crouch), KeyName(Control::Prone), ControlsConfig::MovementKeyNames[diveKey], ControlsConfig::MovementKeyNames[rollKey]),
       std::format("Ratón derecho: apuntar\nRatón izquierdo: disparar · {}: recargar\n{}/{}: arma · {}: silenciador", KeyName(Control::Reload), KeyName(Control::SelectPistol), KeyName(Control::SelectNonLethal), KeyName(Control::Suppressor)),
       std::format("{}: interactuar / rescatar\n{}: golpes; mantener para agarrar\n{} en agarre: someter · {}: empujar", KeyName(Control::Interact), KeyName(Control::Cqc), KeyName(Control::Cqc), KeyName(Control::Shove)),
-      std::format("{}: cobertura / asomarse\n{}: entrar y salir\n{} mantenida: arrastrar\n{}: pared · {}: armario", KeyName(Control::WallCover), KeyName(Control::Interact), KeyName(Control::Interact), KeyName(Control::Cqc), KeyName(Control::Tool)),
-      std::format("{}: mantener / soltar señuelo\n{}: herramienta contextual\nRueda: zoom táctico", KeyName(Control::Decoy), KeyName(Control::Tool)),
-      std::format("Mantén {}: nombres y orden privada\nMantén {}: selector de armas\n{}: sala · Esc: pausa\nF11 / Alt+Intro: pantalla completa", KeyName(Control::Orders), KeyName(Control::WeaponMenu), KeyName(Control::Lobby))
+      std::format("{}: cobertura / asomarse · {}: pared\n{}: entrar / salir; mantener: arrastrar\n{}: armario / voltear mesa", KeyName(Control::WallCover), KeyName(Control::Cqc), KeyName(Control::Interact), KeyName(Control::Tool)),
+      std::format("{}: mantener / soltar señuelo\n{}: agarre / trepar · Mayús+{}: soltar\nRueda: zoom táctico", KeyName(Control::Decoy), KeyName(Control::Traverse), KeyName(Control::Traverse)),
+      std::format("Mantén {}: nombres y orden privada\nMantén {}: armas · {}/{}: espectador\n{}: sala · Esc: pausa · F11: pantalla", KeyName(Control::Orders), KeyName(Control::WeaponMenu), KeyName(Control::SpectatePrevious), KeyName(Control::SpectateNext), KeyName(Control::Lobby))
     };
     for (std::size_t index = 0; index < descriptions.size(); ++index) {
       const float x = index % 2 == 0 ? 30.f : 399.f, y = 70.f + static_cast<float>(index / 2) * 100.f;
@@ -228,7 +237,7 @@ namespace NoTrace {
 
   void HandleOptionsKey(const sf::Event &event, const OptionsWidgets &widgets) {
     const auto *key = event.getIf<sf::Event::KeyPressed>(); if (!key) return;
-    for (const auto &slider : {widgets.masterVolume, widgets.effectsVolume, widgets.cursorSpeed}) {
+    for (const auto &slider : {widgets.masterVolume, widgets.effectsVolume, widgets.ambienceVolume, widgets.cursorSpeed}) {
       if (!slider || !slider->isFocused()) continue;
       switch (key->scancode) {
       case sf::Keyboard::Scan::Left: slider->setValue(slider->getValue() - slider->getStep()); break;

@@ -1,4 +1,5 @@
 #include "NoTraceWorldRenderer.h"
+#include "NoTraceCharacterAtlasFixture.h"
 #include <SFML/Graphics/Image.hpp>
 #include <array>
 #include <cmath>
@@ -20,37 +21,38 @@ namespace {
   }
   void GroundSupportsAndDirectionBoundaries(const std::filesystem::path &project) {
     using namespace NoTrace;
-    sf::Image image;
-    Require(image.loadFromFile(project / "Content/Textures/NoTrace/Characters/OperativeAtlas.png"), "No se puede inspeccionar el apoyo real del atlas operativo");
-    std::ifstream table(project / SpriteConfig::FrameTable);
-    std::vector<sf::IntRect> frames;
-    sf::IntRect frame;
-    while (table >> frame.position.x >> frame.position.y >> frame.size.x >> frame.size.y) frames.push_back(frame);
-    Require(frames.size() == SpriteConfig::FrameCount, "La inspección de apoyos no recorre los 896 fotogramas");
+    EngineTests::CharacterAtlasFixture atlas(project);
+    Require(atlas.frames.size() == SpriteConfig::AuthoredFrameCount, "La inspección no recorre las poses autoradas del catálogo vigente");
     const sf::Vector2f feet{802.f, 486.f}, camera{420.f, 380.f};
-    for (std::size_t first = 0; first < frames.size(); first += 4) {
-      const auto support = WorldRenderer::MeasureGroundSupport(image, {frames[first], frames[first + 1], frames[first + 2], frames[first + 3]});
+    for (const auto &[index, entry] : atlas.frames) {
+      const WorldRenderer::GroundSupport support{EngineTests::CharacterAtlasFixture::Vector(entry.at("groundAnchor")), entry.at("supportWidth").get<float>()};
       Require(support.anchor.x > 0.f && support.anchor.x < SpriteConfig::CellSize && support.anchor.y == SpriteConfig::FeetY && support.width > 0.f,
-        "Un apoyo medido abandona el plano del suelo o el área útil del personaje");
-      for (std::size_t offset = 0; offset < 4; ++offset) {
-        const WorldRenderer::SpriteFrame selected{first + offset, false, false, true};
-        const auto placement = WorldRenderer::PlaceSprite(feet, {1.f, 0.f}, Stance::Standing, false, selected, frames[first + offset].size);
+        "Un apoyo autorado abandona el plano del suelo o el área útil del personaje");
+      for (const auto *layer : {"full", "lower", "upper"}) {
+        const auto rect = atlas.Rect(index, layer); const auto &image = atlas.ImageFor(index, layer);
+        Require(rect.position.x >= 0 && rect.position.y >= 0 && rect.size.x > 0 && rect.size.y > 0 &&
+            rect.position.x + rect.size.x <= static_cast<int>(image.getSize().x) && rect.position.y + rect.size.y <= static_cast<int>(image.getSize().y),
+            "Una capa anatómica queda fuera de su página");
+        bool visible = false;
+        for (int y = 0; y < rect.size.y; ++y) for (int x = 0; x < rect.size.x; ++x)
+          visible = visible || image.getPixel(sf::Vector2u(rect.position + sf::Vector2i{x, y})).a > 0;
+        Require(visible, "Una pose anuncia una capa vacía");
+      }
+        const WorldRenderer::SpriteFrame selected{index, false, false, true};
+        const auto placement = WorldRenderer::PlaceSprite(feet, {1.f, 0.f}, Stance::Standing, false, selected, {192, 192});
         const auto shadow = placement.Map(support.anchor);
         Require(shadow.y == feet.y && std::abs(shadow.x - feet.x) < SpriteConfig::CellSize * placement.scale.x * 0.5f,
           "La sombra se separa verticalmente del suelo o pierde la proporción del atlas");
         for (const sf::Vector2f logical : {sf::Vector2f{1280.f, 720.f}, sf::Vector2f{1600.f, 900.f}, sf::Vector2f{1920.f, 1080.f}})
           for (const float zoom : {PresentationConfig::MinimumZoom, PresentationConfig::DefaultZoom, PresentationConfig::MaximumZoom}) {
             const auto projected = WorldRenderer::ProjectGround(camera, camera, logical);
-            const auto transformed = WorldRenderer::PlaceSprite(projected, {1.f, 0.f}, Stance::Standing, false, selected, frames[first + offset].size).Map(support.anchor);
+            const auto transformed = WorldRenderer::PlaceSprite(projected, {1.f, 0.f}, Stance::Standing, false, selected, {192, 192}).Map(support.anchor);
             Require(Near(projected + (transformed - projected) * zoom,
               projected + sf::Vector2f{(support.anchor.x - SpriteConfig::FeetX) * placement.scale.x * zoom, 0.f}, 0.001f),
               "El zoom o la resolución aplican una segunda transformación al apoyo de suelo");
           }
-      }
     }
-    const auto diagonalIdle = WorldRenderer::MeasureGroundSupport(image, {frames[16], frames[17], frames[18], frames[19]});
-    Require(std::abs(diagonalIdle.anchor.x - 43.75f) < 0.01f && diagonalIdle.anchor.x != SpriteConfig::FeetX,
-      "La sombra vuelve a usar el centro fijo de la celda pese al apoyo diagonal real");
+    Require(atlas.metadata.at("weapons").at("frames").size() == 48, "Las armas no cubren ocho direcciones y dos estados de silenciador");
     const auto facingAt = [](float degrees) {
       const float angle = degrees * std::numbers::pi_v<float> / 180.f;
       const float horizontal = std::sin(angle) / PresentationConfig::GroundProjection.x;
@@ -164,6 +166,39 @@ namespace {
       actor.animationTime = 0.4f;
       Require(interaction.index != WorldRenderer::SelectActorSprite(actor).index,
         "La interacción mantenida del puzle reinicia su reloj y congela la animación");
+      Agent recovered; recovered.facing = facing; recovered.actionPose = ActionPose::Revive; recovered.transitionTime = 0.f;
+      std::set<std::size_t> recoveryFrames, crouchedRecoveryFrames, proneRecoveryFrames, wakeFrames;
+      for (unsigned int phaseIndex = 0; phaseIndex < 8; ++phaseIndex) {
+        const float phase = (phaseIndex + .1f) / 8.f;
+        recovered.stance = Stance::Standing;
+        recovered.actionPoseTime = GameplayConfig::StanceTransitionDuration * (1.f - phase);
+        const auto standing = WorldRenderer::SelectBodySprite(recovered);
+        Require(standing.index == WorldRenderer::ClipFrame(SpriteConfig::Clip::ReviveRise, facing, 0.f, phase).index,
+            "La recuperación del suelo ignora la fase autoritativa de incorporación");
+        recoveryFrames.insert(standing.index);
+        recovered.stance = Stance::Crouched;
+        const auto crouched = WorldRenderer::SelectBodySprite(recovered);
+        Require(crouched.index == standing.index + 8, "La recuperación hacia agachado usa una pose de pie o una fase distinta");
+        crouchedRecoveryFrames.insert(crouched.index);
+        recovered.stance = Stance::Prone;
+        const auto prone = WorldRenderer::SelectBodySprite(recovered);
+        Require(prone.index == standing.index + 16, "La recuperación tumbada omite su variante autorada o levanta al agente");
+        proneRecoveryFrames.insert(prone.index);
+        Guard waking; waking.id = 91; waking.facing = facing; waking.state = GuardState::Search;
+        waking.wakeRemaining = GameplayConfig::StanceTransitionDuration * (1.f - phase);
+        WorldState wakingWorld; wakingWorld.elapsed = 999.f;
+        const auto selected = WorldRenderer::SelectGuardSprite(waking, wakingWorld);
+        Require(selected.index == standing.index, "El guardia usa locomoción o reloj global durante su incorporación");
+        wakeFrames.insert(selected.index);
+      }
+      Require(recoveryFrames.size() == 8 && crouchedRecoveryFrames.size() == 8 && proneRecoveryFrames.size() == 8 && wakeFrames.size() == 8,
+          "Una incorporación no recorre sus ocho poses autoradas en cada postura");
+      recovered.stance = Stance::Prone; recovered.actionPoseTime = 0.f;
+      Require(WorldRenderer::SelectBodySprite(recovered).index == WorldRenderer::ClipFrame(SpriteConfig::Clip::ProneIdle, facing, 0.f).index,
+          "La recuperación que conserva postura tumbada levanta al agente");
+      recovered.stance = Stance::Standing; recovered.actionPose = ActionPose::Recover; recovered.actionPoseTime = CqcConfig::PunchRecovery;
+      Require(WorldRenderer::SelectBodySprite(recovered).index == WorldRenderer::ClipFrame(SpriteConfig::Clip::Idle, facing, 0.f).index,
+          "Soltar CQC activa indebidamente una incorporación desde el suelo");
       Guard guard; WorldState world; world.elapsed = 1234.f; guard.facing = facing;
       for (const bool melee : {false, true}) {
         guard.meleeAttack = melee; guard.attackTime = GameplayConfig::AttackAnimationDuration;
@@ -404,7 +439,7 @@ int main() {
     };
     inspectAtlas("SoldiersAtlas.png", "SoldiersAtlas.frames", NoTrace::PresentationConfig::ActorAtlasRows, NoTrace::PresentationConfig::ActorAtlasColumns);
     inspectAtlas("ProneAtlas.png", "ProneAtlas.frames", NoTrace::PresentationConfig::ProneAtlasRows, NoTrace::PresentationConfig::ProneAtlasColumns);
-    inspectAtlas("OperativeAtlas.png", "OperativeAtlas.frames", NoTrace::SpriteConfig::FrameCount / NoTrace::SpriteConfig::Columns, NoTrace::SpriteConfig::Columns);
+    inspectAtlas("OperativeAtlas.png", "OperativeAtlas.frames", NoTrace::SpriteConfig::LegacyFrameCount / 16, 16);
     GroundSupportsAndDirectionBoundaries(project);
     OperativeAnimationBindings();
     AimingLaserUsesPhysicalSurfaces();
@@ -646,6 +681,22 @@ int main() {
     Require(WorldRenderer::DetectionFor(viewer).segments == 0, "Una intensidad inválida llena el indicador de vigilancia");
     NoTrace::Agent covered; covered.cover.active=true; covered.cover.normal={-1.f,0.f}; covered.facing=covered.cover.normal;
     const auto coverFrame=WorldRenderer::SelectActorSprite(covered);
+    covered.facing={0.f,1.f}; covered.actionPose=NoTrace::ActionPose::CoverEnter;
+    for (float phase : {.05f,.3f,.55f,.9f}) {
+      covered.actionPoseTime=NoTrace::GameplayConfig::StanceTransitionDuration*(1.f-phase);
+      Require(WorldRenderer::SelectBodySprite(covered).index==WorldRenderer::ClipFrame(NoTrace::SpriteConfig::Clip::CoverEnter,covered.cover.normal,0.f,phase).index,
+          "La entrada de cobertura corporal pierde su secuencia o la normal de pared");
+      covered.stance=NoTrace::Stance::Crouched;
+      Require(WorldRenderer::SelectBodySprite(covered).index==WorldRenderer::ClipFrame(NoTrace::SpriteConfig::Clip::CrouchIdle,covered.cover.normal,0.f,0.f).index,
+          "La entrada de cobertura agachada sustituye las piernas por un cuerpo de pie");
+      covered.stance=NoTrace::Stance::Standing;
+    }
+    covered.actionPoseTime=0.f;
+    Require(WorldRenderer::SelectBodySprite(covered).index==coverFrame.index,"La entrada finalizada no vuelve a reposo de cobertura");
+    covered.moving=true;
+    Require(WorldRenderer::SelectBodySprite(covered).index==WorldRenderer::ClipFrame(NoTrace::SpriteConfig::Clip::CoverMove,covered.cover.normal,covered.animationTime).index,
+        "La entrada finalizada no devuelve la locomoción de cobertura");
+    covered.moving=false; covered.facing=covered.cover.normal;
     covered.actionPose=NoTrace::ActionPose::KnockWall;
     for (float remaining : {.24f,.18f,.12f,.06f}) {
       covered.actionPoseTime=remaining;

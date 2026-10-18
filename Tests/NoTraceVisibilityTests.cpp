@@ -1,4 +1,5 @@
 #include "NoTraceSimulation.h"
+#include "NoTraceSpatialFixture.h"
 #include "NoTraceVisibility.h"
 #include "NoTraceWorldGeometry.h"
 #include "NoTraceCombatGeometry.h"
@@ -75,7 +76,7 @@ namespace {
   void PrivateSnapshots() {
     Simulation simulation;
     simulation.ResetBase({{1, "Uno"}, {2, "Dos"}}); simulation.Deploy(17);
-    auto snapshot = simulation.SnapshotFor(1);
+    auto snapshot = simulation.SnapshotFor(1); TestFixture::LegacyPlane(snapshot);
     const auto world = Scenario();
     snapshot["agents"][0]["position"] = {120.f, 180.f}; snapshot["agents"][0]["facing"] = {1.f, 0.f};
     snapshot["agents"][1]["position"] = {320.f, 180.f}; snapshot["agents"][1]["facing"] = {-1.f, 0.f};
@@ -115,7 +116,7 @@ namespace {
   void HideoutPrivacy() {
     Simulation simulation;
     simulation.ResetBase({{1, "Uno"}, {2, "Dos"}}); simulation.Deploy(17);
-    auto snapshot = simulation.SnapshotFor(1);
+    auto snapshot = simulation.SnapshotFor(1); TestFixture::LegacyPlane(snapshot);
     auto closet = snapshot["objects"][0]; closet["id"] = 77; closet["kind"] = static_cast<int>(ObjectKind::Hideout);
     closet["hideoutKind"] = static_cast<int>(HideoutKind::Closet); closet["position"] = {210.f, 180.f}; closet["footprint"] = {0.f, 0.f};
     snapshot["objects"] = nlohmann::json::array({closet}); snapshot["guards"] = nlohmann::json::array(); snapshot["obstacles"] = nlohmann::json::array();
@@ -139,7 +140,7 @@ namespace {
   }
   void PrivateFootstepFiltering() {
     Simulation simulation; simulation.ResetBase(); simulation.Deploy(17);
-    auto snapshot = simulation.SnapshotFor(1);
+    auto snapshot = simulation.SnapshotFor(1); TestFixture::LegacyPlane(snapshot);
     const auto guardTemplate = snapshot["guards"][0];
     auto closet = snapshot["objects"][0]; closet["id"] = 90; closet["kind"] = static_cast<int>(ObjectKind::Hideout);
     closet["hideoutKind"] = static_cast<int>(HideoutKind::Closet); closet["position"] = {320.f, 220.f};
@@ -154,7 +155,7 @@ namespace {
       guard["patrol"] = nlohmann::json::array(); guard["waypoint"] = 0;
       if (index == 2) { guard["bodyHidden"] = true; guard["storedIn"] = 90; guard["state"] = static_cast<int>(GuardState::Incapacitated); guard["stun"] = 100.f; guard["incapacityRemaining"] = GameplayConfig::GuardIncapacityDuration; }
       snapshot["guards"].push_back(guard);
-      snapshot["footsteps"].push_back({{"position", {position.x, position.y}}, {"direction", index}, {"remaining", DistractionConfig::FootstepLifetime}, {"sourceGuard", id}});
+      snapshot["footsteps"].push_back({{"position", {position.x, position.y}}, {"direction", index}, {"remaining", DistractionConfig::FootstepLifetime}, {"sourceGuard", id}, {"elevation", 0.f}});
     }
     std::string error;
     const bool loaded = simulation.LoadSnapshot(snapshot, error);
@@ -171,7 +172,7 @@ namespace {
   void HiddenNeutralizationFeedback() {
     for (const bool lethal : {true, false}) {
       Simulation simulation; simulation.ResetBase(); simulation.Deploy(17);
-      auto snapshot = simulation.SnapshotFor(1); auto guard = snapshot["guards"][0];
+      auto snapshot = simulation.SnapshotFor(1); TestFixture::LegacyPlane(snapshot); auto guard = snapshot["guards"][0];
       guard["id"] = 77; guard["position"] = {450.f, 180.f}; guard["facing"] = {1.f, 0.f};
       guard["patrol"] = nlohmann::json::array(); guard["waypoint"] = 0;
       snapshot["guards"] = nlohmann::json::array({guard}); snapshot["objects"] = nlohmann::json::array(); snapshot["obstacles"] = nlohmann::json::array();
@@ -212,7 +213,7 @@ namespace {
     target.position={250.f,200.f}; target.stance=Stance::Prone;
     Require(!Visibility::AgentExposed(world,{150.f,200.f},target), "Arrastrarse atraviesa la pared en percepción");
     Simulation simulation; simulation.AddPlayer(1,"Uno"); simulation.AddPlayer(2,"Dos"); simulation.SetContract(ContractId::GhostArchive); simulation.Deploy(812);
-    auto &state=const_cast<WorldState&>(simulation.GetState()); state.guards.clear(); state.objects.clear(); state.obstacles=world.obstacles;
+    auto &state=const_cast<WorldState&>(simulation.GetState()); TestFixture::LegacyPlane(state); state.guards.clear(); state.objects.clear(); state.obstacles=world.obstacles;
     state.agents[0].position={150.f,200.f}; state.agents[1].position={250.f,200.f}; state.agents[1].lifeState=LifeState::Incapacitated;
     state.agents[1].incapacitated=true; state.agents[1].health=0.f; state.agents[1].incapacityRemaining=42.f;
     const auto snapshot=simulation.SnapshotFor(1,true);
@@ -226,10 +227,40 @@ namespace {
     Require(!client.LoadSnapshot(malformed,error),"Se acepta una dirección de rescate no unitaria");
   }
 
+  void HeightAndTableCursorGeometry() {
+    WorldState world; world.phase = GamePhase::Mission; world.size = {1000.f, 760.f};
+    Agent observer; observer.id = 1; observer.position = {300.f, 300.f}; observer.stance = Stance::Prone;
+    observer.hidden = true; observer.hideoutId = 77; observer.weaponAim = {1.f, 0.f}; observer.facing = {0.f, 1.f};
+    Interactable table{77, ObjectKind::Hideout, observer.position, "Mesa"}; table.hideoutKind = HideoutKind::UnderTable; table.occupantAgent = 1; table.occupied = true;
+    world.objects.push_back(table);
+    Require(Visibility::IsGeometricallyVisible(world, observer, {400.f, 300.f}, Stance::Prone), "El cursor no permite observar delante bajo la mesa");
+    Require(!Visibility::IsGeometricallyVisible(world, observer, {200.f, 300.f}, Stance::Prone), "La mesa conserva visión de 360 grados");
+    Require(!Visibility::IsGeometricallyVisible(world, observer, {300.f + VisibilityConfig::ProneRange + 1.f, 300.f}, Stance::Prone), "La mesa amplía el alcance tumbado");
+    observer.weaponAim = {-1.f, 0.f};
+    Require(Visibility::IsGeometricallyVisible(world, observer, {200.f, 300.f}, Stance::Prone) && observer.facing == sf::Vector2f{0.f, 1.f}, "El cursor no cambia el cono conservando el cuerpo fijo");
+    observer.weaponAim = {1.f, 0.f};
+    world.obstacles.push_back({{{350.f, 270.f}, {10.f, 60.f}}, CoverKind::High, true, "Pared"});
+    Require(!Visibility::IsGeometricallyVisible(world, observer, {400.f, 300.f}, Stance::Prone), "El cursor atraviesa una pared desde debajo de la mesa");
+    world.obstacles.clear();
+    const auto corner = WorldGeometry::ObjectFootprint(table).size * 0.5f;
+    Require(!Visibility::IsGeometricallyVisible(world, observer, observer.position + corner.normalized() * 100.f, Stance::Prone), "Las patas de la mesa carecen de oclusión física");
+    observer.hidden = false; observer.hideoutId = 0; observer.stance = Stance::Standing; observer.facing = {1.f, 0.f}; world.objects.clear();
+    Agent target; target.position = observer.position; target.elevation = 96.f;
+    world.walkSurfaces.push_back({1, 1, WalkSurfaceKind::Floor, {{200.f, 200.f}, {200.f, 200.f}}, 96.f});
+    Require(!Visibility::AgentExposed(world, observer.position, target), "Un guardia detecta a través del suelo superior en el mismo XY");
+    Require(!Visibility::IsGeometricallyVisible(world, observer, target.position, Stance::Standing, target.elevation), "El filtro revela actores superpuestos a través de otra planta");
+    world.walkSurfaces.clear();
+    Require(Visibility::AgentExposed(world, observer.position, target), "La altura por sí sola concede invisibilidad sin una oclusión real");
+    Obstacle upper{{{350.f, 250.f}, {12.f, 100.f}}, CoverKind::High, true, "Muro superior"}; upper.elevation = 96.f; world.obstacles.push_back(upper);
+    Require(Visibility::IsGeometricallyVisible(world, observer, {400.f, 300.f}), "Un muro de otra planta bloquea el espacio libre inferior");
+    observer.elevation = 96.f;
+    Require(!Visibility::IsGeometricallyVisible(world, observer, {400.f, 300.f}), "Un muro elevado no bloquea a los actores de su planta");
+  }
+
 }
 int main() {
   try {
-    BodyExposureAndRescueDirection(); GeometryAndGrid(); ReducedPostureRanges(); PrivateSnapshots(); HideoutPrivacy(); PrivateFootstepFiltering(); HiddenNeutralizationFeedback();
+    HeightAndTableCursorGeometry(); BodyExposureAndRescueDirection(); GeometryAndGrid(); ReducedPostureRanges(); PrivateSnapshots(); HideoutPrivacy(); PrivateFootstepFiltering(); HiddenNeutralizationFeedback();
     std::cout << "PASS visibilidad: " << checks << " comprobaciones de campo, paredes, puertas, posturas, privacidad y mascaras\n";
     return 0;
   } catch (const std::exception &error) {

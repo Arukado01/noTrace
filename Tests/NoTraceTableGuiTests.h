@@ -3,6 +3,8 @@
 #include "Core/EngineContext.h"
 #include "NoTraceSimulation.h"
 #include "NoTraceWorldRenderer.h"
+#include "NoTraceSpatialFixture.h"
+#include "NoTraceVisibility.h"
 #include <array>
 #include <filesystem>
 #include <fstream>
@@ -16,7 +18,7 @@ namespace EngineTests {
     int checks = 0;
     const auto require = [&](bool condition, const std::string &message) {
       ++checks;
-      if (!condition) throw std::runtime_error("Mesa instantánea y visión completa: " + message);
+      if (!condition) throw std::runtime_error("Mesa instantánea y cono tumbado: " + message);
     };
     const auto identical = [](const sf::Image &first, const sf::Image &second) {
       const auto size = first.getSize();
@@ -25,7 +27,8 @@ namespace EngineTests {
     Simulation simulation; simulation.ResetBase({{1, "Observador"}}); simulation.Deploy(0);
     auto &world = const_cast<WorldState &>(simulation.GetState());
     world.size = {800.f, 800.f}; world.obstacles.clear(); world.objects.clear(); world.guards.clear(); world.securityEntries.clear(); world.noises.clear(); world.sounds.clear(); world.events.clear();
-    auto &agent = world.agents[0]; agent.position = {230.f, 300.f}; agent.facing = {1.f, 0.f};
+    TestFixture::LegacyPlane(world);
+    auto &agent = world.agents[0]; agent.position = {230.f, 300.f}; agent.facing = {1.f, 0.f}; agent.weaponAim = {1.f, 0.f};
     Interactable table; table.id = 77; table.kind = ObjectKind::Hideout; table.hideoutKind = HideoutKind::UnderTable;
     table.position = {300.f, 300.f}; table.facing = {-1.f, 0.f}; table.name = "Mesa"; world.objects.push_back(table);
     WorldRenderer renderer(context);
@@ -41,21 +44,32 @@ namespace EngineTests {
     nlohmann::json views = nlohmann::json::array();
     const std::array<sf::Vector2f, 8> directions{{{1.f, 0.f}, {1.f, 1.f}, {0.f, 1.f}, {-1.f, 1.f}, {-1.f, 0.f}, {-1.f, -1.f}, {0.f, -1.f}, {1.f, -1.f}}};
     for (std::size_t direction = 0; direction < directions.size(); ++direction) {
-      agent.facing = directions[direction].normalized();
+      const auto aim = directions[direction].normalized(); agent.weaponAim = aim;
       const auto file = "table-view-" + std::to_string(direction) + ".png";
-      require(identical(inside, capture(renderer, world, output / file, false)), "girar el cuerpo oculto modifica la visión de 360 grados");
-      require(Visibility::IsGeometricallyVisible(world, agent, agent.position + agent.facing * 150.f), "falta una dirección visible alrededor de la mesa");
-      views.push_back({{"file", file}, {"direction", direction}, {"identicalFog", true}});
+      const auto view = capture(renderer, world, output / file, false);
+      require(direction == 0 ? identical(inside, view) : !identical(inside, view), "girar el arma no reorienta la niebla del cono tumbado");
+      require(Visibility::IsGeometricallyVisible(world, agent, agent.position + aim * 120.f, Stance::Prone) &&
+        !Visibility::IsGeometricallyVisible(world, agent, agent.position + aim * (VisibilityConfig::ProneRange + 1.f), Stance::Prone) &&
+        !Visibility::IsGeometricallyVisible(world, agent, agent.position - aim * 120.f, Stance::Prone), "el cono pierde una dirección, revela la espalda o supera el rango tumbado");
+      views.push_back({{"file", file}, {"direction", direction}, {"identicalFog", direction == 0}, {"range", VisibilityConfig::ProneRange}});
     }
-    Guard front; front.id = 91; front.position = {450.f, 300.f}; front.facing = {-1.f, 0.f};
-    Guard back; back.id = 92; back.position = {150.f, 300.f}; back.facing = {1.f, 0.f};
+    agent.weaponAim = {1.f, 0.f};
+    const auto beforeBodyTurn = capture(renderer, world, output / "table-body-before-turn.png", false);
+    agent.facing = {-1.f, 0.f};
+    require(WeaponFacing(agent) == sf::Vector2f{1.f, 0.f} && identical(beforeBodyTurn, capture(renderer, world, output / "table-body-turn-same-cone.png", false)),
+      "girar sólo el cuerpo oculto altera el arma, la niebla o dibuja arte corporal bajo mesa");
+    Guard front; front.id = 91; front.position = {420.f, 300.f}; front.facing = {-1.f, 0.f};
+    Guard back; back.id = 92; back.position = {180.f, 300.f}; back.facing = {1.f, 0.f};
     world.guards = {front, back};
-    require(Visibility::GuardVisible(world, agent, front) && Visibility::GuardVisible(world, agent, back), "la mesa no permite observar guardias delante y detrás");
-    capture(renderer, world, output / "table-guards-both-sides.png", false);
-    world.obstacles.push_back({{{365.f, 180.f}, {12.f, 240.f}}, CoverKind::High, true, "Pared opaca"});
-    require(!Visibility::GuardVisible(world, agent, front) && Visibility::GuardVisible(world, agent, back), "la visión completa no respeta la oclusión sólida");
+    require(Visibility::GuardVisible(world, agent, front) && !Visibility::GuardVisible(world, agent, back), "el cono del arma revela al guardia contrario detrás del cuerpo");
+    capture(renderer, world, output / "table-guard-front-only.png", false);
+    agent.weaponAim = {-1.f, 0.f};
+    require(!Visibility::GuardVisible(world, agent, front) && Visibility::GuardVisible(world, agent, back), "girar el arma no intercambia las patrullas visibles");
+    capture(renderer, world, output / "table-guard-back-only.png", false);
+    world.obstacles.push_back({{{235.f, 180.f}, {12.f, 240.f}}, CoverKind::High, true, "Pared opaca"});
+    require(!Visibility::GuardVisible(world, agent, front) && !Visibility::GuardVisible(world, agent, back), "el cono tumbado no respeta la pared entre observador y guardia");
     const auto blocked = capture(renderer, world, output / "table-wall-occlusion.png", false);
-    auto redacted = world; redacted.guards.erase(redacted.guards.begin());
+    auto redacted = world; redacted.guards.erase(redacted.guards.begin() + 1);
     require(identical(blocked, capture(renderer, redacted, output / "table-wall-redacted.png", false)), "un guardia detrás de la pared deja información en el PNG");
     world.guards.clear(); world.obstacles.clear();
     ActionCommand aim; aim.aiming = true; aim.aimY = 1.f;
@@ -72,8 +86,16 @@ namespace EngineTests {
       std::round(logical.y / PresentationConfig::PixelSize) * PresentationConfig::PixelSize};
     require((renderer.ScreenToGround(focus, world, agent.id) - agent.position).length() < 0.001f, "la cámara conserva una posición interpolada tras la salida instantánea");
     capture(renderer, world, output / "table-instant-outside.png", false);
+    ActionCommand step; step.moveX = 1.f;
+    for (int frame = 0; frame < 3; ++frame) simulation.Step(.1f, {{1, step}});
+    const int tools = agent.loadout.tools;
+    ActionCommand flip; flip.tool = true; simulation.Step(.1f, {{1, flip}});
+    require(world.objects[0].overturned && !agent.hidden && agent.hideoutId == 0 && agent.loadout.tools == tools &&
+      WorldGeometry::ObjectHeight(world.objects[0]) == SpatialConfig::OverturnedTableHeight && WorldGeometry::PositionBlocked(world, table.position, GameplayConfig::AgentRadius),
+      "T no voltea físicamente la mesa en el mismo tick o se comporta como esconderse con E");
+    capture(renderer, world, output / "table-instant-overturned.png", false);
     nlohmann::json report{{"status", "PASS"}, {"checks", checks}, {"views", views}, {"entryExit", "instant"}, {"wallGuardPixelsRevealed", 0},
-      {"hiddenBodyAndShadow", "omitted"}, {"weaponAimPreserved", true}, {"validExit", {agent.position.x, agent.position.y}}};
+      {"hiddenBodyAndShadow", "omitted"}, {"weaponAimPreserved", true}, {"view", "weaponCone"}, {"range", VisibilityConfig::ProneRange}, {"flip", "instantPhysical"}, {"validExit", {agent.position.x, agent.position.y}}};
     std::ofstream(output / "table-fixtures.json") << report.dump(2);
     return report;
   }

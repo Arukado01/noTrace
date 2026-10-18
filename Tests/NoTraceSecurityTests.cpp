@@ -3,6 +3,7 @@
 #include "Config/NoTraceSecurityConfig.h"
 #include "NoTracePerception.h"
 #include "NoTraceWorldGeometry.h"
+#include "NoTraceSpatialFixture.h"
 #include <algorithm>
 #include <cmath>
 #include <iostream>
@@ -20,6 +21,8 @@ namespace {
     simulation.Deploy(0);
     auto &world = const_cast<WorldState &>(simulation.GetState());
     world.obstacles.clear(); world.objects.clear(); world.guards.clear(); world.noises.clear(); world.shots.clear();
+    TestFixture::LegacyPlane(world);
+    for (auto &agent : world.agents) agent.privateOrder = PrivateOrder::CopyArchive;
     world.agents[0].position = {200.f, 300.f}; world.agents[0].facing = {1.f, 0.f};
     if (cooperative) { world.agents[1].position = {50.f, 700.f}; world.agents[1].hidden = true; }
     world.securityEntries = {{{982.f, 110.f}, {910.f, 110.f}}, {{982.f, 690.f}, {920.f, 690.f}}, {{315.f, 18.f}, {315.f, 95.f}}};
@@ -268,6 +271,7 @@ namespace {
         body.health = 0.f; body.incapacityRemaining = GameplayConfig::IncapacityDuration;
       }
       world.obstacles.push_back({{{148.f, 280.f}, {30.f, 40.f}}, CoverKind::Low, true, "Banco entre patrulla y cuerpo"});
+      world.obstacles.back().height = 16.f;
       simulation.Step(0.1f, {});
       Require(world.guards[0].state == GuardState::ApproachBody && world.guards[0].bodyTargetId != 0 && !world.alarm,
         "El hallazgo visual reserva un único investigador y comienza un acercamiento sin alarma roja");
@@ -332,6 +336,31 @@ namespace {
       "Ocultar el cuerpo antes de inspeccionarlo cancela la reserva sin inventar un aviso");
   }
 
+  void NewBodyRefreshesSearchWithoutRepeatingTheAlertCue() {
+    Simulation simulation;
+    auto &world = Fixture(simulation); world.securityEntries.clear(); TestFixture::LegacyPlane(world); Observer(world, 11, 1.f);
+    simulation.Step(.1f, {});
+    world.agents[0].hidden = true; world.agents[0].position = {50.f, 700.f}; simulation.Step(.1f, {});
+    Advance(simulation, 4.f);
+    const float before = world.securityRemaining;
+    auto &observer = world.guards[0]; observer.position = {200.f, 300.f}; observer.facing = {1.f, 0.f};
+    observer.state = GuardState::InspectBody; observer.bodyTargetKind = BodyTargetKind::Guard; observer.bodyTargetId = 91;
+    observer.bodyInspectionTime = SecurityConfig::BodyInspectionDuration - .05f;
+    Guard body; body.id = 91; body.position = {220.f, 300.f}; body.state = GuardState::Dead; body.health = 0.f;
+    world.guards.push_back(body); world.sounds.clear(); world.events.clear();
+    simulation.Step(.1f, {});
+    Require(before < SecurityConfig::SearchDuration - 3.f && world.securityAlert == SecurityAlert::Orange &&
+      std::abs(world.securityRemaining - SecurityConfig::SearchDuration) < .001f && world.guards[0].lastKnown == body.position && world.guards[1].bodyReported,
+      "Un cuerpo nuevo comunicado durante naranja no renueva la búsqueda completa ni actualiza la pista");
+    Require(world.alarmCount == 1 && std::ranges::count(world.events, EventKind::BodyFound, &MissionEvent::kind) == 1 &&
+      std::ranges::none_of(world.sounds, [](const SoundEvent &sound) { return sound.kind == SoundKind::SearchStart; }),
+      "Un cuerpo nuevo duplica la transición sonora o el incidente de alarma ya activo");
+    Advance(simulation, 1.f);
+    Require(std::abs(world.securityRemaining - (SecurityConfig::SearchDuration - 1.f)) < .002f &&
+      std::ranges::count(world.events, EventKind::BodyFound, &MissionEvent::kind) == 1 && world.guards[1].state == GuardState::Dead,
+      "Reobservar el cuerpo comunicado renueva el reloj, duplica el aviso o despierta un cadáver");
+  }
+
   void GuardAssistancePreservesTheOngoingSearch() {
     Simulation simulation, replica;
     auto &world = Fixture(simulation); world.securityEntries.clear(); Observer(world, 1, 1.f);
@@ -347,6 +376,7 @@ namespace {
     body.health = 37.f; body.stun = CombatConfig::MaxGuardStun; body.incapacityRemaining = 80.f; body.bodyReported = true;
     world.guards.push_back(body);
     world.obstacles.push_back({{{148.f, 280.f}, {30.f, 40.f}}, CoverKind::Low, true, "Banco durante la asistencia"});
+    world.obstacles.back().height = 16.f;
     const auto searchingBefore = world.guards[1].position;
     const float orangeBefore = world.securityRemaining;
     bool detour = false, inspected = false, synchronized = false;
@@ -382,9 +412,25 @@ namespace {
       awake.heldBy == 0 && awake.attackTime == 0.f && awake.observedAgent == 0 && awake.suspicion == 0.f &&
       (awake.position - body.position).length() <= GameplayConfig::GuardSpeed * 0.1f + 0.01f,
       "Despertar cambia vida o posición de forma incoherente, conserva aturdimiento o inventa una detección");
+    Require(awake.wakeRemaining > 0.f && awake.wakeRemaining <= GameplayConfig::StanceTransitionDuration,
+      "La asistencia física salta de inconsciente a búsqueda sin incorporación");
     Require(world.guards[1].state == GuardState::Search && world.guards[1].position != searchingBefore &&
       std::abs(world.securityRemaining - (orangeBefore - static_cast<float>(steps) * 0.1f)) < 0.002f && world.alarmCount == 1 && world.events.empty(),
       "La asistencia detiene la búsqueda ajena, renueva el incidente o duplica su aviso");
+    const auto wakePosition = awake.position;
+    std::string wakeError;
+    Require(replica.LoadSnapshot(simulation.SnapshotFor(1), wakeError) && replica.GetState().guards[2].wakeRemaining == awake.wakeRemaining,
+      "La réplica pierde la incorporación adquirida mediante asistencia real");
+    for (unsigned int frame = 0; frame < 20 && world.guards[2].wakeRemaining > 0.f; ++frame) {
+      const float before = world.guards[2].wakeRemaining, orange = world.securityRemaining;
+      simulation.Step(.02f, {});
+      Require(std::abs(world.guards[2].wakeRemaining - std::max(0.f, before - .02f)) < .000001f &&
+        world.guards[2].position == wakePosition && world.guards[2].stepTime == 0.f && world.guards[2].attackTime == 0.f && world.shots.empty(),
+        "El asistido consume dos veces su incorporación, se mueve o ataca antes de completarla");
+      Require(world.securityAlert == SecurityAlert::Orange && std::abs(world.securityRemaining - (orange - .02f)) < .001f && world.alarmCount == 1 && world.events.empty(),
+        "La pose de incorporación del asistido reinicia la naranja de treinta segundos o duplica el incidente");
+    }
+    Require(world.guards[2].wakeRemaining == 0.f, "El asistido no termina de incorporarse dentro de la duración configurada");
     Advance(simulation, 0.5f);
     Require(world.guards[2].state == GuardState::Search && world.guards[2].stun == 0.f && world.guards[2].incapacityRemaining == 0.f,
       "Una transición residual vuelve a incapacitar inmediatamente al guardia asistido");
@@ -441,6 +487,7 @@ namespace {
         {{{200.f, 280.f}, {4.f, 40.f}}, CoverKind::Low, true, "Cierre izquierdo"},
         {{{236.f, 280.f}, {4.f, 40.f}}, CoverKind::Low, true, "Cierre derecho"}};
       else world.obstacles = {{{{150.f, 0.f}, {20.f, world.size.y}}, CoverKind::Low, true, "Separación sin ruta al compañero"}};
+      for (auto &obstacle : world.obstacles) obstacle.height = 8.f;
       bool attempted = false, released = false;
       for (unsigned int step = 0; step < 150 && !released; ++step) {
         const auto previous = world.guards[0].position;
@@ -569,7 +616,7 @@ namespace {
 
 int main() {
   try {
-    IncapacitationEndsThreat(); DetectionUsesRealObservers(); AlertKeepsEveryConfirmedObserver(); EnemyDamageProducesCollapse(); WavesAreFiniteAndSpatiallyValid(); ContactLossPatrolAndWithdrawal(); VisibleExitDoesNotEraseGuard(); BodyInvestigationIsPhysicalAndAnonymous(); BodyOcclusionAndReservationRelease(); GuardAssistancePreservesTheOngoingSearch(); AssistanceRespectsWallsDeathAndThreats(); UnreachableAssistanceYieldsToNormalAi(); AlertPhasesUseExactAuthoritativeDurations(); PatrolPausesAndInterruptions(); DetectionPaceAndOcclusionMemory();
+    IncapacitationEndsThreat(); DetectionUsesRealObservers(); AlertKeepsEveryConfirmedObserver(); EnemyDamageProducesCollapse(); WavesAreFiniteAndSpatiallyValid(); ContactLossPatrolAndWithdrawal(); VisibleExitDoesNotEraseGuard(); BodyInvestigationIsPhysicalAndAnonymous(); BodyOcclusionAndReservationRelease(); NewBodyRefreshesSearchWithoutRepeatingTheAlertCue(); GuardAssistancePreservesTheOngoingSearch(); AssistanceRespectsWallsDeathAndThreats(); UnreachableAssistanceYieldsToNormalAi(); AlertPhasesUseExactAuthoritativeDurations(); PatrolPausesAndInterruptions(); DetectionPaceAndOcclusionMemory();
     std::cout << "NoTraceSecurityTests: " << checks << " comprobaciones correctas\n";
     return 0;
   } catch (const std::exception &error) {

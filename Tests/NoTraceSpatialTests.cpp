@@ -1,5 +1,7 @@
 #include "NoTraceSimulation.h"
 #include "NoTraceWorldGeometry.h"
+#include "NoTraceSpatialFixture.h"
+#include "NoTraceMultilevelTests.h"
 #include "Config/NoTraceNavigationConfig.h"
 #include <cmath>
 #include <iostream>
@@ -139,7 +141,7 @@ namespace {
     auto snapshot = Empty(simulation, {100.f, 650.f}); snapshot["phase"] = static_cast<int>(GamePhase::Mission);
     snapshot["agents"][0]["hidden"] = true;
     donor.ResetBase(); donor.Deploy(0);
-    auto guard = donor.SnapshotFor(1)["guards"][0];
+    auto donorSnapshot = donor.SnapshotFor(1); TestFixture::LegacyPlane(donorSnapshot); auto guard = donorSnapshot["guards"][0];
     guard["position"] = {120.f, 200.f}; guard["patrol"] = Json::array({{400.f, 200.f}}); guard["waypoint"] = 0;
     guard["facing"] = {1.f, 0.f}; guard["state"] = static_cast<int>(GuardState::Patrol);
     snapshot["guards"].push_back(guard); snapshot["objects"].push_back(Object(ObjectKind::Armory, {250.f, 200.f}));
@@ -154,7 +156,7 @@ namespace {
     for (const auto state : {GuardState::Patrol, GuardState::Investigate, GuardState::Search, GuardState::Alert}) {
       Simulation simulation, donor;
       auto snapshot = Empty(simulation, {100.f, 650.f}); snapshot["phase"] = static_cast<int>(GamePhase::Mission); snapshot["agents"][0]["hidden"] = true;
-      donor.ResetBase(); donor.Deploy(0); auto guard = donor.SnapshotFor(1)["guards"][0];
+      donor.ResetBase(); donor.Deploy(0); auto donorSnapshot = donor.SnapshotFor(1); TestFixture::LegacyPlane(donorSnapshot); auto guard = donorSnapshot["guards"][0];
       guard["position"] = {160.f, 220.f}; guard["patrol"] = Json::array({{450.f, 220.f}}); guard["waypoint"] = 0;
       guard["facing"] = {1.f, 0.f}; guard["state"] = static_cast<int>(state); guard["lastKnown"] = {450.f, 220.f};
       snapshot["guards"] = Json::array({guard});
@@ -170,7 +172,7 @@ namespace {
     }
     Simulation simulation, donor;
     auto snapshot = Empty(simulation, {100.f, 650.f}); snapshot["phase"] = static_cast<int>(GamePhase::Mission); snapshot["agents"][0]["hidden"] = true;
-    donor.ResetBase(); donor.Deploy(0); auto guard = donor.SnapshotFor(1)["guards"][0];
+    donor.ResetBase(); donor.Deploy(0); auto donorSnapshot = donor.SnapshotFor(1); TestFixture::LegacyPlane(donorSnapshot); auto guard = donorSnapshot["guards"][0];
     guard["position"] = {140.f, 300.f}; guard["patrol"] = Json::array({{300.f, 300.f}, {140.f, 500.f}}); guard["waypoint"] = 0;
     guard["facing"] = {1.f, 0.f}; guard["state"] = static_cast<int>(GuardState::Patrol);
     snapshot["guards"] = Json::array({guard}); snapshot["obstacles"] = Json::array({Wall({{250.f, 250.f}, {100.f, 100.f}})}); Load(simulation, snapshot);
@@ -329,7 +331,7 @@ namespace {
 
 int main() {
   try {
-    PropertiesAndFootprints(); SolidMovement(); GuardNavigation(); GuardCornerRecovery(); WallCoverAndPeek(); AutomaticCoverEdgeAndBack(); CoverBackUsesEveryPhysicalWallFace(); AutomaticPeekUsesTheCurrentAnchor(); MalformedCoverSnapshots();
+    MultilevelTests::Run(); PropertiesAndFootprints(); SolidMovement(); GuardNavigation(); GuardCornerRecovery(); WallCoverAndPeek(); AutomaticCoverEdgeAndBack(); CoverBackUsesEveryPhysicalWallFace(); AutomaticPeekUsesTheCurrentAnchor(); MalformedCoverSnapshots();
     std::cout << "PASS spatial: " << checks << " comprobaciones de huellas, colisiones, navegación, cobertura y asomado físico\n";
     return 0;
   } catch (const std::exception &error) {

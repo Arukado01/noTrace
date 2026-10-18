@@ -2,8 +2,11 @@
 #include "Config/NoTraceDevicesConfig.h"
 #include "NoTraceVisibility.h"
 #include "NoTracePerception.h"
-#include "NoTraceWorldGeometry.h"
+#include "NoTraceSpatialGeometry.h"
+#include "NoTraceCombatGeometry.h"
+#include "NoTraceCoordination.h"
 #include <algorithm>
+#include <bit>
 #include <cmath>
 
 namespace NoTrace {
@@ -45,8 +48,8 @@ namespace NoTrace {
     }
     bool Operational(const Agent &agent) { return agent.connected && agent.alive && !agent.incapacitated && !agent.hidden && !agent.extracted; }
     bool CanOperate(const WorldState &world, const Agent &agent, const Interactable &object) {
-      return Operational(agent) && WorldGeometry::DistanceToBounds(agent.position, WorldGeometry::ObjectFootprint(object)) < GameplayConfig::InteractionDistance &&
-        Visibility::HasLineOfSight(world, agent.position, WorldGeometry::ClosestPoint(agent.position, WorldGeometry::ObjectFootprint(object)), Stance::Standing, object.id);
+      return Operational(agent) && agent.traversal.mode == TraversalMode::Grounded && std::abs(agent.elevation - object.elevation) <= LevelConfig::MaximumStepHeight && WorldGeometry::DistanceToBounds(agent.position, WorldGeometry::ObjectFootprint(object)) < GameplayConfig::InteractionDistance &&
+        !WorldGeometry::RayOccluded(world, {agent.position.x, agent.position.y, agent.elevation + CombatConfig::StandingWeaponHeight}, {object.position.x, object.position.y, object.elevation + CombatConfig::StandingWeaponHeight}, object.id);
     }
     void ClearCamera(Interactable &object) {
       object.progress = 0.f; object.observedAgent = 0; object.camera.trackedAgent = 0; object.camera.lastKnown = {};
@@ -73,6 +76,7 @@ namespace NoTrace {
       if (Family(object) == PuzzleFamily::Coordination) {
         object.puzzle.coordinationProgress = 0.f;
         for (auto &user : world_.agents) if (user.puzzle.target == target) user.puzzle.coordinationProgress = 0.f;
+        Coordination::Refresh(world_, object);
       }
     }
   }
@@ -87,7 +91,7 @@ namespace NoTrace {
       const auto progress = parent->puzzle.sequenceProgress;
       if (progress >= parent->puzzle.leverOrder.size() || parent->puzzle.leverOrder[progress] != object.puzzle.nodeIndex) { FailPuzzle(agent, *parent); return false; }
       ++parent->puzzle.sequenceProgress; object.open = true;
-      Record(EventKind::PuzzleStep, agent.id, object.id); EmitSound(SoundKind::Lock, object.position, GameplayConfig::InteractionDistance * 2.f, agent.id);
+      Record(EventKind::PuzzleStep, agent.id, object.id); EmitSound(SoundKind::Lever, object.position, GameplayConfig::InteractionDistance * 2.f, agent.id, object.elevation);
       for (auto &user : world_.agents) if (user.puzzle.target == parent->id) user.puzzle.stage = parent->puzzle.sequenceProgress;
       if (parent->puzzle.sequenceProgress >= parent->puzzle.leverOrder.size()) CompletePuzzle(agent, *parent);
       else world_.message = "Palanca correcta. Continúa el orden del panel de acceso.";
@@ -96,6 +100,8 @@ namespace NoTrace {
     if (object.puzzle.state == PuzzleState::Solved) { world_.message = object.puzzle.intelligence.empty() ? "Dispositivo resuelto." : object.puzzle.intelligence; return false; }
     if (object.puzzle.cooldown > 0.f) { world_.message = "El dispositivo está bloqueado temporalmente tras el último intento."; return false; }
     if (Family(object) != PuzzleFamily::Coordination && object.user != 0 && object.user != agent.id) { world_.message = "Otro agente está operando este dispositivo."; return false; }
+    const unsigned int coordinationButton = Family(object) == PuzzleFamily::Coordination ? Coordination::AvailableButton(world_, agent, object) : 0u;
+    if (Family(object) == PuzzleFamily::Coordination && !coordinationButton) { world_.message = "Todos los controles del panel están ocupados."; return false; }
     CancelPuzzle(agent);
     ReleaseCqc(agent);
     CancelManeuver(agent);
@@ -103,10 +109,13 @@ namespace NoTrace {
     agent.puzzle.target = object.id; agent.puzzle.kind = object.puzzle.kind;
     agent.puzzle.length = std::clamp(object.puzzle.difficulty, DevicesConfig::PuzzleMinimumStages, DevicesConfig::PuzzleMaximumStages);
     PrepareChallenge(agent.puzzle, world_.seed, object);
+    agent.puzzle.coordinationButton = coordinationButton;
     if (!object.user) object.user = agent.id;
     object.puzzle.state = PuzzleState::InUse;
+    if (agent.puzzle.family == PuzzleFamily::Coordination) Coordination::Refresh(world_, object);
     Record(EventKind::PuzzleStarted, agent.id, object.id);
-    EmitSound(SoundKind::Lock, object.position, GameplayConfig::InteractionDistance * 2.f, agent.id);
+    if (agent.puzzle.family != PuzzleFamily::Coordination)
+      EmitSound(object.puzzle.kind == PuzzleKind::Computer ? SoundKind::ComputerKey : SoundKind::Button, object.position, GameplayConfig::InteractionDistance * 2.f, agent.id, object.elevation);
     world_.message = "Intervención táctica: reproduce señales, conecta terminales o coordina los controles físicos. ESC cancela sin resolver.";
     return true;
   }
@@ -115,15 +124,17 @@ namespace NoTrace {
     const auto kind = object.puzzle.kind;
     object.user = 0; object.puzzle.state = PuzzleState::Solved; object.completed = true;
     Record(EventKind::PuzzleSolved, agent.id, object.id);
-    EmitSound(SoundKind::PuzzleSolved, object.position, GameplayConfig::InteractionDistance * 2.f, agent.id);
+    EmitSound(SoundKind::PuzzleSolved, object.position, GameplayConfig::InteractionDistance * 2.f, agent.id, object.elevation);
     switch (kind) {
     case PuzzleKind::Explosive:
       object.trap.state = TrapState::Disarmed; object.trap.remaining = -1.f; object.active = false;
+      EmitSound(SoundKind::TrapDisarm, object.position, GameplayConfig::InteractionDistance * 2.f, agent.id, object.elevation);
       world_.message = "Explosivo desactivado: el temporizador y el detonador están aislados.";
       break;
     case PuzzleKind::Door:
       object.locked = false; object.open = true;
-      EmitSound(SoundKind::Lock, object.position, GameplayConfig::InteractionDistance * 2.f, agent.id);
+      EmitSound(SoundKind::Lock, object.position, GameplayConfig::InteractionDistance * 2.f, agent.id, object.elevation);
+      EmitSound(SoundKind::DoorOpen, object.position, GameplayConfig::InteractionDistance * 2.f, agent.id, object.elevation);
       world_.message = "Cerradura descifrada. Puerta desbloqueada y abierta.";
       break;
     case PuzzleKind::Computer:
@@ -159,13 +170,13 @@ namespace NoTrace {
   void Simulation::FailPuzzle(Agent &agent, Interactable &object) {
     CancelManeuver(agent);
     Record(EventKind::PuzzleFailed, agent.id, object.id);
-    EmitSound(SoundKind::PuzzleFailed, object.position, GameplayConfig::InteractionDistance * 2.f, agent.id);
+    EmitSound(SoundKind::PuzzleFailed, object.position, GameplayConfig::InteractionDistance * 2.f, agent.id, object.elevation);
     for (auto &user : world_.agents) if (user.puzzle.target == object.id) CancelPuzzle(user);
     object.puzzle.state = PuzzleState::Failed; object.puzzle.cooldown = DevicesConfig::PuzzleFailureCooldown;
     object.puzzle.sequenceProgress = 0; object.puzzle.coordinationProgress = 0.f; object.user = 0;
     for (auto &node : world_.objects) if (node.puzzle.parentDevice == object.id) node.open = false;
     if (object.puzzle.kind == PuzzleKind::Explosive) Detonate(object);
-    else { EmitNoise(object.position, GameplayConfig::NonLethalNoiseRadius, agent.id, 0, SoundKind::PuzzleFailed); world_.message = "Intervención incorrecta: aviso local. El circuito se reinicia en tres segundos y conserva la protección."; }
+    else { EmitNoise(object.position, GameplayConfig::NonLethalNoiseRadius, agent.id, 0, SoundKind::PuzzleFailed, {}, object.elevation); world_.message = "Intervención incorrecta: aviso local. El circuito se reinicia en tres segundos y conserva la protección."; }
   }
 
   bool Simulation::UpdatePuzzle(Agent &agent, const ActionCommand &command) {
@@ -173,14 +184,18 @@ namespace NoTrace {
     auto found = std::ranges::find_if(world_.objects, [&agent](const Interactable &object) { return object.id == agent.puzzle.target; });
     if (found == world_.objects.end() || (Family(*found) != PuzzleFamily::Coordination && found->user != agent.id) || !Operational(agent) || !found->active ||
         found->puzzle.state != PuzzleState::InUse || !IsTactical(world_) ||
-        WorldGeometry::DistanceToBounds(agent.position, WorldGeometry::ObjectFootprint(*found)) >= GameplayConfig::InteractionDistance ||
-        !Visibility::HasLineOfSight(world_, agent.position, WorldGeometry::ClosestPoint(agent.position, WorldGeometry::ObjectFootprint(*found)), Stance::Standing, found->id)) {
+        !CanOperate(world_, agent, *found)) {
       CancelPuzzle(agent); return true;
     }
     agent.moving = false; agent.running = false;
     if (agent.puzzle.family == PuzzleFamily::Coordination) {
       if (command.puzzleTarget == agent.puzzle.target && command.puzzleInput == 0) { CancelPuzzle(agent); world_.message = "Coordinación interrumpida; mantén todos los controles para reiniciar."; }
-      else agent.puzzle.holding = command.puzzleTarget == agent.puzzle.target && command.puzzleHeld;
+      else {
+        const bool holding = command.puzzleTarget == agent.puzzle.target && command.puzzleHeld;
+        if (holding && !agent.puzzle.holding) EmitSound(SoundKind::Button, Coordination::ButtonPosition(*found, agent.puzzle.coordinationButton),
+          GameplayConfig::InteractionDistance * 2.f, agent.id, found->elevation);
+        agent.puzzle.holding = holding;
+      }
       return true;
     }
     if (command.puzzleInput == -1) return true;
@@ -202,7 +217,7 @@ namespace NoTrace {
       return true;
     }
     Record(EventKind::PuzzleStep, agent.id, object.id);
-    EmitSound(SoundKind::PuzzleStep, object.position, GameplayConfig::InteractionDistance * 2.f, agent.id);
+    EmitSound(agent.puzzle.family == PuzzleFamily::Wires ? SoundKind::WireConnect : object.puzzle.kind == PuzzleKind::Computer ? SoundKind::ComputerKey : SoundKind::PuzzleStep, object.position, GameplayConfig::InteractionDistance * 2.f, agent.id, object.elevation);
     if (++agent.puzzle.stage >= agent.puzzle.length) CompletePuzzle(agent, object);
     return true;
   }
@@ -223,6 +238,7 @@ namespace NoTrace {
       }
       if (world_.objects[index].kind != ObjectKind::Computer || world_.objects[index].puzzle.parentDevice != 0) continue;
       const auto parent = world_.objects[index].id; const auto position = world_.objects[index].position;
+      const float elevation = world_.objects[index].elevation; const auto support = world_.objects[index].supportId;
       world_.objects[index].puzzle.family = PuzzleFamily::Levers;
       world_.objects[index].puzzle.leverOrder = Order(world_.seed, parent, 4, true);
       if (std::ranges::any_of(world_.objects, [parent](const Interactable &object) { return object.puzzle.parentDevice == parent; })) continue;
@@ -233,9 +249,10 @@ namespace NoTrace {
       std::vector<sf::Vector2f> assigned;
       for (const auto offset : offsets) {
         const auto point = position + offset;
-        if (WorldGeometry::PositionBlocked(world_, point, GameplayConfig::AgentRadius + DevicesConfig::PuzzleNodeSize * 0.5f) ||
+        if (WorldGeometry::PositionBlocked(world_, point, GameplayConfig::AgentRadius + DevicesConfig::PuzzleNodeSize * 0.5f, elevation, CombatConfig::StandingHeight, support) ||
             std::ranges::any_of(assigned, [point](sf::Vector2f other) { return (point - other).length() < DevicesConfig::PuzzleNodeMinimumSeparation; })) continue;
         Interactable node{next++, ObjectKind::PuzzleNode, point, "Palanca " + std::string(1, static_cast<char>('A' + assigned.size()))};
+        node.elevation = elevation; node.supportId = support;
         node.footprint = {DevicesConfig::PuzzleNodeSize, DevicesConfig::PuzzleNodeSize}; node.solid = SpatialOverride::Disabled; node.blocksVision = SpatialOverride::Disabled;
         node.puzzle.kind = PuzzleKind::Computer; node.puzzle.parentDevice = parent; node.puzzle.nodeIndex = static_cast<unsigned int>(assigned.size() + 1);
         world_.objects.push_back(node); assigned.push_back(point);
@@ -250,31 +267,32 @@ namespace NoTrace {
     object.active = false; object.completed = true; object.user = 0;
     object.trap.state = TrapState::Detonated; object.trap.remaining = 0.f; object.trap.effectRemaining = DevicesConfig::ExplosionEffectDuration;
     Record(EventKind::Explosion, 0, object.id);
-    EmitSound(SoundKind::Explosion, object.position, DevicesConfig::ExplosionNoiseRadius);
-    EmitNoise(object.position, DevicesConfig::ExplosionNoiseRadius, 0, 0, SoundKind::Explosion);
-    const auto exposed = [this, &object](sf::Vector2f target) {
-      if ((target - object.position).length() > object.trap.blastRadius) return false;
-      bool blocked = false;
-      for (const auto &obstacle : world_.obstacles) if (WorldGeometry::BlocksMovement(obstacle)) blocked |= WorldGeometry::SegmentRect(object.position, target, obstacle.bounds);
-      for (const auto &other : world_.objects) if (other.id != object.id && WorldGeometry::BlocksMovement(other)) blocked |= WorldGeometry::SegmentRect(object.position, target, WorldGeometry::ObjectFootprint(other));
-      return !blocked;
+    EmitSound(SoundKind::Explosion, object.position, DevicesConfig::ExplosionNoiseRadius, 0, object.elevation);
+    EmitNoise(object.position, DevicesConfig::ExplosionNoiseRadius, 0, 0, SoundKind::Explosion, {}, object.elevation);
+    const auto exposed = [this, &object](sf::Vector2f target, float elevation) {
+      const sf::Vector3f from{object.position.x, object.position.y, object.elevation + 2.f}, to{target.x, target.y, elevation + CombatConfig::ProneHeight};
+      if (WorldGeometry::SpatialDistance(from, to) > object.trap.blastRadius || WorldGeometry::RayOccluded(world_, from, to, object.id)) return false;
+      for (const auto &obstacle : world_.obstacles) if (WorldGeometry::BlocksMovement(obstacle) && WorldGeometry::SegmentPrism(from, to, obstacle.bounds, obstacle.elevation, obstacle.elevation + WorldGeometry::ObstacleHeight(obstacle))) return false;
+      for (const auto &other : world_.objects) if (other.id != object.id && WorldGeometry::BlocksMovement(other) && WorldGeometry::SegmentPrism(from, to, WorldGeometry::ObjectFootprint(other), other.elevation, other.elevation + WorldGeometry::ObjectHeight(other))) return false;
+      return true;
     };
-    const auto damage = [&object](sf::Vector2f target) {
-      return object.trap.damage * std::clamp(1.f - (target - object.position).length() / object.trap.blastRadius * 0.65f, 0.35f, 1.f);
+    const auto damage = [&object](sf::Vector2f target, float elevation) {
+      const float distance = std::hypot((target - object.position).length(), elevation - object.elevation);
+      return object.trap.damage * std::clamp(1.f - distance / object.trap.blastRadius * 0.65f, 0.35f, 1.f);
     };
-    for (auto &agent : world_.agents) if (agent.connected && agent.alive && !agent.extracted && exposed(agent.position)) DamageAgent(agent, damage(agent.position), damage(agent.position), 0, object.id);
-    for (auto &guard : world_.guards) if (guard.state != GuardState::Dead && exposed(guard.position)) {
+    for (auto &agent : world_.agents) if (agent.connected && agent.alive && !agent.extracted && exposed(agent.position, agent.elevation)) DamageAgent(agent, damage(agent.position, agent.elevation), damage(agent.position, agent.elevation), 0, object.id);
+    for (auto &guard : world_.guards) if (guard.state != GuardState::Dead && exposed(guard.position, guard.elevation)) {
       for (auto &agent : world_.agents) if (agent.cqcHoldingGuard == guard.id) ReleaseCqc(agent);
-      if (DamageTrainingDummy(guard, damage(guard.position))) continue;
-      guard.health = std::max(0.f, guard.health - damage(guard.position));
+      if (DamageTrainingDummy(guard, damage(guard.position, guard.elevation))) continue;
+      guard.health = std::max(0.f, guard.health - damage(guard.position, guard.elevation));
       if (guard.health <= 0.f) {
         guard.state = GuardState::Dead; guard.heldBy = 0; guard.cqcState = CqcState::None; guard.bodyHidden = false; guard.storedIn = 0; Record(EventKind::GuardKilled, 0, guard.id);
       }
-      else if (guard.state != GuardState::Incapacitated) { guard.state = GuardState::Search; guard.lastKnown = object.position; guard.navigation.clear(); }
+      else if (guard.state != GuardState::Incapacitated) { guard.state = GuardState::Search; guard.lastKnown = object.position; guard.lastKnownElevation = object.elevation; guard.navigation.clear(); }
     }
     if (!IsTraining(world_)) {
       if (!world_.alarm) { world_.alarm = true; ++world_.alarmCount; Record(EventKind::AgentAlarm, 0, object.id); }
-      RegisterSecurityContact(object.position);
+      RegisterSecurityContact(object.position, object.elevation);
       world_.message = "Explosión: daño real, alarma y respuesta de seguridad activados.";
     } else world_.message = "Explosión de prácticas: impacto y efectos reales, con protección para los agentes y los muñecos.";
   }
@@ -294,10 +312,10 @@ namespace NoTrace {
           if (object.puzzle.kind == PuzzleKind::CameraPanel) object.completed = false;
         }
       }
+      if (Family(object) == PuzzleFamily::Coordination) Coordination::Refresh(world_, object);
       if (Family(object) == PuzzleFamily::Coordination && object.puzzle.state == PuzzleState::InUse) {
-        const auto available = std::ranges::count_if(world_.agents, [](const Agent &agent) { return agent.connected; });
-        const unsigned int required = available == 1 && object.puzzle.soloAllowed ? 1u : std::max(2u, object.puzzle.requiredAgents);
-        const auto held = std::ranges::count_if(world_.agents, [&object, this](const Agent &agent) { return agent.puzzle.target == object.id && agent.puzzle.holding && CanOperate(world_, agent, object); });
+        const unsigned int required = Coordination::RequiredAgents(world_, object);
+        const auto held = static_cast<unsigned int>(std::popcount(static_cast<unsigned int>(object.puzzle.coordinationMask)));
         object.puzzle.coordinationProgress = held >= required ? std::min(CoordinationHoldDuration, object.puzzle.coordinationProgress + dt) : 0.f;
         Agent *operatorAgent = nullptr;
         for (auto &agent : world_.agents) if (agent.puzzle.target == object.id) { agent.puzzle.coordinationProgress = object.puzzle.coordinationProgress; if (!operatorAgent) operatorAgent = &agent; }
@@ -307,7 +325,7 @@ namespace NoTrace {
         auto &camera = object.camera;
         if (camera.state == CameraState::Disabled && camera.reactivationRemaining > 0.f) {
           camera.reactivationRemaining = std::max(0.f, camera.reactivationRemaining - dt);
-          if (camera.reactivationRemaining <= 0.f) { camera.state = CameraState::Operating; object.active = true; EmitSound(SoundKind::Camera, object.position, CameraRange); }
+          if (camera.reactivationRemaining <= 0.f) { camera.state = CameraState::Operating; object.active = true; EmitSound(SoundKind::Camera, object.position, CameraRange, 0, object.elevation); }
         }
         if (!object.active || camera.state != CameraState::Operating) { ClearCamera(object); continue; }
         camera.suspicionRemaining = std::max(0.f, camera.suspicionRemaining - dt);
@@ -320,7 +338,7 @@ namespace NoTrace {
             if (camera.sweepAngle >= camera.maxAngle || camera.sweepAngle <= camera.minAngle) {
               camera.sweepAngle = std::clamp(camera.sweepAngle, camera.minAngle, camera.maxAngle);
               camera.direction = -camera.direction; camera.pauseRemaining = CameraEndpointPause;
-              EmitSound(SoundKind::Camera, object.position, camera.range);
+              EmitSound(SoundKind::Camera, object.position, camera.range, 0, object.elevation);
             }
           }
           const float angle = camera.baseAngle + camera.sweepAngle;
@@ -329,10 +347,10 @@ namespace NoTrace {
         const auto visible = [&object, &camera, this](const Agent &agent) {
           if (!agent.connected || !agent.alive || agent.incapacitated || agent.extracted) return false;
           const auto delta = agent.position - object.position;
-          const float distance = delta.length();
+          const float distance = std::hypot(delta.length(), agent.elevation - object.elevation);
           const float posture = agent.stance == Stance::Prone ? GameplayConfig::ProneVisionFactor : agent.stance == Stance::Crouched ? GameplayConfig::CrouchedVisionFactor : 1.f;
           return distance <= camera.range * posture && object.facing.dot(delta) >= camera.cosHalfAngle * distance * object.facing.length() &&
-            Visibility::AgentExposed(world_, object.position, agent, object.id);
+            Visibility::AgentExposed(world_, object.position, agent, object.id, object.elevation + CombatGeometry::HeadCenterHeight(Stance::Standing));
         };
         Agent *seen = nullptr;
         if (camera.trackedAgent != 0) {
@@ -354,8 +372,8 @@ namespace NoTrace {
             camera.confirmedRemaining = CameraConfirmedIndicatorDuration;
             if (!IsTraining(world_)) {
               if (!confirmed) Detect(*seen, object.id + 1000);
-              else RegisterSecurityContact(seen->position);
-            } else if (!confirmed) { EmitSound(SoundKind::Camera, object.position, camera.range); world_.message = "Cámara de prácticas: detección confirmada; sin alarma operativa ni refuerzos."; }
+              else RegisterSecurityContact(seen->position, seen->elevation);
+            } else if (!confirmed) { EmitSound(SoundKind::DetectionConfirmed, object.position, camera.range, 0, object.elevation); world_.message = "Cámara de prácticas: detección confirmada; sin alarma operativa ni refuerzos."; }
           }
           ReportPerception(*seen, object.progress / std::max(0.001f, camera.confirmationTime), camera.confirmedRemaining > 0.f);
         } else {
@@ -373,15 +391,15 @@ namespace NoTrace {
         if (!object.active || trap.state == TrapState::Disarmed || trap.state == TrapState::Detonated) continue;
         bool audible = false;
         for (const auto &agent : world_.agents) if (Operational(agent)) {
-          const float distance = (agent.position - object.position).length();
+          const float distance = std::hypot((agent.position - object.position).length(), agent.elevation - object.elevation);
           audible |= distance <= trap.audibleRadius;
-          if (distance > trap.audibleRadius || !Visibility::HasLineOfSight(world_, object.position, agent.position, Stance::Standing, object.id)) continue;
+          if (distance > trap.audibleRadius || WorldGeometry::RayOccluded(world_, {object.position.x, object.position.y, object.elevation + CombatConfig::ProneHeight}, {agent.position.x, agent.position.y, agent.elevation + CombatConfig::ProneHeight}, object.id)) continue;
           if (trap.state == TrapState::Armed) trap.state = TrapState::Detected;
-          if (distance <= trap.triggerRadius && trap.remaining < 0.f) { trap.remaining = trap.fuse; EmitNoise(object.position, trap.audibleRadius, 0); world_.message = "Temporizador activado: aléjate o resuelve el circuito del explosivo."; }
+          if (distance <= trap.triggerRadius && trap.remaining < 0.f) { trap.remaining = trap.fuse; EmitNoise(object.position, trap.audibleRadius, 0, 0, SoundKind::Impact, {}, object.elevation); EmitSound(SoundKind::TrapArm, object.position, trap.audibleRadius, 0, object.elevation); world_.message = "Temporizador activado: aléjate o resuelve el circuito del explosivo."; }
         }
         trap.tickRemaining = std::max(0.f, trap.tickRemaining - dt);
         if (audible && trap.tickRemaining <= 0.f) {
-          EmitSound(SoundKind::TrapTick, object.position, trap.audibleRadius);
+          EmitSound(SoundKind::TrapTick, object.position, trap.audibleRadius, 0, object.elevation);
           Record(EventKind::TrapTick, 0, object.id);
           trap.tickRemaining = trap.remaining < 0.f ? TrapMaximumTickInterval : std::clamp(trap.remaining / trap.fuse * TrapMaximumTickInterval, TrapMinimumTickInterval, TrapMaximumTickInterval);
         }

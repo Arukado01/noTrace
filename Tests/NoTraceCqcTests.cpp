@@ -1,4 +1,5 @@
 #include "NoTraceSimulation.h"
+#include "NoTraceSpatialFixture.h"
 #include "NoTraceWorldGeometry.h"
 #include "NoTraceVisibility.h"
 #include "Config/NoTraceCqcConfig.h"
@@ -14,6 +15,7 @@ namespace {
     simulation.ResetBase(partner ? std::vector<PlayerProfile>{{1,"Uno"},{2,"Dos"}} : std::vector<PlayerProfile>{{1,"Uno"}});
     simulation.Deploy(31);
     auto &world = const_cast<WorldState &>(simulation.GetState());
+    TestFixture::LegacyPlane(world);
     world.guards.clear(); world.objects.clear(); world.obstacles.clear(); world.noises.clear(); world.shots.clear(); world.events.clear(); world.securityEntries.clear();
     world.agents[0].position = {200.f, 300.f}; world.agents[0].facing = {1.f, 0.f};
     for (auto &agent : world.agents) agent.privateOrder = PrivateOrder::None;
@@ -95,17 +97,20 @@ namespace {
     Require(world.agents[1].position == original && world.shots.empty() && world.agents[1].facing == world.agents[0].facing, "El compañero inmovilizado puede moverse, girar o disparar");
     std::string error;
     Require(replica.LoadSnapshot(simulation.SnapshotFor(1, true), error) && replica.GetState().agents[1].cqcHeldBy == 1, "La sujeción amistosa no llega íntegra al cliente");
+    Obstacle curtain{{{(world.agents[0].position.x + world.agents[1].position.x) * 0.5f, 280.f}, {1.f, 40.f}}, CoverKind::High, true, "Pantalla opaca sin colisión"};
+    curtain.solid = false; world.obstacles.push_back(curtain);
     const auto victimSnapshot = simulation.SnapshotFor(2, true);
     Require(replica.LoadSnapshot(victimSnapshot, error), "La sujeción amistosa rechaza al receptor cuando el dueño queda detrás de su campo visual");
     Require(!Visibility::IsVisible(world, world.agents[1], world.agents[0].position), "La regresión necesita un captor fuera del campo visual ordinario del aliado sujetado");
     const auto captor = std::ranges::find_if(replica.GetState().agents, [](const Agent &entry) { return entry.id == 1; });
     const auto victim = std::ranges::find_if(replica.GetState().agents, [](const Agent &entry) { return entry.id == 2; });
-    Require(captor != replica.GetState().agents.end() && victim != replica.GetState().agents.end() && captor->cqcHoldingAgent == 2 && victim->cqcHeldBy == 1, "El aliado sujetado a 37 unidades no recibe al captor real con las referencias recíprocas del agarre");
+    Require(captor != replica.GetState().agents.end() && victim != replica.GetState().agents.end() && captor->cqcHoldingAgent == 2 && victim->cqcHeldBy == 1, "El aliado sujetado tras una pantalla visual no recibe al captor real con las referencias recíprocas del agarre");
     auto invalid = simulation.SnapshotFor(1, true); invalid["agents"][1]["cqcHeldBy"] = 9999;
     Require(!replica.LoadSnapshot(invalid, error), "Se acepta un compañero retenido por un dueño inexistente");
+    world.obstacles.clear();
     Agent observer; observer.id = 3; observer.name = "Observador"; observer.position = {200.f, 360.f}; observer.facing = {0.f, -1.f};
     world.agents.push_back(observer);
-    world.obstacles.push_back({{{197.f, 320.f}, {7.f, 10.f}}, CoverKind::High, true, "Muro que oculta únicamente al dueño"});
+    world.obstacles.push_back({{{world.agents[0].position.x - 5.f, 320.f}, {7.f, 10.f}}, CoverKind::High, true, "Muro que oculta únicamente al dueño"});
     const auto observerSnapshot = simulation.SnapshotFor(3, true);
     Require(replica.LoadSnapshot(observerSnapshot, error), "Un observador recibe referencias CQC huérfanas al ver solo uno de los participantes");
     Require(std::ranges::none_of(replica.GetState().agents, [](const Agent &entry) { return entry.id == 1; }), "La sujeción amistosa revela al dueño detrás de una pared");
@@ -408,8 +413,32 @@ namespace {
     Require(world.agents[0].cqcApproachGuard == 0 && world.agents[0].cqcHoldingGuard == 0 && world.guards[0].heldBy == 0,
       "La reserva de aproximación impide reaccionar a una amenaza visual externa");
   }
+  void ContactRequiresPhysicalRearPlacement() {
+    const std::array<sf::Vector2f, 8> directions{{{1.f, 0.f}, {1.f, 1.f}, {0.f, 1.f}, {-1.f, 1.f}, {-1.f, 0.f}, {-1.f, -1.f}, {0.f, -1.f}, {1.f, -1.f}}};
+    constexpr float dt = 1.f / 60.f;
+    for (const bool partner : {false, true}) for (const float separation : {22.f, 37.f, 74.f}) for (auto direction : directions) {
+      Simulation simulation, replica; auto &world = Fixture(simulation, partner); direction = direction.normalized();
+      const sf::Vector2f target{200.f + separation, 300.f};
+      if (partner) { world.agents[1].position = target; world.agents[1].facing = direction; }
+      else { world.guards[0].position = target; world.guards[0].facing = direction; world.guards[0].patrol = {target}; }
+      const auto contact = target - direction * CqcConfig::GripSeparation;
+      bool held = false;
+      for (unsigned int frame = 0; frame < 180 && !held; ++frame) {
+        const auto previous = world.agents[0].position;
+        simulation.Step(dt, {{1, Held()}});
+        const auto &actor = world.agents[0]; held = actor.cqcHoldingGuard != 0 || actor.cqcHoldingAgent != 0;
+        Require((actor.position - previous).length() <= CqcConfig::ApproachSpeed * dt + 0.01f, "Normalizar el contacto CQC teletransporta al captor");
+        Require((partner ? world.agents[1].position : world.guards[0].position) == target, "Normalizar el contacto CQC desplaza al objetivo");
+        if (!held) Require(actor.actionPose != ActionPose::Grab && (partner ? world.agents[1].cqcHeldBy == 0 : world.guards[0].heldBy == 0), "La sujeción se confirma antes del contacto corporal real");
+      }
+      Require(held && (world.agents[0].position - contact).length() <= CqcConfig::ContactTolerance, "La adquisición CQC no termina a 28 unidades sobre la espalda del objetivo");
+      Require(std::abs((world.agents[0].position - target).length() - CqcConfig::GripSeparation) <= CqcConfig::ContactTolerance, "La sujeción conserva una separación arbitraria del rango de adquisición");
+      std::string error;
+      Require(replica.LoadSnapshot(simulation.SnapshotFor(1, true), error), "El contacto CQC normalizado no llega íntegro a la réplica");
+    }
+  }
 }
 int main() {
-  try { AcquisitionAndSubdue(); RejectionAndCancellation(); PushAndCollisions(); PushInterruptsPuzzle(); PunchKickAndRecovery(); ImpactValidationAndRearApproach(); FriendlyGripAndCleanup(); TrainingCqcSafety(); ContextualWallAndHeldPriority(); PhysicalRearAlignment(); StableGripAndExtendedApproach(); CollapseCancelsGripWithoutRecovery(); SharedTargetQueryMatchesThePush(); RearApproachReservesAiAndCommitsAtContact(); RearPlacementRejectsCharactersAndInterruptedReservations(); std::cout << "PASS CQC y empujones: " << checks << " comprobaciones\n"; return 0; }
+  try { AcquisitionAndSubdue(); RejectionAndCancellation(); PushAndCollisions(); PushInterruptsPuzzle(); PunchKickAndRecovery(); ImpactValidationAndRearApproach(); FriendlyGripAndCleanup(); TrainingCqcSafety(); ContextualWallAndHeldPriority(); PhysicalRearAlignment(); StableGripAndExtendedApproach(); CollapseCancelsGripWithoutRecovery(); SharedTargetQueryMatchesThePush(); RearApproachReservesAiAndCommitsAtContact(); RearPlacementRejectsCharactersAndInterruptedReservations(); ContactRequiresPhysicalRearPlacement(); std::cout << "PASS CQC y empujones: " << checks << " comprobaciones\n"; return 0; }
   catch (const std::exception &error) { std::cerr << "FAIL CQC tras " << checks << ": " << error.what() << '\n'; return 1; }
 }

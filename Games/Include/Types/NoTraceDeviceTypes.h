@@ -66,6 +66,8 @@ namespace NoTrace {
     std::uint32_t parentDevice = 0;
     unsigned int nodeIndex = 0;
     std::vector<std::uint8_t> leverOrder;
+    std::uint8_t coordinationMask = 0;
+    std::uint8_t coordinationReservedMask = 0;
   };
   struct PuzzleSession {
     std::uint32_t target = 0;
@@ -79,6 +81,7 @@ namespace NoTrace {
     std::uint8_t connectedPorts = 0;
     bool holding = false;
     float coordinationProgress = 0.f;
+    unsigned int coordinationButton = 0;
   };
   inline constexpr int WireInput(unsigned int source, unsigned int port) { return static_cast<int>((source - 1u) * DevicesConfig::WireCount + port); }
   inline unsigned int MatchingWirePort(const PuzzleSession &session, unsigned int source) {

@@ -5,10 +5,11 @@
 #include <algorithm>
 #include <cmath>
 #include <numbers>
+#include <limits>
 
 namespace NoTrace::Visibility {
   bool HasLineOfSight(const WorldState &world, sf::Vector2f from, sf::Vector2f to, Stance stance = Stance::Standing, std::uint32_t ignoredObject = 0);
-  bool IsGeometricallyVisible(const WorldState &world, const Agent &observer, sf::Vector2f point, Stance targetStance = Stance::Standing);
+  bool IsGeometricallyVisible(const WorldState &world, const Agent &observer, sf::Vector2f point, Stance targetStance = Stance::Standing, float targetElevation = std::numeric_limits<float>::quiet_NaN());
   bool IsVisible(const WorldState &world, const Agent &observer, sf::Vector2f point, Stance targetStance = Stance::Standing);
   bool GuardVisible(const WorldState &world, const Agent &observer, const Guard &guard);
   bool AgentExposed(const WorldState &world, sf::Vector2f from, const Agent &target, std::uint32_t ignoredObject = 0, float eyeHeight = CombatConfig::StandingHeight - CombatConfig::HeadHeight * 0.5f);
@@ -19,7 +20,7 @@ namespace NoTrace::Visibility {
   VisibilityGrid BuildGrid(const WorldState &world, const Agent &observer);
 
   inline void BuildVisualBoundary(const WorldState &world, const Agent &observer, VisibilityGrid &grid) {
-    grid.visualOrigin = observer.position;
+    grid.visualOrigin = observer.position; grid.elevation = observer.elevation;
     if (!IsTactical(world)) { grid.visualRadii.clear(); return; }
     grid.visualRadii.resize(VisibilityConfig::VisualRayCount);
     for (std::size_t ray = 0; ray < grid.visualRadii.size(); ++ray) {

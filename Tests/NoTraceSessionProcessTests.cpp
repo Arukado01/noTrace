@@ -38,7 +38,7 @@ namespace {
       sf::sleep(sf::milliseconds(5));
     }
 
-    void Until(const std::function<bool()> &condition, const std::function<void()> &beforeTick = {}) {
+    void Until(const std::function<bool()> &condition, const std::function<void()> &beforeTick = {}, float timeout = 15.f) {
       sf::Clock deadline;
       for (;;) {
         if (session.IsClient() && session.GetStatus().starts_with("Error LAN:")) {
@@ -47,7 +47,7 @@ namespace {
         if (condition()) {
           return;
         }
-        Require(deadline.getElapsedTime().asSeconds() < 15.f, "Tiempo agotado entre procesos de sesión");
+        Require(deadline.getElapsedTime().asSeconds() < timeout, "Tiempo agotado entre procesos de sesión");
         if (beforeTick) {
           beforeTick();
         }
@@ -71,7 +71,11 @@ namespace {
       const auto &local = FindAgent(world, session.GetLocalPlayerId());
       if (world.phase == GamePhase::Mission && world.elapsed >= 0.65f && local.privateOrder == PrivateOrder::Traitor) {
         const auto other = std::ranges::find_if(world.agents, [&](const Agent &agent) { return agent.id != local.id && agent.connected && agent.alive; });
-        Require(other != world.agents.end(), "El traidor no encontró otro agente");
+        if (other == world.agents.end()) {
+          command.moveY = local.id == GameplayConfig::HostPlayerId ? 1.f : -1.f;
+          session.Submit(command);
+          return;
+        }
         const auto head = CombatGeometry::ActorVolumes(other->position, other->facing, other->stance).front().center;
         auto direction = head - local.position;
         const float length = std::hypot(direction.x, direction.y);
@@ -110,7 +114,7 @@ namespace {
     node.session.Deploy();
     Require(node.session.GetWorld().phase == GamePhase::Mission, "No se desplegó desde la base");
     bool fired = false;
-    node.Until([&] { return node.session.GetWorld().phase == GamePhase::Results; }, [&] { node.SubmitTraitorAction(fired); });
+    node.Until([&] { return node.session.GetWorld().phase == GamePhase::Results; }, [&] { node.SubmitTraitorAction(fired); }, GameplayConfig::IncapacityDuration + 15.f);
     const auto &world = node.session.GetWorld();
     Require(world.results.size() == 2 && world.alarmCount == 0, "No se cerró la operación autoritativa sin alarma");
     for (const auto &agent : world.agents) {
@@ -166,9 +170,9 @@ namespace {
     node.session.ReturnToBase();
     Require(node.session.GetWorld().phase == GamePhase::Mission, "El cliente regresó a base sin el anfitrión");
     bool fired = false;
-    node.Until([&] { return node.session.GetWorld().phase == GamePhase::Results; }, [&] { node.SubmitTraitorAction(fired); });
+    node.Until([&] { return node.session.GetWorld().phase == GamePhase::Results; }, [&] { node.SubmitTraitorAction(fired); }, GameplayConfig::IncapacityDuration + 15.f);
     const auto &world = node.session.GetWorld();
-    Require(world.results.size() == 2 && world.results.contains(2), "El cliente no recibió los informes finales");
+    Require(world.results.size() == 1 && world.results.contains(2), "El cliente no recibió sólo su informe final privado");
     const auto result = world.results.at(2);
     Require(result.traitorVictory == (ownOrder == PrivateOrder::Traitor), "El informe del cliente no coincide con su orden");
     Require(FindAgent(world, 1).privateOrder == PrivateOrder::None, "El informe filtró una orden privada ajena");

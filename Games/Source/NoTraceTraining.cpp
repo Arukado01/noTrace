@@ -112,7 +112,7 @@ namespace NoTrace {
       }
     }
     for (auto &dummy : world_.guards) if (dummy.trainingDummy) { dummy.health = TrainingConfig::DummyMaximumHealth; dummy.trainingHits = 0; dummy.trainingFeedback = 0.f; }
-    EmitSound(SoundKind::PuzzleSolved, console->position, GameplayConfig::InteractionDistance * 2.f, agent.id);
+    EmitSound(SoundKind::Button, console->position, GameplayConfig::InteractionDistance * 2.f, agent.id, console->elevation);
     world_.message = "Campo rearmado: dispositivos, cámaras y muñecos listos para repetir. Las puertas ocupadas permanecen abiertas por seguridad.";
   }
 }

@@ -1,6 +1,8 @@
 #pragma once
 
+#include "Config/NoTraceCombatConfig.h"
 #include "Config/NoTraceDistractionConfig.h"
+#include "Config/NoTraceLevelConfig.h"
 #include "Config/NoTraceSecurityConfig.h"
 #include <array>
 #include <cstddef>
@@ -10,8 +12,8 @@
 namespace NoTrace::GameplayConfig {
   inline constexpr std::string_view GameScene = "NoTraceGame";
   inline constexpr float AgentRadius = 12.f;
-  inline constexpr float MissionWidth = 1000.f;
-  inline constexpr float MissionHeight = 760.f;
+  inline constexpr float MissionWidth = LevelConfig::Width;
+  inline constexpr float MissionHeight = LevelConfig::Height;
   inline constexpr float MissionSpawnX = 50.f;
   inline constexpr float MissionSpawnY = 650.f;
   inline constexpr float MissionSpawnSpacing = 28.f;
@@ -36,6 +38,7 @@ namespace NoTrace::GameplayConfig {
   inline constexpr float InteractionDistance = 48.f;
   inline constexpr float CqcDistance = 38.f;
   inline constexpr float WeaponRange = 340.f;
+  inline constexpr float MaximumShotEndpointHeight = LevelConfig::MaximumElevation + CombatConfig::StandingHeight + WeaponRange * CombatConfig::MaximumAimSlope;
   inline constexpr float WeaponCooldown = 0.65f;
   inline constexpr float ShotTraceDuration = 0.18f;
   inline constexpr float AttackAnimationDuration = 0.24f;
@@ -55,7 +58,7 @@ namespace NoTrace::GameplayConfig {
   inline constexpr float FootstepInterval = 0.4f;
   inline constexpr float RunningFootstepInterval = 0.23f;
   inline constexpr float CrouchedFootstepInterval = 0.6f;
-  inline constexpr float RunningNoiseRadius = 306.f;
+  inline constexpr float RunningNoiseRadius = 306.f * 0.80f;
   inline constexpr float WalkingNoiseRadius = 70.f;
   inline constexpr float CrouchedNoiseRadius = 12.f;
   inline constexpr float CrouchedRunningNoiseRadius = 22.f;
@@ -99,7 +102,7 @@ namespace NoTrace::GameplayConfig {
   inline constexpr std::uint32_t HostPlayerId = 1;
   inline constexpr std::size_t MaximumEvents = 20000;
   inline constexpr std::size_t MaximumSnapshotBytes = 60 * 1024;
-  inline constexpr std::uint32_t ProtocolVersion = 10;
+  inline constexpr std::uint32_t ProtocolVersion = 11;
   inline constexpr float SimulationHz = 60.f;
   inline constexpr float CommandHz = 30.f;
   inline constexpr float SnapshotHz = 20.f;

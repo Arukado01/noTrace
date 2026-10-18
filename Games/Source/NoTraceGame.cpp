@@ -7,6 +7,7 @@
 #include "NoTraceVisibility.h"
 #include "NoTraceWorldGeometry.h"
 #include "NoTraceInteraction.h"
+#include "NoTraceTraversal.h"
 #include "Core/EngineConfig.h"
 #include "Utils/Log.h"
 #include "Utils/InputBindings.h"
@@ -27,7 +28,7 @@ namespace NoTrace {
   }
 
   Game::Game(EngineContext &context)
-      : Scene(context), session_(ctx.network, ctx.random), worldRenderer_(context) {
+      : Scene(context), session_(ctx.network, ctx.random), worldRenderer_(context), audioPlayback_(context) {
     root_ = tgui::Group::create({"100%", "100%"});
     auto header = tgui::Panel::create({"100%", 116.f});
     header->getRenderer()->setBackgroundColor({5, 12, 20, 235});
@@ -112,6 +113,7 @@ namespace NoTrace {
     ApplyUserPreferences(ctx);
     session_.Stop(); held_.fill(false); previousPhase_ = GamePhase::Base;
     ready_ = false; paused_ = false; showOrders_ = false; lastSound_ = 0;
+    lastNetworkTime_ = ctx.time.GetElapsedTime();
     puzzleFailure_ = {}; puzzleFailureUntil_ = 0.f; puzzleFailurePhase_ = GamePhase::Base;
     preparingDecoy_ = false; cancelledDecoy_ = false; worldRenderer_.SetDecoyPreview(false, {}, 0.f);
     cqcBlocked_ = true;
@@ -130,6 +132,11 @@ namespace NoTrace {
     return nullptr;
   }
 
+  PlayerId Game::ViewPlayer() const {
+    if (const auto *agent = LocalAgent(); agent && agent->lifeState == LifeState::Dead && agent->spectatorTarget) return agent->spectatorTarget;
+    return session_.GetLocalPlayerId();
+  }
+
   void Game::Update() {
     showOrders_ = !paused_ && page_ == Page::None && ctx.input.Held(Orders);
     worldRenderer_.SetNamesVisible(showOrders_);
@@ -141,7 +148,13 @@ namespace NoTrace {
     }
     if (!paused_ && page_ == Page::Puzzle && session_.IsConnected()) {
       ActionCommand command;
-      if (const auto *agent = LocalAgent()) { command.puzzleInput = pendingPuzzleInput_; command.puzzleTarget = agent->puzzle.target; command.puzzleHeld = pendingPuzzleHeld_; }
+      if (const auto *agent = LocalAgent()) {
+        command.puzzleInput = pendingPuzzleInput_; command.puzzleTarget = agent->puzzle.target; command.puzzleHeld = pendingPuzzleHeld_;
+        if (command.puzzleInput == -1 && agent->puzzle.family == PuzzleFamily::Arrows) {
+          const std::array<Action, 4> directions{Up, Right, Down, Left};
+          for (std::size_t index = 0; index < directions.size(); ++index) if (ctx.input.JustPressed(directions[index])) { command.puzzleInput = static_cast<int>(index + 1); break; }
+        }
+      }
       pendingPuzzleInput_ = -1; session_.Submit(command); return;
     }
     if (paused_ || page_ != Page::None || !session_.IsConnected()) {
@@ -152,6 +165,13 @@ namespace NoTrace {
     if (ctx.input.Held(WeaponMenu)) { Open(Page::Weapons); return; }
     const auto *agent = LocalAgent();
     if (!agent) return;
+    if (agent->lifeState == LifeState::Dead) {
+      ActionCommand spectator;
+      spectator.spectateNext = ctx.input.JustPressed(SpectateNext);
+      spectator.spectatePrevious = ctx.input.JustPressed(SpectatePrevious);
+      preparingDecoy_ = false; worldRenderer_.SetDecoyPreview(false, {}, 0.f);
+      session_.Submit(spectator); return;
+    }
     worldRenderer_.AdjustZoom(ctx.input.WheelDelta());
     ActionCommand command;
     const auto moving = [this](Action action) { return Pressed(action) || ctx.input.Held(action); };
@@ -175,6 +195,8 @@ namespace NoTrace {
     command.dive = ctx.input.JustPressed(Dive); command.roll = ctx.input.JustPressed(Roll);
     command.toggleSuppressor = ctx.input.JustPressed(Suppressor);
     command.run = Pressed(Run); command.crouch = Pressed(Crouch, true); command.prone = Pressed(Prone, true);
+    command.traverse = ctx.input.JustPressed(Traverse) && !command.run;
+    command.drop = ctx.input.JustPressed(Traverse) && command.run;
     command.interact = Pressed(Interact, true);
     command.dragBody = held_[Interact];
     if (!ctx.input.Held(Cqc)) cqcBlocked_ = false;
@@ -223,25 +245,28 @@ namespace NoTrace {
   }
 
   void Game::UpdateBackground() {
-    session_.Tick(ctx.time.GetDeltaTime(), paused_ || (page_ != Page::None && page_ != Page::Puzzle));
+    const float networkTime = ctx.time.GetElapsedTime();
+    const float networkDelta = std::max(0.f, networkTime - lastNetworkTime_);
+    lastNetworkTime_ = networkTime;
+    session_.Tick(ctx.time.GetDeltaTime(), paused_ || (page_ != Page::None && page_ != Page::Puzzle), networkDelta);
     const auto phase = session_.GetWorld().phase;
     if (phase != previousPhase_) {
-      if (phase == GamePhase::Mission) { ClosePanel(); lastSound_ = 0; PlayCue(AudioConfig::File(SoundKind::PuzzleSolved)); }
-      else if (phase == GamePhase::Results) { PersistResults(); Open(Page::Results); }
+      if (phase == GamePhase::Mission) { ClosePanel(); lastSound_ = 0; }
+      else if (phase == GamePhase::Results) {
+        PersistResults(); Open(Page::Results);
+        const auto result = session_.GetWorld().results.find(session_.GetLocalPlayerId());
+        if (result != session_.GetWorld().results.end()) audioPlayback_.Play(result->second.success ? SoundKind::MissionSuccess : SoundKind::MissionFailure);
+      }
       else { ready_ = false; ClosePanel(); }
       previousPhase_ = phase;
     }
     if (session_.IsConnected()) {
       const auto &world = session_.GetWorld();
       const auto *agent = LocalAgent();
-      std::erase_if(voices_, [](const auto &voice) { return voice->getStatus() == sf::SoundSource::Status::Stopped; });
+      const auto listener = std::ranges::find(world.agents, ViewPlayer(), &Agent::id);
+      audioPlayback_.UpdateAmbience(world, ViewPlayer());
       for (const auto &sound : world.sounds) if (sound.sequence > lastSound_) {
-        if (agent && Visibility::SoundAudible(world, *agent, sound)) {
-          const float distance = (agent->position - sound.position).length();
-          const float gain = std::clamp(1.f - distance / std::max(1.f, sound.radius), 0.08f, 1.f);
-          const float wall = Visibility::HasLineOfSight(world, agent->position, sound.position) ? 1.f : AudioConfig::WallHearingFactor;
-          PlayCue(AudioConfig::File(sound.kind), 65.f * gain * wall * AudioConfig::Gain(sound.kind), std::clamp((sound.position.x - agent->position.x) / std::max(1.f, sound.radius), -1.f, 1.f), AudioConfig::Pitch(sound.kind));
-        }
+        if (listener != world.agents.end()) audioPlayback_.PlayEvent(sound, world, *listener);
         lastSound_ = sound.sequence;
       }
       if (agent && agent->puzzle.target && (page_ == Page::None || page_ == Page::Puzzle)) {
@@ -249,14 +274,15 @@ namespace NoTrace {
         else if (puzzleStageRendered_ != agent->puzzle.stage || puzzleTargetRendered_ != agent->puzzle.target) { panel_->removeAllWidgets(); BuildPuzzle(); }
       } else if (page_ == Page::Puzzle) ClosePanel();
       if (page_ == Page::Puzzle && puzzleProgress_ && agent) puzzleProgress_->setValue(static_cast<unsigned int>(std::clamp(agent->puzzle.coordinationProgress / DevicesConfig::CoordinationHoldDuration, 0.f, 1.f) * 100.f));
-    }
+      if (page_ == Page::Puzzle) RefreshPuzzleControls();
+    } else audioPlayback_.StopAmbience();
     if (page_ == Page::Options && observedDisplay_ != ctx.window.GetDisplaySettings()) SyncDisplayOptions();
     if (page_ == Page::Weapons) RefreshWeapons();
     RefreshHud();
   }
 
   void Game::Render() const {
-    worldRenderer_.Render(session_.GetWorld(), session_.GetLocalPlayerId(), !paused_ && page_ == Page::None && IsTactical(session_.GetWorld()));
+    worldRenderer_.Render(session_.GetWorld(), ViewPlayer(), !paused_ && page_ == Page::None && IsTactical(session_.GetWorld()));
   }
 
   void Game::OnEvent(const sf::Event &event) {
@@ -361,7 +387,7 @@ namespace NoTrace {
       for (std::size_t index = 0; index < PreparationConfig::Presets.size(); ++index) {
         const auto loadout = PreparationConfig::Presets[index];
         auto preset = Button(std::format("{}\n{} letales / {} no letales / {} señuelos / {} herramientas", PreparationConfig::Names[index], loadout.lethalAmmo, loadout.nonLethalAmmo, loadout.decoys, loadout.tools),
-                             160.f + static_cast<float>(index) * 75.f, [this, loadout] { session_.SetLoadout(loadout); PlayCue(AudioConfig::File(SoundKind::Reload)); ClosePanel(); });
+                             160.f + static_cast<float>(index) * 75.f, [this, loadout] { session_.SetLoadout(loadout); PlayCue(AudioConfig::File(SoundKind::Equipment)); ClosePanel(); });
         preset->setTextSize(18); preset->setSize({714.f, 64.f});
       }
     } else if (page == Page::Intelligence) {
@@ -443,12 +469,20 @@ namespace NoTrace {
       lobby_->setText(world.phase == GamePhase::Mission ? "PAUSA  [ESC]" : "BASE / SALA  [F2]");
       agent_->setText(std::format("{}{} | {}{} | L {}/{}+{} · NL {}/{}+{} · G {} · T {}", StanceName(agent->stance), !agent->alive ? " / ELIMINADO" : agent->incapacitated ? " / INCONSCIENTE" : agent->hidden ? " / OCULTO" : agent->extracted ? " / EXTRAÍDO" : agent->cover.active ? " / COBERTURA" : "", agent->selectedWeapon == WeaponKind::Pistol ? "PISTOLA" : "NO LETAL", agent->reloadRemaining > 0.f ? " / RECARGANDO" : "", agent->lethalMagazine, WeaponConfig::PistolCapacity, ReserveAmmo(*agent, WeaponKind::Pistol), agent->nonLethalMagazine, WeaponConfig::NonLethalCapacity, ReserveAmmo(*agent, WeaponKind::NonLethal), agent->loadout.decoys, agent->loadout.tools));
       private_->setText(tgui::String(std::string(PrivateOrderText(agent->privateOrder)) + (agent->privateComplete ? "\nORDEN CUMPLIDA" : "")));
-      private_->setVisible(showOrders_ && world.phase == GamePhase::Mission && page_ == Page::None);
+      private_->setVisible((showOrders_ || world.elapsed < PresentationConfig::PrivateOrderIntroDuration) && world.phase == GamePhase::Mission && page_ == Page::None);
       std::string hint = Interaction::Prompt(world, *agent);
+      if (hint.empty()) hint = Traversal::Prompt(world, *agent);
+      if (hint.empty()) hint = Traversal::Prompt(world, *agent, true);
       if (hint.empty() && Simulation::FindCqcTarget(world, *agent, Simulation::CqcAction::Push)) hint = "V · Empujar";
       else if (hint.empty() && Simulation::FindCqcTarget(world, *agent, Simulation::CqcAction::Grab)) hint = "F · Agarrar";
       if (preparingDecoy_) hint.clear();
       if (agent->incapacitated) hint = std::format("RESCATE · {:.0f} s", std::ceil(agent->incapacityRemaining));
+      if (agent->lifeState == LifeState::Dead) {
+        const auto target = std::ranges::find(world.agents, ViewPlayer(), &Agent::id);
+        agent_->setText(target != world.agents.end() && target->id != agent->id ? "ESPECTADOR · " + target->name : "ESPECTADOR · Esperando superviviente");
+        hint = "Re Pág / Av Pág · Cambiar observación";
+        private_->setVisible(false); health_->setVisible(false); stamina_->setVisible(false); suppressor_->setVisible(false);
+      }
       hint_->setText(tgui::String(hint));
     } else { agent_->setText(""); hint_->setText(""); private_->setVisible(false); health_->setVisible(false); stamina_->setVisible(false); }
     std::string feedback;
@@ -518,11 +552,9 @@ namespace NoTrace {
   }
 
   void Game::PlayCue(const std::string &file, float volume, float pan, float pitch) {
-    if (auto *buffer = ctx.resources.FetchSound(file)) {
-      if (voices_.size() >= AudioConfig::MaximumVoices) voices_.erase(voices_.begin());
-      auto sound = std::make_shared<sf::Sound>(*buffer); ctx.audio.RegisterEffect(sound, volume); sound->setPitch(pitch);
-      sound->setRelativeToListener(true); sound->setPosition({pan, 0.f, -1.f}); sound->setAttenuation(0.f);
-      sound->play(); voices_.push_back(std::move(sound));
+    for (std::size_t index = 0; index < AudioConfig::Files.size(); ++index) {
+      const auto kind = static_cast<SoundKind>(index);
+      if (file == AudioConfig::File(kind)) { audioPlayback_.Play(kind, volume, pan, pitch); return; }
     }
   }
 
@@ -537,7 +569,7 @@ namespace NoTrace {
 
   void Game::OnCleanup() {
     preparingDecoy_ = false; worldRenderer_.SetDecoyPreview(false, {}, 0.f);
-    session_.Stop(); voices_.clear(); ctx.gui.Remove(root_); ctx.cursor.SetHovered(false);
+    session_.Stop(); audioPlayback_.StopAmbience(); ctx.audio.StopAll(); ctx.gui.Remove(root_); ctx.cursor.SetHovered(false);
     ctx.renderer.ResetView(); ctx.renderer.SetPostProcessingEnabled(true); ctx.renderer.SetTextureSmoothing(true);
   }
 }

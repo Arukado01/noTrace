@@ -2,6 +2,9 @@
 
 #include "Types/NoTraceGameplayTypes.h"
 #include "NoTraceVisibility.h"
+#include "NoTraceDistractionGeometry.h"
+#include "NoTraceCoordination.h"
+#include "Config/NoTraceAudioConfig.h"
 #include <bit>
 #include <nlohmann/json.hpp>
 #include <algorithm>
@@ -38,7 +41,7 @@ namespace NoTrace::TacticalState {
   }
   inline Json Puzzle(const PuzzleSession &p) {
     return {{"target",p.target},{"kind",static_cast<int>(p.kind)},{"stage",p.stage},{"length",p.length},{"family",static_cast<int>(p.family)},
-      {"sequence",p.sequence},{"wireLabels",p.wireLabels},{"connectedSources",p.connectedSources},{"connectedPorts",p.connectedPorts},{"holding",p.holding},{"coordinationProgress",p.coordinationProgress}};
+      {"sequence",p.sequence},{"wireLabels",p.wireLabels},{"connectedSources",p.connectedSources},{"connectedPorts",p.connectedPorts},{"holding",p.holding},{"coordinationProgress",p.coordinationProgress},{"coordinationButton",p.coordinationButton}};
   }
   inline void ReadPuzzle(const Json &j, PuzzleSession &p) {
     p.target = Integer(j,"target",0,1000000); p.kind = static_cast<PuzzleKind>(Integer(j,"kind",0,5));
@@ -53,11 +56,13 @@ namespace NoTrace::TacticalState {
     }
     p.connectedSources=static_cast<std::uint8_t>(Integer(j,"connectedSources",0,15)); p.connectedPorts=static_cast<std::uint8_t>(Integer(j,"connectedPorts",0,15));
     p.holding=j.value("holding",false); p.coordinationProgress=Bounded(j,"coordinationProgress",0.f,10.f);
+    p.coordinationButton=Integer(j,"coordinationButton",0,DevicesConfig::CoordinationMaximumButtons);
     if (!p.target) {
-      if (p.kind!=PuzzleKind::None || p.stage || p.length || p.family!=PuzzleFamily::Automatic || !p.sequence.empty() || labels || p.connectedSources || p.connectedPorts || p.holding || p.coordinationProgress>0.f) throw std::runtime_error("Puzle sin dispositivo");
+      if (p.kind!=PuzzleKind::None || p.stage || p.length || p.family!=PuzzleFamily::Automatic || !p.sequence.empty() || labels || p.connectedSources || p.connectedPorts || p.holding || p.coordinationProgress>0.f || p.coordinationButton) throw std::runtime_error("Puzle sin dispositivo");
       return;
     }
     if (p.kind==PuzzleKind::None || p.family==PuzzleFamily::Automatic || p.stage>p.length || !p.length) throw std::runtime_error("Puzle sin familia o etapas");
+    if ((p.family==PuzzleFamily::Coordination) != (p.coordinationButton!=0)) throw std::runtime_error("Control de coordinación incompatible con su familia");
     if (p.family==PuzzleFamily::Wires && (p.length!=4 || labels!=15 || p.connectedSources!=p.connectedPorts)) {
       if (p.length!=4 || labels!=15 || std::popcount(static_cast<unsigned int>(p.connectedSources))!=std::popcount(static_cast<unsigned int>(p.connectedPorts))) throw std::runtime_error("Conexiones incompatibles");
     }
@@ -82,15 +87,15 @@ namespace NoTrace::TacticalState {
       const auto &o=*std::ranges::find_if(world.objects,[&](const Interactable &v){return v.id==j["id"];}); const auto &c=o.camera; const auto &p=o.puzzle;
       const bool clueKnown=!filtered || c.trackedAgent==player || known("agents",c.trackedAgent);
       j["camera"].update({{"lostSightTime",c.lostSightTime},{"perception",static_cast<int>(c.perception)},{"trackedAgent",clueKnown?c.trackedAgent:0},{"lastKnown",Vec(clueKnown?c.lastKnown:o.position)},{"trackingSpeed",c.trackingSpeed},{"searchRemaining",c.searchRemaining},{"suspicionRemaining",c.suspicionRemaining},{"confirmedRemaining",c.confirmedRemaining},{"indicatorProgress",c.indicatorProgress}});
-      j["puzzleDevice"].update({{"family",static_cast<int>(p.family)},{"sequenceProgress",p.sequenceProgress},{"coordinationProgress",p.coordinationProgress},{"requiredAgents",p.requiredAgents},{"soloAllowed",p.soloAllowed},{"wireCrossingAllowed",p.wireCrossingAllowed},{"parentDevice",p.parentDevice},{"nodeIndex",p.nodeIndex},{"leverOrder",!filtered?p.leverOrder:std::vector<std::uint8_t>{}}});
+      j["puzzleDevice"].update({{"family",static_cast<int>(p.family)},{"sequenceProgress",p.sequenceProgress},{"coordinationProgress",p.coordinationProgress},{"coordinationMask",p.coordinationMask},{"coordinationReservedMask",p.coordinationReservedMask},{"requiredAgents",p.requiredAgents},{"soloAllowed",p.soloAllowed},{"wireCrossingAllowed",p.wireCrossingAllowed},{"parentDevice",p.parentDevice},{"nodeIndex",p.nodeIndex},{"leverOrder",!filtered?p.leverOrder:std::vector<std::uint8_t>{}}});
     }
     snapshot["decoys"]=Json::array();
     const auto observer=std::ranges::find_if(world.agents,[&](const Agent &a){return a.id==player;});
     for (const auto &d:world.decoys) {
       const float t=d.duration>0.f?d.elapsed/d.duration:1.f; const auto position=d.from+(d.to-d.from)*t;
-      if (filtered && d.actor!=player && (observer==world.agents.end() || !Visibility::IsVisible(world,*observer,position))) continue;
+      if (filtered && d.actor!=player && (observer==world.agents.end() || !Visibility::IsGeometricallyVisible(world,*observer,position,Stance::Prone,d.elevation+DistractionGeometry::DecoyHeight(d)))) continue;
       const bool own=!filtered || d.actor==player;
-      snapshot["decoys"].push_back({{"from",Vec(own?d.from:position)},{"to",Vec(own?d.to:position)},{"elapsed",d.elapsed},{"duration",d.duration},{"height",d.height},{"actor",own?d.actor:0},{"blocked",d.blocked}});
+      snapshot["decoys"].push_back({{"from",Vec(own?d.from:position)},{"to",Vec(own?d.to:position)},{"elapsed",d.elapsed},{"duration",d.duration},{"height",d.height},{"actor",own?d.actor:0},{"blocked",d.blocked},{"elevation",d.elevation}});
     }
   }
   inline void Read(const Json &snapshot, WorldState &world) {
@@ -122,13 +127,24 @@ namespace NoTrace::TacticalState {
       if (j.contains("puzzleDevice")) { const auto &p=j["puzzleDevice"]; auto &v=o.puzzle;
         v.family=static_cast<PuzzleFamily>(Integer(p,"family",0,4)); v.sequenceProgress=Integer(p,"sequenceProgress",0,8); v.coordinationProgress=Bounded(p,"coordinationProgress",0.f,10.f); v.requiredAgents=Integer(p,"requiredAgents",2,4); v.soloAllowed=p.value("soloAllowed",true); v.wireCrossingAllowed=p.value("wireCrossingAllowed",true);
         v.parentDevice=Integer(p,"parentDevice",0,1000000); v.nodeIndex=Integer(p,"nodeIndex",0,4); v.leverOrder=Sequence(p.value("leverOrder",Json::array()));
+        v.coordinationMask=static_cast<std::uint8_t>(Integer(p,"coordinationMask",0,15)); v.coordinationReservedMask=static_cast<std::uint8_t>(Integer(p,"coordinationReservedMask",0,15));
         if (!v.requiredAgents || (v.parentDevice && !v.nodeIndex)) throw std::runtime_error("Dispositivo táctico inválido");
+        if ((v.coordinationMask & ~v.coordinationReservedMask) || (v.coordinationReservedMask & ~Coordination::FullMask(o)) ||
+            ((v.coordinationMask || v.coordinationReservedMask) && v.kind!=PuzzleKind::Coordination && v.family!=PuzzleFamily::Coordination)) throw std::runtime_error("Máscara de controles inválida");
       }
     }
-    for (std::size_t i=0;i<world.noises.size();++i) { auto &n=world.noises[i]; const auto &j=snapshot["noises"][i]; n.kind=static_cast<SoundKind>(Integer(j,"kind",4,31)); n.duration=Bounded(j,"duration",GameplayConfig::NoiseDuration,5.f); if(n.remaining>n.duration) throw std::runtime_error("Ruido con duración incoherente"); }
+    for (const auto &agent : world.agents) if (agent.puzzle.coordinationButton) {
+      const auto panel=std::ranges::find(world.objects,agent.puzzle.target,&Interactable::id);
+      if (panel==world.objects.end() || agent.puzzle.coordinationButton>Coordination::ButtonCount(*panel) ||
+          !(panel->puzzle.coordinationReservedMask & Coordination::ButtonBit(agent.puzzle.coordinationButton))) throw std::runtime_error("Operador sin control autorizado");
+    }
+    for (std::size_t i=0;i<world.noises.size();++i) { auto &n=world.noises[i]; const auto &j=snapshot["noises"][i]; n.kind=static_cast<SoundKind>(Integer(j,"kind",4,static_cast<unsigned int>(SoundKind::Count)-1)); n.duration=Bounded(j,"duration",GameplayConfig::NoiseDuration,5.f); if(n.remaining>n.duration) throw std::runtime_error("Ruido con duración incoherente"); }
     if (snapshot.contains("decoys")) {
       if (!snapshot["decoys"].is_array() || snapshot["decoys"].size()>DistractionConfig::MaximumFlyingDecoys) throw std::runtime_error("Demasiados discos en vuelo");
       for (const auto &j:snapshot["decoys"]) { DecoyProjectile d{Point(j.at("from")),Point(j.at("to")),Bounded(j,"elapsed",0.f,3.f),Bounded(j,"duration",0.f,3.f),Bounded(j,"height",0.f,200.f),Integer(j,"actor",0,1000000),j.value("blocked",false)};
+        if (!j.at("elevation").is_number()) throw std::runtime_error("Altura de disco no numérica");
+        d.elevation = j.at("elevation").get<float>();
+        if (!std::isfinite(d.elevation) || d.elevation < LevelConfig::MinimumElevation || d.elevation > LevelConfig::MaximumElevation) throw std::runtime_error("Altura de disco fuera de rango");
         if(d.duration<=0.f || d.elapsed>=d.duration) throw std::runtime_error("Disco sin vuelo válido"); world.decoys.push_back(d);
       }
     }
