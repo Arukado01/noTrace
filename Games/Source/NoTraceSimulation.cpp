@@ -786,7 +786,7 @@ namespace NoTrace {
     if (agent.running && agent.moving) agent.stamina = std::max(0.f, agent.stamina - RunningStaminaPerSecond * dt);
     else agent.stamina = std::min(MaxStamina, agent.stamina + StaminaRecoveryPerSecond * dt);
     if (agent.moving) {
-      agent.hidden = false; agent.facing = Unit(agent.position - previous); agent.animationTime += dt * (agent.running ? 0.6f : 0.f);
+      agent.hidden = false; agent.animationTime += dt * (agent.running ? 0.6f : 0.f);
       agent.footstepTime += agent.stance == Stance::Prone ? 0.f : dt;
       const float interval = agent.stance == Stance::Crouched ? CrouchedFootstepInterval : agent.running ? RunningFootstepInterval : FootstepInterval;
       if (IsTactical(world_) && agent.stance != Stance::Prone && agent.footstepTime >= interval) {
