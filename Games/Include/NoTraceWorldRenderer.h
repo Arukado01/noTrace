@@ -431,6 +431,14 @@ namespace NoTrace {
       color.a = static_cast<std::uint8_t>(96.f + progress * 159.f);
       return {confirmed ? PresentationConfig::DetectionEyeSegments : static_cast<unsigned int>(std::ceil(progress * PresentationConfig::DetectionEyeSegments)), color, confirmed};
     }
+    static DetectionVisual SecurityEyeFor(const WorldState &world) {
+      switch (world.securityAlert) {
+      case SecurityAlert::Red: return {PresentationConfig::DetectionEyeSegments, PresentationConfig::Red, true};
+      case SecurityAlert::Orange: return {PresentationConfig::DetectionEyeSegments, PresentationConfig::Orange, false};
+      case SecurityAlert::Yellow: return {PresentationConfig::DetectionEyeSegments, PresentationConfig::Yellow, false};
+      default: return {};
+      }
+    }
     static bool AnimateHideoutEntry(const WorldState &world, const Agent &agent, bool local) {
       if (!local || !agent.hidden || agent.actionPose != ActionPose::HideEnter || agent.actionPoseTime <= 0.f) return false;
       const auto object = std::ranges::find_if(world.objects, [&](const Interactable &candidate) { return candidate.id == agent.hideoutId; });

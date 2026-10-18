@@ -471,6 +471,24 @@ int main() {
     Require(WorldRenderer::IndicatorFor(guard) == WorldRenderer::GuardIndicator::Suspicion && WorldRenderer::GuardDetectionFor(guard).segments > 0,
       "La sospecha reciente desaparece antes de terminar su tiempo de presentación");
     guard.suspicionRemaining = 0.f; guard.indicatorProgress = 0.f;
+    NoTrace::WorldState alertWorld;
+    for (const auto alert : {NoTrace::SecurityAlert::Red, NoTrace::SecurityAlert::Orange, NoTrace::SecurityAlert::Yellow, NoTrace::SecurityAlert::Calm}) {
+      alertWorld.securityAlert = alert;
+      const auto eye = WorldRenderer::SecurityEyeFor(alertWorld);
+      const auto color = alert == NoTrace::SecurityAlert::Red ? NoTrace::PresentationConfig::Red : alert == NoTrace::SecurityAlert::Orange ?
+        NoTrace::PresentationConfig::Orange : NoTrace::PresentationConfig::Yellow;
+      Require(eye.segments == (alert == NoTrace::SecurityAlert::Calm ? 0u : NoTrace::PresentationConfig::DetectionEyeSegments) &&
+        eye.confirmed == (alert == NoTrace::SecurityAlert::Red) && (alert == NoTrace::SecurityAlert::Calm || eye.color == color),
+        "El ojo global no representa la fase autoritativa de alerta");
+    }
+    NoTrace::WorldState hideoutView;
+    NoTrace::Interactable table; table.id = 71; table.kind = NoTrace::ObjectKind::Hideout; table.hideoutKind = NoTrace::HideoutKind::UnderTable;
+    hideoutView.objects.push_back(table);
+    NoTrace::Agent enteringAgent; enteringAgent.hidden = true; enteringAgent.hideoutId = table.id;
+    enteringAgent.actionPose = NoTrace::ActionPose::HideEnter; enteringAgent.actionPoseTime = NoTrace::GameplayConfig::StanceTransitionDuration;
+    Require(!WorldRenderer::AnimateHideoutEntry(hideoutView, enteringAgent, true), "Entrar bajo la mesa conserva interpolación visual de entrada");
+    hideoutView.objects[0].hideoutKind = NoTrace::HideoutKind::Closet;
+    Require(WorldRenderer::AnimateHideoutEntry(hideoutView, enteringAgent, true), "El cambio instantáneo de la mesa elimina la animación del armario");
     NoTrace::WorldState fogWorld;
     fogWorld.phase = NoTrace::GamePhase::Mission; fogWorld.size = {700.f, 600.f};
     fogWorld.agents.push_back(observer); fogWorld.agents[0].position = {200.f, 300.f};

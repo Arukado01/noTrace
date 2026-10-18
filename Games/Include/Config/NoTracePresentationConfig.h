@@ -70,7 +70,6 @@ namespace NoTrace::PresentationConfig {
   inline constexpr float FogEffectStep = 12.f;
   inline constexpr float FogFeatherWidth = 34.f;
   inline constexpr unsigned int FogFeatherBands = 6;
-  inline constexpr sf::Vector2f DetectionHudCenter{1260.f, 164.f};
   inline constexpr unsigned int DetectionEyeSegments = 16;
   inline constexpr float DetectionWarningThreshold = 0.8f;
   inline constexpr float GuardEyeScale = 0.5f;
@@ -87,6 +86,7 @@ namespace NoTrace::PresentationConfig {
   inline constexpr float AimReticleSize = 5.f;
   inline constexpr float FootstepMarkLength = 7.f;
   inline constexpr sf::Vector2f MinimapPosition{1320.f, 140.f};
+  inline constexpr sf::Vector2f DetectionHudCenter = MinimapPosition + sf::Vector2f{-60.f, 24.f};
   inline constexpr sf::Vector2f MinimapSize{240.f, 190.f};
   inline constexpr sf::Vector2f MinimapGroundOffset{10.f, 24.f};
   inline constexpr sf::Vector2f MinimapGroundSize{220.f, 120.f};
@@ -107,6 +107,8 @@ namespace NoTrace::PresentationConfig {
   inline const sf::Color Cyan{73, 188, 202};
   inline const sf::Color Green{110, 200, 147};
   inline const sf::Color Amber{226, 173, 78};
+  inline const sf::Color Orange{238, 139, 58};
+  inline const sf::Color Yellow{233, 202, 83};
   inline const sf::Color Red{221, 67, 77};
   inline const sf::Color Violet{168, 130, 214};
   inline const sf::Color Outline{9, 15, 23};

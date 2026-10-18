@@ -1069,8 +1069,8 @@ namespace NoTrace {
   }
 
   void WorldRenderer::DetectionEye(const WorldState &world, const Agent *observer) const {
-    if (!IsTactical(world) || !observer || !observer->alive || observer->incapacitated || observer->extracted) return;
-    const auto visual = DetectionFor(*observer);
+    if (!IsTactical(world) || !observer || observer->extracted) return;
+    const auto visual = SecurityEyeFor(world);
     const auto center = PresentationConfig::DetectionHudCenter;
     Polygon({center + sf::Vector2f{-34.f, -26.f}, center + sf::Vector2f{34.f, -26.f}, center + sf::Vector2f{38.f, -22.f},
         center + sf::Vector2f{38.f, 22.f}, center + sf::Vector2f{34.f, 26.f}, center + sf::Vector2f{-34.f, 26.f},

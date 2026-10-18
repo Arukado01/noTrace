@@ -478,7 +478,8 @@ namespace EngineTests {
       }
     }
     continuousFog.objects.clear(); continuousFog.obstacles.clear(); continuousFog.agents[0] = fogAgent;
-    const std::array<const char *, 4> eyeStates{{"quiet", "partial", "imminent", "confirmed"}};
+    const std::array<const char *, 4> eyeStates{{"quiet", "yellow", "orange", "confirmed"}};
+    const std::array<SecurityAlert, 4> eyeAlerts{{SecurityAlert::Calm, SecurityAlert::Yellow, SecurityAlert::Orange, SecurityAlert::Red}};
     const std::array<float, 4> eyeProgress{{0.f, 0.5f, 0.9f, 1.f}};
     const auto eyeCrop = [&](const sf::Image &pixels) {
       std::vector<std::uint32_t> values;
@@ -493,6 +494,7 @@ namespace EngineTests {
     std::vector<std::uint32_t> previousEye;
     for (std::size_t state = 0; state < eyeStates.size(); ++state) {
       continuousFog.agents[0].detectionProgress = eyeProgress[state]; continuousFog.agents[0].detectionConfirmed = state == 3;
+      continuousFog.securityAlert = eyeAlerts[state];
       std::vector<std::uint32_t> reference;
       for (std::size_t zoomIndex = 0; zoomIndex < zoomNames.size(); ++zoomIndex) {
         renderer.ResetZoom();
@@ -502,10 +504,10 @@ namespace EngineTests {
         const auto crop = eyeCrop(pixels);
         if (zoomIndex == 0) {
           reference = crop;
-          if (!previousEye.empty() && previousEye == crop) throw std::runtime_error("El ojo no cambia de representación al crecer la detección autoritativa");
+          if (!previousEye.empty() && previousEye == crop) throw std::runtime_error("El ojo no cambia de representación al cambiar la alerta global autoritativa");
           previousEye = crop;
         } else if (reference != crop) throw std::runtime_error("El zoom del mundo desplaza o escala el icono de vigilancia del HUD");
-        metadata.push_back({{"file", file.filename().string()}, {"detectionProgress", eyeProgress[state]}, {"confirmed", state == 3}, {"fixedHudAcrossZoom", true}});
+        metadata.push_back({{"file", file.filename().string()}, {"securityAlert", static_cast<int>(eyeAlerts[state])}, {"confirmed", state == 3}, {"fixedHudAcrossZoom", true}});
       }
     }
     renderer.ResetZoom();
