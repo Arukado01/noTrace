@@ -12,7 +12,7 @@ from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCES = ROOT / "Art/NoTrace/Environment/Sources"
-MATERIALS_SOURCE = SOURCES / "MilitaryMaterials16-v1.png"
+MATERIALS_SOURCE = SOURCES / "MilitaryMaterials16-v2-clean.png"
 FURNITURE = (
     "FieldDesk", "FieldDeskOverturned", "LockerClosed", "LockerOpen",
     "AmmunitionCrates", "LogisticsCrate", "WasteBin", "ServerRack",
@@ -80,25 +80,56 @@ def furniture(output: Path) -> dict:
     return {"sources": [{"path": str(source.relative_to(ROOT)), "sha256": digest(source)} for source in sources], "frames": entries}
 
 
-def materials(output: Path, source: Path = MATERIALS_SOURCE) -> dict:
+def materials(output: Path, source: Path = MATERIALS_SOURCE, registration: Path | None = None) -> dict:
     source = source.resolve()
     image = Image.open(source).convert("RGB")
+    registration_path = registration or source.with_suffix(".registration.json")
+    registered = None
+    if registration is not None or registration_path.is_file():
+        registered = json.loads(registration_path.read_text(encoding="utf-8"))
+        if registered.get("schema") != 1 or registered.get("sourceSha256") != digest(source):
+            raise ValueError("El registro de materiales no corresponde a la fuente original")
+        frames = registered.get("frames")
+        if not isinstance(frames, list) or len(frames) != len(MATERIALS):
+            raise ValueError("El registro debe contener exactamente los 16 materiales")
+        for index, frame in enumerate(frames):
+            if not isinstance(frame, dict):
+                raise ValueError("Cada material registrado debe ser un objeto")
+            bounds = frame.get("sourceBounds")
+            if frame.get("name") != MATERIALS[index] or type(frame.get("index")) is not int or frame["index"] != index:
+                raise ValueError("El registro cambia el orden de los materiales")
+            if not isinstance(bounds, list) or len(bounds) != 4 or any(type(value) is not int for value in bounds):
+                raise ValueError("Los límites registrados deben ser cuatro enteros")
+            if not (0 <= bounds[0] < bounds[2] <= image.width and 0 <= bounds[1] < bounds[3] <= image.height):
+                raise ValueError("Un recorte de material sale de su fuente")
     atlas = Image.new("RGB", (512, 512))
     entries = []
-    for index, (cell, source_bounds) in enumerate(cells(image)):
-        cell = cell.crop((2, 2, cell.width - 2, cell.height - 2)).resize((128, 128), Image.Resampling.NEAREST)
+    samples = ((image.crop(frame["sourceBounds"]), frame["sourceBounds"]) for frame in registered["frames"]) if registered else cells(image)
+    for index, (cell, source_bounds) in enumerate(samples):
+        # Los límites medidos evitan tomar píxeles de la celda vecina; v1 conserva su receta original.
+        if registered is None:
+            cell = cell.crop((2, 2, cell.width - 2, cell.height - 2))
+        cell = cell.resize((128, 128), Image.Resampling.NEAREST)
+        if registered and hashlib.sha256(cell.convert("RGBA").tobytes()).hexdigest() != registered["frames"][index].get("rgbaSha256"):
+            raise ValueError("El material empaquetado difiere del recorte revisado")
         origin = ((index % 4) * 128, (index // 4) * 128)
         atlas.paste(cell, origin)
         entries.append({"name": MATERIALS[index], "index": index, "rect": [*origin, 128, 128], "sourceCell": source_bounds})
     atlas.save(output / "MilitaryMaterials.png")
     source_path = source.relative_to(ROOT) if source.is_relative_to(ROOT) else source
-    return {"source": str(source_path), "sourceSha256": digest(source), "frames": entries}
+    result = {"source": str(source_path), "sourceSha256": digest(source), "frames": entries}
+    if registered:
+        registration_path = registration_path.resolve()
+        result["registration"] = str(registration_path.relative_to(ROOT) if registration_path.is_relative_to(ROOT) else registration_path)
+        result["registrationSha256"] = digest(registration_path)
+    return result
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=ROOT / "Art/NoTrace/Environment/Packed")
-    parser.add_argument("--materials-source", type=Path, default=MATERIALS_SOURCE, help="Fuente de 16 materiales; por defecto se conserva v1.")
+    parser.add_argument("--materials-source", type=Path, default=MATERIALS_SOURCE, help="Fuente de 16 materiales; por defecto usa v2 limpia, v1 sigue disponible explícitamente.")
+    parser.add_argument("--materials-registration", type=Path, help="Recortes medidos; por defecto busca el registro junto a la fuente.")
     parser.add_argument("--materials-only", action="store_true", help="Actualiza sólo materiales y conserva el catálogo de muebles del manifiesto base.")
     parser.add_argument("--base-manifest", type=Path, help="Manifiesto base para --materials-only; por defecto usa el existente en --output.")
     args = parser.parse_args()
@@ -126,7 +157,7 @@ def main() -> None:
     if not args.materials_only:
         manifest["furniture"] = furniture(args.output)
     # En modo aislado se conserva el manifiesto base sin leer ni reconstruir el PNG de muebles.
-    manifest["materials"] = materials(args.output, args.materials_source)
+    manifest["materials"] = materials(args.output, args.materials_source, args.materials_registration)
     outputs = manifest.setdefault("outputs", {})
     if not args.materials_only:
         outputs["MilitaryFurniture.png"] = digest(args.output / "MilitaryFurniture.png")

@@ -38,6 +38,16 @@
       "prompt": "Ampliación original coherente con MilitaryFurniture: ocho recortes pixel art2:1 en cuatro columnas y dos filas, cámara sobre mástil, kit explosivo con alicates y cables, silla, banco, barriles, vidrio de seguridad, ventilador industrial y baliza. Edición posterior preserva exactamente identidad y layout y limpia fondo, halos y luz externa; alfa cero en huecos, vidrio translúcido interior conservado. No personajes, marcas ni textos.",
       "review": "Ocho objetos completos; crops explícitos, sin fragmentos de vecinos. Alfa cero verificado en márgenes y huecos. Atlas final24objetos revisado visualmente.",
       "sha256": "95c5227e73c94bea1cbdd8c08b1b338cd6746d97a22056ecf7edb717dfc4695e"
+    },
+    {
+      "file": "Sources/MilitaryMaterials16-v2-clean.png",
+      "status": "integrated",
+      "promptFile": "Prompts/MilitaryMaterials16-v2-clean.txt",
+      "registration": "Sources/MilitaryMaterials16-v2-clean.registration.json",
+      "tool": "imagegen integrado",
+      "date": "2026-10-18",
+      "sha256": "449ab4f05059a42df786818503dc48d4bbf15d5d955af107d7f615836021b241",
+      "review": "16 materiales de formas amplias y paleta azul pizarra; recortes medidos, mosaicos 3x3 y capturas tácticas/FPS revisados. Conserva los 24 muebles y sus anclas. Sustituye v1 en runtime sin ampliar el atlas."
     }
   ],
   "integration": {

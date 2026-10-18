@@ -1,0 +1,183 @@
+{
+  "schema": 1,
+  "sourceSha256": "449ab4f05059a42df786818503dc48d4bbf15d5d955af107d7f615836021b241",
+  "rectConvention": "Half-open [left, top, right, bottom]; direct crop and nearest resize, no additional margin",
+  "frames": [
+    {
+      "name": "Concrete",
+      "index": 0,
+      "sourceBounds": [
+        2,
+        2,
+        309,
+        307
+      ],
+      "rgbaSha256": "d042f752f771b15dd1ea8add2a3f8988620e5ada211a0497cc8266e12de48edf"
+    },
+    {
+      "name": "Steel",
+      "index": 1,
+      "sourceBounds": [
+        319,
+        2,
+        622,
+        302
+      ],
+      "rgbaSha256": "494ada3e4286917a9e4938669f56a463e2dbb0ff49b14b5a0a8135c4660de2a0"
+    },
+    {
+      "name": "Grate",
+      "index": 2,
+      "sourceBounds": [
+        631,
+        2,
+        936,
+        300
+      ],
+      "rgbaSha256": "51bfffda78eac3575b8c5a106b95df0764db802ac24111d8d2afe4456122198f"
+    },
+    {
+      "name": "Industrial",
+      "index": 3,
+      "sourceBounds": [
+        945,
+        2,
+        1252,
+        307
+      ],
+      "rgbaSha256": "98cd0dc397a8c1958186f35bd623eaaf3406dbde0a997489232603ab06279034"
+    },
+    {
+      "name": "Soil",
+      "index": 4,
+      "sourceBounds": [
+        2,
+        316,
+        309,
+        615
+      ],
+      "rgbaSha256": "5814d01876384221d00b8def8a549cbdae2daf8a069869c644ad6507694e2563"
+    },
+    {
+      "name": "ConcreteWall",
+      "index": 5,
+      "sourceBounds": [
+        319,
+        316,
+        622,
+        616
+      ],
+      "rgbaSha256": "fc9ddf1d80666f96ce4e6f2a2dc99cde25817e4e5c0d769efeb95422afc05b79"
+    },
+    {
+      "name": "SteelWall",
+      "index": 6,
+      "sourceBounds": [
+        631,
+        316,
+        936,
+        616
+      ],
+      "rgbaSha256": "924754315a0347264ecd8b0b7bbad388e1a9b53ec8d770a2adf91f97e13207ea"
+    },
+    {
+      "name": "Glass",
+      "index": 7,
+      "sourceBounds": [
+        951,
+        318,
+        1252,
+        611
+      ],
+      "rgbaSha256": "b5d3a15486c73ddd7272227295eca45d1860ae7100a7092d58c7bb46e1094c66"
+    },
+    {
+      "name": "SecurityDoor",
+      "index": 8,
+      "sourceBounds": [
+        2,
+        634,
+        309,
+        920
+      ],
+      "rgbaSha256": "3c5c662daebeb526158cee1a47a67526dd5756ab80b758f3446229d120f4926c"
+    },
+    {
+      "name": "Safety",
+      "index": 9,
+      "sourceBounds": [
+        357,
+        661,
+        618,
+        922
+      ],
+      "rgbaSha256": "43b60a3599dfecfca3c10f1437dfc5584570c2dadd924ea9fc8dfe335a6103b1"
+    },
+    {
+      "name": "Brick",
+      "index": 10,
+      "sourceBounds": [
+        631,
+        632,
+        936,
+        920
+      ],
+      "rgbaSha256": "2b85d66ce7d783eda2f781fce395722adf8561b17cde97268fb5d353990af6bc"
+    },
+    {
+      "name": "StairTread",
+      "index": 11,
+      "sourceBounds": [
+        947,
+        632,
+        1252,
+        922
+      ],
+      "rgbaSha256": "5c45e7d39450230e09f664373b2239af97eb443a53a31a1b1d55a66fd709b4b2"
+    },
+    {
+      "name": "Antistatic",
+      "index": 12,
+      "sourceBounds": [
+        2,
+        936,
+        310,
+        1252
+      ],
+      "rgbaSha256": "cad61c6c2c279c1ef1681ab5a67c012c5ecbfec313ad00733f9d991cddc73fb4"
+    },
+    {
+      "name": "DiamondPlate",
+      "index": 13,
+      "sourceBounds": [
+        320,
+        936,
+        622,
+        1252
+      ],
+      "rgbaSha256": "4fe1726d559b1754c900a8f9668a28aa8c3c1e1249b0371276b95a26886c2f0c"
+    },
+    {
+      "name": "Ventilation",
+      "index": 14,
+      "sourceBounds": [
+        631,
+        946,
+        936,
+        1252
+      ],
+      "rgbaSha256": "bd8a46d0b5304fa56c136c8ee4e384f96921534cb88bd0078d12cda451d112e1"
+    },
+    {
+      "name": "Fabric",
+      "index": 15,
+      "sourceBounds": [
+        945,
+        944,
+        1252,
+        1252
+      ],
+      "rgbaSha256": "6886686385e63f158f122e983f0112e1ed2a4e3f0ac1ea8c5c595659f040d046"
+    }
+  ]
+}
