@@ -1,4 +1,5 @@
 #include "NoTraceFirstPersonRenderer.h"
+#include "NoTracePerformance.h"
 #include "NoTraceFirstPersonGeometry.h"
 #include "NoTraceFirstPersonArt.h"
 #include "Config/NoTraceWeaponConfig.h"
@@ -7,6 +8,7 @@
 #include <SFML/Graphics/Sprite.hpp>
 #include <SFML/Graphics/Text.hpp>
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
@@ -23,6 +25,15 @@ namespace NoTrace {
     sf::Color Shade(sf::Color color, float light) {
       return {Channel(color.r * light), Channel(color.g * light), Channel(color.b * light), color.a};
     }
+    struct ImagePixels {
+      const std::uint8_t *data;
+      unsigned int width;
+      explicit ImagePixels(const sf::Image &image) : data(image.getPixelsPtr()), width(image.getSize().x) {}
+      sf::Color At(sf::Vector2u point) const {
+        const auto offset = (static_cast<std::size_t>(point.y) * width + point.x) * 4;
+        return {data[offset], data[offset + 1], data[offset + 2], data[offset + 3]};
+      }
+    };
     void Blend(std::vector<std::uint8_t> &pixels, std::size_t offset, sf::Color color) {
       if (color.a == 0) return;
       const float alpha = color.a / 255.f;
@@ -94,11 +105,13 @@ namespace NoTrace {
   }
 
   CombatGeometry::AimSolution FirstPersonRenderer::Aim(const WorldState &world, PlayerId player, const FirstPersonCamera &camera) const {
+    NO_TRACE_PROFILE_SCOPE(Aim);
     const auto *agent = Player(world, player);
     return agent ? FirstPersonGeometry::ResolveAim(world, *agent, camera) : CombatGeometry::AimSolution{};
   }
 
   void FirstPersonRenderer::Render(const WorldState &world, PlayerId player, const FirstPersonCamera &camera, bool hudVisible) const {
+    NO_TRACE_PROFILE_SCOPE(FirstPerson);
     using namespace FirstPersonGeometry;
     const auto started = std::chrono::steady_clock::now();
     const auto *observer = Player(world, player);
@@ -120,88 +133,111 @@ namespace NoTrace {
     const float focal = FocalLength(normalized, static_cast<float>(width));
     const float pitch = std::tan(normalized.pitch);
     const float horizon = height * .5f + pitch * focal;
-    const auto scene = BuildScene(world);
+    Scene scene;
+    std::vector<PreparedPrism> preparedPrisms;
+    {
+      NO_TRACE_PROFILE_SCOPE(GeometryBuild);
+      scene = BuildScene(world);
+      preparedPrisms.reserve(scene.prisms.size());
+      for (const auto &prism : scene.prisms) if (prism.visible) preparedPrisms.push_back(PreparePrism(prism, origin));
+    }
     state_->stats.prisms = scene.prisms.size();
-    std::vector<ColumnIntersection> candidates;
+    std::array<float, FirstPersonConfig::MaximumRenderHeight> rowSlopes;
+    std::array<sf::Color, FirstPersonConfig::MaximumRenderHeight> skyColors;
+    for (unsigned int y = 0; y < height; ++y) {
+      rowSlopes[y] = (horizon - static_cast<float>(y) - .5f) / focal;
+      const float sky = std::clamp((static_cast<float>(y) - horizon + height * .7f) / (height * 1.4f), 0.f, 1.f);
+      skyColors[y] = {Channel(11.f + 17.f * sky), Channel(19.f + 22.f * sky), Channel(28.f + 20.f * sky)};
+    }
+    const ImagePixels materials(state_->materials);
+    std::vector<PreparedColumn> candidates;
     candidates.reserve(scene.prisms.size());
+    PreparedColumn candidate;
     for (unsigned int x = 0; x < width; ++x) {
       const auto ground = forward + right * ((static_cast<float>(x) + .5f - width * .5f) / focal);
       candidates.clear();
-      for (const auto &prism : scene.prisms) if (prism.visible) {
-        const auto intersection = IntersectColumn(prism, origin, ground);
-        if (intersection) candidates.push_back(*intersection);
+      {
+        NO_TRACE_PROFILE_SCOPE(FirstPersonColumns);
+        for (const auto &prism : preparedPrisms) {
+          if (IntersectPreparedColumn(prism, ground.x, ground.y, candidate)) candidates.push_back(candidate);
+        }
+        std::sort(candidates.begin(), candidates.end(), [](const auto &first, const auto &last) { return first.intersection.near < last.intersection.near; });
       }
-      std::sort(candidates.begin(), candidates.end(), [](const auto &first, const auto &last) { return first.near < last.near; });
       state_->stats.columnCandidates += candidates.size();
-      for (unsigned int y = 0; y < height; ++y) {
-        const std::size_t index = static_cast<std::size_t>(y) * width + x;
-        const float sky = std::clamp((static_cast<float>(y) - horizon + height * .7f) / (height * 1.4f), 0.f, 1.f);
-        sf::Color color{Channel(11.f + 17.f * sky), Channel(19.f + 22.f * sky), Channel(28.f + 20.f * sky)};
-        const sf::Vector3f direction{ground.x, ground.y, (horizon - static_cast<float>(y) - .5f) / focal};
-        std::optional<RayHit> nearest;
-        for (const auto &column : candidates) {
-          if (column.near > (nearest ? nearest->distance : FirstPersonConfig::RenderDistance)) break;
-          const auto hit = IntersectRow(column, origin, direction, nearest ? nearest->distance : FirstPersonConfig::RenderDistance);
-          if (hit && (!nearest || hit->distance < nearest->distance)) nearest = hit;
+      {
+        NO_TRACE_PROFILE_SCOPE(FirstPersonRaster);
+        for (unsigned int y = 0; y < height; ++y) {
+          const std::size_t index = static_cast<std::size_t>(y) * width + x;
+          sf::Color color = skyColors[y];
+          DepthHit nearest;
+          for (const auto &column : candidates) {
+            if (column.intersection.near > nearest.distance) break;
+            NearestPreparedRow(column, rowSlopes[y], nearest);
+          }
+          if (nearest.prism) {
+            state_->depth[index] = nearest.distance;
+            const float pointX = origin.x + ground.x * nearest.distance, pointY = origin.y + ground.y * nearest.distance;
+            const float pointZ = origin.z + rowSlopes[y] * nearest.distance;
+            const bool horizontal = std::abs(nearest.normalZ) > .5f;
+            const float u = horizontal ? pointX : std::abs(nearest.normalX) > .5f ? pointY : pointX;
+            const float v = horizontal ? pointY : pointZ;
+            const auto coordinate = [](float value) { const float wrapped = value / FirstPersonConfig::MaterialTileSize - std::floor(value / FirstPersonConfig::MaterialTileSize); return static_cast<unsigned int>(wrapped * 127.99f); };
+            const unsigned int tile = std::min(15u, nearest.prism->material);
+            const sf::Vector2u uv{tile % 4u * 128u + coordinate(u), tile / 4u * 128u + coordinate(v)};
+            color = materials.At(uv);
+            const float side = horizontal ? (nearest.normalZ > 0.f ? .95f : .6f) : std::abs(nearest.normalX) > .5f ? .78f : .9f;
+            const float light = side * (.38f + .62f / (1.f + nearest.distance * .005f));
+            color = Shade(color, light);
+          }
+          const auto offset = index * 4;
+          state_->pixels[offset] = color.r; state_->pixels[offset + 1] = color.g; state_->pixels[offset + 2] = color.b; state_->pixels[offset + 3] = 255;
         }
-        if (nearest) {
-          state_->depth[index] = nearest->distance;
-          const bool horizontal = std::abs(nearest->normal.z) > .5f;
-          const float u = horizontal ? nearest->point.x : std::abs(nearest->normal.x) > .5f ? nearest->point.y : nearest->point.x;
-          const float v = horizontal ? nearest->point.y : nearest->point.z;
-          const auto coordinate = [](float value) { const float wrapped = value / FirstPersonConfig::MaterialTileSize - std::floor(value / FirstPersonConfig::MaterialTileSize); return static_cast<unsigned int>(wrapped * 127.99f); };
-          const unsigned int tile = std::min(15u, nearest->prism->material);
-          const sf::Vector2u uv{tile % 4u * 128u + coordinate(u), tile / 4u * 128u + coordinate(v)};
-          color = state_->materials.getPixel(uv);
-          const float side = horizontal ? (nearest->normal.z > 0.f ? .95f : .6f) : std::abs(nearest->normal.x) > .5f ? .78f : .9f;
-          const float light = side * (.38f + .62f / (1.f + nearest->distance * .005f));
-          color = Shade(color, light);
-        }
-        const auto offset = index * 4;
-        state_->pixels[offset] = color.r; state_->pixels[offset + 1] = color.g; state_->pixels[offset + 2] = color.b; state_->pixels[offset + 3] = 255;
       }
     }
 
-    const auto billboard = [&](sf::Vector2f position, float elevation, unsigned int variant, unsigned int animation, bool hurt = false) {
-      const auto delta = position - observer->position;
-      const float depth = delta.dot(forward);
-      if (depth <= FirstPersonConfig::NearPlane || depth >= FirstPersonConfig::RenderDistance) return;
-      const auto frame = state_->art.ActorFrame(variant, animation);
-      const float scale = focal / depth * (CombatConfig::StandingHeight / FirstPersonArtConfig::StandingPixels);
-      const float screenX = width * .5f + delta.dot(right) * focal / depth;
-      const float feetY = horizon - (elevation - origin.z) * focal / depth;
-      const float left = screenX - frame.anchor.x * scale, top = feetY - frame.anchor.y * scale;
-      const int fromX = std::max(0, static_cast<int>(std::floor(left))), toX = std::min(static_cast<int>(width), static_cast<int>(std::ceil(left + frame.rect.size.x * scale)));
-      const int fromY = std::max(0, static_cast<int>(std::floor(top))), toY = std::min(static_cast<int>(height), static_cast<int>(std::ceil(top + frame.rect.size.y * scale)));
-      if (fromX >= toX || fromY >= toY) return;
-      ++state_->stats.billboards;
-      const auto &image = state_->art.ActorsPixels();
-      for (int y = fromY; y < toY; ++y) for (int x = fromX; x < toX; ++x) {
-        const auto index = static_cast<std::size_t>(y) * width + x;
-        if (depth >= state_->depth[index]) continue;
-        const sf::Vector2i texel{std::clamp(static_cast<int>((x + .5f - left) / scale), 0, frame.rect.size.x - 1), std::clamp(static_cast<int>((y + .5f - top) / scale), 0, frame.rect.size.y - 1)};
-        auto color = image.getPixel(sf::Vector2u(frame.rect.position + texel));
-        if (color.a < 32) continue;
-        if (hurt) { color.r = Channel(color.r * .72f + 66.f); color.g = Channel(color.g * .78f); color.b = Channel(color.b * .78f); }
-        Blend(state_->pixels, index * 4, Shade(color, .65f + .35f / (1.f + depth * .006f)));
-        state_->depth[index] = depth; ++state_->stats.actorPixels;
+    {
+      NO_TRACE_PROFILE_SCOPE(FirstPersonActors);
+      const ImagePixels actors(state_->art.ActorsPixels());
+      const auto billboard = [&](sf::Vector2f position, float elevation, unsigned int variant, unsigned int animation, bool hurt = false) {
+        const auto delta = position - observer->position;
+        const float depth = delta.dot(forward);
+        if (depth <= FirstPersonConfig::NearPlane || depth >= FirstPersonConfig::RenderDistance) return;
+        const auto frame = state_->art.ActorFrame(variant, animation);
+        const float scale = focal / depth * (CombatConfig::StandingHeight / FirstPersonArtConfig::StandingPixels);
+        const float screenX = width * .5f + delta.dot(right) * focal / depth;
+        const float feetY = horizon - (elevation - origin.z) * focal / depth;
+        const float left = screenX - frame.anchor.x * scale, top = feetY - frame.anchor.y * scale;
+        const int fromX = std::max(0, static_cast<int>(std::floor(left))), toX = std::min(static_cast<int>(width), static_cast<int>(std::ceil(left + frame.rect.size.x * scale)));
+        const int fromY = std::max(0, static_cast<int>(std::floor(top))), toY = std::min(static_cast<int>(height), static_cast<int>(std::ceil(top + frame.rect.size.y * scale)));
+        if (fromX >= toX || fromY >= toY) return;
+        ++state_->stats.billboards;
+        for (int y = fromY; y < toY; ++y) for (int x = fromX; x < toX; ++x) {
+          const auto index = static_cast<std::size_t>(y) * width + x;
+          if (depth >= state_->depth[index]) continue;
+          const sf::Vector2i texel{std::clamp(static_cast<int>((x + .5f - left) / scale), 0, frame.rect.size.x - 1), std::clamp(static_cast<int>((y + .5f - top) / scale), 0, frame.rect.size.y - 1)};
+          auto color = actors.At(sf::Vector2u(frame.rect.position + texel));
+          if (color.a < 32) continue;
+          if (hurt) { color.r = Channel(color.r * .72f + 66.f); color.g = Channel(color.g * .78f); color.b = Channel(color.b * .78f); }
+          Blend(state_->pixels, index * 4, Shade(color, .65f + .35f / (1.f + depth * .006f)));
+          state_->depth[index] = depth; ++state_->stats.actorPixels;
+        }
+      };
+      for (const auto &guard : world.guards) {
+        if (guard.bodyHidden || guard.storedIn != 0 || !Visibility::GuardVisible(world, *observer, guard)) continue;
+        const bool down = guard.state == GuardState::Incapacitated || guard.state == GuardState::Dead;
+        const bool prone = !guard.trainingDummy && guard.heldBy == 0 && (guard.cqcState == CqcState::KnockedDown || guard.cqcState == CqcState::Restrained);
+        const bool impacted = std::ranges::any_of(world.shots, [&](const ShotTrace &shot) { return shot.hit && shot.remaining > 0.f && shot.targetKind == ShotTarget::Guard && shot.targetId == guard.id; });
+        const bool walking = !guard.navigation.empty() || (guard.patrolPauseRemaining <= 0.f && guard.stepTime > .001f);
+        const unsigned int animation = guard.state == GuardState::Dead ? 8u : down ? 7u : prone ? 6u : impacted || guard.staggerRemaining > 0.f || guard.trainingFeedback > 0.f ? 4u : guard.attackTime > 0.f ? 3u : walking && !guard.trainingDummy ? 1u + static_cast<unsigned int>(guard.stepTime * 8.f) % 2u : 0u;
+        billboard(guard.position, guard.elevation, guard.trainingDummy ? 3u : guard.id % 2u, animation, prone && impacted);
       }
-    };
-    for (const auto &guard : world.guards) {
-      if (guard.bodyHidden || guard.storedIn != 0 || !Visibility::GuardVisible(world, *observer, guard)) continue;
-      const bool down = guard.state == GuardState::Incapacitated || guard.state == GuardState::Dead;
-      const bool prone = !guard.trainingDummy && guard.heldBy == 0 && (guard.cqcState == CqcState::KnockedDown || guard.cqcState == CqcState::Restrained);
-      const bool impacted = std::ranges::any_of(world.shots, [&](const ShotTrace &shot) { return shot.hit && shot.remaining > 0.f && shot.targetKind == ShotTarget::Guard && shot.targetId == guard.id; });
-      const bool walking = !guard.navigation.empty() || (guard.patrolPauseRemaining <= 0.f && guard.stepTime > .001f);
-      const unsigned int animation = guard.state == GuardState::Dead ? 8u : down ? 7u : prone ? 6u : impacted || guard.staggerRemaining > 0.f || guard.trainingFeedback > 0.f ? 4u : guard.attackTime > 0.f ? 3u : walking && !guard.trainingDummy ? 1u + static_cast<unsigned int>(guard.stepTime * 8.f) % 2u : 0u;
-      billboard(guard.position, guard.elevation, guard.trainingDummy ? 3u : guard.id % 2u, animation, prone && impacted);
-    }
-    for (const auto &agent : world.agents) {
-      if (agent.id == player || !AgentVisible(world, *observer, agent)) continue;
-      const bool impacted = std::ranges::any_of(world.shots, [&](const ShotTrace &shot) { return shot.hit && shot.remaining > 0.f && shot.targetKind == ShotTarget::Agent && shot.targetId == agent.id; });
-      const unsigned int animation = !agent.alive ? 8u : agent.incapacitated ? 7u : agent.stance == Stance::Prone ? 6u : agent.stance == Stance::Crouched ? 5u : impacted || agent.staggerRemaining > 0.f ? 4u :
-          agent.actionPose == ActionPose::Shoot ? 3u : agent.moving ? 1u + static_cast<unsigned int>(agent.animationTime * 8.f) % 2u : 0u;
-      billboard(agent.position, agent.elevation, 2u, animation, impacted && agent.stance != Stance::Standing);
+      for (const auto &agent : world.agents) {
+        if (agent.id == player || !AgentVisible(world, *observer, agent)) continue;
+        const bool impacted = std::ranges::any_of(world.shots, [&](const ShotTrace &shot) { return shot.hit && shot.remaining > 0.f && shot.targetKind == ShotTarget::Agent && shot.targetId == agent.id; });
+        const unsigned int animation = !agent.alive ? 8u : agent.incapacitated ? 7u : agent.stance == Stance::Prone ? 6u : agent.stance == Stance::Crouched ? 5u : impacted || agent.staggerRemaining > 0.f ? 4u :
+            agent.actionPose == ActionPose::Shoot ? 3u : agent.moving ? 1u + static_cast<unsigned int>(agent.animationTime * 8.f) % 2u : 0u;
+        billboard(agent.position, agent.elevation, 2u, animation, impacted && agent.stance != Stance::Standing);
+      }
     }
 
     for (const auto &shot : world.shots) if (shot.remaining > 0.f && (shot.hit || shot.blocked)) {
@@ -221,18 +257,23 @@ namespace NoTrace {
       }
     }
 
-    const bool suppressed = observer->selectedWeapon == WeaponKind::Pistol ? observer->pistolSuppressorEquipped && observer->pistolSuppressor > 0.f : observer->nonLethalSuppressorEquipped && observer->nonLethalSuppressor > 0.f;
-    const unsigned int gesture = observer->reloadRemaining > 0.f ? (observer->reloadRemaining > WeaponConfig::ReloadDuration * .5f ? 2u : 3u) : state_->recoil > 0.f ? 1u : 0u;
-    const auto weapon = state_->art.ViewmodelFrame(observer->selectedWeapon, suppressed, gesture);
-    const auto &weaponImage = state_->art.ViewmodelPixels();
-    const float weaponScale = width * .64f / weapon.rect.size.x;
-    const float recoil = state_->recoil / FirstPersonConfig::RecoilDuration;
-    const float weaponLeft = width * .5f - weapon.anchor.x * weaponScale;
-    const float weaponTop = static_cast<float>(height) - weapon.anchor.y * weaponScale + recoil * 3.f;
-    for (int y = std::max(0, static_cast<int>(weaponTop)); y < static_cast<int>(height); ++y) for (int x = std::max(0, static_cast<int>(weaponLeft)); x < static_cast<int>(width); ++x) {
-      const sf::Vector2i source{static_cast<int>((x - weaponLeft) / weaponScale), static_cast<int>((y - weaponTop) / weaponScale)};
-      if (source.x < 0 || source.y < 0 || source.x >= weapon.rect.size.x || source.y >= weapon.rect.size.y) continue;
-      Blend(state_->pixels, (static_cast<std::size_t>(y) * width + x) * 4, weaponImage.getPixel(sf::Vector2u(weapon.rect.position + source)));
+    {
+      NO_TRACE_PROFILE_SCOPE(FirstPersonViewmodel);
+      const bool suppressed = observer->selectedWeapon == WeaponKind::Pistol ? observer->pistolSuppressorEquipped && observer->pistolSuppressor > 0.f : observer->nonLethalSuppressorEquipped && observer->nonLethalSuppressor > 0.f;
+      const unsigned int gesture = observer->reloadRemaining > 0.f ? (observer->reloadRemaining > WeaponConfig::ReloadDuration * .5f ? 2u : 3u) : state_->recoil > 0.f ? 1u : 0u;
+      const auto weapon = state_->art.ViewmodelFrame(observer->selectedWeapon, suppressed, gesture);
+      const ImagePixels weaponImage(state_->art.ViewmodelPixels());
+      const float weaponScale = width * .64f / weapon.rect.size.x;
+      const float recoil = state_->recoil / FirstPersonConfig::RecoilDuration;
+      const float weaponLeft = width * .5f - weapon.anchor.x * weaponScale;
+      const float weaponTop = static_cast<float>(height) - weapon.anchor.y * weaponScale + recoil * 3.f;
+      const int weaponRight = std::min(static_cast<int>(width), static_cast<int>(std::ceil(weaponLeft + weapon.rect.size.x * weaponScale)));
+      const int weaponBottom = std::min(static_cast<int>(height), static_cast<int>(std::ceil(weaponTop + weapon.rect.size.y * weaponScale)));
+      for (int y = std::max(0, static_cast<int>(weaponTop)); y < weaponBottom; ++y) for (int x = std::max(0, static_cast<int>(weaponLeft)); x < weaponRight; ++x) {
+        const sf::Vector2i source{static_cast<int>((x - weaponLeft) / weaponScale), static_cast<int>((y - weaponTop) / weaponScale)};
+        if (source.x < 0 || source.y < 0 || source.x >= weapon.rect.size.x || source.y >= weapon.rect.size.y) continue;
+        Blend(state_->pixels, (static_cast<std::size_t>(y) * width + x) * 4, weaponImage.At(sf::Vector2u(weapon.rect.position + source)));
+      }
     }
     if (state_->damage > 0.f) for (unsigned int y = 0; y < height; ++y) for (unsigned int x = 0; x < width; ++x) {
       if (x > 5u && y > 4u && x + 6u < width && y + 5u < height) continue;

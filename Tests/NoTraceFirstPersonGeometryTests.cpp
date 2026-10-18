@@ -1,4 +1,7 @@
 #include "NoTraceFirstPersonGeometry.h"
+#include <algorithm>
+#include <array>
+#include <bit>
 #include <cmath>
 #include <iostream>
 #include <limits>
@@ -10,6 +13,8 @@ namespace {
   unsigned int checks = 0;
   void Require(bool valid, const char *message) { ++checks; if (!valid) throw std::runtime_error(message); }
   bool Close(float first, float last, float tolerance = .001f) { return std::abs(first - last) <= tolerance; }
+  bool SameBits(float first, float last) { return std::bit_cast<std::uint32_t>(first) == std::bit_cast<std::uint32_t>(last); }
+  bool SameBits(sf::Vector3f first, sf::Vector3f last) { return SameBits(first.x, last.x) && SameBits(first.y, last.y) && SameBits(first.z, last.z); }
   WorldState Room() {
     WorldState world; world.size = {1000.f, 800.f}; world.phase = GamePhase::Mission;
     Agent player; player.id = 1; player.position = {200.f, 300.f}; player.facing = {1.f, 0.f};
@@ -163,11 +168,133 @@ namespace {
       Require(std::isfinite(aim.slope) && std::abs(aim.slope) <= CombatConfig::MaximumAimSlope, "FPS genera una pendiente de disparo que la autoridad rechaza");
     }
   }
+
+  void PreparedRowsMatchReference() {
+    auto world = Room();
+    world.obstacles.push_back(Wall({{300.f, 100.f}, {12.f, 400.f}}));
+    world.obstacles.push_back(Wall({{100.f, 400.f}, {500.f, 12.f}}, 96.f));
+    world.walkSurfaces = {{1, 0, WalkSurfaceKind::Floor, {{0.f, 0.f}, world.size}, 0.f},
+      {2, 1, WalkSurfaceKind::Floor, {{250.f, 200.f}, {250.f, 250.f}}, 96.f},
+      {3, 0, WalkSurfaceKind::Stair, {{100.f, 200.f}, {100.f, 100.f}}, 20.f, {.5f, -.125f}}};
+    Interactable table; table.id = 11; table.kind = ObjectKind::Hideout; table.hideoutKind = HideoutKind::UnderTable; table.position = {300.f, 300.f}; world.objects.push_back(table);
+    const auto scene = BuildScene(world);
+    for (unsigned int direction = 0; direction < 8; ++direction) for (const auto stance : {Stance::Standing, Stance::Crouched, Stance::Prone})
+      for (const float fov : {60.f, 85.f, 110.f}) for (const float pitch : {-.6f, 0.f, .6f}) {
+        world.agents[0].stance = stance;
+        const auto origin = Eye(world.agents[0]);
+        const FirstPersonCamera camera{direction * std::numbers::pi_v<float> * .25f, pitch, fov};
+        for (const float x : {.5f, 37.5f, 79.5f, 123.5f, 159.5f, 201.5f, 241.5f, 283.5f, 319.5f}) {
+          const auto ground = CameraRay(camera, {x, 90.f}, {320.f, 180.f});
+          for (const auto &prism : scene.prisms) {
+            const auto column = IntersectColumn(prism, origin, {ground.x, ground.y});
+            PreparedColumn scalar;
+            const bool intersects = IntersectPreparedColumn(PreparePrism(prism, origin), ground.x, ground.y, scalar);
+            Require(column.has_value() == intersects, "La columna escalar cambia la presencia de un prisma del raster original");
+            if (!column) continue;
+            const auto prepared = PrepareColumn(*column, origin, {ground.x, ground.y});
+            Require(column->prism == scalar.intersection.prism && SameBits(column->near, scalar.intersection.near) && SameBits(column->far, scalar.intersection.far) && SameBits(column->normal, scalar.intersection.normal) &&
+                SameBits(prepared.height, scalar.height) && SameBits(prepared.bottom, scalar.bottom) && SameBits(prepared.top, scalar.top) && SameBits(prepared.slope, scalar.slope),
+              "La columna escalar cambia bits de profundidad, normal, altura o pendiente del original");
+            for (const float y : {.5f, 22.5f, 47.5f, 89.5f, 90.f, 121.5f, 158.5f, 179.5f}) for (const float limit : {170.f, FirstPersonConfig::RenderDistance}) {
+              const auto ray = CameraRay(camera, {x, y}, {320.f, 180.f});
+              const auto reference = IntersectRow(*column, origin, ray, limit), actual = IntersectPreparedRow(scalar, origin, ray, limit);
+              Require(reference.has_value() == actual.has_value(), "La columna preparada cambia la presencia de un impacto del raster original");
+              if (reference) Require(SameBits(reference->distance, actual->distance) && SameBits(reference->point, actual->point) && SameBits(reference->normal, actual->normal) && reference->prism == actual->prism,
+                "La columna preparada cambia la profundidad, normal o coordenada de textura del raster original");
+            }
+          }
+        }
+      }
+  }
+  void PreparedColumnsMatchBoundaryCases() {
+    const std::array<Prism, 4> prisms{{
+      Prism{{{300.f, 100.f}, {12.f, 400.f}}, 0.f, 66.f},
+      Prism{{{0.f, 0.f}, {1000.f, 800.f}}, -6.f, 0.f},
+      Prism{{{100.f, 200.f}, {100.f, 100.f}}, 14.f, 20.f, {.5f, -.125f}},
+      Prism{{{200.f, 300.f}, {.08f, .08f}}, 40.f, 44.f}}};
+    const std::array<sf::Vector3f, 8> origins{{{200.f, 300.f, 40.f}, {300.f, 100.f, 0.f}, {312.f, 500.f, 66.f},
+      {306.f, 300.f, 22.f}, {100.f, 200.f, 20.f}, {0.f, 0.f, 0.f}, {1000.f, 800.f, 192.f}, {199.99998f, 300.00003f, 40.000004f}}};
+    const std::array<sf::Vector2f, 10> directions{{{1.f, 0.f}, {-1.f, 0.f}, {0.f, 1.f}, {0.f, -1.f}, {0.f, 0.f},
+      {.70710677f, .70710677f}, {-.70710677f, .70710677f}, {.0000001f, -.0000001f}, {.000001f, 1.f}, {-.000001f, -1.f}}};
+    for (const auto &prism : prisms) for (const auto origin : origins) for (const auto direction : directions)
+      for (const float limit : {0.f, FirstPersonConfig::NearPlane, 1.f, 170.f, FirstPersonConfig::RenderDistance}) {
+        const auto reference = IntersectColumn(prism, origin, direction, limit);
+        PreparedColumn actual;
+        const bool intersects = IntersectPreparedColumn(PreparePrism(prism, origin), direction.x, direction.y, actual, limit);
+        Require(reference.has_value() == intersects, "La columna preparada cambia un borde, eje paralelo o límite cercano");
+        if (!reference) continue;
+        Require(SameBits(reference->near, actual.intersection.near) && SameBits(reference->far, actual.intersection.far) && SameBits(reference->normal, actual.intersection.normal),
+          "La columna preparada modifica los bits de un borde o eje paralelo");
+        for (const float vertical : {-1.f, -.000001f, -.0000001f, -0.f, 0.f, .0000001f, .000001f, 1.f}) {
+          const sf::Vector3f ray{direction.x, direction.y, vertical};
+          const auto hit = IntersectRow(*reference, origin, ray, limit);
+          const auto scalar = IntersectPreparedRow(actual, origin, ray, limit);
+          Require(hit.has_value() == scalar.has_value(), "La fila preparada cambia la intersección en un borde o delta casi paralelo");
+          if (hit) Require(SameBits(hit->distance, scalar->distance) && SameBits(hit->point, scalar->point) && SameBits(hit->normal, scalar->normal) && hit->prism == scalar->prism,
+            "La fila preparada cambia bits de distancia, punto o normal en un borde");
+        }
+      }
+  }
+  void NearestDepthMatchesReference() {
+    auto world = Room();
+    world.obstacles = {Wall({{300.f, 100.f}, {12.f, 400.f}}), Wall({{100.f, 400.f}, {500.f, 12.f}}, 96.f)};
+    world.walkSurfaces = {{1, 0, WalkSurfaceKind::Floor, {{0.f, 0.f}, world.size}, 0.f},
+      {2, 1, WalkSurfaceKind::Floor, {{250.f, 200.f}, {250.f, 250.f}}, 96.f},
+      {3, 0, WalkSurfaceKind::Stair, {{100.f, 200.f}, {100.f, 100.f}}, 20.f, {.5f, -.125f}}};
+    Interactable table; table.id = 11; table.kind = ObjectKind::Hideout; table.hideoutKind = HideoutKind::UnderTable; table.position = {300.f, 300.f}; world.objects.push_back(table);
+    Interactable glass; glass.id = 12; glass.kind = ObjectKind::Armory; glass.propStyle = PropStyle::Glass; glass.position = {380.f, 300.f}; glass.footprint = {10.f, 120.f}; world.objects.push_back(glass);
+    auto scene = BuildScene(world);
+    auto duplicate = scene.prisms[0]; duplicate.material = 15; scene.prisms.push_back(duplicate);
+    const std::array<sf::Vector3f, 8> origins{{{200.f, 300.f, 40.f}, {200.f, 300.f, 28.f}, {200.f, 300.f, 8.5f},
+      {300.f, 300.f, 136.f}, {300.f, 300.f, 232.f}, {300.f, 300.f, 25.f}, {300.f, 278.f, 8.f}, {150.f, 250.f, 40.f}}};
+    const sf::Vector2f size{320.f, 180.f};
+    for (const auto origin : origins) for (unsigned int direction = 0; direction < 8; ++direction)
+      for (const float fov : {60.f, 85.f, 110.f}) for (const float pitch : {-.6f, 0.f, .6f}) {
+        const FirstPersonCamera camera{direction * std::numbers::pi_v<float> * .25f, pitch, fov};
+        const auto forward = Forward(camera), right = Right(camera);
+        const float focal = FocalLength(camera, size.x), horizon = size.y * .5f + std::tan(camera.pitch) * focal;
+        for (const float x : {.5f, 37.5f, 79.5f, 123.5f, 159.5f, 201.5f, 241.5f, 283.5f, 319.5f}) {
+          const auto ground = forward + right * ((x - size.x * .5f) / focal);
+          std::vector<ColumnIntersection> referenceColumns;
+          std::vector<PreparedColumn> preparedColumns;
+          for (const auto &prism : scene.prisms) if (prism.visible) {
+            const auto reference = IntersectColumn(prism, origin, ground);
+            if (reference) referenceColumns.push_back(*reference);
+            PreparedColumn prepared;
+            if (IntersectPreparedColumn(PreparePrism(prism, origin), ground.x, ground.y, prepared)) preparedColumns.push_back(prepared);
+          }
+          std::sort(referenceColumns.begin(), referenceColumns.end(), [](const auto &first, const auto &last) { return first.near < last.near; });
+          std::sort(preparedColumns.begin(), preparedColumns.end(), [](const auto &first, const auto &last) { return first.intersection.near < last.intersection.near; });
+          Require(referenceColumns.size() == preparedColumns.size(), "El raster preparado cambia el número de candidatos visibles de la columna");
+          for (const float y : {.5f, 22.5f, 47.5f, 89.5f, 90.f, 121.5f, 158.5f, 179.5f}) for (const float limit : {170.f, FirstPersonConfig::RenderDistance}) {
+            const float vertical = (horizon - y) / focal;
+            const sf::Vector3f ray{ground.x, ground.y, vertical};
+            std::optional<RayHit> reference;
+            for (const auto &column : referenceColumns) {
+              if (column.near > (reference ? reference->distance : limit)) break;
+              const auto hit = IntersectRow(column, origin, ray, reference ? reference->distance : limit);
+              if (hit && (!reference || hit->distance < reference->distance)) reference = hit;
+            }
+            DepthHit actual{limit};
+            for (const auto &column : preparedColumns) {
+              if (column.intersection.near > actual.distance) break;
+              NearestPreparedRow(column, vertical, actual);
+            }
+            Require(reference.has_value() == (actual.prism != nullptr), "El nearest escalar cambia la presencia de geometría o fondo del raster");
+            if (!reference) continue;
+            const sf::Vector3f point{origin.x + ground.x * actual.distance, origin.y + ground.y * actual.distance, origin.z + vertical * actual.distance};
+            const sf::Vector3f normal{actual.normalX, actual.normalY, actual.normalZ};
+            Require(SameBits(reference->distance, actual.distance) && SameBits(reference->point, point) && SameBits(reference->normal, normal) && reference->prism == actual.prism,
+              "El nearest escalar cambia bits de profundidad, punto, normal o desempate entre materiales");
+          }
+        }
+      }
+  }
 }
 
 int main() {
   try {
-    ProjectionAndInvalidInput(); DepthAndDoors(); FloorsStairsAndCabin(); TableOpenSpaceAndPrivacy(); MuzzleConvergenceAndObstruction();
+    PreparedColumnsMatchBoundaryCases(); PreparedRowsMatchReference(); NearestDepthMatchesReference(); ProjectionAndInvalidInput(); DepthAndDoors(); FloorsStairsAndCabin(); TableOpenSpaceAndPrivacy(); MuzzleConvergenceAndObstruction();
     std::cout << "PASS primera persona: " << checks << " comprobaciones de proyección, profundidad, plantas, puertas y boca física\n";
     return 0;
   } catch (const std::exception &error) { std::cerr << "FAIL primera persona: " << error.what() << '\n'; return 1; }

@@ -33,6 +33,32 @@ namespace NoTrace::FirstPersonGeometry {
     sf::Vector3f normal;
     const Prism *prism = nullptr;
   };
+  struct PreparedColumn {
+    ColumnIntersection intersection;
+    float height = 0.f;
+    float bottom = 0.f;
+    float top = 0.f;
+    float slope = 0.f;
+  };
+  struct PreparedPrism {
+    const Prism *prism = nullptr;
+    float minimumX = 0.f;
+    float maximumX = 0.f;
+    float minimumY = 0.f;
+    float maximumY = 0.f;
+    float height = 0.f;
+    float bottom = 0.f;
+    float top = 0.f;
+    bool insideX = false;
+    bool insideY = false;
+  };
+  struct DepthHit {
+    float distance = FirstPersonConfig::RenderDistance;
+    float normalX = 0.f;
+    float normalY = 0.f;
+    float normalZ = 0.f;
+    const Prism *prism = nullptr;
+  };
 
   inline FirstPersonCamera Normalize(FirstPersonCamera camera) {
     camera.yaw = std::isfinite(camera.yaw) ? std::remainder(camera.yaw, 2.f * std::numbers::pi_v<float>) : 0.f;
@@ -157,6 +183,72 @@ namespace NoTrace::FirstPersonGeometry {
       if (hit && (!result || hit->distance < result->distance)) result = hit;
     }
     return result;
+  }
+
+  inline PreparedColumn PrepareColumn(const ColumnIntersection &column, sf::Vector3f origin, sf::Vector2f direction) {
+    const auto &prism = *column.prism;
+    const float height = origin.z - (sf::Vector2f{origin.x, origin.y} - prism.bounds.position).dot(prism.slope);
+    return {column, height, prism.bottom - height, prism.top - height, direction.dot(prism.slope)};
+  }
+  inline PreparedPrism PreparePrism(const Prism &prism, sf::Vector3f origin) {
+    const float minimumX = prism.bounds.position.x, maximumX = minimumX + prism.bounds.size.x;
+    const float minimumY = prism.bounds.position.y, maximumY = minimumY + prism.bounds.size.y;
+    const float height = origin.z - ((origin.x - minimumX) * prism.slope.x + (origin.y - minimumY) * prism.slope.y);
+    return {&prism, minimumX - origin.x, maximumX - origin.x, minimumY - origin.y, maximumY - origin.y,
+      height, prism.bottom - height, prism.top - height, origin.x >= minimumX && origin.x <= maximumX, origin.y >= minimumY && origin.y <= maximumY};
+  }
+  inline bool IntersectPreparedColumn(const PreparedPrism &prepared, float directionX, float directionY, PreparedColumn &result, float limit = FirstPersonConfig::RenderDistance) {
+    float near = FirstPersonConfig::NearPlane, far = limit;
+    float normalX = 0.f, normalY = 0.f, normalZ = 0.f;
+    if (std::abs(directionX) < .000001f) { if (!prepared.insideX) return false; }
+    else {
+      float first = prepared.minimumX / directionX, second = prepared.maximumX / directionX;
+      float normal = -1.f;
+      if (first > second) { std::swap(first, second); normal = 1.f; }
+      if (first > near) { near = first; normalX = normal; normalY = normal > 0.f ? -0.f : 0.f; normalZ = normalY; }
+      far = std::min(far, second);
+      if (!(near <= far)) return false;
+    }
+    if (std::abs(directionY) < .000001f) { if (!prepared.insideY) return false; }
+    else {
+      float first = prepared.minimumY / directionY, second = prepared.maximumY / directionY;
+      float normal = -1.f;
+      if (first > second) { std::swap(first, second); normal = 1.f; }
+      if (first > near) { near = first; normalY = normal; normalX = normal > 0.f ? -0.f : 0.f; normalZ = normalX; }
+      far = std::min(far, second);
+      if (!(near <= far)) return false;
+    }
+    result = {{prepared.prism, near, far, {normalX, normalY, normalZ}}, prepared.height, prepared.bottom, prepared.top,
+      directionX * prepared.prism->slope.x + directionY * prepared.prism->slope.y};
+    return true;
+  }
+  inline bool NearestPreparedRow(const PreparedColumn &prepared, float directionZ, DepthHit &nearest) {
+    const auto &column = prepared.intersection;
+    const auto &prism = *column.prism;
+    float near = column.near, far = std::min(column.far, nearest.distance);
+    float normalX = column.normal.x, normalY = column.normal.y, normalZ = column.normal.z;
+    const float delta = directionZ - prepared.slope;
+    if (std::abs(delta) < .000001f) { if (prepared.height < prism.bottom || prepared.height > prism.top) return false; }
+    else {
+      float first = prepared.bottom / delta, second = prepared.top / delta;
+      const bool reversed = first > second;
+      if (reversed) std::swap(first, second);
+      if (first > near) {
+        near = first;
+        normalX = reversed ? -prism.slope.x : prism.slope.x;
+        normalY = reversed ? -prism.slope.y : prism.slope.y;
+        normalZ = reversed ? 1.f : -1.f;
+      }
+      far = std::min(far, second);
+    }
+    if (near > far || far < FirstPersonConfig::NearPlane || (nearest.prism && !(near < nearest.distance))) return false;
+    nearest = {near, normalX, normalY, normalZ, column.prism};
+    return true;
+  }
+  inline std::optional<RayHit> IntersectPreparedRow(const PreparedColumn &prepared, sf::Vector3f origin, sf::Vector3f direction, float limit = FirstPersonConfig::RenderDistance) {
+    DepthHit hit{limit};
+    if (!NearestPreparedRow(prepared, direction.z, hit)) return std::nullopt;
+    return RayHit{hit.distance, origin + direction * hit.distance, {hit.normalX, hit.normalY, hit.normalZ}, hit.prism};
   }
 
   inline CombatGeometry::AimSolution ResolveAim(const WorldState &world, const Agent &agent, const FirstPersonCamera &camera) {
