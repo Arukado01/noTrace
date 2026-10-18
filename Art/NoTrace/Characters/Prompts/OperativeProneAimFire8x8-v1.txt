@@ -1,0 +1,17 @@
+Use case: stylized-concept
+Asset type: original production PRONE AIM AND FIRE animation sprite sheet for NO TRACE. Create finished high quality raster pixel art; anatomical guide lines are NOT the output art.
+Input images: image 1 is the approved eight-direction identity turnaround, the SAME individual/equipment/materials to preserve. Image 2 is a technical anatomical authoring guide defining directions, row order, stable body anchors, hands, knees and the eight action phases; replace every guide with a complete newly drawn character. Do not copy guide lines, grids, labels or white background.
+Primary request: one transparent square sprite sheet with EXACTLY 8 COLUMNS and 8 ROWS, 64 distinct complete sprite drawings. Every row is one fixed direction, every column advances the action. Rows in order: SOUTH (head and weapon toward screen bottom), SOUTHEAST (lower right), EAST (right), NORTHEAST (upper right), NORTH (up), NORTHWEST (upper left), WEST (left), SOUTHWEST (lower left). Use true eight-direction redrawing, not mirrored frames.
+Action and anatomy: all 64 figures are lying face down genuinely PRONE on the ground, NEVER standing, kneeling or crouching. Legs extend behind the pelvis with natural slight separation, knees/boot toes touch the ground, hips and belly remain low, same compact backpack stays on the back. Chest slightly lifted only enough to aim, both elbows planted credibly, both hands support the same compact black pistol, pistol held in anatomical right hand with anatomical left support hand, head aligned behind sights. Maintain identical adult body proportions, helmet size, olive plate carrier/four front pouches/backpack, dark navy clothing, right thigh holster and left radio. No rifle.
+Columns 0 to 7 are a continuous eight-frame AIM / ONE SHOT / RECOVERY sequence:
+0 stable supported aiming;
+1 subtle breathing preload while wrists aim;
+2 trigger preparation with a small natural shoulder shift;
+3 pistol slide and wrists recoil rearward visibly with shoulder compression;
+4 maximum recoil with bent wrists/elbows still grounded, no body floating;
+5 arms and pistol recover forward;
+6 exhale and return weight into supports;
+7 nearly settled aim, subtle distinct breathing/equipment position.
+These must be EIGHT different true action drawings in each row, not repeated poses shifted/rotated/scaled, and not one frozen cutout. Keep pelvis/knees/boot support points in the SAME place across each row. The gun/hand/shoulder changes should show the recoil clearly, but the body does not slide across the cell. Do not draw a muzzle flash; the game provides that effect from the metadata socket.
+Composition: exactly regular 8x8 cells, all cells equal in size, each complete character centered in its own cell, generous transparent margin, no part crossing a cell boundary. The small technical guide characters must become fully detailed original characters, not stick figures. Keep the same whole body length across rows allowing real axonometric foreshortening; never stretch a standing sprite flat.
+Art direction: polished 2D tactical pixel art, crisp clustered pixels/controlled outline, readable when uniformly reduced to a 96x96 game cell; consistent fixed elevated axonometric camera with 2:1 ground diamond, restrained olive and charcoal/navy palette matching image 1, consistent upper-left lighting. No 3D voxel/block style, no cartoon giant heads, no blurry painting. Full transparency with clean alpha and no colored matte, baked checkerboard, labels, grid lines, words or extra objects.

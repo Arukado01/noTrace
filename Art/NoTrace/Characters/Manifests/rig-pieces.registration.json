@@ -1,0 +1,2825 @@
+{
+  "author": "Carlos Cortina",
+  "date": "2026-10-18",
+  "schemaVersion": 2,
+  "status": "registered_original_parts_joint_review_pending",
+  "registrationRule": "Rectángulos completos separados por gutters transparentes, congelados con hashes; no son celdas de cuadrícula supuestas",
+  "sources": [
+    {
+      "direction": "S",
+      "file": "Art/NoTrace/Characters/Sources/OperativeRigParts-S-v2.png",
+      "sha256": "e306ad6b3bca732fd6999df78b0c99f67cdd1458aca503273bdc2f4b6de5d0b3",
+      "size": [
+        1261,
+        1247
+      ],
+      "columnSeparators": [
+        0,
+        315,
+        630,
+        946,
+        1261
+      ],
+      "rowSeparatorsByColumn": [
+        [
+          0,
+          325,
+          623,
+          935,
+          1247
+        ],
+        [
+          0,
+          325,
+          623,
+          906,
+          1247
+        ],
+        [
+          0,
+          324,
+          623,
+          909,
+          1247
+        ],
+        [
+          0,
+          323,
+          623,
+          935,
+          1247
+        ]
+      ],
+      "pieces": [
+        {
+          "piece": "head",
+          "sourceRect": [
+            45,
+            81,
+            226,
+            244
+          ],
+          "sourcePixelSha256": "36f7485b7069623b21373eed85066e7e299c80a83e974edeeb6cd406fc794ee9",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "torso",
+          "sourceRect": [
+            337,
+            60,
+            270,
+            265
+          ],
+          "sourcePixelSha256": "d5b7ee4567bdbfa8df70f30e0fac689c1c842e0470d3ab554e8eecbe5e27578d",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "pelvis",
+          "sourceRect": [
+            653,
+            104,
+            264,
+            220
+          ],
+          "sourcePixelSha256": "e96968b268853f045d7a541a2027424124068df22d9e9051fe332712eed4fd5f",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "backpack",
+          "sourceRect": [
+            967,
+            56,
+            269,
+            267
+          ],
+          "sourcePixelSha256": "74d37aa81b37f62521c7509b7829c753271cb8a4113c295196c4e71591372cad",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "left_upper_arm",
+          "sourceRect": [
+            64,
+            352,
+            160,
+            264
+          ],
+          "sourcePixelSha256": "10bc5762ac1fac035796e0abd03f7940b561ad0de344735630c4f61fd264992b",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "left_forearm",
+          "sourceRect": [
+            378,
+            366,
+            191,
+            245
+          ],
+          "sourcePixelSha256": "6b3109fc336ab0b4856d17e504886d079b490982c5297c757790206e2ef86833",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "left_hand",
+          "sourceRect": [
+            691,
+            427,
+            186,
+            166
+          ],
+          "sourcePixelSha256": "093934f84e1268b41ffbe05d5421d69bdeb587796ca6756194d69c218fa3ec65",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "right_upper_arm",
+          "sourceRect": [
+            1034,
+            355,
+            162,
+            265
+          ],
+          "sourcePixelSha256": "9b55a11d9bd3967021fb8d22be6a97c675c8f8c33c6a58499e53c3f3fcab001c",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "right_forearm",
+          "sourceRect": [
+            87,
+            650,
+            176,
+            242
+          ],
+          "sourcePixelSha256": "5a9158887999314055d373bef58847b5a3ab401137188c067574078ed9f56c83",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "right_hand",
+          "sourceRect": [
+            372,
+            710,
+            213,
+            137
+          ],
+          "sourcePixelSha256": "2e03d41074a2c8b4c46754b0a8dc2a8768a5b86293d2347b1e14f00ecb4f0246",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "left_thigh",
+          "sourceRect": [
+            708,
+            637,
+            154,
+            259
+          ],
+          "sourcePixelSha256": "35d3015380f5452aeecb461972b521279f1b55993243473f6dfcf33c56ea2864",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "left_shin",
+          "sourceRect": [
+            1024,
+            626,
+            130,
+            267
+          ],
+          "sourcePixelSha256": "ce37c5ef534647d59214bdd583eea9a07464e05b515383e0526762be755c5b81",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "left_boot",
+          "sourceRect": [
+            30,
+            981,
+            185,
+            216
+          ],
+          "sourcePixelSha256": "2aee66db0543d1bc83b826ae71a3537bab4dcadecec99307ec1dd5a753ed7db4",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "right_thigh",
+          "sourceRect": [
+            376,
+            906,
+            195,
+            288
+          ],
+          "sourcePixelSha256": "5dc3eb83f46796039babadc784d56c3faa8923c1ea639bdeba230ed145647bec",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "right_shin",
+          "sourceRect": [
+            713,
+            909,
+            132,
+            275
+          ],
+          "sourcePixelSha256": "bdd6cabd4a634bc903438b332f25921c6508e368a779d7983bfbd8b6f9ae0b08",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "right_boot",
+          "sourceRect": [
+            1035,
+            977,
+            183,
+            221
+          ],
+          "sourcePixelSha256": "a8ffaaeb0600079e6552a0d278a5d30f27522e87657f492dc9d4e42e89802163",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        }
+      ]
+    },
+    {
+      "direction": "SE",
+      "file": "Art/NoTrace/Characters/Sources/OperativeRigParts-SE-v3.png",
+      "sha256": "44b0f0d8fab594d6e562963f88d6d68b4080345c71b23aaae53e8a65a0889a7c",
+      "size": [
+        1536,
+        1024
+      ],
+      "columnSeparators": [
+        0,
+        384,
+        768,
+        1152,
+        1536
+      ],
+      "rowSeparatorsByColumn": [
+        [
+          0,
+          256,
+          512,
+          768,
+          1024
+        ],
+        [
+          0,
+          272,
+          512,
+          727,
+          1024
+        ],
+        [
+          0,
+          256,
+          510,
+          741,
+          1024
+        ],
+        [
+          0,
+          263,
+          512,
+          768,
+          1024
+        ]
+      ],
+      "pieces": [
+        {
+          "piece": "head",
+          "sourceRect": [
+            146,
+            63,
+            174,
+            193
+          ],
+          "sourcePixelSha256": "033ed2cde91dc95b010c1ea69341a22fc16391e142a2522b9b59c4d24e615107",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "torso",
+          "sourceRect": [
+            451,
+            74,
+            256,
+            198
+          ],
+          "sourcePixelSha256": "193d32110b5a1d93005fccb105e02ab536ed354f5caa5dc5132c2b8cb2094ff2",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "pelvis",
+          "sourceRect": [
+            848,
+            39,
+            214,
+            148
+          ],
+          "sourcePixelSha256": "1bb278323529447fba407ddc1506d5eaaaaba1c335a8c69767e65fc0be9a3e2f",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "backpack",
+          "sourceRect": [
+            1229,
+            30,
+            217,
+            233
+          ],
+          "sourcePixelSha256": "62b14120547a6113e496afde47ae767e918c8e2a1f2dfef5ba259dc3589bc117",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "left_upper_arm",
+          "sourceRect": [
+            154,
+            293,
+            129,
+            213
+          ],
+          "sourcePixelSha256": "24ff32606e876ee051989a726aa5849bc9e35fc9a3fc18c07504306e94d1b157",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "left_forearm",
+          "sourceRect": [
+            526,
+            303,
+            145,
+            181
+          ],
+          "sourcePixelSha256": "3dd766ad91cfc744f12b4935e176cceea367bc2170062de9186369c6f5c91a3b",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "left_hand",
+          "sourceRect": [
+            893,
+            350,
+            144,
+            118
+          ],
+          "sourcePixelSha256": "b1e3d5027630d5c7998c83f52713eba056dd81d3c46e09b8c3e83e86069099ad",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "right_upper_arm",
+          "sourceRect": [
+            1290,
+            288,
+            153,
+            208
+          ],
+          "sourcePixelSha256": "e66608feaa9d59bf68b6b6c85b09e0eca692ede9a1d12a0df13b25220c7d1ffb",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "right_forearm",
+          "sourceRect": [
+            145,
+            528,
+            155,
+            196
+          ],
+          "sourcePixelSha256": "73208df562c03e26b4bb85dd9c9067c82c67a60b888f70a803520ada20dbb2e3",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "right_hand",
+          "sourceRect": [
+            527,
+            578,
+            155,
+            113
+          ],
+          "sourcePixelSha256": "53a04a7a5dcede5afc60b6b70c92448ce5eff962aa49c7343cef5ebce3ae8c7b",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "left_thigh",
+          "sourceRect": [
+            901,
+            510,
+            148,
+            223
+          ],
+          "sourcePixelSha256": "d88da122feb34f8910594c9fb2443383eddedd00adaa42ecff463fb2bead5b59",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "left_shin",
+          "sourceRect": [
+            1295,
+            512,
+            116,
+            210
+          ],
+          "sourcePixelSha256": "6197d30ff37ab665b31875244fa8ea916450ec70e5d1b42eca52540a5293d874",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "left_boot",
+          "sourceRect": [
+            139,
+            784,
+            173,
+            172
+          ],
+          "sourcePixelSha256": "ebe969a05e0c03e8c676b1d84d14ae8a7ad31ec2ac2612953a2b0e390833cd6f",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "right_thigh",
+          "sourceRect": [
+            509,
+            727,
+            170,
+            235
+          ],
+          "sourcePixelSha256": "1ed267e664b3a4f606de45234318e24bf0483986feb9d8053b1b2c8fa8b26190",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "right_shin",
+          "sourceRect": [
+            898,
+            741,
+            130,
+            214
+          ],
+          "sourcePixelSha256": "6aa62d1f112cae7ae1664c14d83608557c666aeda15e0f70d20b168f136aab42",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "right_boot",
+          "sourceRect": [
+            1280,
+            788,
+            170,
+            173
+          ],
+          "sourcePixelSha256": "0199db7eea31950d1b28168de4d998176050e8a38afd15bfddaf9068a90ea303",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        }
+      ]
+    },
+    {
+      "direction": "E",
+      "file": "Art/NoTrace/Characters/Sources/OperativeRigParts-E-v3.png",
+      "sha256": "5097dd60b82088fa81e5a139943ef12b9c8bc9cb9f9a208e00ac9ba5999f29f9",
+      "size": [
+        1262,
+        1246
+      ],
+      "columnSeparators": [
+        0,
+        315,
+        631,
+        946,
+        1262
+      ],
+      "rowSeparatorsByColumn": [
+        [
+          0,
+          317,
+          623,
+          934,
+          1246
+        ],
+        [
+          0,
+          323,
+          636,
+          924,
+          1246
+        ],
+        [
+          0,
+          311,
+          623,
+          934,
+          1246
+        ],
+        [
+          0,
+          332,
+          623,
+          934,
+          1246
+        ]
+      ],
+      "pieces": [
+        {
+          "piece": "head",
+          "sourceRect": [
+            52,
+            86,
+            211,
+            231
+          ],
+          "sourcePixelSha256": "5c339476fb4585933283ebe907671e48730212fe379d8b4bee492e0ef333c9db",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "torso",
+          "sourceRect": [
+            397,
+            42,
+            204,
+            281
+          ],
+          "sourcePixelSha256": "c9b668a109498f490e31759c141905634908f4b5f935a1b17b9ae9f497e22e2e",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "pelvis",
+          "sourceRect": [
+            690,
+            142,
+            202,
+            166
+          ],
+          "sourcePixelSha256": "0469b1fe1e2e8e676c5d3980e1942746fee7c05059c3042f4aa5e364fa1791af",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "backpack",
+          "sourceRect": [
+            1017,
+            57,
+            214,
+            275
+          ],
+          "sourcePixelSha256": "685ddbda255617662aa844724a7dc1ec0ba2a13ebc863ea88ffbafa3001291d9",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "left_upper_arm",
+          "sourceRect": [
+            85,
+            372,
+            162,
+            248
+          ],
+          "sourcePixelSha256": "2a1c83677ef17428c10a46c7d3271c7f03da1d1744911332246c358879b06bbb",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "left_forearm",
+          "sourceRect": [
+            372,
+            364,
+            215,
+            272
+          ],
+          "sourcePixelSha256": "6d80e9918e687f55db9f160daf044b5c44599d4dbaf241173c706414d87fb274",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "left_hand",
+          "sourceRect": [
+            724,
+            456,
+            171,
+            126
+          ],
+          "sourcePixelSha256": "a3364b389b10238a15eb7c561a01caef792b61e328b8291b5b76f046ceefb03e",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "right_upper_arm",
+          "sourceRect": [
+            1014,
+            371,
+            165,
+            249
+          ],
+          "sourcePixelSha256": "771263d55b3bd47c8f1e81286a711d1cc4bbcb5fdc640fc270298db9ddb99d4d",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "right_forearm",
+          "sourceRect": [
+            67,
+            651,
+            202,
+            274
+          ],
+          "sourcePixelSha256": "94fafc2587b728a6bdfaec08a49540dacde76dac3e9cbf59a435c0a9f9d35da6",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "right_hand",
+          "sourceRect": [
+            397,
+            738,
+            183,
+            123
+          ],
+          "sourcePixelSha256": "72cb966be7c339b7c5ce596d6ad627e567b21b96d174aef2279bc176ae318f3a",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "left_thigh",
+          "sourceRect": [
+            733,
+            640,
+            159,
+            270
+          ],
+          "sourcePixelSha256": "3abe29ad438f110fd2e34ad7be3f19efcb051de89062b624bedddf6e3d9e3973",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "left_shin",
+          "sourceRect": [
+            1046,
+            638,
+            134,
+            276
+          ],
+          "sourcePixelSha256": "7e142da7dc5bf790ca302eebd2af455d73bc7268e405a099dfb1e2a2c09fb4e9",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "left_boot",
+          "sourceRect": [
+            73,
+            1015,
+            196,
+            174
+          ],
+          "sourcePixelSha256": "a5b0c09120d4534c69f9b06cc48e266f7cf854951913b1c5d0a52e0275761f11",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "right_thigh",
+          "sourceRect": [
+            395,
+            924,
+            156,
+            273
+          ],
+          "sourcePixelSha256": "43c0888f7a6f01845cdd74a54c1876fa9c0531977e6d88f85a15ce5ea2b5fae6",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "right_shin",
+          "sourceRect": [
+            734,
+            934,
+            142,
+            256
+          ],
+          "sourcePixelSha256": "3732b83da7483253c457cafe29f22325ec91c080897d5d4e91d102af50c0dfe1",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "right_boot",
+          "sourceRect": [
+            1020,
+            1009,
+            200,
+            190
+          ],
+          "sourcePixelSha256": "e8ccc560290f73dbed026b42418f6f959b91c5d409750accafc7c53ec957ebff",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        }
+      ]
+    },
+    {
+      "direction": "NE",
+      "file": "Art/NoTrace/Characters/Sources/OperativeRigParts-NE-v2.png",
+      "sha256": "95ae8413b3e7542e9a95c477b3dd9ee819ebfacb365bb77365e8d498754960d6",
+      "size": [
+        1536,
+        1024
+      ],
+      "columnSeparators": [
+        0,
+        384,
+        768,
+        1152,
+        1536
+      ],
+      "rowSeparatorsByColumn": [
+        [
+          0,
+          256,
+          512,
+          768,
+          1024
+        ],
+        [
+          0,
+          256,
+          512,
+          734,
+          1024
+        ],
+        [
+          0,
+          261,
+          512,
+          746,
+          1024
+        ],
+        [
+          0,
+          261,
+          511,
+          768,
+          1024
+        ]
+      ],
+      "pieces": [
+        {
+          "piece": "head",
+          "sourceRect": [
+            169,
+            43,
+            187,
+            202
+          ],
+          "sourcePixelSha256": "fe9ee6d0318616c3a2a374e61c3bc5ed7ef56a39ccc2b5a858260954a8abcb3f",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "torso",
+          "sourceRect": [
+            491,
+            39,
+            239,
+            216
+          ],
+          "sourcePixelSha256": "8097bfe6429c76a834b4a586d3edb651212837803b46bf3c547ff6dc5209fc48",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "pelvis",
+          "sourceRect": [
+            816,
+            64,
+            254,
+            197
+          ],
+          "sourcePixelSha256": "a4e7cc9c5202c4ecacac5212d074e20a2dc8bc9299ff2d9512aa1ecd0582b16a",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "backpack",
+          "sourceRect": [
+            1183,
+            39,
+            227,
+            222
+          ],
+          "sourcePixelSha256": "2dd510fa66400b88bae250e5e1a3ac5e1da48607e3ad928a6ab8487685ae983c",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "left_upper_arm",
+          "sourceRect": [
+            185,
+            269,
+            159,
+            230
+          ],
+          "sourcePixelSha256": "491452564ff9e84484f50e5977a0f856e82a7f4aac1703c684c279109c3807d1",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "left_forearm",
+          "sourceRect": [
+            542,
+            293,
+            148,
+            203
+          ],
+          "sourcePixelSha256": "6e325f9e81eadc0188681c6e23db93b844dda80ab8548dd39a924e09c9c92883",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "left_hand",
+          "sourceRect": [
+            881,
+            359,
+            142,
+            130
+          ],
+          "sourcePixelSha256": "7e6cfdf4d0df7414ec094370b85da3b11f4903aad9d595c1749aead30821c75c",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "right_upper_arm",
+          "sourceRect": [
+            1257,
+            289,
+            136,
+            205
+          ],
+          "sourcePixelSha256": "241a706ac34684d95380dd5b9ed9d41f10b3ac1abb195008c3e6ff7d4f3fae8c",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "right_forearm",
+          "sourceRect": [
+            164,
+            529,
+            146,
+            202
+          ],
+          "sourcePixelSha256": "ce77617f40fb5b18786bc8b2e5e8b9b0322ebece5693585bf9c811c5904c1b41",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "right_hand",
+          "sourceRect": [
+            553,
+            571,
+            147,
+            135
+          ],
+          "sourcePixelSha256": "153e44a8619bd7c0e39f3c0e17aa2136eef1b5e36d35e10aad6e9eb98bc258c8",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "left_thigh",
+          "sourceRect": [
+            880,
+            517,
+            145,
+            221
+          ],
+          "sourcePixelSha256": "b99d8c1d1cd9d0f7af7747a8f8f573fed59705b411376c0de48c41791a160471",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "left_shin",
+          "sourceRect": [
+            1252,
+            511,
+            127,
+            223
+          ],
+          "sourcePixelSha256": "72b88ad626d98dad17771f8f360b0fefceed65956cdd6da52aa857d090e668e7",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "left_boot",
+          "sourceRect": [
+            156,
+            800,
+            172,
+            176
+          ],
+          "sourcePixelSha256": "e45044b37574bce4af07620699670ba50df80c7bc9e6acdc99b47a2b1f709567",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "right_thigh",
+          "sourceRect": [
+            545,
+            734,
+            166,
+            243
+          ],
+          "sourcePixelSha256": "3531e4faf114a5d5b9ca9c32b441c261212ddabe768e8475a41f1dfea0b0348c",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "right_shin",
+          "sourceRect": [
+            903,
+            746,
+            130,
+            231
+          ],
+          "sourcePixelSha256": "0212127dacc3c319831ffa88adfe7bdde7a36cbe962797f0829722341518c7e3",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "right_boot",
+          "sourceRect": [
+            1250,
+            787,
+            173,
+            186
+          ],
+          "sourcePixelSha256": "884c95742c6f10bee6c15ee546a75349cc5ddc9024b2f5c4072a5d21bc3d53b9",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        }
+      ]
+    },
+    {
+      "direction": "N",
+      "file": "Art/NoTrace/Characters/Sources/OperativeRigParts-N-v2.png",
+      "sha256": "f49f48363068d26f7cf0d5b5a4ff5762df96ccb207dd1ce15971ad03ee096d98",
+      "size": [
+        1385,
+        1136
+      ],
+      "columnSeparators": [
+        0,
+        346,
+        692,
+        1039,
+        1385
+      ],
+      "rowSeparatorsByColumn": [
+        [
+          0,
+          284,
+          573,
+          852,
+          1136
+        ],
+        [
+          0,
+          289,
+          568,
+          844,
+          1136
+        ],
+        [
+          0,
+          296,
+          568,
+          848,
+          1136
+        ],
+        [
+          0,
+          294,
+          573,
+          852,
+          1136
+        ]
+      ],
+      "pieces": [
+        {
+          "piece": "head",
+          "sourceRect": [
+            88,
+            52,
+            188,
+            215
+          ],
+          "sourcePixelSha256": "3076756cd2854fdab3b4e7aa25365cf51b883dd2e1c1cddcbb1252b24acc1a99",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "torso",
+          "sourceRect": [
+            379,
+            17,
+            283,
+            272
+          ],
+          "sourcePixelSha256": "2d972723ea0e1705b5ff74dd9610d9ccfa6010f96566191a41cba034bb1971f9",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "pelvis",
+          "sourceRect": [
+            738,
+            63,
+            259,
+            233
+          ],
+          "sourcePixelSha256": "f09e00f2970cca8396b0339d8673e99409e838cf9ca53081b6e354ff9e648aa8",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "backpack",
+          "sourceRect": [
+            1080,
+            42,
+            237,
+            252
+          ],
+          "sourcePixelSha256": "e4e7855520891f96ded3deba73955615d15f163d67bffc2cc06159bb83d4d9a9",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "left_upper_arm",
+          "sourceRect": [
+            79,
+            320,
+            197,
+            253
+          ],
+          "sourcePixelSha256": "d203119573c0f6e5a6ce0234d737e2420586343cba32b1b17924c8ed72f0be5c",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "left_forearm",
+          "sourceRect": [
+            457,
+            326,
+            146,
+            237
+          ],
+          "sourcePixelSha256": "53b98b1edb56df64b52c60af425f006f3d48603a4d040566bf0caeac65f34d91",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "left_hand",
+          "sourceRect": [
+            797,
+            391,
+            124,
+            173
+          ],
+          "sourcePixelSha256": "27ff2d95ac62a63ba0de4c45254fef4a16716d9502cb1f73c345008b5ffe10c0",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "right_upper_arm",
+          "sourceRect": [
+            1109,
+            319,
+            197,
+            254
+          ],
+          "sourcePixelSha256": "27d63d693ca3cac7b314f122f420ba07dea3228c235c394bff4750dc548079ce",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "right_forearm",
+          "sourceRect": [
+            91,
+            607,
+            139,
+            222
+          ],
+          "sourcePixelSha256": "fda32655914471b8b7f96a71080a5f169c668bf0559f1ab18123fcb30ca59f9d",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "right_hand",
+          "sourceRect": [
+            441,
+            658,
+            165,
+            132
+          ],
+          "sourcePixelSha256": "d843c0b58d78468d98ab78009c34ae1f2630b65cea5b27d53b7f96d01f743546",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "left_thigh",
+          "sourceRect": [
+            785,
+            590,
+            148,
+            240
+          ],
+          "sourcePixelSha256": "b287fc47852bd4a99133f48881a08351e8f3c4d38298c5b42f3c8678d296fd15",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "left_shin",
+          "sourceRect": [
+            1153,
+            597,
+            131,
+            232
+          ],
+          "sourcePixelSha256": "f5fc70252c0ce9830f361ba0b18f4a84ef293740a8b39029e82a41f66ffdf51d",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "left_boot",
+          "sourceRect": [
+            92,
+            896,
+            152,
+            179
+          ],
+          "sourcePixelSha256": "f0ed9cae0fcc79339e51be3b8c96896ac20a9cb5bc7b8d50ea233fbb4d5d9aff",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "right_thigh",
+          "sourceRect": [
+            448,
+            844,
+            179,
+            236
+          ],
+          "sourcePixelSha256": "d0ff6854901b5c60f40bf39c6fe4f5b79430a0260f40181a5a6d9cd4bff2ec90",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "right_shin",
+          "sourceRect": [
+            795,
+            848,
+            129,
+            232
+          ],
+          "sourcePixelSha256": "7a9c24c7974b3a098de0f4783937a06fb3f1979924e017fbce3f09306a16ab75",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "right_boot",
+          "sourceRect": [
+            1144,
+            895,
+            151,
+            180
+          ],
+          "sourcePixelSha256": "2770b230ba381b3c7aa48a2af7e5ae9d554c7fc0c2e2a2bfab09e9256f41dd68",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        }
+      ]
+    },
+    {
+      "direction": "NW",
+      "file": "Art/NoTrace/Characters/Sources/OperativeRigParts-NW-v3.png",
+      "sha256": "d18b887aef9098b6f7831e231d9bdf4790a2f77c01ef13266c85adcb6d8d2901",
+      "size": [
+        1536,
+        1024
+      ],
+      "columnSeparators": [
+        0,
+        384,
+        768,
+        1152,
+        1536
+      ],
+      "rowSeparatorsByColumn": [
+        [
+          0,
+          261,
+          512,
+          768,
+          1024
+        ],
+        [
+          0,
+          256,
+          512,
+          738,
+          1024
+        ],
+        [
+          0,
+          262,
+          503,
+          746,
+          1024
+        ],
+        [
+          0,
+          262,
+          503,
+          768,
+          1024
+        ]
+      ],
+      "pieces": [
+        {
+          "piece": "head",
+          "sourceRect": [
+            111,
+            15,
+            219,
+            246
+          ],
+          "sourcePixelSha256": "04cf9e5f7623d7edcaef6b1eb8edb3ad3a02c45ed55606320c4158989955ed50",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "torso",
+          "sourceRect": [
+            465,
+            14,
+            270,
+            242
+          ],
+          "sourcePixelSha256": "bca6f4f330dff5b0967d8e3db7810be9ddfbc01243666aa23e108a7c96761d29",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "pelvis",
+          "sourceRect": [
+            856,
+            91,
+            243,
+            171
+          ],
+          "sourcePixelSha256": "248fc7c48dcdd523110081833f2844df538484eefb301e30769f37889cfff402",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "backpack",
+          "sourceRect": [
+            1215,
+            7,
+            242,
+            255
+          ],
+          "sourcePixelSha256": "16ec2a300c2921b3cba1888164c64e4b21a7e01d24522d36a9e43a99bed3321d",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "left_upper_arm",
+          "sourceRect": [
+            151,
+            269,
+            176,
+            231
+          ],
+          "sourcePixelSha256": "bc4a2c7e361854f7e7fcbfb527d44deb413b4fee7421516fe8963fa1daf9f358",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "left_forearm",
+          "sourceRect": [
+            510,
+            275,
+            163,
+            225
+          ],
+          "sourcePixelSha256": "7f12fc2b0b0c21ee640d7be5d862103fa002fb65360568443e69d754d46c0371",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "left_hand",
+          "sourceRect": [
+            871,
+            284,
+            172,
+            211
+          ],
+          "sourcePixelSha256": "c76f5c154751cf7c37b108898eda4a8848f5025a0255e5d656a83b3b47ae3718",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "right_upper_arm",
+          "sourceRect": [
+            1245,
+            269,
+            157,
+            231
+          ],
+          "sourcePixelSha256": "5f4dc31f6788c117ff2f1afbd0367c00ad46cbb87c3374f23b28e899e22a66d0",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "right_forearm",
+          "sourceRect": [
+            130,
+            519,
+            185,
+            236
+          ],
+          "sourcePixelSha256": "ebce2876878570b53ff62d2f5f9604d2a80f88ad31da5775c63616f7dae61f21",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "right_hand",
+          "sourceRect": [
+            502,
+            541,
+            170,
+            173
+          ],
+          "sourcePixelSha256": "8283dbf02802ffdd241e3372df1b5160904556f3101e2c16af98f83c74408c4d",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "left_thigh",
+          "sourceRect": [
+            881,
+            503,
+            167,
+            240
+          ],
+          "sourcePixelSha256": "2a119a0f3d7c90570b13018db4264c3d2a8aefb1aa35d528d54928103c1344c1",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "left_shin",
+          "sourceRect": [
+            1250,
+            503,
+            150,
+            250
+          ],
+          "sourcePixelSha256": "e61725295911da566e8094590cda6bc8bf8b3b02406d6fa0eeea41ece3d19833",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "left_boot",
+          "sourceRect": [
+            103,
+            790,
+            186,
+            209
+          ],
+          "sourcePixelSha256": "5a4788f1cc55ad83c231223a7ccf5353b8aadf11165ca0e7c069ebd853a4246b",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "right_thigh",
+          "sourceRect": [
+            499,
+            738,
+            176,
+            265
+          ],
+          "sourcePixelSha256": "2aa953941bee23f3b2c7ef6a8c9f9f5bb73edf2d0d055e4b8c69e30d89c3e615",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "right_shin",
+          "sourceRect": [
+            897,
+            746,
+            157,
+            258
+          ],
+          "sourcePixelSha256": "29e6d2a754061a37ed824bec9ccd12853d5e08f54908958aecabf43179702df5",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "right_boot",
+          "sourceRect": [
+            1231,
+            790,
+            191,
+            207
+          ],
+          "sourcePixelSha256": "66596c11bd61cdbf92cc3a0b42462897b6a6be34af5dc828f00cfa77cc3f4cb7",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        }
+      ]
+    },
+    {
+      "direction": "W",
+      "file": "Art/NoTrace/Characters/Sources/OperativeRigParts-W-v3.png",
+      "sha256": "e7cdb1086a7b8c7af908e3f239ef41bc9403df5bf5b3a213e8115c1fdc17ff3e",
+      "size": [
+        1295,
+        1215
+      ],
+      "columnSeparators": [
+        0,
+        324,
+        647,
+        971,
+        1295
+      ],
+      "rowSeparatorsByColumn": [
+        [
+          0,
+          304,
+          607,
+          911,
+          1215
+        ],
+        [
+          0,
+          311,
+          607,
+          880,
+          1215
+        ],
+        [
+          0,
+          304,
+          603,
+          892,
+          1215
+        ],
+        [
+          0,
+          304,
+          599,
+          911,
+          1215
+        ]
+      ],
+      "pieces": [
+        {
+          "piece": "head",
+          "sourceRect": [
+            76,
+            66,
+            217,
+            235
+          ],
+          "sourcePixelSha256": "9e1c10732305bd457aafca93f62a112c3e65f8d7e80896607b7240bd954179d5",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "torso",
+          "sourceRect": [
+            408,
+            33,
+            194,
+            278
+          ],
+          "sourcePixelSha256": "6ff38c4fc8cc0b00856c1b4d0f23e51f4d22359c82cccf00b8c33f49cbe90d13",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "pelvis",
+          "sourceRect": [
+            704,
+            91,
+            220,
+            211
+          ],
+          "sourcePixelSha256": "54f5fc9a52c5645bbc6d587b11c3b26a9128cb20b51b0b0e561e12560387f351",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "backpack",
+          "sourceRect": [
+            1018,
+            51,
+            228,
+            248
+          ],
+          "sourcePixelSha256": "1a974e3d51bc177817a6917e72666c737aa95d7833ef5e75089ef4b2e7b9d8e4",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "left_upper_arm",
+          "sourceRect": [
+            118,
+            331,
+            127,
+            258
+          ],
+          "sourcePixelSha256": "1aedf91dc6537862347b3aed887640d86cfccf9b68a82d98e30592ecb1e05b3f",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "left_forearm",
+          "sourceRect": [
+            433,
+            347,
+            134,
+            242
+          ],
+          "sourcePixelSha256": "b3722349c86af9819061ccf8595ec19b02185d1a36c24d2e39769a034d577ce8",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "left_hand",
+          "sourceRect": [
+            706,
+            409,
+            185,
+            143
+          ],
+          "sourcePixelSha256": "02107b07e79e9aaf6a3c2e823159251ee0b0b9aceb66195f634b18d38a666c80",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "right_upper_arm",
+          "sourceRect": [
+            1070,
+            331,
+            128,
+            258
+          ],
+          "sourcePixelSha256": "c8931e88d1a22b1b6ebc2312b1d8161a1382a8323e40ca2c2f05fa9b88b3ccf5",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "right_forearm",
+          "sourceRect": [
+            110,
+            617,
+            153,
+            256
+          ],
+          "sourcePixelSha256": "dd3de98a4f675581ea28746c54e6e7cbf7e33881e9c89ba9d47b8e3b2b7b9f8e",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "right_hand",
+          "sourceRect": [
+            412,
+            701,
+            186,
+            124
+          ],
+          "sourcePixelSha256": "282e59df464d8cd8a08e93320b16a7497fd910af86d4f55393a4b7f721327d50",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "left_thigh",
+          "sourceRect": [
+            732,
+            603,
+            157,
+            276
+          ],
+          "sourcePixelSha256": "5136d7be09df69d69e0f1bfd8ce79d8f05848b3a93ba0c47e9d83c8f3b1e638c",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "left_shin",
+          "sourceRect": [
+            1062,
+            599,
+            140,
+            266
+          ],
+          "sourcePixelSha256": "be2973415c651988ce77e42906a8ba44fe8792a31cc52c60107959099db79708",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "left_boot",
+          "sourceRect": [
+            61,
+            1005,
+            203,
+            159
+          ],
+          "sourcePixelSha256": "dc655349511e238268e8157707166ffe8db6ed7ab0b6a49fc6b24745470a4003",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "right_thigh",
+          "sourceRect": [
+            432,
+            880,
+            158,
+            275
+          ],
+          "sourcePixelSha256": "d4ab0355c8312624c08afc46768545895937a213e3f654aadeda76c9769162d7",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "right_shin",
+          "sourceRect": [
+            735,
+            892,
+            149,
+            262
+          ],
+          "sourcePixelSha256": "71927c2063f8415a744c749293e501da7b6ae169b4b74301b42b3303c704da37",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "right_boot",
+          "sourceRect": [
+            1031,
+            1007,
+            203,
+            159
+          ],
+          "sourcePixelSha256": "29949b200cf55799431bf5170a5c303daff3e8375335f7ca95922189eab031c7",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        }
+      ]
+    },
+    {
+      "direction": "SW",
+      "file": "Art/NoTrace/Characters/Sources/OperativeRigParts-SW-v2.png",
+      "sha256": "0ed8410a28f51fc20c311b02ea58b6aecbf5a93ad6cd7d13543a13b9e0904cb9",
+      "size": [
+        1536,
+        1024
+      ],
+      "columnSeparators": [
+        0,
+        384,
+        768,
+        1152,
+        1536
+      ],
+      "rowSeparatorsByColumn": [
+        [
+          0,
+          256,
+          512,
+          768,
+          1024
+        ],
+        [
+          0,
+          276,
+          512,
+          747,
+          1024
+        ],
+        [
+          0,
+          258,
+          512,
+          753,
+          1024
+        ],
+        [
+          0,
+          264,
+          512,
+          768,
+          1024
+        ]
+      ],
+      "pieces": [
+        {
+          "piece": "head",
+          "sourceRect": [
+            129,
+            33,
+            199,
+            223
+          ],
+          "sourcePixelSha256": "0730bd0ad611dfd91e57e42e96d40e7a391a514e79debcf25f5d160d603428a5",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "torso",
+          "sourceRect": [
+            477,
+            17,
+            266,
+            259
+          ],
+          "sourcePixelSha256": "c4136024f080bfc39c93e9860275330462ee1ab94a4de676e58244dae6625b8a",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "pelvis",
+          "sourceRect": [
+            838,
+            62,
+            237,
+            196
+          ],
+          "sourcePixelSha256": "c5f2dad8b2bbfc94f3551fd9bf22bebef2eb4c24c457aaa45723dde187d85d66",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "backpack",
+          "sourceRect": [
+            1182,
+            19,
+            255,
+            245
+          ],
+          "sourcePixelSha256": "6e9c3d9284c0966c7b86a3e880ebb4e8e281be2c55252f7190d27458cae866ff",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "left_upper_arm",
+          "sourceRect": [
+            135,
+            282,
+            167,
+            226
+          ],
+          "sourcePixelSha256": "ce1f137b06715b2fa3d3e8750a6d3ee1767e9bde2fb3c9ca6965aba4c47c2db7",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "left_forearm",
+          "sourceRect": [
+            516,
+            289,
+            142,
+            211
+          ],
+          "sourcePixelSha256": "fa21acaa50eff87242b6a9f94bd9a006fb542f8a75f2486201e1e39d53aef561",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "left_hand",
+          "sourceRect": [
+            873,
+            316,
+            138,
+            168
+          ],
+          "sourcePixelSha256": "22557390031b2702c73f94f79e732665498aa61b0c1a4259d29f4f45731d460f",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "right_upper_arm",
+          "sourceRect": [
+            1245,
+            283,
+            163,
+            221
+          ],
+          "sourcePixelSha256": "d2ce713a87daa331f1005864d65038daa2b1da31287ba69886b0c7b3cd3aee86",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "right_forearm",
+          "sourceRect": [
+            145,
+            534,
+            157,
+            204
+          ],
+          "sourcePixelSha256": "c4ce6558724c8e09ff9799ba90bad4c5fe77c92f2f1346de6354264951c30936",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "right_hand",
+          "sourceRect": [
+            510,
+            560,
+            147,
+            150
+          ],
+          "sourcePixelSha256": "e5e91897f6d1d0bd40ebc6ba448c4a3d56df4ae9851bd1877e72d81081a8a808",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "left_thigh",
+          "sourceRect": [
+            847,
+            513,
+            169,
+            235
+          ],
+          "sourcePixelSha256": "214c58aba2cc816623bb418827bf483e5e59e2c0281ecc1fa9c684c431d99ad0",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "left_shin",
+          "sourceRect": [
+            1260,
+            513,
+            143,
+            235
+          ],
+          "sourcePixelSha256": "857e101498c25620802f2b87d32891fac74f74e06e45bd04771f80ef7ce38520",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "left_boot",
+          "sourceRect": [
+            107,
+            787,
+            181,
+            193
+          ],
+          "sourcePixelSha256": "71187fc8f441956298553138f6554d1d3c46089bdc517c1cb9d5484863fa3139",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "right_thigh",
+          "sourceRect": [
+            501,
+            747,
+            172,
+            248
+          ],
+          "sourcePixelSha256": "0a2da32943b2bca4885cdd79e98811a1344dc5321bb591ddab1cd438a0ad1dcb",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "right_shin",
+          "sourceRect": [
+            882,
+            753,
+            124,
+            236
+          ],
+          "sourcePixelSha256": "6c02d47348fb19d00178084076c6d4a216fdbeeae5d01271f69d200eaa64a0ff",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        },
+        {
+          "piece": "right_boot",
+          "sourceRect": [
+            1214,
+            786,
+            196,
+            198
+          ],
+          "sourcePixelSha256": "c4c60dc83d29df00d4c84ed0f27f338ac443e1baccb0760db1b4fb72d1d2d82f",
+          "proximal": [
+            0.5,
+            0.12
+          ],
+          "distal": [
+            0.5,
+            0.88
+          ],
+          "semanticReview": "direction_inspected_joint_pivots_pending"
+        }
+      ]
+    }
+  ]
+}

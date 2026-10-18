@@ -1,0 +1,116 @@
+{
+  "author": "Carlos Cortina",
+  "organization": "CIO",
+  "date": "2026-10-18",
+  "status": "PASS",
+  "sameSourceRegeneration": [
+    {
+      "file": "Characters-00.png",
+      "sha256": "fb17a9e47c433a55422561194ea5a8b0e972486330f9787e0f90c889f8ae6c2c",
+      "identical": true
+    },
+    {
+      "file": "Characters-01.png",
+      "sha256": "b4dcb9cd89770e6dd4b3d45ce9f8c2f09bde0a79e624480f8daa443294ea4e3e",
+      "identical": true
+    },
+    {
+      "file": "Characters-02.png",
+      "sha256": "142731003134d52bef8eee885985ade7482efbf59829e564c0fe9f9e8c21002b",
+      "identical": true
+    },
+    {
+      "file": "Characters-03.png",
+      "sha256": "a2efac1de23b553f274bcdbc25319089a066051e74f53140145269a3762c09e8",
+      "identical": true
+    },
+    {
+      "file": "Characters-04.png",
+      "sha256": "8bbb1ef82224181250e34fd59a013d35065691f80eda7ebb818fe7b7c2e4a6f2",
+      "identical": true
+    },
+    {
+      "file": "Characters-05.png",
+      "sha256": "bb9edf46104dba821eb04ec04d1095dbb3103b50878a7f6fa6eb24878d7d599f",
+      "identical": true
+    },
+    {
+      "file": "Characters-06.png",
+      "sha256": "a25bdc4753d536e9f77a8e190bf336f573effd61fde9929e082f252005268b6b",
+      "identical": true
+    },
+    {
+      "file": "Characters-07.png",
+      "sha256": "ab36d05357c7ab5335ce9ce97178a8d68e9b0ed189f3f95d8134422170a309f3",
+      "identical": true
+    },
+    {
+      "file": "Characters-08.png",
+      "sha256": "304ccf89bdb58f4e3e96d4f0fba681466b6585c82fa9484cbf9c3a4af7825745",
+      "identical": true
+    },
+    {
+      "file": "Characters-09.png",
+      "sha256": "98caa974fbf16bf15ad0f01a7d3e38902fa728f91a38632d2346d9e996aae4ce",
+      "identical": true
+    },
+    {
+      "file": "Characters-10.png",
+      "sha256": "23dc00cbf77e43c8889d9b158433295ed2d0b434e2d93cb2a42a81f779e49e65",
+      "identical": true
+    },
+    {
+      "file": "WeaponProps.png",
+      "sha256": "01bb968577a9d420218ff90fa35c5963d12a0af8f58595b4c3f33163114db349",
+      "identical": true
+    },
+    {
+      "file": "WeaponSelection.png",
+      "sha256": "3694213fa5bb1792595f2abc9991f2255859550bf173020d1754c44cd3a0f747",
+      "identical": true
+    },
+    {
+      "file": "CharacterAtlasRuntime.json",
+      "sha256": "51af32c42b4a72ae63ee31e7d3933f32271c863022c4526e7beb1bf6261f185d",
+      "identical": true
+    }
+  ],
+  "runtimeMetadataByteIdentical": true,
+  "clips": 52,
+  "poses": 4352,
+  "tools": [
+    {
+      "file": "Tools/GenerateNoTraceCharactersActions.py",
+      "sha256": "5dad47529416bb5c5fdbb384f2b6dfab4c4f65bcb2cb0aca89e7f101f6b306d9"
+    },
+    {
+      "file": "Tools/GenerateNoTraceCharactersCatalog.py",
+      "sha256": "36fad4c09df5e095359f810872f1f6f9d184408a7db60216faae7b1320727aba"
+    },
+    {
+      "file": "Tools/GenerateNoTraceCharactersCqcStudy.py",
+      "sha256": "f730a83179c8f027dffba4b488e96d45b9d88d10586063615a326aa528e8f327"
+    },
+    {
+      "file": "Tools/GenerateNoTraceCharactersGuides.py",
+      "sha256": "300ea228cb1e8e09d5acd1173f1698531f40c77e28ff0c36c68fbc94d0bde051"
+    },
+    {
+      "file": "Tools/GenerateNoTraceCharactersPack.py",
+      "sha256": "4a9f10d3076b72fdac1bf9843f1c6a94a00f97e0e8521f3edf835e668342e706"
+    },
+    {
+      "file": "Tools/GenerateNoTraceCharactersRepro.py",
+      "sha256": "a7d1b025263902be45853ab34a6deb4c29f8830e9474968e8c132e984c85fe18"
+    },
+    {
+      "file": "Tools/GenerateNoTraceCharactersRig.py",
+      "sha256": "4ccfbdee3558635c58dc0d68c9d3c76c5f00765efd6d3760af0bd9f7778e094f"
+    },
+    {
+      "file": "Tools/GenerateNoTraceCharactersValidate.py",
+      "sha256": "cbe2d31d1a70bc4dd9cea4e4a38356bac10ff0dd27bd79e4259ede684ffc3cdc"
+    }
+  ],
+  "scope": "Regeneraci\u00f3n offline desde piezas originales; no modifica Content ni sustituye pruebas gr\u00e1ficas runtime"
+}

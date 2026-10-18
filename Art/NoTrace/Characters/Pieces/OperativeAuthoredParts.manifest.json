@@ -1,0 +1,1545 @@
+{
+  "author": "Carlos Cortina",
+  "date": "2026-10-18",
+  "status": "authored_parts_packed_not_game_atlas",
+  "pieces": [
+    {
+      "direction": "S",
+      "piece": "head",
+      "file": "S-head.png",
+      "sha256": "99583d347485e1f0ff1c5ec3a2da65b0329db7940c8c621de04317b6c4e38f3b",
+      "sourceRect": [
+        45,
+        81,
+        226,
+        244
+      ]
+    },
+    {
+      "direction": "S",
+      "piece": "torso",
+      "file": "S-torso.png",
+      "sha256": "b98f9809e5b409496438497031f8ab1d6a37b4d64fd4f42e5da7ec22bf72d7b7",
+      "sourceRect": [
+        337,
+        60,
+        270,
+        265
+      ]
+    },
+    {
+      "direction": "S",
+      "piece": "pelvis",
+      "file": "S-pelvis.png",
+      "sha256": "c9050c339d983a66c78b18ba76fb6a35614391363fd5b2b57bbff9cb652ec9b5",
+      "sourceRect": [
+        653,
+        104,
+        264,
+        220
+      ]
+    },
+    {
+      "direction": "S",
+      "piece": "backpack",
+      "file": "S-backpack.png",
+      "sha256": "0c705bb9b59f7943cc76bd55ff9a314bc3ec8835fec2030af56914a024a59c6e",
+      "sourceRect": [
+        967,
+        56,
+        269,
+        267
+      ]
+    },
+    {
+      "direction": "S",
+      "piece": "left_upper_arm",
+      "file": "S-left_upper_arm.png",
+      "sha256": "d098df10165103804faa1144a605f27076d5698904e8e12602c976fd04e91d8e",
+      "sourceRect": [
+        64,
+        352,
+        160,
+        264
+      ]
+    },
+    {
+      "direction": "S",
+      "piece": "left_forearm",
+      "file": "S-left_forearm.png",
+      "sha256": "5a7fb1c75d00bed6f2eb148e5f7b14094313a46397c960776b330590024c5f1c",
+      "sourceRect": [
+        378,
+        366,
+        191,
+        245
+      ]
+    },
+    {
+      "direction": "S",
+      "piece": "left_hand",
+      "file": "S-left_hand.png",
+      "sha256": "3a1d0b68767da8f85ffeb705b9c42f71783604be74f14341b5f1684e9cc62ed1",
+      "sourceRect": [
+        691,
+        427,
+        186,
+        166
+      ]
+    },
+    {
+      "direction": "S",
+      "piece": "right_upper_arm",
+      "file": "S-right_upper_arm.png",
+      "sha256": "46190b91ac60db0d6aad62beeb9fca61a9d5b9becaa2dcc2644cddcb6fb8da06",
+      "sourceRect": [
+        1034,
+        355,
+        162,
+        265
+      ]
+    },
+    {
+      "direction": "S",
+      "piece": "right_forearm",
+      "file": "S-right_forearm.png",
+      "sha256": "88aa4e08a86086bb6726c6e029fb805b0cded9fe751d48b3364167de7ca956de",
+      "sourceRect": [
+        87,
+        650,
+        176,
+        242
+      ]
+    },
+    {
+      "direction": "S",
+      "piece": "right_hand",
+      "file": "S-right_hand.png",
+      "sha256": "beff101a7fe44cf863748c2829c8c7ca3d4747af43baa3e1d82e678b8af7e7d4",
+      "sourceRect": [
+        372,
+        710,
+        213,
+        137
+      ]
+    },
+    {
+      "direction": "S",
+      "piece": "left_thigh",
+      "file": "S-left_thigh.png",
+      "sha256": "e40fabd079f631f3958e311fd0a83c484e5958bc9292dad2808856233afbb97e",
+      "sourceRect": [
+        708,
+        637,
+        154,
+        259
+      ]
+    },
+    {
+      "direction": "S",
+      "piece": "left_shin",
+      "file": "S-left_shin.png",
+      "sha256": "9e9d0604370c6c026e95c92bffe9a279145b2d56f2e049df3ca22aedc36b8c3a",
+      "sourceRect": [
+        1024,
+        626,
+        130,
+        267
+      ]
+    },
+    {
+      "direction": "S",
+      "piece": "left_boot",
+      "file": "S-left_boot.png",
+      "sha256": "85a792358a7aef412b47e3dae0fb3a255948a0bd91e10d1105faec77f5031380",
+      "sourceRect": [
+        30,
+        981,
+        185,
+        216
+      ]
+    },
+    {
+      "direction": "S",
+      "piece": "right_thigh",
+      "file": "S-right_thigh.png",
+      "sha256": "7c180e51fd20bc74d4fa5322283f1415b35b5da72a3c2e13c211ce0cb5006e1a",
+      "sourceRect": [
+        376,
+        906,
+        195,
+        288
+      ]
+    },
+    {
+      "direction": "S",
+      "piece": "right_shin",
+      "file": "S-right_shin.png",
+      "sha256": "082912e542b52c2b04e8f1ab2d50628279b8f5ce1e90ac9d8a31639cbc787135",
+      "sourceRect": [
+        713,
+        909,
+        132,
+        275
+      ]
+    },
+    {
+      "direction": "S",
+      "piece": "right_boot",
+      "file": "S-right_boot.png",
+      "sha256": "cce4bc16e9516b13e70251b19cca6d5715c7cbe440734b16d52d927cbbf7f58d",
+      "sourceRect": [
+        1035,
+        977,
+        183,
+        221
+      ]
+    },
+    {
+      "direction": "SE",
+      "piece": "head",
+      "file": "SE-head.png",
+      "sha256": "90b7aa0ab62e33afe86b91fa8aaaebd8b9f4c731740f1f70aa30f133ac16dd9d",
+      "sourceRect": [
+        146,
+        63,
+        174,
+        193
+      ]
+    },
+    {
+      "direction": "SE",
+      "piece": "torso",
+      "file": "SE-torso.png",
+      "sha256": "b841694ca292ebef3531f045e1d195edb75c06d10781739e766b9417bdf69844",
+      "sourceRect": [
+        451,
+        74,
+        256,
+        198
+      ]
+    },
+    {
+      "direction": "SE",
+      "piece": "pelvis",
+      "file": "SE-pelvis.png",
+      "sha256": "2cdc2ec6df5d010a1de25d257f4f683aa37bbe329ce9cbd03c9632c9b406e2b0",
+      "sourceRect": [
+        848,
+        39,
+        214,
+        148
+      ]
+    },
+    {
+      "direction": "SE",
+      "piece": "backpack",
+      "file": "SE-backpack.png",
+      "sha256": "c50f4edc1feca01526206d0ff518fd53ff0797b1d8b51e9ca6f34f58c9afd8db",
+      "sourceRect": [
+        1229,
+        30,
+        217,
+        233
+      ]
+    },
+    {
+      "direction": "SE",
+      "piece": "left_upper_arm",
+      "file": "SE-left_upper_arm.png",
+      "sha256": "d7901899a66a19418c38dd78372dee770f1d00e08fdafde185b20bfc4ca5785c",
+      "sourceRect": [
+        154,
+        293,
+        129,
+        213
+      ]
+    },
+    {
+      "direction": "SE",
+      "piece": "left_forearm",
+      "file": "SE-left_forearm.png",
+      "sha256": "084da97ce953ca548c3c61a7f588cace2c4744623881e81ed8a0a90821fb3b28",
+      "sourceRect": [
+        526,
+        303,
+        145,
+        181
+      ]
+    },
+    {
+      "direction": "SE",
+      "piece": "left_hand",
+      "file": "SE-left_hand.png",
+      "sha256": "31995d8bb034c0bf195517109cebc0f762c83f7857c75aa0fe19fe75c55d2713",
+      "sourceRect": [
+        893,
+        350,
+        144,
+        118
+      ]
+    },
+    {
+      "direction": "SE",
+      "piece": "right_upper_arm",
+      "file": "SE-right_upper_arm.png",
+      "sha256": "87cb85620299790bb53fe09b08d10e28c9b47c74f66ee91423d718423bee6395",
+      "sourceRect": [
+        1290,
+        288,
+        153,
+        208
+      ]
+    },
+    {
+      "direction": "SE",
+      "piece": "right_forearm",
+      "file": "SE-right_forearm.png",
+      "sha256": "344fac204aec400de36601f8b22345020ac5804f2751bf196b47c03babc8f0ec",
+      "sourceRect": [
+        145,
+        528,
+        155,
+        196
+      ]
+    },
+    {
+      "direction": "SE",
+      "piece": "right_hand",
+      "file": "SE-right_hand.png",
+      "sha256": "07c0d9642a3344b9d1191f1c72212e624193d70db83230eeb65272b515929e28",
+      "sourceRect": [
+        527,
+        578,
+        155,
+        113
+      ]
+    },
+    {
+      "direction": "SE",
+      "piece": "left_thigh",
+      "file": "SE-left_thigh.png",
+      "sha256": "cec54f75fb8aaaea112e04d856a5114ffe8c30bc6590bad6d0b6d5f47cb1428c",
+      "sourceRect": [
+        901,
+        510,
+        148,
+        223
+      ]
+    },
+    {
+      "direction": "SE",
+      "piece": "left_shin",
+      "file": "SE-left_shin.png",
+      "sha256": "578f3f798e369f49aad5629b36982ec7a1e7c06c36dca74e79b4f1c922573838",
+      "sourceRect": [
+        1295,
+        512,
+        116,
+        210
+      ]
+    },
+    {
+      "direction": "SE",
+      "piece": "left_boot",
+      "file": "SE-left_boot.png",
+      "sha256": "2f381324dc5ee70dba3f564647089f8c1133fcd49e7a1af9529b4dc38640dc32",
+      "sourceRect": [
+        139,
+        784,
+        173,
+        172
+      ]
+    },
+    {
+      "direction": "SE",
+      "piece": "right_thigh",
+      "file": "SE-right_thigh.png",
+      "sha256": "b9e749748f35ec4eecb0e83f289f5d1db38237d9d94258f73d4388ca4ada9ea7",
+      "sourceRect": [
+        509,
+        727,
+        170,
+        235
+      ]
+    },
+    {
+      "direction": "SE",
+      "piece": "right_shin",
+      "file": "SE-right_shin.png",
+      "sha256": "7dc3fdc9fc67c1a51656a7293b5a3331e2032e73285fddc4322cdbaa52872d5e",
+      "sourceRect": [
+        898,
+        741,
+        130,
+        214
+      ]
+    },
+    {
+      "direction": "SE",
+      "piece": "right_boot",
+      "file": "SE-right_boot.png",
+      "sha256": "51035695122e6296cb850d71985be5b11e50c8696a0720e22d26840c8bd74a40",
+      "sourceRect": [
+        1280,
+        788,
+        170,
+        173
+      ]
+    },
+    {
+      "direction": "E",
+      "piece": "head",
+      "file": "E-head.png",
+      "sha256": "2ae71a924fa87eaeb389b494052f47d4f9f40604dbca860bd2cf070bdadaa974",
+      "sourceRect": [
+        52,
+        86,
+        211,
+        231
+      ]
+    },
+    {
+      "direction": "E",
+      "piece": "torso",
+      "file": "E-torso.png",
+      "sha256": "6481aa0a0e2cc167bf42bdf8d9674ec433206b6b3a913ebea4e3d327a307176a",
+      "sourceRect": [
+        397,
+        42,
+        204,
+        281
+      ]
+    },
+    {
+      "direction": "E",
+      "piece": "pelvis",
+      "file": "E-pelvis.png",
+      "sha256": "8ed520ce444ae65cd6af6b843433051b82e7076baebd5ec3944a24ea08bcde79",
+      "sourceRect": [
+        690,
+        142,
+        202,
+        166
+      ]
+    },
+    {
+      "direction": "E",
+      "piece": "backpack",
+      "file": "E-backpack.png",
+      "sha256": "d0c0f9bb9953a2a9797f92b386fd37a665f9be8d22faf0888a732d7d5e765586",
+      "sourceRect": [
+        1017,
+        57,
+        214,
+        275
+      ]
+    },
+    {
+      "direction": "E",
+      "piece": "left_upper_arm",
+      "file": "E-left_upper_arm.png",
+      "sha256": "91ca15ebb13c0e0d3bb11ab4b35d83e8f5203e576675642aa20d2881b89025cb",
+      "sourceRect": [
+        85,
+        372,
+        162,
+        248
+      ]
+    },
+    {
+      "direction": "E",
+      "piece": "left_forearm",
+      "file": "E-left_forearm.png",
+      "sha256": "c9ea5ecebbe0e19e3151702788725f79d2284fdbb0b7f1b6dd784ca039186a9c",
+      "sourceRect": [
+        372,
+        364,
+        215,
+        272
+      ]
+    },
+    {
+      "direction": "E",
+      "piece": "left_hand",
+      "file": "E-left_hand.png",
+      "sha256": "000a52280da9fc0c3f4231653485a29011ecce83fa472b0fd015172d40643868",
+      "sourceRect": [
+        724,
+        456,
+        171,
+        126
+      ]
+    },
+    {
+      "direction": "E",
+      "piece": "right_upper_arm",
+      "file": "E-right_upper_arm.png",
+      "sha256": "439cfd651b81874cad2e60c28a6660f2ba53351fa3f7f7e1f3394df7d4dc4647",
+      "sourceRect": [
+        1014,
+        371,
+        165,
+        249
+      ]
+    },
+    {
+      "direction": "E",
+      "piece": "right_forearm",
+      "file": "E-right_forearm.png",
+      "sha256": "808e5c251e44daec6341a8fad4b4ea7349af6eaf142cee3f91b7f3c0824a975a",
+      "sourceRect": [
+        67,
+        651,
+        202,
+        274
+      ]
+    },
+    {
+      "direction": "E",
+      "piece": "right_hand",
+      "file": "E-right_hand.png",
+      "sha256": "324c8c99ccd041fbefe79934e0f7fab9344f28552e03e0cf7a311c9a66edaa7c",
+      "sourceRect": [
+        397,
+        738,
+        183,
+        123
+      ]
+    },
+    {
+      "direction": "E",
+      "piece": "left_thigh",
+      "file": "E-left_thigh.png",
+      "sha256": "bae700f748698c24424d8019bd4805f8d6117de59b0643924716a6d16d4ef888",
+      "sourceRect": [
+        733,
+        640,
+        159,
+        270
+      ]
+    },
+    {
+      "direction": "E",
+      "piece": "left_shin",
+      "file": "E-left_shin.png",
+      "sha256": "7b64fa812eb178c674c4a739246425769c93d32a5e0a1a60e9905af098ea9c83",
+      "sourceRect": [
+        1046,
+        638,
+        134,
+        276
+      ]
+    },
+    {
+      "direction": "E",
+      "piece": "left_boot",
+      "file": "E-left_boot.png",
+      "sha256": "13c6c3ab918798c6beb4976fd55e1260216248383083121f63e8e1f21860487e",
+      "sourceRect": [
+        73,
+        1015,
+        196,
+        174
+      ]
+    },
+    {
+      "direction": "E",
+      "piece": "right_thigh",
+      "file": "E-right_thigh.png",
+      "sha256": "1fa2c14e5cc42a01aadb626f953e3effaebc82f017e5231ed7fd4a8d448f020d",
+      "sourceRect": [
+        395,
+        924,
+        156,
+        273
+      ]
+    },
+    {
+      "direction": "E",
+      "piece": "right_shin",
+      "file": "E-right_shin.png",
+      "sha256": "89d0fc9badee6020d49cdcc1a50f59d9e55799af5ee2f50a1b822f5e4ee30073",
+      "sourceRect": [
+        734,
+        934,
+        142,
+        256
+      ]
+    },
+    {
+      "direction": "E",
+      "piece": "right_boot",
+      "file": "E-right_boot.png",
+      "sha256": "3f4516dc65b21a95ac58d58ed8bf1b1f44744a611e85cc4cbcb47486b073eead",
+      "sourceRect": [
+        1020,
+        1009,
+        200,
+        190
+      ]
+    },
+    {
+      "direction": "NE",
+      "piece": "head",
+      "file": "NE-head.png",
+      "sha256": "9c5da2064aef4de37d6db81e93e397b077c7fbc757a9406906ed339383d3311b",
+      "sourceRect": [
+        169,
+        43,
+        187,
+        202
+      ]
+    },
+    {
+      "direction": "NE",
+      "piece": "torso",
+      "file": "NE-torso.png",
+      "sha256": "56fd76a0dafea8014e226756277fbb05cdb41019b1a462e757fe9b804a91755a",
+      "sourceRect": [
+        491,
+        39,
+        239,
+        216
+      ]
+    },
+    {
+      "direction": "NE",
+      "piece": "pelvis",
+      "file": "NE-pelvis.png",
+      "sha256": "158ba6a9d4f35091529b74e46adb6e7ec52d9d48b41db0d58326c353d749362a",
+      "sourceRect": [
+        816,
+        64,
+        254,
+        197
+      ]
+    },
+    {
+      "direction": "NE",
+      "piece": "backpack",
+      "file": "NE-backpack.png",
+      "sha256": "a4164c97f7765e6efa86dcce184907bc9431e5d2022b96985083fd20d76f5307",
+      "sourceRect": [
+        1183,
+        39,
+        227,
+        222
+      ]
+    },
+    {
+      "direction": "NE",
+      "piece": "left_upper_arm",
+      "file": "NE-left_upper_arm.png",
+      "sha256": "ef3bedfe1f97946d7ea3c62be83c98f960c993698de06a263b0f83ee85926e1d",
+      "sourceRect": [
+        185,
+        269,
+        159,
+        230
+      ]
+    },
+    {
+      "direction": "NE",
+      "piece": "left_forearm",
+      "file": "NE-left_forearm.png",
+      "sha256": "ffd063f9599c0121364a83b6b387cb0a87939c432fdcc524837168937a051141",
+      "sourceRect": [
+        542,
+        293,
+        148,
+        203
+      ]
+    },
+    {
+      "direction": "NE",
+      "piece": "left_hand",
+      "file": "NE-left_hand.png",
+      "sha256": "840ba8f0729d2a113985a12e764e5375cd8d3cc2d66bda391fdfe5b72c097d56",
+      "sourceRect": [
+        881,
+        359,
+        142,
+        130
+      ]
+    },
+    {
+      "direction": "NE",
+      "piece": "right_upper_arm",
+      "file": "NE-right_upper_arm.png",
+      "sha256": "57a5dfad7ba1685b8e72550134479682f0f9fbb32fe2f195d2b3b2986759b049",
+      "sourceRect": [
+        1257,
+        289,
+        136,
+        205
+      ]
+    },
+    {
+      "direction": "NE",
+      "piece": "right_forearm",
+      "file": "NE-right_forearm.png",
+      "sha256": "8dca9960ee58be327cc687a30a968ca359dc706dc24112db2e0bd64ef44867ea",
+      "sourceRect": [
+        164,
+        529,
+        146,
+        202
+      ]
+    },
+    {
+      "direction": "NE",
+      "piece": "right_hand",
+      "file": "NE-right_hand.png",
+      "sha256": "e7cb5d3a3e931d404f6998650f21a3be00db7b6024799fa0646ea5231b43de2a",
+      "sourceRect": [
+        553,
+        571,
+        147,
+        135
+      ]
+    },
+    {
+      "direction": "NE",
+      "piece": "left_thigh",
+      "file": "NE-left_thigh.png",
+      "sha256": "ff963eb110a7d289d0ecc9e9ca054f4ae24f3c608e0d782ddc752c194276efa3",
+      "sourceRect": [
+        880,
+        517,
+        145,
+        221
+      ]
+    },
+    {
+      "direction": "NE",
+      "piece": "left_shin",
+      "file": "NE-left_shin.png",
+      "sha256": "cde70dda2d30e1f4446287fa8ea032826b11c07451118040eb83eacc16990213",
+      "sourceRect": [
+        1252,
+        511,
+        127,
+        223
+      ]
+    },
+    {
+      "direction": "NE",
+      "piece": "left_boot",
+      "file": "NE-left_boot.png",
+      "sha256": "57e33b8d2aa13d48a312b81d8ec694b7327cd9502910fe6de982ed30c19f9505",
+      "sourceRect": [
+        156,
+        800,
+        172,
+        176
+      ]
+    },
+    {
+      "direction": "NE",
+      "piece": "right_thigh",
+      "file": "NE-right_thigh.png",
+      "sha256": "fd72a60c0b00b03a9e3e57bf4d9018750c5978d355c36e10d383f2aa55dc4fda",
+      "sourceRect": [
+        545,
+        734,
+        166,
+        243
+      ]
+    },
+    {
+      "direction": "NE",
+      "piece": "right_shin",
+      "file": "NE-right_shin.png",
+      "sha256": "da7b94cebd6df45f0294e00c120b570bae0fda15ba856dc205390019a3d31e6b",
+      "sourceRect": [
+        903,
+        746,
+        130,
+        231
+      ]
+    },
+    {
+      "direction": "NE",
+      "piece": "right_boot",
+      "file": "NE-right_boot.png",
+      "sha256": "7b7a79452e56407beda58ed01a2cff61440f03dd19ab35379312172bfe961f12",
+      "sourceRect": [
+        1250,
+        787,
+        173,
+        186
+      ]
+    },
+    {
+      "direction": "N",
+      "piece": "head",
+      "file": "N-head.png",
+      "sha256": "79508620d82b3dab4ce56d91e53517443adb0eddd2f2b31b4a3425dd463d8efe",
+      "sourceRect": [
+        88,
+        52,
+        188,
+        215
+      ]
+    },
+    {
+      "direction": "N",
+      "piece": "torso",
+      "file": "N-torso.png",
+      "sha256": "af8aece405cbecfcdf97a486efed9a2013dc7d0c7fe4347542ccb643bda764da",
+      "sourceRect": [
+        379,
+        17,
+        283,
+        272
+      ]
+    },
+    {
+      "direction": "N",
+      "piece": "pelvis",
+      "file": "N-pelvis.png",
+      "sha256": "f9be0f868facff57a8893599a7a8a1664426308709f31ee8fb2e32ef02ca4d9c",
+      "sourceRect": [
+        738,
+        63,
+        259,
+        233
+      ]
+    },
+    {
+      "direction": "N",
+      "piece": "backpack",
+      "file": "N-backpack.png",
+      "sha256": "f5e7d6be5d9d845ac2fcd721a1ee2c2d52a35b289e67b2fab0a8c4fdff45ca75",
+      "sourceRect": [
+        1080,
+        42,
+        237,
+        252
+      ]
+    },
+    {
+      "direction": "N",
+      "piece": "left_upper_arm",
+      "file": "N-left_upper_arm.png",
+      "sha256": "5b0cf4e8380a1f8ddae68a88e7e16917520bc734deebd714b2a277f3b67256cf",
+      "sourceRect": [
+        79,
+        320,
+        197,
+        253
+      ]
+    },
+    {
+      "direction": "N",
+      "piece": "left_forearm",
+      "file": "N-left_forearm.png",
+      "sha256": "9e04a6c0628a0222feaadd683dcdc78cdcc6336232082dbaabfdd7bee84976e8",
+      "sourceRect": [
+        457,
+        326,
+        146,
+        237
+      ]
+    },
+    {
+      "direction": "N",
+      "piece": "left_hand",
+      "file": "N-left_hand.png",
+      "sha256": "35cab72d18cd97dc7d5513a2cffffd1b5777d97f1d84999307839aeae858cb34",
+      "sourceRect": [
+        797,
+        391,
+        124,
+        173
+      ]
+    },
+    {
+      "direction": "N",
+      "piece": "right_upper_arm",
+      "file": "N-right_upper_arm.png",
+      "sha256": "86bd8d4af4f1c9bf8a9d859a2832a8e17f121f5e986a6dbee4669b8437b069d3",
+      "sourceRect": [
+        1109,
+        319,
+        197,
+        254
+      ]
+    },
+    {
+      "direction": "N",
+      "piece": "right_forearm",
+      "file": "N-right_forearm.png",
+      "sha256": "91f1a3ae7b21bfbb3e69e468fae114ad19c83d76fd073d67d1eb6f045ac916d7",
+      "sourceRect": [
+        91,
+        607,
+        139,
+        222
+      ]
+    },
+    {
+      "direction": "N",
+      "piece": "right_hand",
+      "file": "N-right_hand.png",
+      "sha256": "9c01824d2f04aa829e52fa6588fffa1bee9bc74a03fb54c8813a0a3c5afa0f24",
+      "sourceRect": [
+        441,
+        658,
+        165,
+        132
+      ]
+    },
+    {
+      "direction": "N",
+      "piece": "left_thigh",
+      "file": "N-left_thigh.png",
+      "sha256": "50e522c826ba0922559d6591f87da86627afbac93ef3d9ac82fb01ef568555c4",
+      "sourceRect": [
+        785,
+        590,
+        148,
+        240
+      ]
+    },
+    {
+      "direction": "N",
+      "piece": "left_shin",
+      "file": "N-left_shin.png",
+      "sha256": "01473a9405e0193cb9e06a51bd2e7bb6fc2d2a5c471790cfe2f4ecab6a5cac50",
+      "sourceRect": [
+        1153,
+        597,
+        131,
+        232
+      ]
+    },
+    {
+      "direction": "N",
+      "piece": "left_boot",
+      "file": "N-left_boot.png",
+      "sha256": "31b7b93fbbe3fe5ff4a205ac6d38f6387bf8c7ec4b464671c5e6745e28f583cd",
+      "sourceRect": [
+        92,
+        896,
+        152,
+        179
+      ]
+    },
+    {
+      "direction": "N",
+      "piece": "right_thigh",
+      "file": "N-right_thigh.png",
+      "sha256": "529b14db754f93149421e0efcc956eb51a7243d281d9d26e70911526e87ddb0e",
+      "sourceRect": [
+        448,
+        844,
+        179,
+        236
+      ]
+    },
+    {
+      "direction": "N",
+      "piece": "right_shin",
+      "file": "N-right_shin.png",
+      "sha256": "a5838a847f78319cc53622fca017a1dd2881f5f2c6e441c8c820bbe9a1253b35",
+      "sourceRect": [
+        795,
+        848,
+        129,
+        232
+      ]
+    },
+    {
+      "direction": "N",
+      "piece": "right_boot",
+      "file": "N-right_boot.png",
+      "sha256": "742198580e75f054cd1d60ee5a66e21937d755b74ed1bcf0d8b5973977f39d01",
+      "sourceRect": [
+        1144,
+        895,
+        151,
+        180
+      ]
+    },
+    {
+      "direction": "NW",
+      "piece": "head",
+      "file": "NW-head.png",
+      "sha256": "6e3f278635e6351e129fe6709c153fab0ae94be2a3a475d60f4abba4f4e6fb7c",
+      "sourceRect": [
+        111,
+        15,
+        219,
+        246
+      ]
+    },
+    {
+      "direction": "NW",
+      "piece": "torso",
+      "file": "NW-torso.png",
+      "sha256": "a653a4616424944ecd2d3fdfc8b6d09a0428ea7934b4f43cf4e6d7354d234cd4",
+      "sourceRect": [
+        465,
+        14,
+        270,
+        242
+      ]
+    },
+    {
+      "direction": "NW",
+      "piece": "pelvis",
+      "file": "NW-pelvis.png",
+      "sha256": "e4714b2e9adabaa2a59673a1f8b5b938beff53db63d55a289673cd94fe66e4e0",
+      "sourceRect": [
+        856,
+        91,
+        243,
+        171
+      ]
+    },
+    {
+      "direction": "NW",
+      "piece": "backpack",
+      "file": "NW-backpack.png",
+      "sha256": "c57fb39ddb366141cce417fdd4ece766ef21ba730cbd29b1b8259b5b5825511d",
+      "sourceRect": [
+        1215,
+        7,
+        242,
+        255
+      ]
+    },
+    {
+      "direction": "NW",
+      "piece": "left_upper_arm",
+      "file": "NW-left_upper_arm.png",
+      "sha256": "edec7adadab9036f4335fcef096f25b6fb8b6a8905c9687d84530feaa6a7ccd7",
+      "sourceRect": [
+        151,
+        269,
+        176,
+        231
+      ]
+    },
+    {
+      "direction": "NW",
+      "piece": "left_forearm",
+      "file": "NW-left_forearm.png",
+      "sha256": "ad46db573f357fafcc52329e34887e7cdb588c743a1af2806cc699f96a5a0338",
+      "sourceRect": [
+        510,
+        275,
+        163,
+        225
+      ]
+    },
+    {
+      "direction": "NW",
+      "piece": "left_hand",
+      "file": "NW-left_hand.png",
+      "sha256": "502a11ac0cf4de4029cd92dbb460dd0f865a95022a27f34b58aad1cfebab6980",
+      "sourceRect": [
+        871,
+        284,
+        172,
+        211
+      ]
+    },
+    {
+      "direction": "NW",
+      "piece": "right_upper_arm",
+      "file": "NW-right_upper_arm.png",
+      "sha256": "9ca4df1e8b895addd02176df88dc651c8ee6e2accb08bbd0ffe30d28fa2651be",
+      "sourceRect": [
+        1245,
+        269,
+        157,
+        231
+      ]
+    },
+    {
+      "direction": "NW",
+      "piece": "right_forearm",
+      "file": "NW-right_forearm.png",
+      "sha256": "5a4ddd76c159bd692952ec45302560d35e32c0841544f36d488fa875b7afbdea",
+      "sourceRect": [
+        130,
+        519,
+        185,
+        236
+      ]
+    },
+    {
+      "direction": "NW",
+      "piece": "right_hand",
+      "file": "NW-right_hand.png",
+      "sha256": "d01bec75c993d08294917a33ade0f4af1d1e9b6bb5c978d9c19c7f991c3ffad4",
+      "sourceRect": [
+        502,
+        541,
+        170,
+        173
+      ]
+    },
+    {
+      "direction": "NW",
+      "piece": "left_thigh",
+      "file": "NW-left_thigh.png",
+      "sha256": "afb422a4e4793239e3cd897bb82f98905de584cc16cf25083264d6107be815e4",
+      "sourceRect": [
+        881,
+        503,
+        167,
+        240
+      ]
+    },
+    {
+      "direction": "NW",
+      "piece": "left_shin",
+      "file": "NW-left_shin.png",
+      "sha256": "694506e345ce916a200edccfe629cf5c36634af6187be74805fc3e5c6b69ec21",
+      "sourceRect": [
+        1250,
+        503,
+        150,
+        250
+      ]
+    },
+    {
+      "direction": "NW",
+      "piece": "left_boot",
+      "file": "NW-left_boot.png",
+      "sha256": "765690ce8f83a81f9cec199d6d5488513a970c8764584ba6dfa3aac99b63c972",
+      "sourceRect": [
+        103,
+        790,
+        186,
+        209
+      ]
+    },
+    {
+      "direction": "NW",
+      "piece": "right_thigh",
+      "file": "NW-right_thigh.png",
+      "sha256": "3469ec4fce92ded0c274eaf9364b16b60e4baa30574768e1b9bcd7f0a7348b78",
+      "sourceRect": [
+        499,
+        738,
+        176,
+        265
+      ]
+    },
+    {
+      "direction": "NW",
+      "piece": "right_shin",
+      "file": "NW-right_shin.png",
+      "sha256": "1ec94f224e24a16d762b48ebc7af99fceb6a35b405b6ac76ff733e49902d0bd8",
+      "sourceRect": [
+        897,
+        746,
+        157,
+        258
+      ]
+    },
+    {
+      "direction": "NW",
+      "piece": "right_boot",
+      "file": "NW-right_boot.png",
+      "sha256": "fb57f124e371eacceb61837cad15ff60d9dbf04bcdc0c5fc939af57362556f59",
+      "sourceRect": [
+        1231,
+        790,
+        191,
+        207
+      ]
+    },
+    {
+      "direction": "W",
+      "piece": "head",
+      "file": "W-head.png",
+      "sha256": "4f1a3bdb605fc46835f1db3110e4254aa1c0da19815a48753e8235169fdadd47",
+      "sourceRect": [
+        76,
+        66,
+        217,
+        235
+      ]
+    },
+    {
+      "direction": "W",
+      "piece": "torso",
+      "file": "W-torso.png",
+      "sha256": "54738daa8143252612acf2ef20353206d8e1d91dc936bec0475fb14e234f438e",
+      "sourceRect": [
+        408,
+        33,
+        194,
+        278
+      ]
+    },
+    {
+      "direction": "W",
+      "piece": "pelvis",
+      "file": "W-pelvis.png",
+      "sha256": "860058d5ffd591d61e2662bee678de47e3deed88721c6443d2272ee795d638dc",
+      "sourceRect": [
+        704,
+        91,
+        220,
+        211
+      ]
+    },
+    {
+      "direction": "W",
+      "piece": "backpack",
+      "file": "W-backpack.png",
+      "sha256": "c3103a76e0e46f5e3f74827bfbe47fe6dab82ef8bd7f45189d5815a4aa0d02f4",
+      "sourceRect": [
+        1018,
+        51,
+        228,
+        248
+      ]
+    },
+    {
+      "direction": "W",
+      "piece": "left_upper_arm",
+      "file": "W-left_upper_arm.png",
+      "sha256": "d60d582f31965bed7eeaab6f528c7fee27d3c0df2ee583ab3e14230716e80783",
+      "sourceRect": [
+        118,
+        331,
+        127,
+        258
+      ]
+    },
+    {
+      "direction": "W",
+      "piece": "left_forearm",
+      "file": "W-left_forearm.png",
+      "sha256": "c028181dcb61c66f4781499b9b213dbcf324e7fdf706e44c83a3a479d35f7b12",
+      "sourceRect": [
+        433,
+        347,
+        134,
+        242
+      ]
+    },
+    {
+      "direction": "W",
+      "piece": "left_hand",
+      "file": "W-left_hand.png",
+      "sha256": "37634cf0c618af34fae73e14ef20e125b59e3341312f32d472328d1bbfbb45b3",
+      "sourceRect": [
+        706,
+        409,
+        185,
+        143
+      ]
+    },
+    {
+      "direction": "W",
+      "piece": "right_upper_arm",
+      "file": "W-right_upper_arm.png",
+      "sha256": "dbe5a4c2ec073ad60e5995a89bff4ef37e31c50e5e44eba4721b19d5c6ab37c0",
+      "sourceRect": [
+        1070,
+        331,
+        128,
+        258
+      ]
+    },
+    {
+      "direction": "W",
+      "piece": "right_forearm",
+      "file": "W-right_forearm.png",
+      "sha256": "5edfa0927e4cd79a06c7beeb64be0ca360b262b34308180f85adcfd83a83b7f9",
+      "sourceRect": [
+        110,
+        617,
+        153,
+        256
+      ]
+    },
+    {
+      "direction": "W",
+      "piece": "right_hand",
+      "file": "W-right_hand.png",
+      "sha256": "3bb062c7ce6056387e6e25b9bde7d40a692e690c028484d473544fea46838900",
+      "sourceRect": [
+        412,
+        701,
+        186,
+        124
+      ]
+    },
+    {
+      "direction": "W",
+      "piece": "left_thigh",
+      "file": "W-left_thigh.png",
+      "sha256": "c6afb0d085f198c80df30f4b979ce57a6e57e20c86b76ca951fd902e7e498c17",
+      "sourceRect": [
+        732,
+        603,
+        157,
+        276
+      ]
+    },
+    {
+      "direction": "W",
+      "piece": "left_shin",
+      "file": "W-left_shin.png",
+      "sha256": "123d2d72ddb9c25cadcd69d0a09ae3aee9166a8cdce7f93271e2700a8cc68645",
+      "sourceRect": [
+        1062,
+        599,
+        140,
+        266
+      ]
+    },
+    {
+      "direction": "W",
+      "piece": "left_boot",
+      "file": "W-left_boot.png",
+      "sha256": "48805f61b62aa9cff89d09caea08d361bd0f55fc5f29d2bb6416764c41703406",
+      "sourceRect": [
+        61,
+        1005,
+        203,
+        159
+      ]
+    },
+    {
+      "direction": "W",
+      "piece": "right_thigh",
+      "file": "W-right_thigh.png",
+      "sha256": "497e3201fc0a162654dec71fec53d16d60c7203e35feb18da3680ceeb9d74b85",
+      "sourceRect": [
+        432,
+        880,
+        158,
+        275
+      ]
+    },
+    {
+      "direction": "W",
+      "piece": "right_shin",
+      "file": "W-right_shin.png",
+      "sha256": "7bf1ba81e0aa7eb5402cd3045f1e5c80b9f34dea2d4d70404b214cdbc87c2f0a",
+      "sourceRect": [
+        735,
+        892,
+        149,
+        262
+      ]
+    },
+    {
+      "direction": "W",
+      "piece": "right_boot",
+      "file": "W-right_boot.png",
+      "sha256": "9bdbab9bfe518cc95e4ae6a8b6fe13f81481512402956853c9ab91342ab86abd",
+      "sourceRect": [
+        1031,
+        1007,
+        203,
+        159
+      ]
+    },
+    {
+      "direction": "SW",
+      "piece": "head",
+      "file": "SW-head.png",
+      "sha256": "92f2a89e5649edb27fdbd22e6eb87432cb1e151e1cd872f92baec1444dc4ddc7",
+      "sourceRect": [
+        129,
+        33,
+        199,
+        223
+      ]
+    },
+    {
+      "direction": "SW",
+      "piece": "torso",
+      "file": "SW-torso.png",
+      "sha256": "f2519cd45b0782d7d241fb7fd4669798725d16d1ed9bc2da42f1a3887c80b982",
+      "sourceRect": [
+        477,
+        17,
+        266,
+        259
+      ]
+    },
+    {
+      "direction": "SW",
+      "piece": "pelvis",
+      "file": "SW-pelvis.png",
+      "sha256": "51e2ba38eab2badf1949f90ee42401a8e11537f6d756736f378891cd4e26cae6",
+      "sourceRect": [
+        838,
+        62,
+        237,
+        196
+      ]
+    },
+    {
+      "direction": "SW",
+      "piece": "backpack",
+      "file": "SW-backpack.png",
+      "sha256": "dbc805ad032507954f6eb2e64bd7389e9346844487aa9eee84efe85d835acd6e",
+      "sourceRect": [
+        1182,
+        19,
+        255,
+        245
+      ]
+    },
+    {
+      "direction": "SW",
+      "piece": "left_upper_arm",
+      "file": "SW-left_upper_arm.png",
+      "sha256": "15943e9e52b5659239e39d30b4ea1a76066352a903d8e5317400e15aa4c6c535",
+      "sourceRect": [
+        135,
+        282,
+        167,
+        226
+      ]
+    },
+    {
+      "direction": "SW",
+      "piece": "left_forearm",
+      "file": "SW-left_forearm.png",
+      "sha256": "42b3a97a52cf2fd5b9714a3fad52c808fb07f3da3ca6c396792a31c2be961059",
+      "sourceRect": [
+        516,
+        289,
+        142,
+        211
+      ]
+    },
+    {
+      "direction": "SW",
+      "piece": "left_hand",
+      "file": "SW-left_hand.png",
+      "sha256": "84709bb132224eb56b63d46539ec537ba5a63267b0f03c02718d9a19a064e1b9",
+      "sourceRect": [
+        873,
+        316,
+        138,
+        168
+      ]
+    },
+    {
+      "direction": "SW",
+      "piece": "right_upper_arm",
+      "file": "SW-right_upper_arm.png",
+      "sha256": "c5cb8e8ae3719c1e02e490f8d2685aa11a4b59a400fcb77010142ec755da0f3b",
+      "sourceRect": [
+        1245,
+        283,
+        163,
+        221
+      ]
+    },
+    {
+      "direction": "SW",
+      "piece": "right_forearm",
+      "file": "SW-right_forearm.png",
+      "sha256": "c0979d862f1a3a703be99380697e318e7ef63fd71beff6e23ee9a1321efed0d9",
+      "sourceRect": [
+        145,
+        534,
+        157,
+        204
+      ]
+    },
+    {
+      "direction": "SW",
+      "piece": "right_hand",
+      "file": "SW-right_hand.png",
+      "sha256": "51e92f032627006669053eabbb693d432f48899ee3989aa1cc12359f6def03ec",
+      "sourceRect": [
+        510,
+        560,
+        147,
+        150
+      ]
+    },
+    {
+      "direction": "SW",
+      "piece": "left_thigh",
+      "file": "SW-left_thigh.png",
+      "sha256": "f24902f092292736d5cf23091c09f6fe86b2627b89cd4e06b974cc39db339856",
+      "sourceRect": [
+        847,
+        513,
+        169,
+        235
+      ]
+    },
+    {
+      "direction": "SW",
+      "piece": "left_shin",
+      "file": "SW-left_shin.png",
+      "sha256": "7680f9468084760de6728928079bcc3ff72a5ff2bcaf462f875aabc515a70268",
+      "sourceRect": [
+        1260,
+        513,
+        143,
+        235
+      ]
+    },
+    {
+      "direction": "SW",
+      "piece": "left_boot",
+      "file": "SW-left_boot.png",
+      "sha256": "01880efdfd5f1118da06fe2556c31a96597304f149942723412cb89f32108d6c",
+      "sourceRect": [
+        107,
+        787,
+        181,
+        193
+      ]
+    },
+    {
+      "direction": "SW",
+      "piece": "right_thigh",
+      "file": "SW-right_thigh.png",
+      "sha256": "a4e4a545f99febf875b9149aa6c7bab2535e80ab315da3015fce1bad07382253",
+      "sourceRect": [
+        501,
+        747,
+        172,
+        248
+      ]
+    },
+    {
+      "direction": "SW",
+      "piece": "right_shin",
+      "file": "SW-right_shin.png",
+      "sha256": "dfa3c962b2b031fa094d51959552b81dfa54e9a8a47833d2b950d0dfcbed25ef",
+      "sourceRect": [
+        882,
+        753,
+        124,
+        236
+      ]
+    },
+    {
+      "direction": "SW",
+      "piece": "right_boot",
+      "file": "SW-right_boot.png",
+      "sha256": "383a73e8a7e0f021f4e2eed20e1fde2e701f4210e1744fa96fb72536d651e000",
+      "sourceRect": [
+        1214,
+        786,
+        196,
+        198
+      ]
+    }
+  ],
+  "atlasSha256": "376c432ad72124365d86e1dbf667b239b5dd23b212eb458a71fd62e54c7f8483",
+  "registrationSha256": "2f8d68335c656193db5545b8dfa01ff10e1b772399d17c0368036bde13387bd5"
+}

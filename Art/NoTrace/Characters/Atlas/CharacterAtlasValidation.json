@@ -1,0 +1,3281 @@
+{
+  "status": "PASS",
+  "checks": 80226,
+  "clips": 52,
+  "stanceVariants": 68,
+  "frames": 4352,
+  "directions": 8,
+  "phases": 8,
+  "layers": 3,
+  "pairedCqcLayers": 2,
+  "packedPages": 11,
+  "weapons": 48,
+  "maximumBoneLengthError": 1.0658141036401503e-14,
+  "phaseMatrix": [
+    {
+      "clip": "Idle",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Idle",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Idle",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Idle",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Idle",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Idle",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Idle",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Idle",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Walk",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Walk",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Walk",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Walk",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Walk",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Walk",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Walk",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Walk",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Run",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Run",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Run",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Run",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Run",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Run",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Run",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Run",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "CrouchIdle",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "CrouchIdle",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "CrouchIdle",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "CrouchIdle",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "CrouchIdle",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "CrouchIdle",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "CrouchIdle",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "CrouchIdle",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "CrouchWalk",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "CrouchWalk",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "CrouchWalk",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "CrouchWalk",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "CrouchWalk",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "CrouchWalk",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "CrouchWalk",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "CrouchWalk",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "CrouchRun",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "CrouchRun",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "CrouchRun",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "CrouchRun",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "CrouchRun",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "CrouchRun",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "CrouchRun",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "CrouchRun",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "LieDown",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "LieDown",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "LieDown",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "LieDown",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "LieDown",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "LieDown",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "LieDown",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "LieDown",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "ProneIdle",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "ProneIdle",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "ProneIdle",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "ProneIdle",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "ProneIdle",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "ProneIdle",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "ProneIdle",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "ProneIdle",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Crawl",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Crawl",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Crawl",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Crawl",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Crawl",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Crawl",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Crawl",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Crawl",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "StandUp",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "StandUp",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "StandUp",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "StandUp",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "StandUp",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "StandUp",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "StandUp",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "StandUp",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Dive",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Dive",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Dive",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Dive",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Dive",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Dive",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Dive",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Dive",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Roll",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 7
+    },
+    {
+      "clip": "Roll",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 7
+    },
+    {
+      "clip": "Roll",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 7
+    },
+    {
+      "clip": "Roll",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 7
+    },
+    {
+      "clip": "Roll",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 7
+    },
+    {
+      "clip": "Roll",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 7
+    },
+    {
+      "clip": "Roll",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 7
+    },
+    {
+      "clip": "Roll",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 7
+    },
+    {
+      "clip": "Aim",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Aim",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Aim",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Aim",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Aim",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Aim",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Aim",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Aim",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Shoot",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Shoot",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Shoot",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Shoot",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Shoot",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Shoot",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Shoot",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Shoot",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Reload",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Reload",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Reload",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Reload",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Reload",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Reload",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Reload",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Reload",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Punch",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Punch",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Punch",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Punch",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Punch",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Punch",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Punch",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Punch",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Kick",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Kick",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Kick",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Kick",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Kick",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Kick",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Kick",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Kick",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Grab",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Grab",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Grab",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Grab",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Grab",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Grab",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Grab",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Grab",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Choke",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Choke",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Choke",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Choke",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Choke",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Choke",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Choke",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Choke",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Push",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Push",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Push",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Push",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Push",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Push",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Push",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Push",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Throw",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Throw",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Throw",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Throw",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Throw",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Throw",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Throw",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Throw",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WallBang",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WallBang",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WallBang",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WallBang",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WallBang",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WallBang",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WallBang",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WallBang",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Damage",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Damage",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Damage",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Damage",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Damage",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Damage",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Damage",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Damage",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Fall",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Fall",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Fall",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Fall",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Fall",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Fall",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Fall",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Fall",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Unconscious",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Unconscious",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Unconscious",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Unconscious",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Unconscious",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Unconscious",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Unconscious",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Unconscious",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Interact",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Interact",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Interact",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Interact",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Interact",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Interact",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Interact",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Interact",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "HideEnter",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "HideEnter",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "HideEnter",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "HideEnter",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "HideEnter",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "HideEnter",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "HideEnter",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "HideEnter",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "HideExit",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "HideExit",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "HideExit",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "HideExit",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "HideExit",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "HideExit",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "HideExit",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "HideExit",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "CoverEnter",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "CoverEnter",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "CoverEnter",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "CoverEnter",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "CoverEnter",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "CoverEnter",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "CoverEnter",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "CoverEnter",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "CoverIdle",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "CoverIdle",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "CoverIdle",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "CoverIdle",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "CoverIdle",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "CoverIdle",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "CoverIdle",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "CoverIdle",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "CoverMove",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "CoverMove",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "CoverMove",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "CoverMove",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "CoverMove",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "CoverMove",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "CoverMove",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "CoverMove",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "CrouchEnter",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "CrouchEnter",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "CrouchEnter",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "CrouchEnter",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "CrouchEnter",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "CrouchEnter",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "CrouchEnter",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "CrouchEnter",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "CrouchExit",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "CrouchExit",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "CrouchExit",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "CrouchExit",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "CrouchExit",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "CrouchExit",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "CrouchExit",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "CrouchExit",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "DragStart",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "DragStart",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "DragStart",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "DragStart",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "DragStart",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "DragStart",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "DragStart",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "DragStart",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "DragLoop",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "DragLoop",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "DragLoop",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "DragLoop",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "DragLoop",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "DragLoop",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "DragLoop",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "DragLoop",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "DragStop",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "DragStop",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "DragStop",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "DragStop",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "DragStop",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "DragStop",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "DragStop",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "DragStop",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Death",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Death",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Death",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Death",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Death",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Death",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Death",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Death",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "GripVictimEnter",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "GripVictimEnter",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "GripVictimEnter",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "GripVictimEnter",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "GripVictimEnter",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "GripVictimEnter",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "GripVictimEnter",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "GripVictimEnter",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "GripVictimHold",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "GripVictimHold",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "GripVictimHold",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "GripVictimHold",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "GripVictimHold",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "GripVictimHold",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "GripVictimHold",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "GripVictimHold",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "GripVictimRelease",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "GripVictimRelease",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "GripVictimRelease",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "GripVictimRelease",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "GripVictimRelease",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "GripVictimRelease",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "GripVictimRelease",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "GripVictimRelease",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "SuppressorAttach",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "SuppressorAttach",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "SuppressorAttach",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "SuppressorAttach",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "SuppressorAttach",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "SuppressorAttach",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "SuppressorAttach",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "SuppressorAttach",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "SuppressorDetach",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "SuppressorDetach",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "SuppressorDetach",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "SuppressorDetach",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "SuppressorDetach",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "SuppressorDetach",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "SuppressorDetach",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "SuppressorDetach",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WeaponHolster",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WeaponHolster",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WeaponHolster",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WeaponHolster",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WeaponHolster",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WeaponHolster",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WeaponHolster",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WeaponHolster",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WeaponDraw",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WeaponDraw",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WeaponDraw",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WeaponDraw",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WeaponDraw",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WeaponDraw",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WeaponDraw",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WeaponDraw",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "TraversalAttach",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "TraversalAttach",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "TraversalAttach",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "TraversalAttach",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "TraversalAttach",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "TraversalAttach",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "TraversalAttach",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "TraversalAttach",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "TraversalMove",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "TraversalMove",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "TraversalMove",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "TraversalMove",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "TraversalMove",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "TraversalMove",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "TraversalMove",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "TraversalMove",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "TraversalRelease",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "TraversalRelease",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "TraversalRelease",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "TraversalRelease",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "TraversalRelease",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "TraversalRelease",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "TraversalRelease",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "TraversalRelease",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "TraversalHang",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "TraversalHang",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "TraversalHang",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "TraversalHang",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "TraversalHang",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "TraversalHang",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "TraversalHang",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "TraversalHang",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "TraversalShimmy",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "TraversalShimmy",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "TraversalShimmy",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "TraversalShimmy",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "TraversalShimmy",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "TraversalShimmy",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "TraversalShimmy",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "TraversalShimmy",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "TraversalClimb",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "TraversalClimb",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "TraversalClimb",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "TraversalClimb",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "TraversalClimb",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "TraversalClimb",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "TraversalClimb",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "TraversalClimb",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "TraversalTransfer",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "TraversalTransfer",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "TraversalTransfer",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "TraversalTransfer",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "TraversalTransfer",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "TraversalTransfer",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "TraversalTransfer",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "TraversalTransfer",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "TraversalDrop",
+      "stance": "Standing",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "TraversalDrop",
+      "stance": "Standing",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "TraversalDrop",
+      "stance": "Standing",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "TraversalDrop",
+      "stance": "Standing",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "TraversalDrop",
+      "stance": "Standing",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "TraversalDrop",
+      "stance": "Standing",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "TraversalDrop",
+      "stance": "Standing",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "TraversalDrop",
+      "stance": "Standing",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Aim",
+      "stance": "Crouched",
+      "direction": "S",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Aim",
+      "stance": "Crouched",
+      "direction": "SE",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Aim",
+      "stance": "Crouched",
+      "direction": "E",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Aim",
+      "stance": "Crouched",
+      "direction": "NE",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Aim",
+      "stance": "Crouched",
+      "direction": "N",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Aim",
+      "stance": "Crouched",
+      "direction": "NW",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Aim",
+      "stance": "Crouched",
+      "direction": "W",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Aim",
+      "stance": "Crouched",
+      "direction": "SW",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Shoot",
+      "stance": "Crouched",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Shoot",
+      "stance": "Crouched",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Shoot",
+      "stance": "Crouched",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Shoot",
+      "stance": "Crouched",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Shoot",
+      "stance": "Crouched",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Shoot",
+      "stance": "Crouched",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Shoot",
+      "stance": "Crouched",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Shoot",
+      "stance": "Crouched",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Reload",
+      "stance": "Crouched",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Reload",
+      "stance": "Crouched",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Reload",
+      "stance": "Crouched",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Reload",
+      "stance": "Crouched",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Reload",
+      "stance": "Crouched",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Reload",
+      "stance": "Crouched",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Reload",
+      "stance": "Crouched",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Reload",
+      "stance": "Crouched",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Throw",
+      "stance": "Crouched",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Throw",
+      "stance": "Crouched",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Throw",
+      "stance": "Crouched",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Throw",
+      "stance": "Crouched",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Throw",
+      "stance": "Crouched",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Throw",
+      "stance": "Crouched",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Throw",
+      "stance": "Crouched",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Throw",
+      "stance": "Crouched",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Aim",
+      "stance": "Prone",
+      "direction": "S",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Aim",
+      "stance": "Prone",
+      "direction": "SE",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Aim",
+      "stance": "Prone",
+      "direction": "E",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Aim",
+      "stance": "Prone",
+      "direction": "NE",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Aim",
+      "stance": "Prone",
+      "direction": "N",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Aim",
+      "stance": "Prone",
+      "direction": "NW",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Aim",
+      "stance": "Prone",
+      "direction": "W",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Aim",
+      "stance": "Prone",
+      "direction": "SW",
+      "distinctRasterPhases": 5
+    },
+    {
+      "clip": "Shoot",
+      "stance": "Prone",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Shoot",
+      "stance": "Prone",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Shoot",
+      "stance": "Prone",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Shoot",
+      "stance": "Prone",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Shoot",
+      "stance": "Prone",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Shoot",
+      "stance": "Prone",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Shoot",
+      "stance": "Prone",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Shoot",
+      "stance": "Prone",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Reload",
+      "stance": "Prone",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Reload",
+      "stance": "Prone",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Reload",
+      "stance": "Prone",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Reload",
+      "stance": "Prone",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Reload",
+      "stance": "Prone",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Reload",
+      "stance": "Prone",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Reload",
+      "stance": "Prone",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Reload",
+      "stance": "Prone",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Throw",
+      "stance": "Prone",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Throw",
+      "stance": "Prone",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Throw",
+      "stance": "Prone",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Throw",
+      "stance": "Prone",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Throw",
+      "stance": "Prone",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Throw",
+      "stance": "Prone",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Throw",
+      "stance": "Prone",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "Throw",
+      "stance": "Prone",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "SuppressorAttach",
+      "stance": "Crouched",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "SuppressorAttach",
+      "stance": "Crouched",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "SuppressorAttach",
+      "stance": "Crouched",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "SuppressorAttach",
+      "stance": "Crouched",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "SuppressorAttach",
+      "stance": "Crouched",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "SuppressorAttach",
+      "stance": "Crouched",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "SuppressorAttach",
+      "stance": "Crouched",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "SuppressorAttach",
+      "stance": "Crouched",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "SuppressorAttach",
+      "stance": "Prone",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "SuppressorAttach",
+      "stance": "Prone",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "SuppressorAttach",
+      "stance": "Prone",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "SuppressorAttach",
+      "stance": "Prone",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "SuppressorAttach",
+      "stance": "Prone",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "SuppressorAttach",
+      "stance": "Prone",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "SuppressorAttach",
+      "stance": "Prone",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "SuppressorAttach",
+      "stance": "Prone",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "SuppressorDetach",
+      "stance": "Crouched",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "SuppressorDetach",
+      "stance": "Crouched",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "SuppressorDetach",
+      "stance": "Crouched",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "SuppressorDetach",
+      "stance": "Crouched",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "SuppressorDetach",
+      "stance": "Crouched",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "SuppressorDetach",
+      "stance": "Crouched",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "SuppressorDetach",
+      "stance": "Crouched",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "SuppressorDetach",
+      "stance": "Crouched",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "SuppressorDetach",
+      "stance": "Prone",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "SuppressorDetach",
+      "stance": "Prone",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "SuppressorDetach",
+      "stance": "Prone",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "SuppressorDetach",
+      "stance": "Prone",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "SuppressorDetach",
+      "stance": "Prone",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "SuppressorDetach",
+      "stance": "Prone",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "SuppressorDetach",
+      "stance": "Prone",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "SuppressorDetach",
+      "stance": "Prone",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WeaponHolster",
+      "stance": "Crouched",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WeaponHolster",
+      "stance": "Crouched",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WeaponHolster",
+      "stance": "Crouched",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WeaponHolster",
+      "stance": "Crouched",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WeaponHolster",
+      "stance": "Crouched",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WeaponHolster",
+      "stance": "Crouched",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WeaponHolster",
+      "stance": "Crouched",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WeaponHolster",
+      "stance": "Crouched",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WeaponHolster",
+      "stance": "Prone",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WeaponHolster",
+      "stance": "Prone",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WeaponHolster",
+      "stance": "Prone",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WeaponHolster",
+      "stance": "Prone",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WeaponHolster",
+      "stance": "Prone",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WeaponHolster",
+      "stance": "Prone",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WeaponHolster",
+      "stance": "Prone",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WeaponHolster",
+      "stance": "Prone",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WeaponDraw",
+      "stance": "Crouched",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WeaponDraw",
+      "stance": "Crouched",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WeaponDraw",
+      "stance": "Crouched",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WeaponDraw",
+      "stance": "Crouched",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WeaponDraw",
+      "stance": "Crouched",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WeaponDraw",
+      "stance": "Crouched",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WeaponDraw",
+      "stance": "Crouched",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WeaponDraw",
+      "stance": "Crouched",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WeaponDraw",
+      "stance": "Prone",
+      "direction": "S",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WeaponDraw",
+      "stance": "Prone",
+      "direction": "SE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WeaponDraw",
+      "stance": "Prone",
+      "direction": "E",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WeaponDraw",
+      "stance": "Prone",
+      "direction": "NE",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WeaponDraw",
+      "stance": "Prone",
+      "direction": "N",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WeaponDraw",
+      "stance": "Prone",
+      "direction": "NW",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WeaponDraw",
+      "stance": "Prone",
+      "direction": "W",
+      "distinctRasterPhases": 8
+    },
+    {
+      "clip": "WeaponDraw",
+      "stance": "Prone",
+      "direction": "SW",
+      "distinctRasterPhases": 8
+    }
+  ],
+  "scope": "Offline raster, authored source hashes, atlas bounds, exact IK lengths and real phase coverage; runtime GUI pending"
+}

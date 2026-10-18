@@ -1,0 +1,6 @@
+Use case: precise-object-edit
+Asset type: original NO TRACE authored skeletal character components.
+Edit this E-profile sixteen-piece source sheet, preserve all pieces, direction, identity, palette, exact equipment asymmetry and their positions.
+Correct only the joint surface treatment. The large oval shoulder opening on the torso (ROW1 COLUMN2) must be filled with continuous dark navy fabric under-sleeve material and natural subtle cloth shading. It must NOT be a black empty hole. Leave the rounded shoulder attachment shape readable, but draw a filled cloth surface there so the moving arm can overlap it without exposing a void.
+Also close the rounded shoulder ends of LEFT UPPER ARM (ROW2 COLUMN1) and RIGHT UPPER ARM (ROW2 COLUMN4) with matching solid navy fabric overlap caps, NOT hollow black tubes or cut-section interiors. Keep their existing pad/cloth volumes and side view. The torso has no head and no arms attached; these remain separate authored pieces.
+All other components and their art remain unchanged. Actual alpha transparency around every piece; no background, grid, labels or matte. High quality detailed 2D tactical pixel-art, never geometric placeholders.

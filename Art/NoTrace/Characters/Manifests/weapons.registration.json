@@ -1,0 +1,1158 @@
+{
+  "author": "Carlos Cortina",
+  "date": "2026-10-18",
+  "weapons": [
+    {
+      "weapon": "Pistol",
+      "direction": "S",
+      "suppressed": false,
+      "file": "Weapon-Pistol-S.png",
+      "source": "Art/NoTrace/Characters/Sources/Weapon-Pistol-16views-v1.png",
+      "sourceSha256": "836947bd799288f075507229a6764e7255b048b4abdaa87254ab96db1655ae85",
+      "sourceRect": [
+        111,
+        41,
+        95,
+        242
+      ],
+      "grip": [
+        0.5,
+        0.58
+      ],
+      "muzzle": [
+        0.5,
+        0.94
+      ],
+      "socketUnits": "normalized_full_prop",
+      "sha256": "10af0f864edbc85b49238d6b66cf24592dad0e3e751fdde5b55164381a82de3a"
+    },
+    {
+      "weapon": "Pistol",
+      "direction": "SE",
+      "suppressed": false,
+      "file": "Weapon-Pistol-SE.png",
+      "source": "Art/NoTrace/Characters/Sources/Weapon-Pistol-16views-v1.png",
+      "sourceSha256": "836947bd799288f075507229a6764e7255b048b4abdaa87254ab96db1655ae85",
+      "sourceRect": [
+        338,
+        57,
+        195,
+        189
+      ],
+      "grip": [
+        0.3,
+        0.65
+      ],
+      "muzzle": [
+        0.92,
+        0.72
+      ],
+      "socketUnits": "normalized_full_prop",
+      "sha256": "48ad5dbe2130c9037b0123119818b58520f5b671d56c772b104185eb9e16c110"
+    },
+    {
+      "weapon": "Pistol",
+      "direction": "E",
+      "suppressed": false,
+      "file": "Weapon-Pistol-E.png",
+      "source": "Art/NoTrace/Characters/Sources/Weapon-Pistol-16views-v1.png",
+      "sourceSha256": "836947bd799288f075507229a6764e7255b048b4abdaa87254ab96db1655ae85",
+      "sourceRect": [
+        645,
+        79,
+        253,
+        193
+      ],
+      "grip": [
+        0.29,
+        0.67
+      ],
+      "muzzle": [
+        0.97,
+        0.27
+      ],
+      "socketUnits": "normalized_full_prop",
+      "sha256": "4a707923738e8c7f8bcc9dab4ee04e57a7f3397e23508d68b10deb1bdfa7c6f7"
+    },
+    {
+      "weapon": "Pistol",
+      "direction": "NE",
+      "suppressed": false,
+      "file": "Weapon-Pistol-NE.png",
+      "source": "Art/NoTrace/Characters/Sources/Weapon-Pistol-16views-v1.png",
+      "sourceSha256": "836947bd799288f075507229a6764e7255b048b4abdaa87254ab96db1655ae85",
+      "sourceRect": [
+        1014,
+        57,
+        171,
+        235
+      ],
+      "grip": [
+        0.37,
+        0.74
+      ],
+      "muzzle": [
+        0.83,
+        0.12
+      ],
+      "socketUnits": "normalized_full_prop",
+      "sha256": "6ac085294e97082b0cb717ad9796d53be979a8d0cf79d5e2be89479cba2e1021"
+    },
+    {
+      "weapon": "Pistol",
+      "direction": "N",
+      "suppressed": false,
+      "file": "Weapon-Pistol-N.png",
+      "source": "Art/NoTrace/Characters/Sources/Weapon-Pistol-16views-v1.png",
+      "sourceSha256": "836947bd799288f075507229a6764e7255b048b4abdaa87254ab96db1655ae85",
+      "sourceRect": [
+        114,
+        327,
+        86,
+        250
+      ],
+      "grip": [
+        0.5,
+        0.75
+      ],
+      "muzzle": [
+        0.5,
+        0.04
+      ],
+      "socketUnits": "normalized_full_prop",
+      "sha256": "db3a0a8e180cc19cafd907b91998b7107e2cea93e1ecefc5ad958927d7cd069c"
+    },
+    {
+      "weapon": "Pistol",
+      "direction": "NW",
+      "suppressed": false,
+      "file": "Weapon-Pistol-NW.png",
+      "source": "Art/NoTrace/Characters/Sources/Weapon-Pistol-16views-v1.png",
+      "sourceSha256": "836947bd799288f075507229a6764e7255b048b4abdaa87254ab96db1655ae85",
+      "sourceRect": [
+        346,
+        331,
+        187,
+        251
+      ],
+      "grip": [
+        0.7,
+        0.72
+      ],
+      "muzzle": [
+        0.1,
+        0.13
+      ],
+      "socketUnits": "normalized_full_prop",
+      "sha256": "931eae67670143143644e24af26930d767bf72f7e6f48ec49c9630915f5224f5"
+    },
+    {
+      "weapon": "Pistol",
+      "direction": "W",
+      "suppressed": false,
+      "file": "Weapon-Pistol-W.png",
+      "source": "Art/NoTrace/Characters/Sources/Weapon-Pistol-16views-v1.png",
+      "sourceSha256": "836947bd799288f075507229a6764e7255b048b4abdaa87254ab96db1655ae85",
+      "sourceRect": [
+        660,
+        367,
+        254,
+        197
+      ],
+      "grip": [
+        0.71,
+        0.67
+      ],
+      "muzzle": [
+        0.03,
+        0.27
+      ],
+      "socketUnits": "normalized_full_prop",
+      "sha256": "78bcf67cfe634dc9228dfb8195322ecb567df2c0f333daa915c84c35ec23de42"
+    },
+    {
+      "weapon": "Pistol",
+      "direction": "SW",
+      "suppressed": false,
+      "file": "Weapon-Pistol-SW.png",
+      "source": "Art/NoTrace/Characters/Sources/Weapon-Pistol-16views-v1.png",
+      "sourceSha256": "836947bd799288f075507229a6764e7255b048b4abdaa87254ab96db1655ae85",
+      "sourceRect": [
+        1005,
+        354,
+        199,
+        194
+      ],
+      "grip": [
+        0.7,
+        0.66
+      ],
+      "muzzle": [
+        0.08,
+        0.74
+      ],
+      "socketUnits": "normalized_full_prop",
+      "sha256": "7d5df51323c2f5e054cad4e3bfb1d760074bd1ab1f44256702ef7a08a2ec0654"
+    },
+    {
+      "weapon": "Pistol",
+      "direction": "S",
+      "suppressed": true,
+      "file": "Weapon-Pistol-S-suppressed.png",
+      "source": "Art/NoTrace/Characters/Sources/Weapon-Pistol-16views-v1.png",
+      "sourceSha256": "836947bd799288f075507229a6764e7255b048b4abdaa87254ab96db1655ae85",
+      "sourceRect": [
+        112,
+        626,
+        89,
+        286
+      ],
+      "grip": [
+        0.5,
+        0.58
+      ],
+      "muzzle": [
+        0.5,
+        0.94
+      ],
+      "socketUnits": "normalized_full_prop",
+      "sha256": "64b826d46cf8cb3f17621e43d9d7b702288c01368fd0192de46d38cdc1910acd"
+    },
+    {
+      "weapon": "Pistol",
+      "direction": "SE",
+      "suppressed": true,
+      "file": "Weapon-Pistol-SE-suppressed.png",
+      "source": "Art/NoTrace/Characters/Sources/Weapon-Pistol-16views-v1.png",
+      "sourceSha256": "836947bd799288f075507229a6764e7255b048b4abdaa87254ab96db1655ae85",
+      "sourceRect": [
+        328,
+        642,
+        260,
+        230
+      ],
+      "grip": [
+        0.3,
+        0.65
+      ],
+      "muzzle": [
+        0.92,
+        0.72
+      ],
+      "socketUnits": "normalized_full_prop",
+      "sha256": "6c79a656aebb6b390e85d746d9a6aeb85e2270f1a6da648e1fe43ae960c8a8f5"
+    },
+    {
+      "weapon": "Pistol",
+      "direction": "E",
+      "suppressed": true,
+      "file": "Weapon-Pistol-E-suppressed.png",
+      "source": "Art/NoTrace/Characters/Sources/Weapon-Pistol-16views-v1.png",
+      "sourceSha256": "836947bd799288f075507229a6764e7255b048b4abdaa87254ab96db1655ae85",
+      "sourceRect": [
+        625,
+        689,
+        333,
+        174
+      ],
+      "grip": [
+        0.29,
+        0.67
+      ],
+      "muzzle": [
+        0.97,
+        0.27
+      ],
+      "socketUnits": "normalized_full_prop",
+      "sha256": "764c8a44e005004b48e0ea6a64a74a3ce25e10291ae5a91537a339f4a6791086"
+    },
+    {
+      "weapon": "Pistol",
+      "direction": "NE",
+      "suppressed": true,
+      "file": "Weapon-Pistol-NE-suppressed.png",
+      "source": "Art/NoTrace/Characters/Sources/Weapon-Pistol-16views-v1.png",
+      "sourceSha256": "836947bd799288f075507229a6764e7255b048b4abdaa87254ab96db1655ae85",
+      "sourceRect": [
+        989,
+        626,
+        223,
+        268
+      ],
+      "grip": [
+        0.37,
+        0.74
+      ],
+      "muzzle": [
+        0.83,
+        0.12
+      ],
+      "socketUnits": "normalized_full_prop",
+      "sha256": "56701f44865cacf1503d15057d1105fd3f2798841e84d86da4e5302ff3563f97"
+    },
+    {
+      "weapon": "Pistol",
+      "direction": "N",
+      "suppressed": true,
+      "file": "Weapon-Pistol-N-suppressed.png",
+      "source": "Art/NoTrace/Characters/Sources/Weapon-Pistol-16views-v1.png",
+      "sourceSha256": "836947bd799288f075507229a6764e7255b048b4abdaa87254ab96db1655ae85",
+      "sourceRect": [
+        115,
+        918,
+        88,
+        303
+      ],
+      "grip": [
+        0.5,
+        0.75
+      ],
+      "muzzle": [
+        0.5,
+        0.04
+      ],
+      "socketUnits": "normalized_full_prop",
+      "sha256": "bffcd7651fccaa4a38be55ea041d979bd467fff1ce226f1b62d708f30e61eeeb"
+    },
+    {
+      "weapon": "Pistol",
+      "direction": "NW",
+      "suppressed": true,
+      "file": "Weapon-Pistol-NW-suppressed.png",
+      "source": "Art/NoTrace/Characters/Sources/Weapon-Pistol-16views-v1.png",
+      "sourceSha256": "836947bd799288f075507229a6764e7255b048b4abdaa87254ab96db1655ae85",
+      "sourceRect": [
+        325,
+        932,
+        224,
+        286
+      ],
+      "grip": [
+        0.7,
+        0.72
+      ],
+      "muzzle": [
+        0.1,
+        0.13
+      ],
+      "socketUnits": "normalized_full_prop",
+      "sha256": "76034b9bc58368b6cbd2e0bf017ae53f4dc94d5b37a6b214ad817733cb80ac79"
+    },
+    {
+      "weapon": "Pistol",
+      "direction": "W",
+      "suppressed": true,
+      "file": "Weapon-Pistol-W-suppressed.png",
+      "source": "Art/NoTrace/Characters/Sources/Weapon-Pistol-16views-v1.png",
+      "sourceSha256": "836947bd799288f075507229a6764e7255b048b4abdaa87254ab96db1655ae85",
+      "sourceRect": [
+        591,
+        1016,
+        345,
+        172
+      ],
+      "grip": [
+        0.71,
+        0.67
+      ],
+      "muzzle": [
+        0.03,
+        0.27
+      ],
+      "socketUnits": "normalized_full_prop",
+      "sha256": "7d1767a1bafe93121d37a8c9d7ad72aa2063aea097f1cae7f81f9dfbbd1701c4"
+    },
+    {
+      "weapon": "Pistol",
+      "direction": "SW",
+      "suppressed": true,
+      "file": "Weapon-Pistol-SW-suppressed.png",
+      "source": "Art/NoTrace/Characters/Sources/Weapon-Pistol-16views-v1.png",
+      "sourceSha256": "836947bd799288f075507229a6764e7255b048b4abdaa87254ab96db1655ae85",
+      "sourceRect": [
+        954,
+        958,
+        249,
+        238
+      ],
+      "grip": [
+        0.7,
+        0.66
+      ],
+      "muzzle": [
+        0.08,
+        0.74
+      ],
+      "socketUnits": "normalized_full_prop",
+      "sha256": "0357fed73995f96acc063152beb8676f5e54803cb715fb9d12ccbc4d89b5b417"
+    },
+    {
+      "weapon": "NonLethal",
+      "direction": "S",
+      "suppressed": false,
+      "file": "Weapon-NonLethal-S.png",
+      "source": "Art/NoTrace/Characters/Sources/Weapon-NonLethal-16views-v1.png",
+      "sourceSha256": "623aedb08f5746230bccde9bdc3ee1e40c75ab8ae227194d2e0f9c44aa2b6dc4",
+      "sourceRect": [
+        108,
+        46,
+        89,
+        230
+      ],
+      "grip": [
+        0.5,
+        0.58
+      ],
+      "muzzle": [
+        0.5,
+        0.94
+      ],
+      "socketUnits": "normalized_full_prop",
+      "sha256": "2580b0282d694903e4d3136255b254315d53f444fc4ef613bd5635d3c17ed6ce"
+    },
+    {
+      "weapon": "NonLethal",
+      "direction": "SE",
+      "suppressed": false,
+      "file": "Weapon-NonLethal-SE.png",
+      "source": "Art/NoTrace/Characters/Sources/Weapon-NonLethal-16views-v1.png",
+      "sourceSha256": "623aedb08f5746230bccde9bdc3ee1e40c75ab8ae227194d2e0f9c44aa2b6dc4",
+      "sourceRect": [
+        317,
+        49,
+        241,
+        218
+      ],
+      "grip": [
+        0.3,
+        0.65
+      ],
+      "muzzle": [
+        0.92,
+        0.72
+      ],
+      "socketUnits": "normalized_full_prop",
+      "sha256": "3669893c452f18940dc2186d77d331408b2458d8a3a9a1e118d1804b23d8876b"
+    },
+    {
+      "weapon": "NonLethal",
+      "direction": "E",
+      "suppressed": false,
+      "file": "Weapon-NonLethal-E.png",
+      "source": "Art/NoTrace/Characters/Sources/Weapon-NonLethal-16views-v1.png",
+      "sourceSha256": "623aedb08f5746230bccde9bdc3ee1e40c75ab8ae227194d2e0f9c44aa2b6dc4",
+      "sourceRect": [
+        629,
+        75,
+        284,
+        209
+      ],
+      "grip": [
+        0.29,
+        0.67
+      ],
+      "muzzle": [
+        0.97,
+        0.27
+      ],
+      "socketUnits": "normalized_full_prop",
+      "sha256": "62a5294ecb2e0f1d0507f28f46439c30b850b39e13a0a5b250264acf2e69af1c"
+    },
+    {
+      "weapon": "NonLethal",
+      "direction": "NE",
+      "suppressed": false,
+      "file": "Weapon-NonLethal-NE.png",
+      "source": "Art/NoTrace/Characters/Sources/Weapon-NonLethal-16views-v1.png",
+      "sourceSha256": "623aedb08f5746230bccde9bdc3ee1e40c75ab8ae227194d2e0f9c44aa2b6dc4",
+      "sourceRect": [
+        998,
+        48,
+        207,
+        249
+      ],
+      "grip": [
+        0.37,
+        0.74
+      ],
+      "muzzle": [
+        0.83,
+        0.12
+      ],
+      "socketUnits": "normalized_full_prop",
+      "sha256": "17fe83c960522428904d20678204572bf6e76ad5642a044670540beed252ea4d"
+    },
+    {
+      "weapon": "NonLethal",
+      "direction": "N",
+      "suppressed": false,
+      "file": "Weapon-NonLethal-N.png",
+      "source": "Art/NoTrace/Characters/Sources/Weapon-NonLethal-16views-v1.png",
+      "sourceSha256": "623aedb08f5746230bccde9bdc3ee1e40c75ab8ae227194d2e0f9c44aa2b6dc4",
+      "sourceRect": [
+        108,
+        324,
+        90,
+        267
+      ],
+      "grip": [
+        0.5,
+        0.75
+      ],
+      "muzzle": [
+        0.5,
+        0.04
+      ],
+      "socketUnits": "normalized_full_prop",
+      "sha256": "fd00fe6700739f2915eb460139138cd77a01a389acbef0edc976ca1c408c58f1"
+    },
+    {
+      "weapon": "NonLethal",
+      "direction": "NW",
+      "suppressed": false,
+      "file": "Weapon-NonLethal-NW.png",
+      "source": "Art/NoTrace/Characters/Sources/Weapon-NonLethal-16views-v1.png",
+      "sourceSha256": "623aedb08f5746230bccde9bdc3ee1e40c75ab8ae227194d2e0f9c44aa2b6dc4",
+      "sourceRect": [
+        323,
+        337,
+        236,
+        254
+      ],
+      "grip": [
+        0.7,
+        0.72
+      ],
+      "muzzle": [
+        0.1,
+        0.13
+      ],
+      "socketUnits": "normalized_full_prop",
+      "sha256": "0f139df45fa67b48f656e836fc876a6ed73a8f5598050a671e31b2b4d7f40000"
+    },
+    {
+      "weapon": "NonLethal",
+      "direction": "W",
+      "suppressed": false,
+      "file": "Weapon-NonLethal-W.png",
+      "source": "Art/NoTrace/Characters/Sources/Weapon-NonLethal-16views-v1.png",
+      "sourceSha256": "623aedb08f5746230bccde9bdc3ee1e40c75ab8ae227194d2e0f9c44aa2b6dc4",
+      "sourceRect": [
+        637,
+        372,
+        281,
+        210
+      ],
+      "grip": [
+        0.71,
+        0.67
+      ],
+      "muzzle": [
+        0.03,
+        0.27
+      ],
+      "socketUnits": "normalized_full_prop",
+      "sha256": "3822fc5d82b4e2aa964d03e28ba33ce75960f29dbc98427f25987b6a34cf0d0a"
+    },
+    {
+      "weapon": "NonLethal",
+      "direction": "SW",
+      "suppressed": false,
+      "file": "Weapon-NonLethal-SW.png",
+      "source": "Art/NoTrace/Characters/Sources/Weapon-NonLethal-16views-v1.png",
+      "sourceSha256": "623aedb08f5746230bccde9bdc3ee1e40c75ab8ae227194d2e0f9c44aa2b6dc4",
+      "sourceRect": [
+        986,
+        349,
+        219,
+        213
+      ],
+      "grip": [
+        0.7,
+        0.66
+      ],
+      "muzzle": [
+        0.08,
+        0.74
+      ],
+      "socketUnits": "normalized_full_prop",
+      "sha256": "386a65a50e8677769cdf4ab7f6ab21261797a1e907bfeb7f3410f7d9740d81be"
+    },
+    {
+      "weapon": "NonLethal",
+      "direction": "S",
+      "suppressed": true,
+      "file": "Weapon-NonLethal-S-suppressed.png",
+      "source": "Art/NoTrace/Characters/Sources/Weapon-NonLethal-16views-v1.png",
+      "sourceSha256": "623aedb08f5746230bccde9bdc3ee1e40c75ab8ae227194d2e0f9c44aa2b6dc4",
+      "sourceRect": [
+        114,
+        642,
+        80,
+        249
+      ],
+      "grip": [
+        0.5,
+        0.58
+      ],
+      "muzzle": [
+        0.5,
+        0.94
+      ],
+      "socketUnits": "normalized_full_prop",
+      "sha256": "4402d2823d6b4a1b3134bcac75cf929b682e32230f59b3698dae15216eabaccd"
+    },
+    {
+      "weapon": "NonLethal",
+      "direction": "SE",
+      "suppressed": true,
+      "file": "Weapon-NonLethal-SE-suppressed.png",
+      "source": "Art/NoTrace/Characters/Sources/Weapon-NonLethal-16views-v1.png",
+      "sourceSha256": "623aedb08f5746230bccde9bdc3ee1e40c75ab8ae227194d2e0f9c44aa2b6dc4",
+      "sourceRect": [
+        284,
+        644,
+        300,
+        223
+      ],
+      "grip": [
+        0.3,
+        0.65
+      ],
+      "muzzle": [
+        0.92,
+        0.72
+      ],
+      "socketUnits": "normalized_full_prop",
+      "sha256": "19764b81397ad6a2a5253b90c5543b3ac266312ad6460c046b04e119b549bcd5"
+    },
+    {
+      "weapon": "NonLethal",
+      "direction": "E",
+      "suppressed": true,
+      "file": "Weapon-NonLethal-E-suppressed.png",
+      "source": "Art/NoTrace/Characters/Sources/Weapon-NonLethal-16views-v1.png",
+      "sourceSha256": "623aedb08f5746230bccde9bdc3ee1e40c75ab8ae227194d2e0f9c44aa2b6dc4",
+      "sourceRect": [
+        614,
+        704,
+        344,
+        167
+      ],
+      "grip": [
+        0.29,
+        0.67
+      ],
+      "muzzle": [
+        0.97,
+        0.27
+      ],
+      "socketUnits": "normalized_full_prop",
+      "sha256": "ea49eb29b3d376c5251f9c438020c47f910c5c7d3fb3bfdc684fb6e92a8c1860"
+    },
+    {
+      "weapon": "NonLethal",
+      "direction": "NE",
+      "suppressed": true,
+      "file": "Weapon-NonLethal-NE-suppressed.png",
+      "source": "Art/NoTrace/Characters/Sources/Weapon-NonLethal-16views-v1.png",
+      "sourceSha256": "623aedb08f5746230bccde9bdc3ee1e40c75ab8ae227194d2e0f9c44aa2b6dc4",
+      "sourceRect": [
+        968,
+        636,
+        268,
+        266
+      ],
+      "grip": [
+        0.37,
+        0.74
+      ],
+      "muzzle": [
+        0.83,
+        0.12
+      ],
+      "socketUnits": "normalized_full_prop",
+      "sha256": "0ee50a21c9e4a02689d1cda9b5b1cca595e43dd298b89e07b5eff1ceda613ba5"
+    },
+    {
+      "weapon": "NonLethal",
+      "direction": "N",
+      "suppressed": true,
+      "file": "Weapon-NonLethal-N-suppressed.png",
+      "source": "Art/NoTrace/Characters/Sources/Weapon-NonLethal-16views-v1.png",
+      "sourceSha256": "623aedb08f5746230bccde9bdc3ee1e40c75ab8ae227194d2e0f9c44aa2b6dc4",
+      "sourceRect": [
+        110,
+        906,
+        86,
+        302
+      ],
+      "grip": [
+        0.5,
+        0.75
+      ],
+      "muzzle": [
+        0.5,
+        0.04
+      ],
+      "socketUnits": "normalized_full_prop",
+      "sha256": "97100577a1144635ab5b2f76ba9630e59fced6d9a97a21b44e418e9026fb6bf7"
+    },
+    {
+      "weapon": "NonLethal",
+      "direction": "NW",
+      "suppressed": true,
+      "file": "Weapon-NonLethal-NW-suppressed.png",
+      "source": "Art/NoTrace/Characters/Sources/Weapon-NonLethal-16views-v1.png",
+      "sourceSha256": "623aedb08f5746230bccde9bdc3ee1e40c75ab8ae227194d2e0f9c44aa2b6dc4",
+      "sourceRect": [
+        277,
+        921,
+        286,
+        287
+      ],
+      "grip": [
+        0.7,
+        0.72
+      ],
+      "muzzle": [
+        0.1,
+        0.13
+      ],
+      "socketUnits": "normalized_full_prop",
+      "sha256": "8d5fac57b5258da28a19da5fca95135276fa8246b00646d7be2bc9aadac9ed70"
+    },
+    {
+      "weapon": "NonLethal",
+      "direction": "W",
+      "suppressed": true,
+      "file": "Weapon-NonLethal-W-suppressed.png",
+      "source": "Art/NoTrace/Characters/Sources/Weapon-NonLethal-16views-v1.png",
+      "sourceSha256": "623aedb08f5746230bccde9bdc3ee1e40c75ab8ae227194d2e0f9c44aa2b6dc4",
+      "sourceRect": [
+        591,
+        995,
+        333,
+        171
+      ],
+      "grip": [
+        0.71,
+        0.67
+      ],
+      "muzzle": [
+        0.03,
+        0.27
+      ],
+      "socketUnits": "normalized_full_prop",
+      "sha256": "c068c8dbd130a24cde68c131e2e9430f690bfd6db81b13931ee0fa8ae2ca326e"
+    },
+    {
+      "weapon": "NonLethal",
+      "direction": "SW",
+      "suppressed": true,
+      "file": "Weapon-NonLethal-SW-suppressed.png",
+      "source": "Art/NoTrace/Characters/Sources/Weapon-NonLethal-16views-v1.png",
+      "sourceSha256": "623aedb08f5746230bccde9bdc3ee1e40c75ab8ae227194d2e0f9c44aa2b6dc4",
+      "sourceRect": [
+        941,
+        949,
+        283,
+        227
+      ],
+      "grip": [
+        0.7,
+        0.66
+      ],
+      "muzzle": [
+        0.08,
+        0.74
+      ],
+      "socketUnits": "normalized_full_prop",
+      "sha256": "b8f2a0df6ece93f14d5d5a579eb9c0f6a79937256c31445afd269a04be67c6eb"
+    },
+    {
+      "weapon": "GuardRifle",
+      "direction": "S",
+      "suppressed": false,
+      "file": "Weapon-GuardRifle-S.png",
+      "source": "Art/NoTrace/Characters/Sources/Weapon-GuardRifle-16views-v1.png",
+      "sourceSha256": "94a3ff31ef9c5a28bbc584d214d67663a0d26e335303a29c1f3d8bb79dbf9ab5",
+      "sourceRect": [
+        116,
+        42,
+        75,
+        263
+      ],
+      "grip": [
+        0.5,
+        0.58
+      ],
+      "muzzle": [
+        0.5,
+        0.94
+      ],
+      "socketUnits": "normalized_full_prop",
+      "sha256": "9b82fb8d263d605f0413a876fabf0c3c2b55b663c554eb5c186acd7d63533059"
+    },
+    {
+      "weapon": "GuardRifle",
+      "direction": "SE",
+      "suppressed": false,
+      "file": "Weapon-GuardRifle-SE.png",
+      "source": "Art/NoTrace/Characters/Sources/Weapon-GuardRifle-16views-v1.png",
+      "sourceSha256": "94a3ff31ef9c5a28bbc584d214d67663a0d26e335303a29c1f3d8bb79dbf9ab5",
+      "sourceRect": [
+        314,
+        80,
+        253,
+        199
+      ],
+      "grip": [
+        0.3,
+        0.65
+      ],
+      "muzzle": [
+        0.92,
+        0.72
+      ],
+      "socketUnits": "normalized_full_prop",
+      "sha256": "a92b57ce1f650909344d38cf57dedca5eeb4151fe630ddb2494dcc298e6717b7"
+    },
+    {
+      "weapon": "GuardRifle",
+      "direction": "E",
+      "suppressed": false,
+      "file": "Weapon-GuardRifle-E.png",
+      "source": "Art/NoTrace/Characters/Sources/Weapon-GuardRifle-16views-v1.png",
+      "sourceSha256": "94a3ff31ef9c5a28bbc584d214d67663a0d26e335303a29c1f3d8bb79dbf9ab5",
+      "sourceRect": [
+        591,
+        116,
+        339,
+        159
+      ],
+      "grip": [
+        0.29,
+        0.67
+      ],
+      "muzzle": [
+        0.97,
+        0.27
+      ],
+      "socketUnits": "normalized_full_prop",
+      "sha256": "421c490575129ad2aeb5af55a946a6e1ec2568c30d9c30b855206de741d3b506"
+    },
+    {
+      "weapon": "GuardRifle",
+      "direction": "NE",
+      "suppressed": false,
+      "file": "Weapon-GuardRifle-NE.png",
+      "source": "Art/NoTrace/Characters/Sources/Weapon-GuardRifle-16views-v1.png",
+      "sourceSha256": "94a3ff31ef9c5a28bbc584d214d67663a0d26e335303a29c1f3d8bb79dbf9ab5",
+      "sourceRect": [
+        953,
+        87,
+        268,
+        207
+      ],
+      "grip": [
+        0.37,
+        0.74
+      ],
+      "muzzle": [
+        0.83,
+        0.12
+      ],
+      "socketUnits": "normalized_full_prop",
+      "sha256": "68aa01f9010d3dddd5cd3a6a85beff625c0e145e17fc00cf3bfe6061cbcf5c8d"
+    },
+    {
+      "weapon": "GuardRifle",
+      "direction": "N",
+      "suppressed": false,
+      "file": "Weapon-GuardRifle-N.png",
+      "source": "Art/NoTrace/Characters/Sources/Weapon-GuardRifle-16views-v1.png",
+      "sourceSha256": "94a3ff31ef9c5a28bbc584d214d67663a0d26e335303a29c1f3d8bb79dbf9ab5",
+      "sourceRect": [
+        113,
+        333,
+        72,
+        250
+      ],
+      "grip": [
+        0.5,
+        0.75
+      ],
+      "muzzle": [
+        0.5,
+        0.04
+      ],
+      "socketUnits": "normalized_full_prop",
+      "sha256": "d15e6c8a84302758e70ab634caa34ee16c0b31639212825428bd70b2977daf62"
+    },
+    {
+      "weapon": "GuardRifle",
+      "direction": "NW",
+      "suppressed": false,
+      "file": "Weapon-GuardRifle-NW.png",
+      "source": "Art/NoTrace/Characters/Sources/Weapon-GuardRifle-16views-v1.png",
+      "sourceSha256": "94a3ff31ef9c5a28bbc584d214d67663a0d26e335303a29c1f3d8bb79dbf9ab5",
+      "sourceRect": [
+        306,
+        352,
+        260,
+        212
+      ],
+      "grip": [
+        0.7,
+        0.72
+      ],
+      "muzzle": [
+        0.1,
+        0.13
+      ],
+      "socketUnits": "normalized_full_prop",
+      "sha256": "70b64a95684f383077b857cabe0e603a4550155a0c259982c815b02b9fa8a7db"
+    },
+    {
+      "weapon": "GuardRifle",
+      "direction": "W",
+      "suppressed": false,
+      "file": "Weapon-GuardRifle-W.png",
+      "source": "Art/NoTrace/Characters/Sources/Weapon-GuardRifle-16views-v1.png",
+      "sourceSha256": "94a3ff31ef9c5a28bbc584d214d67663a0d26e335303a29c1f3d8bb79dbf9ab5",
+      "sourceRect": [
+        601,
+        396,
+        328,
+        159
+      ],
+      "grip": [
+        0.71,
+        0.67
+      ],
+      "muzzle": [
+        0.03,
+        0.27
+      ],
+      "socketUnits": "normalized_full_prop",
+      "sha256": "5d28916fa5fbc58ee09b06b26b8b5db0dadc5415c1ff45717a8c91c1fbb042df"
+    },
+    {
+      "weapon": "GuardRifle",
+      "direction": "SW",
+      "suppressed": false,
+      "file": "Weapon-GuardRifle-SW.png",
+      "source": "Art/NoTrace/Characters/Sources/Weapon-GuardRifle-16views-v1.png",
+      "sourceSha256": "94a3ff31ef9c5a28bbc584d214d67663a0d26e335303a29c1f3d8bb79dbf9ab5",
+      "sourceRect": [
+        956,
+        372,
+        269,
+        198
+      ],
+      "grip": [
+        0.7,
+        0.66
+      ],
+      "muzzle": [
+        0.08,
+        0.74
+      ],
+      "socketUnits": "normalized_full_prop",
+      "sha256": "d2dffa2052cf0101962091da7f4fe994723a99f0589ad0d5d5757d5d3c93d4bc"
+    },
+    {
+      "weapon": "GuardRifle",
+      "direction": "S",
+      "suppressed": true,
+      "file": "Weapon-GuardRifle-S-suppressed.png",
+      "source": "Art/NoTrace/Characters/Sources/Weapon-GuardRifle-16views-v1.png",
+      "sourceSha256": "94a3ff31ef9c5a28bbc584d214d67663a0d26e335303a29c1f3d8bb79dbf9ab5",
+      "sourceRect": [
+        116,
+        631,
+        74,
+        269
+      ],
+      "grip": [
+        0.5,
+        0.58
+      ],
+      "muzzle": [
+        0.5,
+        0.94
+      ],
+      "socketUnits": "normalized_full_prop",
+      "sha256": "ab4ef34d2edc62381af04f26b1f92b66f5909df4418df2a488e22cfcd07ea165"
+    },
+    {
+      "weapon": "GuardRifle",
+      "direction": "SE",
+      "suppressed": true,
+      "file": "Weapon-GuardRifle-SE-suppressed.png",
+      "source": "Art/NoTrace/Characters/Sources/Weapon-GuardRifle-16views-v1.png",
+      "sourceSha256": "94a3ff31ef9c5a28bbc584d214d67663a0d26e335303a29c1f3d8bb79dbf9ab5",
+      "sourceRect": [
+        295,
+        673,
+        294,
+        218
+      ],
+      "grip": [
+        0.3,
+        0.65
+      ],
+      "muzzle": [
+        0.92,
+        0.72
+      ],
+      "socketUnits": "normalized_full_prop",
+      "sha256": "3264ad62d8cad557743f5c537b9e2464a8631ad7ad1b65b745605227ab292d13"
+    },
+    {
+      "weapon": "GuardRifle",
+      "direction": "E",
+      "suppressed": true,
+      "file": "Weapon-GuardRifle-E-suppressed.png",
+      "source": "Art/NoTrace/Characters/Sources/Weapon-GuardRifle-16views-v1.png",
+      "sourceSha256": "94a3ff31ef9c5a28bbc584d214d67663a0d26e335303a29c1f3d8bb79dbf9ab5",
+      "sourceRect": [
+        573,
+        707,
+        389,
+        154
+      ],
+      "grip": [
+        0.29,
+        0.67
+      ],
+      "muzzle": [
+        0.97,
+        0.27
+      ],
+      "socketUnits": "normalized_full_prop",
+      "sha256": "f2682bfe4629c69a4935cb223f4d8667ded6eaab1828fa42283f75d23edb3c2a"
+    },
+    {
+      "weapon": "GuardRifle",
+      "direction": "NE",
+      "suppressed": true,
+      "file": "Weapon-GuardRifle-NE-suppressed.png",
+      "source": "Art/NoTrace/Characters/Sources/Weapon-GuardRifle-16views-v1.png",
+      "sourceSha256": "94a3ff31ef9c5a28bbc584d214d67663a0d26e335303a29c1f3d8bb79dbf9ab5",
+      "sourceRect": [
+        951,
+        664,
+        291,
+        235
+      ],
+      "grip": [
+        0.37,
+        0.74
+      ],
+      "muzzle": [
+        0.83,
+        0.12
+      ],
+      "socketUnits": "normalized_full_prop",
+      "sha256": "c0b4c03d7c64fac84658dbfb1b8690ffcb258e73d48e8ecb7c4fba145663b259"
+    },
+    {
+      "weapon": "GuardRifle",
+      "direction": "N",
+      "suppressed": true,
+      "file": "Weapon-GuardRifle-N-suppressed.png",
+      "source": "Art/NoTrace/Characters/Sources/Weapon-GuardRifle-16views-v1.png",
+      "sourceSha256": "94a3ff31ef9c5a28bbc584d214d67663a0d26e335303a29c1f3d8bb79dbf9ab5",
+      "sourceRect": [
+        114,
+        909,
+        74,
+        270
+      ],
+      "grip": [
+        0.5,
+        0.75
+      ],
+      "muzzle": [
+        0.5,
+        0.04
+      ],
+      "socketUnits": "normalized_full_prop",
+      "sha256": "0170f98b017a596e0d925620f9456e57c9b328aeb8057b7149b4d20211d119ef"
+    },
+    {
+      "weapon": "GuardRifle",
+      "direction": "NW",
+      "suppressed": true,
+      "file": "Weapon-GuardRifle-NW-suppressed.png",
+      "source": "Art/NoTrace/Characters/Sources/Weapon-GuardRifle-16views-v1.png",
+      "sourceSha256": "94a3ff31ef9c5a28bbc584d214d67663a0d26e335303a29c1f3d8bb79dbf9ab5",
+      "sourceRect": [
+        277,
+        923,
+        291,
+        239
+      ],
+      "grip": [
+        0.7,
+        0.72
+      ],
+      "muzzle": [
+        0.1,
+        0.13
+      ],
+      "socketUnits": "normalized_full_prop",
+      "sha256": "4d85779ab714cad379b46182432e9609675bb20fc05a333da339c585922ed891"
+    },
+    {
+      "weapon": "GuardRifle",
+      "direction": "W",
+      "suppressed": true,
+      "file": "Weapon-GuardRifle-W-suppressed.png",
+      "source": "Art/NoTrace/Characters/Sources/Weapon-GuardRifle-16views-v1.png",
+      "sourceSha256": "94a3ff31ef9c5a28bbc584d214d67663a0d26e335303a29c1f3d8bb79dbf9ab5",
+      "sourceRect": [
+        563,
+        993,
+        378,
+        156
+      ],
+      "grip": [
+        0.71,
+        0.67
+      ],
+      "muzzle": [
+        0.03,
+        0.27
+      ],
+      "socketUnits": "normalized_full_prop",
+      "sha256": "5b45f2e00d1feed2aa3a051b94a259b7e77114c0a68694726609723a13b49432"
+    },
+    {
+      "weapon": "GuardRifle",
+      "direction": "SW",
+      "suppressed": true,
+      "file": "Weapon-GuardRifle-SW-suppressed.png",
+      "source": "Art/NoTrace/Characters/Sources/Weapon-GuardRifle-16views-v1.png",
+      "sourceSha256": "94a3ff31ef9c5a28bbc584d214d67663a0d26e335303a29c1f3d8bb79dbf9ab5",
+      "sourceRect": [
+        931,
+        964,
+        295,
+        218
+      ],
+      "grip": [
+        0.7,
+        0.66
+      ],
+      "muzzle": [
+        0.08,
+        0.74
+      ],
+      "socketUnits": "normalized_full_prop",
+      "sha256": "8efed81d8f1382d12a6c119e5abf6d5192f61891922a20708b787fc664ecc545"
+    }
+  ]
+}

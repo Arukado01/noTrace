@@ -1,0 +1,4 @@
+Use case: precise-object-edit
+Asset type: NO TRACE separately authored skeletal animation components.
+Edit the original sixteen-piece NW component sheet. Change ONLY the helmet/head in ROW1 COLUMN1: it must be a true NORTHWEST rear-left three-quarter view, looking toward screen UPPER LEFT. Show BACK of helmet, rear head and nape with the left ear cup toward viewer. NO eyes, NO exposed skin face opening, NO nose, NO mouth, NO frontal helmet mounting rectangle. The rear-left direction must match the back-facing torso in ROW1 COLUMN2. Keep the same helmet proportions/materials, mask/neck equipment around the nape, size and position. All fifteen other components remain exactly unchanged. Preserve transparent alpha, no text/grid/background. This is a new correctly oriented authored head, not a mirrored front view.
+Maintain polished tactical 2D pixel-art, clean transparent margins, no changes to the original character identity.

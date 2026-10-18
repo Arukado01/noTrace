@@ -1,0 +1,5 @@
+Use case: precise-object-edit
+Asset type: original 16-piece articulated character source for NO TRACE.
+Edit target: this sheet of separately authored pieces. Preserve all sixteen pieces, their positions, realistic adult volumes, shading, pixel-art detail, rounded joint overlap ends, transparent canvas and same SOUTH-facing view.
+Make ONE correction only: the LEFT THIGH piece in ROW3 COLUMN3 must have plain navy tactical cloth and its knee protection, with NO pistol, NO pistol holster, NO holster straps, NO weapon grip and NO side pouch. Only the anatomical RIGHT thigh, ROW4 COLUMN2, may carry the pistol holster and its straps. The character has exactly one right thigh holster. Keep the left belt radio pouch on the pelvis.
+Do not replace any piece with a whole character. Do not change head, chest, backpack, arms, hands, shin or boot art. No new text, grid, labels, background, colored matte or checkerboard. Preserve actual alpha transparency and clean margins.
