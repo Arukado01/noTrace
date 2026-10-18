@@ -1,4 +1,4 @@
-"""Actualiza sólo las entradas de audio de NO TRACE en el inventario de producción."""
+"""Actualiza audio y recursos visuales runtime de NO TRACE en el inventario de producción."""
 
 import json
 from pathlib import Path
@@ -17,6 +17,7 @@ runtime = json.loads((ROOT / "Content/Textures/NoTrace/Characters/V2/CharacterAt
 assert all(Path(page["file"]).name == page["file"] and Path(page["file"]).suffix == ".png" for page in runtime["pages"]), "Página runtime de personaje fuera de su directorio"
 characters = ["Content/Textures/NoTrace/Characters/V2/" + page["file"] for page in runtime["pages"]]
 characters += ["Content/Textures/NoTrace/Characters/V2/" + name for name in ("WeaponProps.png", "WeaponSelection.png", "CharacterAtlasMetadata.json", "CharacterAtlasRuntime.json")]
-assert all((ROOT / path).is_file() for path in environment + characters), "Falta un recurso visual obligatorio antes de inventariar"
-inventory.write_text("\n".join(sorted(set(current + audio + environment + characters))) + "\n", encoding="utf-8")
-print(f"Inventario: {len(audio)} recursos y documentos de audio verificados")
+first_person = ["Content/Textures/NoTrace/FirstPerson/" + name for name in ("Actors.png", "Viewmodels.png", "Runtime.json")]
+assert all((ROOT / path).is_file() for path in environment + characters + first_person), "Falta un recurso visual obligatorio antes de inventariar"
+inventory.write_text("\n".join(sorted(set(current + audio + environment + characters + first_person))) + "\n", encoding="utf-8")
+print(f"Inventario: {len(audio)} recursos y documentos de audio; {len(environment) + len(characters) + len(first_person)} visuales verificados")

@@ -125,6 +125,16 @@ try {
     Assert-Production $missingEnvironmentRejected 'El publicador exige la textura de mobiliario militar utilizada por el renderer.'
     $validationCode = Invoke-ProductionLauncherValidation $play @('--validate-release', $incomplete)
     Assert-Production ($validationCode -ne 0) 'El lanzador rechaza también una publicación sin la textura obligatoria del entorno.'
+    [IO.File]::Copy((Join-Path $newRelease 'Content/Textures/NoTrace/Environment/MilitaryFurniture.png'), (Join-Path $incomplete 'Content/Textures/NoTrace/Environment/MilitaryFurniture.png'))
+    $validationCode = Invoke-ProductionLauncherValidation $play @('--validate-release', $incomplete)
+    Assert-Production ($validationCode -eq 0) 'La copia de prueba vuelve a ser íntegra tras restaurar audio y mobiliario antes del control FPS.'
+    $firstPersonActors = 'Content/Textures/NoTrace/FirstPerson/Actors.png'
+    Remove-Item -LiteralPath (Join-Path $incomplete $firstPersonActors)
+    $missingFirstPersonReason = ''
+    try { Write-ProductionManifest $incomplete (Join-Path $PSScriptRoot 'RequiredContent.txt') } catch { $missingFirstPersonReason = $_.Exception.Message }
+    Assert-Production ($missingFirstPersonReason.Contains($firstPersonActors)) 'El publicador identifica Actors.png de primera persona como único recurso obligatorio ausente.'
+    $validationCode = Invoke-ProductionLauncherValidation $play @('--validate-release', $incomplete)
+    Assert-Production ($validationCode -ne 0) 'El lanzador rechaza la misma publicación al faltar únicamente Actors.png de primera persona.'
     $lock = Get-ProductionLock $repository
     try {
         $blocked = $false

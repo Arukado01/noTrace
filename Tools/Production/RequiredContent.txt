@@ -249,6 +249,9 @@ Content/Textures/NoTrace/Characters/V2/WeaponSelection.png
 Content/Textures/NoTrace/Environment/MilitaryEnvironment.manifest.json
 Content/Textures/NoTrace/Environment/MilitaryFurniture.png
 Content/Textures/NoTrace/Environment/MilitaryMaterials.png
+Content/Textures/NoTrace/FirstPerson/Actors.png
+Content/Textures/NoTrace/FirstPerson/Runtime.json
+Content/Textures/NoTrace/FirstPerson/Viewmodels.png
 Content/Textures/NoTrace/Interface/Cursor.png
 Content/Textures/NoTrace/Interface/Cursor.svg
 Content/Textures/NoTrace/Interface/CursorActive.png
