@@ -390,13 +390,22 @@ namespace EngineTests {
     }
     static void VerifyCursorOrientation(Game &game, EngineContext &context, sf::RenderWindow &window, const std::filesystem::path &output) {
       auto &world=const_cast<WorldState &>(game.session_.GetWorld());
-      const auto saved=world; const auto previousSize=window.getSize(); const auto previousZoom=game.worldRenderer_.GetZoom();
+      const auto saved=world; const auto previousSettings=context.window.GetDisplaySettings(); const auto previousZoom=game.worldRenderer_.GetZoom();
       world.obstacles.clear(); world.objects.clear(); world.guards.clear(); world.securityEntries.clear(); world.shots.clear(); world.visibility={};
       const std::array<sf::Keyboard::Scan,4> scans{sf::Keyboard::Scan::W,sf::Keyboard::Scan::D,sf::Keyboard::Scan::S,sf::Keyboard::Scan::A};
       const std::array<sf::Vector2f,8> movements{{{0.f,-1.f},{1.f,-1.f},{1.f,0.f},{1.f,1.f},{0.f,1.f},{-1.f,1.f},{-1.f,0.f},{-1.f,-1.f}}};
       const auto hold=[&](sf::Keyboard::Scan scan) { sf::Event::KeyPressed event; event.scancode=scan; context.input.CaptureEvent(event); };
-      for(const auto size:{sf::Vector2u{1280,720},{1000,700},{1600,900}}) {
-        window.setSize(size); context.window.RefreshPresentation(); context.gui.SyncPresentation(context.window.GetLogicalSize(),context.window.GetViewport());
+      nlohmann::json evidence=nlohmann::json::array();
+      for(const int layout:{0,1,2,3,4}) {
+        if(layout<3) window.setSize(std::array<sf::Vector2u,3>{{{1280,720},{1000,700},{1600,900}}}[layout]);
+        else {
+          auto settings=context.window.GetDisplaySettings(); settings.fullscreen=layout==3; settings.borderless=layout==4; settings.resolution={1600,900};
+          Require(context.window.RequestDisplaySettings(settings),"El escenario de cursor no acepta pantalla completa o ventana sin bordes");
+          context.window.Update(); context.window.ResolveDisplayChange(true); context.window.Update();
+          Require(context.window.GetDisplaySettings().fullscreen==(layout==3) && context.window.GetDisplaySettings().borderless==(layout==4),"El escenario de cursor no aplicó el modo solicitado");
+        }
+        const auto size=window.getSize();
+        context.window.RefreshPresentation(); context.gui.SyncPresentation(context.window.GetLogicalSize(),context.window.GetViewport());
         for(const float requestedZoom:{PresentationConfig::MinimumZoom,PresentationConfig::DefaultZoom,PresentationConfig::MaximumZoom}) {
           game.worldRenderer_.AdjustZoom(std::log(requestedZoom/game.worldRenderer_.GetZoom())/std::log(PresentationConfig::ZoomFactorPerStep));
           const float zoom=game.worldRenderer_.GetZoom();
@@ -428,10 +437,15 @@ namespace EngineTests {
           Require(shotDirection.dot(agent.facing)>.999f && (laser.to-laser.from).normalized().dot(agent.facing)>.999f,"Disparo, láser y orientación no comparten dirección");
           agent.lethalMagazine=0; agent.actionCooldown=0.f; context.input.BeginFrame(); hold(sf::Keyboard::Scan::R); game.Update(); Step(game);
           Require(agent.reloadRemaining>0.f && agent.facing.dot(shotDirection)>.999f,"Recargar cambia la orientación exigida por el cursor");
+          evidence.push_back({{"layout",layout},{"size",{size.x,size.y}},{"zoom",zoom},{"movements",8},{"aim_fire_laser_reload","PASS"}});
+          if(layout>=3 && std::abs(zoom-PresentationConfig::DefaultZoom)<0.0001f) Capture(game,context,window,output/std::format("cursor-mode-{}.png",layout));
         }
       }
       context.input.Clear(); game.BindInputs(); game.held_.fill(false); game.session_.Submit({}); world=saved;
-      window.setSize(previousSize); context.window.RefreshPresentation(); context.gui.SyncPresentation(context.window.GetLogicalSize(),context.window.GetViewport());
+      Require(context.window.RequestDisplaySettings(previousSettings),"No se pudo restaurar la ventana después de comprobar el cursor");
+      context.window.Update(); context.window.ResolveDisplayChange(true); context.window.Update();
+      context.window.RefreshPresentation(); context.gui.SyncPresentation(context.window.GetLogicalSize(),context.window.GetViewport());
+      std::ofstream(output/"cursor-orientation.json")<<nlohmann::json{{"result","PASS"},{"movement_cases",120},{"layouts",evidence}}.dump(2);
       game.worldRenderer_.AdjustZoom(std::log(previousZoom/game.worldRenderer_.GetZoom())/std::log(PresentationConfig::ZoomFactorPerStep)); game.RefreshHud();
     }
     static void VerifyManeuverControls(Game &game, EngineContext &context) {
