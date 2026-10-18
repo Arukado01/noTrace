@@ -391,20 +391,6 @@ namespace {
   }
 
   void AssistanceRespectsWallsDeathAndThreats() {
-    {
-      Simulation simulation;
-      auto &world = Fixture(simulation); world.securityEntries.clear(); world.agents[0].hidden = true;
-      Observer(world, 11); world.guards[0].position = {100.f, 300.f}; world.guards[0].facing = {1.f, 0.f};
-      Guard body; body.id = 91; body.position = {220.f, 300.f}; body.state = GuardState::Incapacitated;
-      body.stun = CombatConfig::MaxGuardStun; body.incapacityRemaining = 80.f; body.bodyReported = true; world.guards.push_back(body);
-      world.obstacles = {{{{200.f, 280.f}, {40.f, 4.f}}, CoverKind::Low, true, "Cierre superior"},
-        {{{200.f, 316.f}, {40.f, 4.f}}, CoverKind::Low, true, "Cierre inferior"},
-        {{{200.f, 280.f}, {4.f, 40.f}}, CoverKind::Low, true, "Cierre izquierdo"},
-        {{{236.f, 280.f}, {4.f, 40.f}}, CoverKind::Low, true, "Cierre derecho"}};
-      Advance(simulation, 3.f);
-      Require(world.guards[1].state == GuardState::Incapacitated && world.guards[1].position == body.position &&
-        world.guards[0].bodyInspectionTime == 0.f && !world.alarm, "Un cuerpo visible pero inaccesible se despierta a través de sólidos");
-    }
     for (const auto state : {GuardState::Dead, GuardState::Incapacitated}) {
       Simulation simulation;
       auto &world = Fixture(simulation); world.securityEntries.clear(); world.agents[0].hidden = true;
@@ -438,6 +424,61 @@ namespace {
       simulation.Step(0.1f, {});
       Require(world.guards.back().bodyTargetId == 91 && std::ranges::count_if(world.guards, [](const Guard &guard) { return guard.bodyTargetId == 91; }) == 1,
         "Otro guardia no puede asumir de forma exclusiva una asistencia interrumpida");
+    }
+  }
+
+  void UnreachableAssistanceYieldsToNormalAi() {
+    for (const bool closedAccess : {true, false}) {
+      Simulation simulation;
+      auto &world = Fixture(simulation); world.securityEntries.clear(); Observer(world, 11, 1.f);
+      simulation.Step(0.1f, {});
+      world.agents[0].hidden = true; world.agents[0].position = {50.f, 700.f}; simulation.Step(0.1f, {});
+      auto &helper = world.guards[0]; helper.position = {100.f, 300.f}; helper.facing = {1.f, 0.f}; helper.patrol = {{100.f, 300.f}, {100.f, 380.f}};
+      Guard body; body.id = 91; body.position = {220.f, 300.f}; body.state = GuardState::Incapacitated;
+      body.stun = CombatConfig::MaxGuardStun; body.incapacityRemaining = 80.f; body.bodyReported = true; world.guards.push_back(body);
+      if (closedAccess) world.obstacles = {{{{200.f, 280.f}, {40.f, 4.f}}, CoverKind::Low, true, "Cierre superior"},
+        {{{200.f, 316.f}, {40.f, 4.f}}, CoverKind::Low, true, "Cierre inferior"},
+        {{{200.f, 280.f}, {4.f, 40.f}}, CoverKind::Low, true, "Cierre izquierdo"},
+        {{{236.f, 280.f}, {4.f, 40.f}}, CoverKind::Low, true, "Cierre derecho"}};
+      else world.obstacles = {{{{150.f, 0.f}, {20.f, world.size.y}}, CoverKind::Low, true, "Separación sin ruta al compañero"}};
+      bool attempted = false, released = false;
+      for (unsigned int step = 0; step < 150 && !released; ++step) {
+        const auto previous = world.guards[0].position;
+        const auto remaining = world.securityRemaining;
+        simulation.Step(0.1f, {});
+        const auto &guard = world.guards[0];
+        attempted |= guard.bodyTargetId == 91 || guard.navigationRejectTime > 0.f;
+        released = attempted && guard.bodyTargetKind == BodyTargetKind::None && guard.navigationRejectTime > 0.f;
+        Require(world.guards[1].state == GuardState::Incapacitated && world.guards[1].position == body.position &&
+          guard.bodyInspectionTime == 0.f && (guard.position - previous).length() <= GameplayConfig::GuardSpeed * 0.1f + 0.01f &&
+          !WorldGeometry::PositionBlocked(world, guard.position, GameplayConfig::AgentRadius), "La asistencia inaccesible despierta, salta o atraviesa sólidos");
+        Require(world.securityAlert == SecurityAlert::Orange && std::abs(world.securityRemaining - (remaining - 0.1f)) < 0.001f,
+          "Rechazar una asistencia inaccesible altera el reloj naranja");
+      }
+      Require(released && world.guards[0].state == GuardState::Search, "La falta de acceso o el rechazo de navegación no libera la reserva para continuar buscando");
+      for (unsigned int step = 0; step < 5; ++step) {
+        world.guards[0].facing = {1.f, 0.f}; simulation.Step(0.1f, {});
+        Require(world.guards[0].bodyTargetKind == BodyTargetKind::None && world.guards[0].state == GuardState::Search && world.guards[0].navigationRejectTime > 0.f,
+          "El guardia vuelve a reservar el mismo cuerpo cada tick en vez de respetar la espera de navegación");
+      }
+      Require(world.guards[0].stateTime >= 0.49f, "La asistencia rechazada reinicia la IA de búsqueda durante la espera");
+      if (closedAccess) {
+        Advance(simulation, world.securityRemaining + 0.1f);
+        Require(world.securityAlert == SecurityAlert::Yellow && world.guards[0].state == GuardState::Vigilance && world.guards[0].bodyTargetKind == BodyTargetKind::None,
+          "La asistencia inaccesible impide pasar de búsqueda a vigilancia");
+        Advance(simulation, world.securityRemaining + 0.1f);
+        Require(world.securityAlert == SecurityAlert::Calm && world.guards[0].state == GuardState::Patrol && world.guards[0].bodyTargetKind == BodyTargetKind::None &&
+          world.guards[1].state == GuardState::Incapacitated && world.guards[1].position == body.position,
+          "La asistencia inaccesible conserva una reserva o bloquea la patrulla al acabar la alerta");
+      } else {
+        world.obstacles.clear();
+        const float retry = world.guards[0].navigationRejectTime;
+        for (unsigned int step = 0; step < static_cast<unsigned int>(std::ceil((retry + 4.f) / 0.1f)) && world.guards[1].state == GuardState::Incapacitated; ++step) {
+          world.guards[0].facing = {1.f, 0.f}; simulation.Step(0.1f, {});
+        }
+        Require(world.guards[1].state == GuardState::Search && world.guards[1].stun == 0.f && world.guards[1].incapacityRemaining == 0.f,
+          "Abrir una ruta válida después de la espera no permite reanudar y completar la asistencia");
+      }
     }
   }
 
@@ -528,7 +569,7 @@ namespace {
 
 int main() {
   try {
-    IncapacitationEndsThreat(); DetectionUsesRealObservers(); AlertKeepsEveryConfirmedObserver(); EnemyDamageProducesCollapse(); WavesAreFiniteAndSpatiallyValid(); ContactLossPatrolAndWithdrawal(); VisibleExitDoesNotEraseGuard(); BodyInvestigationIsPhysicalAndAnonymous(); BodyOcclusionAndReservationRelease(); GuardAssistancePreservesTheOngoingSearch(); AssistanceRespectsWallsDeathAndThreats(); AlertPhasesUseExactAuthoritativeDurations(); PatrolPausesAndInterruptions(); DetectionPaceAndOcclusionMemory();
+    IncapacitationEndsThreat(); DetectionUsesRealObservers(); AlertKeepsEveryConfirmedObserver(); EnemyDamageProducesCollapse(); WavesAreFiniteAndSpatiallyValid(); ContactLossPatrolAndWithdrawal(); VisibleExitDoesNotEraseGuard(); BodyInvestigationIsPhysicalAndAnonymous(); BodyOcclusionAndReservationRelease(); GuardAssistancePreservesTheOngoingSearch(); AssistanceRespectsWallsDeathAndThreats(); UnreachableAssistanceYieldsToNormalAi(); AlertPhasesUseExactAuthoritativeDurations(); PatrolPausesAndInterruptions(); DetectionPaceAndOcclusionMemory();
     std::cout << "NoTraceSecurityTests: " << checks << " comprobaciones correctas\n";
     return 0;
   } catch (const std::exception &error) {

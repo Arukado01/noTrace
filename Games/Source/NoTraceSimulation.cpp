@@ -287,7 +287,6 @@ namespace NoTrace {
     ResolvePenetration(guard.position, AgentRadius);
     if (guard.position != previousPosition) { guard.navigation.clear(); guard.navigationTimer = 0.f; }
     guard.navigationTimer = std::max(0.f, guard.navigationTimer - dt);
-    guard.navigationRejectTime = std::max(0.f, guard.navigationRejectTime - dt);
     const auto pathClear = [this](sf::Vector2f from, sf::Vector2f to) {
       if (Blocked(to, AgentRadius)) return false;
       bool blocked = false;
@@ -1158,6 +1157,7 @@ namespace NoTrace {
       guard.suspicionRemaining = std::max(0.f, guard.suspicionRemaining - dt);
       if (guard.suspicionRemaining == 0.f && guard.detectedTime == 0.f) guard.indicatorProgress = 0.f;
       guard.attackCooldown = std::max(0.f, guard.attackCooldown - dt);
+      guard.navigationRejectTime = std::max(0.f, guard.navigationRejectTime - dt);
       if (guard.cqcState != CqcState::None || guard.heldBy != 0) { UpdateHideoutInspection(guard, dt); guard.stepTime = 0.f; guard.bodyTargetKind = BodyTargetKind::None; guard.bodyTargetId = 0; guard.bodyInspectionTime = 0.f; continue; }
       guard.staggerRemaining = std::max(0.f, guard.staggerRemaining - dt);
       if (guard.staggerRemaining > 0.f) {
@@ -1246,15 +1246,18 @@ namespace NoTrace {
         const auto reservedBody = [this](BodyTargetKind kind, std::uint32_t id) {
           return std::ranges::any_of(world_.guards, [kind, id](const Guard &other) { return other.bodyTargetKind == kind && other.bodyTargetId == id && !IsBody(other) && other.heldBy == 0 && other.cqcState == CqcState::None && other.staggerRemaining <= 0.f; });
         };
+        const auto reachableBody = [&guard](sf::Vector2f position) {
+          return guard.navigationRejectTime <= 0.f || (guard.navigationRejectedTarget - position).length() > SecurityConfig::BodyInspectionReach;
+        };
         if (guard.bodyTargetKind == BodyTargetKind::None) for (const auto &body : world_.guards) if (body.id != guard.id && IsBody(body) && !body.bodyHidden && body.storedIn == 0 &&
             (!body.bodyReported || (body.state == GuardState::Incapacitated && body.health > 0.f && body.heldBy == 0 &&
               std::ranges::none_of(world_.agents, [&body](const Agent &agent) { return agent.draggingGuard == static_cast<int>(body.id); }))) &&
-            seesBody(body.position) && !reservedBody(BodyTargetKind::Guard, body.id)) {
+            reachableBody(body.position) && seesBody(body.position) && !reservedBody(BodyTargetKind::Guard, body.id)) {
           guard.bodyTargetKind = BodyTargetKind::Guard; guard.bodyTargetId = body.id; guard.bodyInspectionTime = 0.f;
           guard.lastKnown = body.position; guard.state = GuardState::ApproachBody; guard.stateTime = 0.f; guard.navigation.clear();
           break;
         }
-        if (guard.bodyTargetKind == BodyTargetKind::None) for (const auto &body : world_.agents) if ((!body.alive || body.incapacitated) && body.connected && !body.hidden && body.hideoutId == 0 && !body.bodyReported && seesBody(body.position) && !reservedBody(BodyTargetKind::Agent, body.id)) {
+        if (guard.bodyTargetKind == BodyTargetKind::None) for (const auto &body : world_.agents) if ((!body.alive || body.incapacitated) && body.connected && !body.hidden && body.hideoutId == 0 && !body.bodyReported && reachableBody(body.position) && seesBody(body.position) && !reservedBody(BodyTargetKind::Agent, body.id)) {
           guard.bodyTargetKind = BodyTargetKind::Agent; guard.bodyTargetId = body.id; guard.bodyInspectionTime = 0.f;
           guard.lastKnown = body.position; guard.state = GuardState::ApproachBody; guard.stateTime = 0.f; guard.navigation.clear();
           break;

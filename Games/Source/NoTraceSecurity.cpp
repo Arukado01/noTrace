@@ -1,5 +1,6 @@
 #include "NoTraceSimulation.h"
 #include "Config/NoTraceSecurityConfig.h"
+#include "Config/NoTraceNavigationConfig.h"
 #include "NoTraceVisibility.h"
 #include "NoTraceWorldGeometry.h"
 #include <algorithm>
@@ -106,6 +107,13 @@ namespace NoTrace {
       return false;
     }
     guard.lastKnown = position; guard.patrolPauseRemaining = 0.f; guard.attackTime = 0.f;
+    const auto postpone = [&] {
+      guard.bodyTargetKind = BodyTargetKind::None; guard.bodyTargetId = 0; guard.bodyInspectionTime = 0.f;
+      guard.state = world_.securityActive ? GuardState::Search : guard.reinforcement ? GuardState::Retiring :
+          world_.securityAlert == SecurityAlert::Yellow ? GuardState::Vigilance : GuardState::Patrol;
+      guard.stateTime = 0.f; guard.navigation.clear(); guard.navigationTimer = 0.f;
+      guard.lastKnown = securityHasClue_ && world_.securityAlert != SecurityAlert::Calm ? securityLastKnown_ : guard.position;
+    };
     const float distance = (position - guard.position).length();
     if (distance > SecurityConfig::BodyInspectionReach || !WorldGeometry::ClearMovementSegment(world_, guard.position, position, GameplayConfig::AgentRadius)) {
       guard.state = GuardState::ApproachBody; guard.bodyInspectionTime = 0.f;
@@ -117,7 +125,16 @@ namespace NoTrace {
         const float candidateDistance = (candidate - guard.position).lengthSquared();
         if (candidateDistance < nearest && !Blocked(candidate, GameplayConfig::AgentRadius) && WorldGeometry::ClearMovementSegment(world_, candidate, position, GameplayConfig::AgentRadius)) { nearest = candidateDistance; approach = candidate; }
       }
-      if (nearest != std::numeric_limits<float>::max()) Navigate(guard, approach, GameplayConfig::GuardSpeed, dt);
+      if (nearest == std::numeric_limits<float>::max()) {
+        guard.navigationRejectedTarget = position; guard.navigationRecoveryTarget = guard.position; guard.navigationRejectTime = NavigationConfig::RejectDuration;
+        postpone();
+        return false;
+      }
+      Navigate(guard, approach, GameplayConfig::GuardSpeed, dt);
+      if (guard.navigationRejectTime > 0.f && (guard.navigationRejectedTarget - approach).length() <= NavigationConfig::CellSize) {
+        postpone();
+        return false;
+      }
       return true;
     }
     guard.state = GuardState::InspectBody; guard.navigation.clear(); guard.stepTime = 0.f;
