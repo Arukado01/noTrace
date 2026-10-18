@@ -1,0 +1,42 @@
+Use case: precise-object-edit. Image 1 is the EAST component sheet to correct. Image 2 is the authentic prone EAST full-character proportion and silhouette reference. Image 3 is the original standing NO TRACE operative identity. This is original game artwork, the SAME slim operative, not a bulky new soldier.
+
+Produce one transparent RGBA sprite component sheet, FOUR COLUMNS and FIVE ROWS, 20 separate clean components, ample transparent padding, no text/grid/pivot markers. All pieces are authentic projected prone EAST parts, character faces RIGHT. Preserve the dark navy uniform, muted olive/tan vest/straps/boots, original helmet/mask and realistic restrained pixel-art rendering.
+
+Corrections required after the first 16 pieces were assembled with rigid uniform scaling:
+1. HEAD: retain original helmet/mask identity and helmet size, but author an anatomically PRONE head looking horizontally RIGHT along a pistol aim axis. It must NOT look down at the ground. The small padded NECK ATTACHMENT comes out from the REAR/LEFT of the head, slightly below the skull center, connecting horizontally to the chest behind it. Do not draw a tall upright collar/bottom neck stem that would require rotating the whole skull downward to join a prone torso. Skull axis/proportions should match image2. Head width at assembled game scale should be around 22–24 pixels against a 130-pixel prone body; image2 shows the desired head/body ratio.
+2. TORSO: compact slim horizontal prone chest, face down, neck socket on right, waist on left. Navy fabric and olive vest straps. NO baked backpack, head, arms, weapons. Compared to image1, reduce the drawn torso THICKNESS about20% while preserving plausible chest/shoulder anatomy. The natural visible thickness should be roughly 0.40 of the measured waist-to-neck length, not a round padded barrel.
+3. PELVIS: short navy waist/belt/hip junction lying face down, two hip sockets to left, waist joins torso to right. NO chest or neck hole, no vest. Slim compact proportions matching image2, compatible with thighs.
+4. BACKPACK: redraw the separate muted olive radio backpack as it rests FLAT on the back of a face-down prone operative facing RIGHT. Low shallow load, long axis left-to-right; show its side/top planes appropriate to image2. No upright standing backpack silhouette. It should not become a thick block or tower above the chest. Antenna lies along the body's long axis, does not stick up like a standing mast.
+5. THIGHS (row3 col3, row4 col2) and SHINS (row3 col4,row4 col3): redraw slimmer cloth anatomy, not a padded bulky snow suit. Each thigh's visible thickness about 0.31 of hip-to-knee socket distance (e.g.10 pixels thick for32 projected pixels long). Keep natural olive knee pads, one holster ONLY on the right thigh, original slim operator silhouette. Match boots to the slimmer leg openings, retain original boot identity.
+6. PRIMARY ARMS: maintain plausible slim navy sleeves, elbow pads and gloves, upper/forearm socket thickness around0.30 of joint-axis length. Main arms are projected for the image2 supported prone AIM pose. Distinct left/right pieces and natural overlap ends.
+7. ADD AN AUXILIARY FIFTH ROW of FOUR alternate arm pieces needed for PRONE IDLE. Their different apparent axis lengths are AUTHENTIC FORESHORTENED DRAWINGS, not scaled or stretched versions:
+row5 col1 left_upper_arm_IDLE: very foreshortened view, shoulder-to-elbow appears short (~5px at game scale) with near-natural sleeve thickness (~7px), a rounded volume showing perspective from shoulder toward elbow;
+row5 col2 left_forearm_IDLE: extended projected forearm, elbow-to-wrist axis~24px and thickness~7px, natural slim sleeve and elbow pad;
+row5 col3 right_upper_arm_IDLE: supported prone idle upper arm, shoulder-to-elbow~17px and thickness~8px;
+row5 col4 right_forearm_IDLE: extended projected forearm, elbow-to-wrist~24px and thickness~7px.
+These four are anatomical angle-specific alternatives for the same operative's arms, not a third or fourth limb in the composed character.
+
+EXACT row-major component order:
+row1 head, torso, pelvis, backpack.
+row2 left_upper_arm_AIM, left_forearm_AIM, left_hand, right_upper_arm_AIM.
+row3 right_forearm_AIM, right_hand, left_thigh, left_shin.
+row4 left_boot, right_thigh, right_shin, right_boot.
+row5 left_upper_arm_IDLE, left_forearm_IDLE, right_upper_arm_IDLE, right_forearm_IDLE.
+
+Each cell contains only ONE isolated named part, with visible natural joint attachment edges and sufficient transparent padding. No duplicates inside cells, no assembled complete person. Do not add weapons, muzzle flashes, shadows, glow, matte, checkerboard, labels, grids or decorations. Weapons are separate gameplay props and MUST NOT be baked into body art. TRUE TRANSPARENCY outside every part and between cells.
+
+CORRECTION PASS:
+Precise correction of image1 ONLY. Preserve the exact20-component,4-column×5-row layout and every piece's position and identity. This is a transparent game sprite sheet, NOT a poster.
+
+CRITICAL corrections:
+A. REMOVE ALL BACKGROUND, smoky halos, haze, soft shadows, dark matte and gradients surrounding ALL20 components. Every pixel outside the exact physical piece silhouette MUST have alpha0. Keep anti-aliased edges only on the immediate one-pixel silhouette boundary. Isolated objects float in transparent empty cells; no ground shadows or glow. The entire image must have true RGBA transparency, not a painted dark backdrop.
+B. Row3 column3 is LEFT THIGH: REMOVE its holster and all belt bags, leaving plain dark navy slim pants and tan kneepad. Only RIGHT THIGH at row4 column2 retains one single holster, as in the original operative.
+C. Both thigh components and both shin components are still too thick/round for this slim operative. REDRAW the fabric anatomical silhouettes about35% THINNER across the bone axis, while keeping the same hip-to-knee or knee-to-ankle axis lengths. This is revised drawn anatomy, not stretching/warping a bitmap. Target thigh outside thickness only ONE THIRD of its hip-to-knee socket distance; target shin thickness also about one third of its knee-to-ankle distance. Pockets and knee pads must fit that slim silhouette, no bulky padded winter/snow suit. Match the slim leg proportions of image2's lying operative.
+D. The pelvis must slim naturally to meet these thigh sockets. Torso chest thickness about0.4× waist-to-neck length, no round padded barrel, no backpack baked into torso.
+E. The head should keep gaze RIGHT, parallel to the pistol line in image2, with the neck connection at the left/rear side of the helmet base. Helmet/mask identity unchanged. The separate backpack remains the LOW FLAT PRONE backpack just generated.
+F. Keep allfour5th-row arm-angle variants distinct and their lengths as already drawn. Preserve alltwenty pieces, navy/olive palette, exactpartorder, clean restrained pixelart style, NO weapons/text/labels/grid/checkerboard.
+
+Image1 is the edit target; image2 is the correct full prone anatomy reference; image3 is original standing identity. Transparent background is mandatory.
+
+SEAM CORRECTION PASS:
+Technical game sprite asset edit. Retain the exact 4-column by 5-row sheet of 20 separate navy and olive uniform/equipment components. Replace the artificial black circular cut-end surfaces on the modular sleeves, trouser segments, vest and belt section with solid matching navy fabric cap surfaces for seamless overlap during animation. Keep every component size, silhouette, position, color and accessory unchanged. Preserve all helmet, glove, boot, radio backpack, pad and holster details. The current circular tan rims at hidden internal joints should also become matching navy fabric. No other changes. True RGBA transparent empty background; no text, shadow or glow. This is a purely technical clothing-sprite seam correction.

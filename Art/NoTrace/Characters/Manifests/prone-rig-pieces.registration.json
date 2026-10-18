@@ -1,0 +1,4165 @@
+{
+  "schemaVersion": 1,
+  "author": "Carlos Cortina",
+  "organization": "CIO",
+  "date": "2026-10-18",
+  "status": "registered_composition_review_pending",
+  "transformRule": "Similitud uniforme por pieza; fuentes direccionales tumbadas y vistas parciales físicas, sin along/across independientes. Cabezas axiales conservan volumen rígido.",
+  "banks": [
+    {
+      "direction": "S",
+      "file": "Art/NoTrace/Characters/Sources/OperativeProneRigParts-S-v2.png",
+      "sourceSha256": "33d22b49be935e380c7edb3bc7e760879190304e68ee807555e63873c7c45d16",
+      "sourceSize": [
+        1536,
+        1024
+      ],
+      "parts": [
+        {
+          "piece": "head",
+          "sourceRect": [
+            64,
+            52,
+            254,
+            225
+          ],
+          "proximalPx": [
+            130,
+            189
+          ],
+          "distalPx": [
+            130,
+            89
+          ],
+          "calibration": "Aim-Prone/S/phase0",
+          "viewKind": "object",
+          "anchorJoint": "neck",
+          "anchorPx": [
+            130,
+            20
+          ],
+          "targetDimensionsPx": [
+            26.0,
+            23.031496062992126
+          ],
+          "notes": "Anclaje posterior oculto de nuca en vista frontal tumbada; el collar visible bajo la barbilla no es la unión posterior del torso.",
+          "uniformScale": 0.10236220472440945,
+          "rgbaSha256": "239a92a920494354cdeb0cbca2b39dff6668f6360959fd5e75643915df1418d7"
+        },
+        {
+          "piece": "torso",
+          "sourceRect": [
+            357,
+            77,
+            439,
+            200
+          ],
+          "proximalPx": [
+            218,
+            34
+          ],
+          "distalPx": [
+            218,
+            167
+          ],
+          "calibration": "Aim-Prone/S/phase0",
+          "viewKind": "object",
+          "anchorJoint": "torso_midpoint",
+          "anchorPx": [
+            218,
+            101
+          ],
+          "targetDimensionsPx": [
+            34.0,
+            15.489749430523919
+          ],
+          "notes": "Vista axial frontal; ancho uniforme34px, revisión de cobertura de collar/cintura pendiente del montaje.",
+          "uniformScale": 0.0774487471526196,
+          "rgbaSha256": "b2d57e4d6c3a6a903c263686a4755ae2e7fd2a791d315d81148ca67e4a22b1fa"
+        },
+        {
+          "piece": "pelvis",
+          "sourceRect": [
+            832,
+            138,
+            278,
+            134
+          ],
+          "proximalPx": [
+            139,
+            88
+          ],
+          "distalPx": null,
+          "calibration": "Aim-Prone/S/phase0",
+          "viewKind": "object",
+          "anchorJoint": "pelvis",
+          "anchorPx": [
+            139,
+            88
+          ],
+          "uniformScale": 0.09712230215827339,
+          "rgbaSha256": "4a45ba7be825402ff97403f8f23f0520602d0d2d6153c21a725d152a3dc0332a"
+        },
+        {
+          "piece": "backpack",
+          "sourceRect": [
+            1174,
+            100,
+            330,
+            176
+          ],
+          "proximalPx": [
+            161,
+            89
+          ],
+          "distalPx": null,
+          "calibration": "Aim-Prone/S/phase0",
+          "viewKind": "object",
+          "anchorJoint": "backpack",
+          "anchorPx": [
+            161,
+            89
+          ],
+          "uniformScale": 0.09,
+          "rgbaSha256": "999ed4131d53b5a51e6288b7903143e8dd95b2177a106df30ddc53f6f68fbb74"
+        },
+        {
+          "piece": "left_upper_arm",
+          "sourceRect": [
+            133,
+            304,
+            151,
+            216
+          ],
+          "proximalPx": [
+            69,
+            55
+          ],
+          "distalPx": [
+            87,
+            170
+          ],
+          "calibration": "Aim-Prone/S/phase0",
+          "viewKind": "bone_similarity",
+          "uniformScale": 0.157028400534527,
+          "rgbaSha256": "a5ba46f8ca40d3de558c20ad85c67b08539b1709c8426928f25fa88dbf31fd10"
+        },
+        {
+          "piece": "left_forearm",
+          "sourceRect": [
+            413,
+            374,
+            293,
+            134
+          ],
+          "proximalPx": [
+            37,
+            56
+          ],
+          "distalPx": [
+            253,
+            87
+          ],
+          "calibration": "Aim-Prone/S/phase0",
+          "viewKind": "bone_similarity",
+          "uniformScale": 0.06501220770333986,
+          "rgbaSha256": "0b858ddb21c825ec0d3fb0d72f0334615c39ce2406f0d97f65a9ebbefb93ede1"
+        },
+        {
+          "piece": "left_hand",
+          "sourceRect": [
+            828,
+            384,
+            231,
+            122
+          ],
+          "proximalPx": [
+            31,
+            60
+          ],
+          "distalPx": null,
+          "calibration": "Aim-Prone/S/phase0",
+          "viewKind": "object",
+          "anchorJoint": "left_wrist",
+          "anchorPx": [
+            31,
+            60
+          ],
+          "uniformScale": 0.045081967213114756,
+          "rgbaSha256": "5daf572ce351e90c525e239f43e77c9272bc5daba69493bb99c1ef8f69873e91"
+        },
+        {
+          "piece": "right_upper_arm",
+          "sourceRect": [
+            1247,
+            304,
+            154,
+            216
+          ],
+          "proximalPx": [
+            76,
+            57
+          ],
+          "distalPx": [
+            49,
+            173
+          ],
+          "calibration": "Aim-Prone/S/phase0",
+          "viewKind": "bone_similarity",
+          "uniformScale": 0.15353828888878363,
+          "rgbaSha256": "ecbe4294489054aa0586d8a37c4667eddaba92a742591880873eb4f102e3fcaa"
+        },
+        {
+          "piece": "right_forearm",
+          "sourceRect": [
+            74,
+            565,
+            300,
+            139
+          ],
+          "proximalPx": [
+            260,
+            44
+          ],
+          "distalPx": [
+            37,
+            90
+          ],
+          "calibration": "Aim-Prone/S/phase0",
+          "viewKind": "bone_similarity",
+          "uniformScale": 0.06318464875163504,
+          "rgbaSha256": "8ac60f13b976d29aa499bfef89f99c866265ed2669672267937cf0af99115204"
+        },
+        {
+          "piece": "right_hand",
+          "sourceRect": [
+            459,
+            583,
+            228,
+            130
+          ],
+          "proximalPx": [
+            187,
+            40
+          ],
+          "distalPx": null,
+          "calibration": "Aim-Prone/S/phase0",
+          "viewKind": "object",
+          "anchorJoint": "right_wrist",
+          "anchorPx": [
+            187,
+            40
+          ],
+          "uniformScale": 0.04230769230769231,
+          "rgbaSha256": "4c74dd4aadf996b00e271100e2c4fe60c7c502c60829a34aeb5c5f642345c0cb"
+        },
+        {
+          "piece": "left_thigh",
+          "sourceRect": [
+            803,
+            556,
+            311,
+            164
+          ],
+          "proximalPx": [
+            48,
+            60
+          ],
+          "distalPx": [
+            260,
+            85
+          ],
+          "calibration": "Aim-Prone/S/phase0",
+          "viewKind": "bone_similarity",
+          "uniformScale": 0.0545591883579829,
+          "rgbaSha256": "c48e2fdb83dab8f99df1844d4664dde9401f8f20c817083fcde59b6af692159a"
+        },
+        {
+          "piece": "left_shin",
+          "sourceRect": [
+            1165,
+            565,
+            328,
+            138
+          ],
+          "proximalPx": [
+            42,
+            49
+          ],
+          "distalPx": [
+            289,
+            93
+          ],
+          "calibration": "Aim-Prone/S/phase0",
+          "viewKind": "bone_similarity",
+          "uniformScale": 0.06555489761356974,
+          "rgbaSha256": "4abf8d7ad537290650ebe4e001875501a3127e36eb82490324679626d9d06820"
+        },
+        {
+          "piece": "left_boot",
+          "sourceRect": [
+            140,
+            722,
+            145,
+            239
+          ],
+          "proximalPx": [
+            71,
+            66
+          ],
+          "distalPx": [
+            71,
+            186
+          ],
+          "calibration": "Aim-Prone/S/phase0",
+          "viewKind": "bone_similarity",
+          "uniformScale": 0.028367928344426672,
+          "rgbaSha256": "823bd936ccbbe1b7cd1eef4191b043a21c6a8202733714165309c6b4ad5b1018"
+        },
+        {
+          "piece": "right_thigh",
+          "sourceRect": [
+            405,
+            752,
+            378,
+            176
+          ],
+          "proximalPx": [
+            43,
+            74
+          ],
+          "distalPx": [
+            332,
+            81
+          ],
+          "calibration": "Aim-Prone/S/phase0",
+          "viewKind": "bone_similarity",
+          "uniformScale": 0.04028816146681122,
+          "rgbaSha256": "53a4a8be27623f7374486db9d38c3b5db45f16612af564ae3fdc3138ede71874"
+        },
+        {
+          "piece": "right_shin",
+          "sourceRect": [
+            798,
+            771,
+            330,
+            145
+          ],
+          "proximalPx": [
+            285,
+            47
+          ],
+          "distalPx": [
+            37,
+            87
+          ],
+          "calibration": "Aim-Prone/S/phase0",
+          "viewKind": "bone_similarity",
+          "uniformScale": 0.06547225782268806,
+          "rgbaSha256": "f6785635528cf39c8c40a1c54d738137738afc3d99db5c3858aa85354dd78665"
+        },
+        {
+          "piece": "right_boot",
+          "sourceRect": [
+            1252,
+            720,
+            144,
+            241
+          ],
+          "proximalPx": [
+            70,
+            67
+          ],
+          "distalPx": [
+            70,
+            189
+          ],
+          "calibration": "Aim-Prone/S/phase0",
+          "viewKind": "bone_similarity",
+          "uniformScale": 0.02790288033878033,
+          "rgbaSha256": "784757f391a356b18b6b0cc82047f40bf7b54fe9344be015a872b7aed5733c6d"
+        }
+      ]
+    },
+    {
+      "direction": "SE",
+      "file": "Art/NoTrace/Characters/Sources/OperativeProneRigParts-SE-v1.png",
+      "sourceSha256": "349b12f1fe166e8c4f30f5d0d07fdfdfb99f0667046a8d43d5b2dd110cf6d151",
+      "sourceSize": [
+        1536,
+        1024
+      ],
+      "parts": [
+        {
+          "piece": "head",
+          "sourceRect": [
+            95,
+            48,
+            227,
+            212
+          ],
+          "proximalPx": [
+            64,
+            170
+          ],
+          "distalPx": [
+            137,
+            90
+          ],
+          "calibration": "Aim-Prone/SE/phase0",
+          "viewKind": "object",
+          "anchorJoint": "neck",
+          "anchorPx": [
+            64,
+            170
+          ],
+          "targetDimensionsPx": [
+            26.0,
+            23.823788546255507
+          ],
+          "notes": "Volumen rígido orientado por la cámara autorada; collar medido; no se reduce por la proyección corta neck/head.",
+          "uniformScale": 0.1145374449339207,
+          "rgbaSha256": "38734297003d79a38c275cdd6db93df6fc2ae03b9471c50cfbddf8310496c272"
+        },
+        {
+          "piece": "torso",
+          "sourceRect": [
+            397,
+            74,
+            354,
+            212
+          ],
+          "proximalPx": [
+            40,
+            83
+          ],
+          "distalPx": [
+            317,
+            155
+          ],
+          "calibration": "Aim-Prone/SE/phase0",
+          "viewKind": "bone_similarity",
+          "uniformScale": 0.11833429220778197,
+          "rgbaSha256": "fa69ad95b951e2847779f39d05c31c81481c5abb801f86c43711d1cbdd48aa2e"
+        },
+        {
+          "piece": "pelvis",
+          "sourceRect": [
+            806,
+            80,
+            293,
+            193
+          ],
+          "proximalPx": [
+            54,
+            61
+          ],
+          "distalPx": null,
+          "calibration": "Aim-Prone/SE/phase0",
+          "viewKind": "object",
+          "anchorJoint": "pelvis",
+          "anchorPx": [
+            54,
+            61
+          ],
+          "uniformScale": 0.081,
+          "rgbaSha256": "1b292d5d70c1142aba6f1b49bddcca271f08639be8e2524230c8b561ddd95206"
+        },
+        {
+          "piece": "backpack",
+          "sourceRect": [
+            1163,
+            76,
+            338,
+            202
+          ],
+          "proximalPx": [
+            171,
+            105
+          ],
+          "distalPx": null,
+          "calibration": "Aim-Prone/SE/phase0",
+          "viewKind": "object",
+          "anchorJoint": "backpack",
+          "anchorPx": [
+            171,
+            105
+          ],
+          "uniformScale": 0.09,
+          "rgbaSha256": "53dc72408b2b6bfe08572f73cc6d3b621d3e440e9dfcaca690b7d1a8af191846"
+        },
+        {
+          "piece": "left_upper_arm",
+          "sourceRect": [
+            63,
+            299,
+            277,
+            190
+          ],
+          "proximalPx": [
+            42,
+            57
+          ],
+          "distalPx": [
+            240,
+            139
+          ],
+          "calibration": "Aim-Prone/SE/phase0",
+          "viewKind": "bone_similarity",
+          "uniformScale": 0.091240538215386,
+          "rgbaSha256": "e095545338e859eb3156a314a3da6beeab630de071b4f38e460595f0edb9ca31"
+        },
+        {
+          "piece": "left_forearm",
+          "sourceRect": [
+            436,
+            323,
+            280,
+            170
+          ],
+          "proximalPx": [
+            47,
+            45
+          ],
+          "distalPx": [
+            236,
+            126
+          ],
+          "calibration": "Aim-Prone/SE/phase0",
+          "viewKind": "bone_similarity",
+          "uniformScale": 0.019587297565025613,
+          "rgbaSha256": "81d5a6d86caa9f12066bcc4a03f822abbdbe78385d98f50646c55315e8897972"
+        },
+        {
+          "piece": "left_hand",
+          "sourceRect": [
+            817,
+            358,
+            252,
+            125
+          ],
+          "proximalPx": [
+            36,
+            50
+          ],
+          "distalPx": null,
+          "calibration": "Aim-Prone/SE/phase0",
+          "viewKind": "object",
+          "anchorJoint": "left_wrist",
+          "anchorPx": [
+            36,
+            50
+          ],
+          "uniformScale": 0.044,
+          "rgbaSha256": "001fcf3963fe3bdc8cce6a85a78a576cbf4f38258aaf2af640683fed07d3ada5"
+        },
+        {
+          "piece": "right_upper_arm",
+          "sourceRect": [
+            1185,
+            303,
+            284,
+            195
+          ],
+          "proximalPx": [
+            48,
+            66
+          ],
+          "distalPx": [
+            242,
+            148
+          ],
+          "calibration": "Aim-Prone/SE/phase0",
+          "viewKind": "bone_similarity",
+          "uniformScale": 0.08701060018638114,
+          "rgbaSha256": "118af1ba4c860dab64cacd77733806dbd90dd7dd0c50271a7f633f74c70138c0"
+        },
+        {
+          "piece": "right_forearm",
+          "sourceRect": [
+            74,
+            540,
+            291,
+            162
+          ],
+          "proximalPx": [
+            43,
+            43
+          ],
+          "distalPx": [
+            255,
+            110
+          ],
+          "calibration": "Aim-Prone/SE/phase0",
+          "viewKind": "bone_similarity",
+          "uniformScale": 0.09717151922913206,
+          "rgbaSha256": "1cfa036138e5e13c93799dda03059787fab826ea24aa0d72b5d73ef05fc29293"
+        },
+        {
+          "piece": "right_hand",
+          "sourceRect": [
+            460,
+            559,
+            244,
+            129
+          ],
+          "proximalPx": [
+            38,
+            56
+          ],
+          "distalPx": null,
+          "calibration": "Aim-Prone/SE/phase0",
+          "viewKind": "object",
+          "anchorJoint": "right_wrist",
+          "anchorPx": [
+            38,
+            56
+          ],
+          "uniformScale": 0.04263565891472868,
+          "rgbaSha256": "9d199b858187f3e069d67260834c851b57291cd93bb54a8314d4c9687b33b48c"
+        },
+        {
+          "piece": "left_thigh",
+          "sourceRect": [
+            797,
+            524,
+            287,
+            200
+          ],
+          "proximalPx": [
+            33,
+            55
+          ],
+          "distalPx": [
+            250,
+            142
+          ],
+          "calibration": "Aim-Prone/SE/phase0",
+          "viewKind": "bone_similarity",
+          "uniformScale": 0.05603900482374068,
+          "rgbaSha256": "7e703a7512ae4237b0565929ba40d1c44fa902a7d583924ab9cdc6a87ec8128f"
+        },
+        {
+          "piece": "left_shin",
+          "sourceRect": [
+            1172,
+            539,
+            316,
+            189
+          ],
+          "proximalPx": [
+            38,
+            44
+          ],
+          "distalPx": [
+            280,
+            141
+          ],
+          "calibration": "Aim-Prone/SE/phase0",
+          "viewKind": "bone_similarity",
+          "uniformScale": 0.10573837635835005,
+          "rgbaSha256": "abdbd85a9fec2b72f8c3e33e5044120cf36bca420c6cfae52a05911e8fc2290c"
+        },
+        {
+          "piece": "left_boot",
+          "sourceRect": [
+            85,
+            749,
+            242,
+            193
+          ],
+          "proximalPx": [
+            202,
+            144
+          ],
+          "distalPx": [
+            60,
+            92
+          ],
+          "calibration": "Aim-Prone/SE/phase0",
+          "viewKind": "bone_similarity",
+          "uniformScale": 0.031047203618764764,
+          "rgbaSha256": "3751e9811a5dc977c46a2c6f8b1d4df726fe18f0772f34cbacbf48e2e9b4b5b3"
+        },
+        {
+          "piece": "right_thigh",
+          "sourceRect": [
+            432,
+            750,
+            317,
+            197
+          ],
+          "proximalPx": [
+            39,
+            47
+          ],
+          "distalPx": [
+            278,
+            132
+          ],
+          "calibration": "Aim-Prone/SE/phase0",
+          "viewKind": "bone_similarity",
+          "uniformScale": 0.10383371832614971,
+          "rgbaSha256": "c6bfc52a6427cb31b544a4b39dbfaef799d8f651402c1ff4d883eb7a79604f7e"
+        },
+        {
+          "piece": "right_shin",
+          "sourceRect": [
+            806,
+            765,
+            311,
+            192
+          ],
+          "proximalPx": [
+            39,
+            46
+          ],
+          "distalPx": [
+            268,
+            136
+          ],
+          "calibration": "Aim-Prone/SE/phase0",
+          "viewKind": "bone_similarity",
+          "uniformScale": 0.09498283913206099,
+          "rgbaSha256": "389fc10559d1c9539d05a99caeb3aa0c2db0c29614ce4e359d8942fff637ed19"
+        },
+        {
+          "piece": "right_boot",
+          "sourceRect": [
+            1204,
+            755,
+            228,
+            187
+          ],
+          "proximalPx": [
+            47,
+            137
+          ],
+          "distalPx": [
+            179,
+            88
+          ],
+          "calibration": "Aim-Prone/SE/phase0",
+          "viewKind": "bone_similarity",
+          "uniformScale": 0.04848947832465025,
+          "rgbaSha256": "a7f8c50448f474e29523979a5969af01da6da167050ef5658a1ec2176b5dc25d"
+        }
+      ]
+    },
+    {
+      "direction": "E",
+      "file": "Art/NoTrace/Characters/Sources/OperativeProneRigParts-E-v4.png",
+      "sourceSha256": "d226098a205fcd0f7810d77fb70a5301f3d2ba5455be6046bf304c7d9f0389f6",
+      "sourceSize": [
+        1536,
+        1024
+      ],
+      "parts": [
+        {
+          "piece": "head",
+          "sourceRect": [
+            116,
+            56,
+            199,
+            188
+          ],
+          "proximalPx": [
+            17,
+            112
+          ],
+          "distalPx": [
+            115,
+            80
+          ],
+          "uniformScale": 0.1328606679738868,
+          "calibration": "Aim-Prone/E/phase0",
+          "sourceAxes": "measured_clothing_joint_centres_and_head_neck_attachment",
+          "rgbaSha256": "0c6a0d19e4d58b2012b7bd747a2ab3a463d5c7d27f70594ee4dd3aa9e5b10293",
+          "viewKind": "bone_similarity"
+        },
+        {
+          "piece": "torso",
+          "sourceRect": [
+            397,
+            91,
+            354,
+            164
+          ],
+          "proximalPx": [
+            20,
+            98
+          ],
+          "distalPx": [
+            331,
+            90
+          ],
+          "uniformScale": 0.141293627005578,
+          "calibration": "Aim-Prone/E/phase0",
+          "sourceAxes": "measured_clothing_joint_centres_and_head_neck_attachment",
+          "rgbaSha256": "7a517f74b362a409e758de52a2eeb16a49c8ac742d7c6f87a84291bb237cdfdc",
+          "viewKind": "bone_similarity"
+        },
+        {
+          "piece": "pelvis",
+          "sourceRect": [
+            832,
+            101,
+            251,
+            149
+          ],
+          "proximalPx": [
+            25,
+            77
+          ],
+          "distalPx": null,
+          "uniformScale": 0.081,
+          "calibration": "Aim-Prone/E/phase0",
+          "sourceAxes": "measured_clothing_joint_centres_and_head_neck_attachment",
+          "rgbaSha256": "1f20fd620981ce4bf3f74354a3e1d717bd621babb7d381d31d26fb3680171a4d",
+          "viewKind": "object",
+          "anchorPx": [
+            25,
+            77
+          ],
+          "anchorJoint": "pelvis"
+        },
+        {
+          "piece": "backpack",
+          "sourceRect": [
+            1156,
+            100,
+            346,
+            138
+          ],
+          "proximalPx": [
+            172,
+            69
+          ],
+          "distalPx": null,
+          "uniformScale": 0.09,
+          "calibration": "Aim-Prone/E/phase0",
+          "sourceAxes": "measured_clothing_joint_centres_and_head_neck_attachment",
+          "rgbaSha256": "caaf2fdbfe91348df9addd78fd60620172becfbc5d942cf9c6a76942414a1074",
+          "viewKind": "object",
+          "anchorPx": [
+            172,
+            69
+          ],
+          "anchorJoint": "backpack"
+        },
+        {
+          "piece": "left_upper_arm",
+          "sourceRect": [
+            89,
+            291,
+            235,
+            163
+          ],
+          "proximalPx": [
+            50,
+            29
+          ],
+          "distalPx": [
+            202,
+            123
+          ],
+          "uniformScale": 0.09191551865055017,
+          "calibration": "Aim-Prone/E/phase0",
+          "sourceAxes": "measured_clothing_joint_centres_and_head_neck_attachment",
+          "rgbaSha256": "b7992d4a08464e6780c301ad32322e1cf70334be972c75871dff827bbf12a8b7",
+          "viewKind": "bone_similarity"
+        },
+        {
+          "piece": "left_forearm",
+          "sourceRect": [
+            463,
+            321,
+            257,
+            124
+          ],
+          "proximalPx": [
+            29,
+            24
+          ],
+          "distalPx": [
+            237,
+            88
+          ],
+          "uniformScale": 0.07271473035546186,
+          "calibration": "Aim-Prone/E/phase0",
+          "sourceAxes": "measured_clothing_joint_centres_and_head_neck_attachment",
+          "rgbaSha256": "9bfa1e4b6f0d06bfa82a43585d73b32bba51c0fbf24b8bf1bc97fb2fbce16001",
+          "viewKind": "bone_similarity"
+        },
+        {
+          "piece": "left_hand",
+          "sourceRect": [
+            845,
+            345,
+            205,
+            102
+          ],
+          "proximalPx": [
+            21,
+            66
+          ],
+          "distalPx": null,
+          "uniformScale": 0.05392156862745098,
+          "calibration": "Aim-Prone/E/phase0",
+          "sourceAxes": "measured_clothing_joint_centres_and_head_neck_attachment",
+          "rgbaSha256": "18ffe458d0d7941855ddb42893529588aa21972bbe55501cdf5d619bc3637577",
+          "viewKind": "object",
+          "anchorPx": [
+            21,
+            66
+          ],
+          "anchorJoint": "left_wrist"
+        },
+        {
+          "piece": "right_upper_arm",
+          "sourceRect": [
+            1228,
+            296,
+            237,
+            174
+          ],
+          "proximalPx": [
+            25,
+            53
+          ],
+          "distalPx": [
+            205,
+            136
+          ],
+          "uniformScale": 0.09803259762044601,
+          "calibration": "Aim-Prone/E/phase0",
+          "sourceAxes": "measured_clothing_joint_centres_and_head_neck_attachment",
+          "rgbaSha256": "b44b3c8604559aa43535856ffa3f77ac3e327ab1fe6531b619717813b031f5f9",
+          "viewKind": "bone_similarity"
+        },
+        {
+          "piece": "right_forearm",
+          "sourceRect": [
+            78,
+            510,
+            282,
+            115
+          ],
+          "proximalPx": [
+            26,
+            29
+          ],
+          "distalPx": [
+            256,
+            72
+          ],
+          "uniformScale": 0.08749915819415843,
+          "calibration": "Aim-Prone/E/phase0",
+          "sourceAxes": "measured_clothing_joint_centres_and_head_neck_attachment",
+          "rgbaSha256": "11234ef0d07337383d34e6e0414acf22d97dbd9d223f901fec70b6de01896ff6",
+          "viewKind": "bone_similarity"
+        },
+        {
+          "piece": "right_hand",
+          "sourceRect": [
+            468,
+            509,
+            212,
+            101
+          ],
+          "proximalPx": [
+            20,
+            66
+          ],
+          "distalPx": null,
+          "uniformScale": 0.054455445544554455,
+          "calibration": "Aim-Prone/E/phase0",
+          "sourceAxes": "measured_clothing_joint_centres_and_head_neck_attachment",
+          "rgbaSha256": "eb13f97d330aedc4d77a95eb58d70234287f01cf3131cdcabf414abd6e82bb49",
+          "viewKind": "object",
+          "anchorPx": [
+            20,
+            66
+          ],
+          "anchorJoint": "right_wrist"
+        },
+        {
+          "piece": "left_thigh",
+          "sourceRect": [
+            800,
+            496,
+            295,
+            146
+          ],
+          "proximalPx": [
+            30,
+            41
+          ],
+          "distalPx": [
+            260,
+            111
+          ],
+          "uniformScale": 0.11299844050443336,
+          "calibration": "Aim-Prone/E/phase0",
+          "sourceAxes": "measured_clothing_joint_centres_and_head_neck_attachment",
+          "rgbaSha256": "9d674edf209be9862b30c1b411f397c62666fead01a490669a0f5363449f1e9c",
+          "viewKind": "bone_similarity",
+          "mipMaxDimension": 32
+        },
+        {
+          "piece": "left_shin",
+          "sourceRect": [
+            1170,
+            510,
+            312,
+            122
+          ],
+          "proximalPx": [
+            25,
+            45
+          ],
+          "distalPx": [
+            280,
+            92
+          ],
+          "uniformScale": 0.1243561496141118,
+          "calibration": "Aim-Prone/E/phase0",
+          "sourceAxes": "measured_clothing_joint_centres_and_head_neck_attachment",
+          "rgbaSha256": "a48573735930a084744377156d72e02a67d781063959748770ba5b289c817aa3",
+          "viewKind": "bone_similarity"
+        },
+        {
+          "piece": "left_boot",
+          "sourceRect": [
+            102,
+            684,
+            219,
+            139
+          ],
+          "proximalPx": [
+            178,
+            76
+          ],
+          "distalPx": [
+            25,
+            95
+          ],
+          "uniformScale": 0.04953382244783348,
+          "calibration": "Aim-Prone/E/phase0",
+          "sourceAxes": "measured_clothing_joint_centres_and_head_neck_attachment",
+          "rgbaSha256": "183122817a0bf91e3ef847022f74e648d4b820e98b29c14db721336202156034",
+          "viewKind": "bone_similarity"
+        },
+        {
+          "piece": "right_thigh",
+          "sourceRect": [
+            428,
+            681,
+            336,
+            142
+          ],
+          "proximalPx": [
+            30,
+            46
+          ],
+          "distalPx": [
+            302,
+            100
+          ],
+          "uniformScale": 0.10790954391174996,
+          "calibration": "Aim-Prone/E/phase0",
+          "sourceAxes": "measured_clothing_joint_centres_and_head_neck_attachment",
+          "rgbaSha256": "5a2a35510c18d677b8093f74947d9b99383c02474d43a2090547d79825fd3d0e",
+          "viewKind": "bone_similarity"
+        },
+        {
+          "piece": "right_shin",
+          "sourceRect": [
+            831,
+            701,
+            277,
+            120
+          ],
+          "proximalPx": [
+            250,
+            32
+          ],
+          "distalPx": [
+            24,
+            88
+          ],
+          "uniformScale": 0.1383536666485009,
+          "calibration": "Aim-Prone/E/phase0",
+          "sourceAxes": "measured_clothing_joint_centres_and_head_neck_attachment",
+          "rgbaSha256": "c8ad7f6002efbaf2a9f641b1547be697f76ed28d00323c856f8fa948588990f1",
+          "viewKind": "bone_similarity"
+        },
+        {
+          "piece": "right_boot",
+          "sourceRect": [
+            1218,
+            684,
+            205,
+            139
+          ],
+          "proximalPx": [
+            29,
+            89
+          ],
+          "distalPx": [
+            181,
+            99
+          ],
+          "uniformScale": 0.05174944872579519,
+          "calibration": "Aim-Prone/E/phase0",
+          "sourceAxes": "measured_clothing_joint_centres_and_head_neck_attachment",
+          "rgbaSha256": "8f55c48269c52b18e6d657edb744a43ec2f37e47c5d74382397183497a715019",
+          "viewKind": "bone_similarity"
+        },
+        {
+          "piece": "left_upper_arm_idle",
+          "sourceRect": [
+            113,
+            859,
+            199,
+            118
+          ],
+          "proximalPx": [
+            32,
+            35
+          ],
+          "distalPx": [
+            161,
+            73
+          ],
+          "uniformScale": 0.0374778591017182,
+          "calibration": "ProneIdle/E/phase0",
+          "sourceAxes": "measured_clothing_joint_centres_and_head_neck_attachment",
+          "rgbaSha256": "9610ddc6aed60716ce10c8ffa7ad449d3f55039c23f34de8b2990813417b0ef0",
+          "viewKind": "bone_similarity"
+        },
+        {
+          "piece": "left_forearm_idle",
+          "sourceRect": [
+            426,
+            880,
+            299,
+            97
+          ],
+          "proximalPx": [
+            29,
+            39
+          ],
+          "distalPx": [
+            275,
+            51
+          ],
+          "uniformScale": 0.09945993658502941,
+          "calibration": "ProneIdle/E/phase0",
+          "sourceAxes": "measured_clothing_joint_centres_and_head_neck_attachment",
+          "rgbaSha256": "c8f30ebdb457a9d6393a5033146662f64bbd4f1d07c069d47f4742c8c58c30fe",
+          "viewKind": "bone_similarity"
+        },
+        {
+          "piece": "right_upper_arm_idle",
+          "sourceRect": [
+            856,
+            866,
+            216,
+            111
+          ],
+          "proximalPx": [
+            31,
+            47
+          ],
+          "distalPx": [
+            189,
+            74
+          ],
+          "uniformScale": 0.10952257649654142,
+          "calibration": "ProneIdle/E/phase0",
+          "sourceAxes": "measured_clothing_joint_centres_and_head_neck_attachment",
+          "rgbaSha256": "8d4a1793abcdf3a385a655f1eb09118ebd0e91d71b8fdfc13bddd47357f70429",
+          "viewKind": "bone_similarity"
+        },
+        {
+          "piece": "right_forearm_idle",
+          "sourceRect": [
+            1169,
+            876,
+            289,
+            101
+          ],
+          "proximalPx": [
+            29,
+            30
+          ],
+          "distalPx": [
+            261,
+            59
+          ],
+          "uniformScale": 0.10523244499614101,
+          "calibration": "ProneIdle/E/phase0",
+          "sourceAxes": "measured_clothing_joint_centres_and_head_neck_attachment",
+          "rgbaSha256": "24ee6c42000ed6d69fe3f005ee6536de9efd05732c813eb2b4734755601ce4ff",
+          "viewKind": "bone_similarity"
+        }
+      ]
+    },
+    {
+      "direction": "NE",
+      "file": "Art/NoTrace/Characters/Sources/OperativeProneRigParts-NE-v1.png",
+      "sourceSha256": "a8c5042aa93c9ef7c08b7d394f19726874a21c0a64f389ac48e384be6b35c7a6",
+      "sourceSize": [
+        1254,
+        1254
+      ],
+      "parts": [
+        {
+          "piece": "head",
+          "sourceRect": [
+            106,
+            182,
+            162,
+            158
+          ],
+          "proximalPx": [
+            36,
+            122
+          ],
+          "distalPx": [
+            89,
+            62
+          ],
+          "calibration": "Aim-Prone/NE/phase0",
+          "sourceAxes": "measured_anatomical_clothing_cap_centres_in_source_pixels",
+          "notes": [
+            "Cabeza rígida de máximo26px anclada al collar real; centro craneal distal conservado sólo como anotación, no usar cancelación 3D cuello-cabeza para cambiar volumen."
+          ],
+          "uniformScale": 0.16049382716049382,
+          "viewKind": "object",
+          "sourceBoneLengthPx": 80.05623023850174,
+          "projectedBoneLengthPx": 12.205659547931033,
+          "targetJoints": [
+            "neck",
+            "head"
+          ],
+          "boneScaleDiagnostic": 0.15246358105506846,
+          "anchorJoint": "neck",
+          "anchorPx": [
+            36,
+            122
+          ],
+          "targetDimensionsPx": [
+            26.0,
+            25.358024691358025
+          ],
+          "rgbaSha256": "2993192ce092701f56368fc138fee98106b25fd79777d53965b4848da18cf2a8"
+        },
+        {
+          "piece": "torso",
+          "sourceRect": [
+            375,
+            174,
+            217,
+            168
+          ],
+          "proximalPx": [
+            43,
+            133
+          ],
+          "distalPx": [
+            137,
+            25
+          ],
+          "calibration": "Aim-Prone/NE/phase0",
+          "sourceAxes": "measured_anatomical_clothing_cap_centres_in_source_pixels",
+          "notes": [
+            "Se conserva eje pelvis-cuello medido. Alternativa rígida sólo diagnóstica: elegir por vista ensamblada; no mover sockets para esconder solape ni forzar aspecto.",
+            "El volumen fuente presenta discrepancia de perspectiva/grosor>20% frente al supuesto3D; revisar cápsula, cuello y unión de caderas sin anisotropía."
+          ],
+          "uniformScale": 0.2490203366168725,
+          "viewKind": "bone",
+          "sourceBoneLengthPx": 143.17821063276352,
+          "projectedBoneLengthPx": 35.65428620797225,
+          "targetJoints": [
+            "pelvis",
+            "neck"
+          ],
+          "rigidVolumeAlternative": {
+            "viewKind": "object",
+            "anchorJoint": "pelvis",
+            "anchorPx": [
+              43,
+              133
+            ],
+            "uniformScale": 0.23013755925271864,
+            "targetDimensionsPx": [
+              55.349999999999994,
+              31.67500000000001
+            ],
+            "worldBoxForwardSideHeight": [
+              23.0,
+              18.0,
+              4.0
+            ],
+            "dimensionRelativeErrors": [
+              -0.09774434764516804,
+              0.22061909879894914
+            ],
+            "method": "supuesto QA compatible con largo44/grosor21 deE4 y ancho34 enN; ajuste escalar mínimo cuadrático, no registro aprobado"
+          },
+          "rgbaSha256": "0392231421d03668534e5f1675434acccb58bc8fc34fac8d37cebd9162cbf4f2"
+        },
+        {
+          "piece": "pelvis",
+          "sourceRect": [
+            682,
+            208,
+            174,
+            133
+          ],
+          "proximalPx": [
+            63.5,
+            97.5
+          ],
+          "distalPx": null,
+          "calibration": "Aim-Prone/NE/phase0",
+          "sourceAxes": "measured_anatomical_clothing_cap_centres_in_source_pixels",
+          "notes": [
+            "Ancla en punto medio de ambas bocas de cadera; ancho calibrado por separación proyectada de caderas, sin modificar giro o grosor por eje."
+          ],
+          "viewKind": "object",
+          "anchorJoint": "pelvis",
+          "anchorPx": [
+            63.5,
+            97.5
+          ],
+          "uniformScale": 0.18401013724372176,
+          "sourceHipCapsPx": [
+            [
+              31,
+              93
+            ],
+            [
+              96,
+              102
+            ]
+          ],
+          "projectedHipSpanPx": 12.074767078498864,
+          "rgbaSha256": "6c47123222ce02276534dc0e9cdaf354387b195ec3c51e876ab58cc5bdb5213c"
+        },
+        {
+          "piece": "backpack",
+          "sourceRect": [
+            982,
+            208,
+            178,
+            128
+          ],
+          "proximalPx": [
+            89,
+            64
+          ],
+          "distalPx": null,
+          "calibration": "Aim-Prone/NE/phase0",
+          "sourceAxes": "measured_anatomical_clothing_cap_centres_in_source_pixels",
+          "notes": [],
+          "viewKind": "object",
+          "anchorJoint": "backpack",
+          "anchorPx": [
+            89,
+            64
+          ],
+          "uniformScale": 0.1784723724723308,
+          "targetDimensionsPx": [
+            32.80500000000001,
+            21.402499999999975
+          ],
+          "worldBoxForwardSideHeight": [
+            16.3,
+            8.0,
+            5.0
+          ],
+          "dimensionRelativeErrors": [
+            -0.03160852613702558,
+            0.06737360945956627
+          ],
+          "rgbaSha256": "08ca55b00a2a84451a56da3b06f3675976ac61dce27212ec0e702198364dfb22"
+        },
+        {
+          "piece": "left_upper_arm",
+          "sourceRect": [
+            98,
+            465,
+            181,
+            147
+          ],
+          "proximalPx": [
+            40,
+            28
+          ],
+          "distalPx": [
+            154,
+            114
+          ],
+          "calibration": "Aim-Prone/NE/phase0",
+          "sourceAxes": "measured_anatomical_clothing_cap_centres_in_source_pixels",
+          "notes": [],
+          "uniformScale": 0.04973978209147817,
+          "viewKind": "bone",
+          "sourceBoneLengthPx": 142.80056022299073,
+          "projectedBoneLengthPx": 7.102868748032564,
+          "targetJoints": [
+            "left_shoulder",
+            "left_elbow"
+          ],
+          "rgbaSha256": "a8260d7866ed40c28bb0033af9537f22761ae1c0aa00acd08eb9123900515eb5"
+        },
+        {
+          "piece": "left_forearm",
+          "sourceRect": [
+            405,
+            478,
+            190,
+            117
+          ],
+          "proximalPx": [
+            28,
+            28
+          ],
+          "distalPx": [
+            164,
+            89
+          ],
+          "calibration": "Aim-Prone/NE/phase0",
+          "sourceAxes": "measured_anatomical_clothing_cap_centres_in_source_pixels",
+          "notes": [],
+          "uniformScale": 0.15041531231193184,
+          "viewKind": "bone",
+          "sourceBoneLengthPx": 149.05368160498418,
+          "projectedBoneLengthPx": 22.419956069856944,
+          "targetJoints": [
+            "left_elbow",
+            "left_wrist"
+          ],
+          "rgbaSha256": "acd8a6bf347434b64be9b58bd25ff0998f2901e9e953bbacb42ee50d83006ffd"
+        },
+        {
+          "piece": "left_hand",
+          "sourceRect": [
+            686,
+            493,
+            165,
+            112
+          ],
+          "proximalPx": [
+            25,
+            87
+          ],
+          "distalPx": null,
+          "calibration": "Aim-Prone/NE/phase0",
+          "sourceAxes": "measured_anatomical_clothing_cap_centres_in_source_pixels",
+          "notes": [
+            "Muñeca en socket de tela; altura5.5px como referencia E4. La orientación nativa de dedos debe revisarse al montar el arma."
+          ],
+          "viewKind": "object",
+          "anchorJoint": "left_wrist",
+          "anchorPx": [
+            25,
+            87
+          ],
+          "uniformScale": 0.049107142857142856,
+          "targetDimensionsPx": [
+            8.102678571428571,
+            5.5
+          ],
+          "rgbaSha256": "0731c03e2438efac22109dc1aa7bb5bfa3436882c314edf835fa1d0572ab24de"
+        },
+        {
+          "piece": "right_upper_arm",
+          "sourceRect": [
+            1001,
+            461,
+            160,
+            158
+          ],
+          "proximalPx": [
+            121,
+            31
+          ],
+          "distalPx": [
+            29,
+            129
+          ],
+          "calibration": "Aim-Prone/NE/phase0",
+          "sourceAxes": "measured_anatomical_clothing_cap_centres_in_source_pixels",
+          "notes": [],
+          "uniformScale": 0.11864186485766398,
+          "viewKind": "bone",
+          "sourceBoneLengthPx": 134.41726079637243,
+          "projectedBoneLengthPx": 15.947514489940593,
+          "targetJoints": [
+            "right_shoulder",
+            "right_elbow"
+          ],
+          "rgbaSha256": "e70c687c47c489a3b167c560ecb65b035c948f1c21338e4907079768091f12e5"
+        },
+        {
+          "piece": "right_forearm",
+          "sourceRect": [
+            94,
+            733,
+            213,
+            126
+          ],
+          "proximalPx": [
+            30,
+            27
+          ],
+          "distalPx": [
+            186,
+            95
+          ],
+          "calibration": "Aim-Prone/NE/phase0",
+          "sourceAxes": "measured_anatomical_clothing_cap_centres_in_source_pixels",
+          "notes": [],
+          "uniformScale": 0.10369695568875338,
+          "viewKind": "bone",
+          "sourceBoneLengthPx": 170.1763790894612,
+          "projectedBoneLengthPx": 17.646772441712354,
+          "targetJoints": [
+            "right_elbow",
+            "right_wrist"
+          ],
+          "rgbaSha256": "5ce358916e621f876380f6f3434161e817329aa762ccf3bb6d8dc144abdefeae"
+        },
+        {
+          "piece": "right_hand",
+          "sourceRect": [
+            407,
+            753,
+            166,
+            104
+          ],
+          "proximalPx": [
+            25,
+            81
+          ],
+          "distalPx": null,
+          "calibration": "Aim-Prone/NE/phase0",
+          "sourceAxes": "measured_anatomical_clothing_cap_centres_in_source_pixels",
+          "notes": [
+            "Muñeca en socket de tela; altura5.5px como referencia E4. La orientación nativa de dedos debe revisarse al montar el arma."
+          ],
+          "viewKind": "object",
+          "anchorJoint": "right_wrist",
+          "anchorPx": [
+            25,
+            81
+          ],
+          "uniformScale": 0.052884615384615384,
+          "targetDimensionsPx": [
+            8.778846153846153,
+            5.5
+          ],
+          "rgbaSha256": "a44f6c105dd1c5bb70a5afe9c745a5f4de7f6bd8157cd80b537d0de05c2e02e1"
+        },
+        {
+          "piece": "left_thigh",
+          "sourceRect": [
+            682,
+            708,
+            195,
+            180
+          ],
+          "proximalPx": [
+            151,
+            35
+          ],
+          "distalPx": [
+            34,
+            145
+          ],
+          "calibration": "Aim-Prone/NE/phase0",
+          "sourceAxes": "measured_anatomical_clothing_cap_centres_in_source_pixels",
+          "notes": [],
+          "uniformScale": 0.18466753580199313,
+          "viewKind": "bone",
+          "sourceBoneLengthPx": 160.58953888718904,
+          "projectedBoneLengthPx": 29.65567442187555,
+          "targetJoints": [
+            "left_hip",
+            "left_knee"
+          ],
+          "rgbaSha256": "d6024dc6d449fe0b708ff580916f7ee328ee4b14f937abadb34251a0dbb2740e"
+        },
+        {
+          "piece": "left_shin",
+          "sourceRect": [
+            987,
+            733,
+            177,
+            157
+          ],
+          "proximalPx": [
+            141,
+            29
+          ],
+          "distalPx": [
+            32,
+            129
+          ],
+          "calibration": "Aim-Prone/NE/phase0",
+          "sourceAxes": "measured_anatomical_clothing_cap_centres_in_source_pixels",
+          "notes": [],
+          "uniformScale": 0.15970269487113908,
+          "viewKind": "bone",
+          "sourceBoneLengthPx": 147.92227688891217,
+          "projectedBoneLengthPx": 23.623586250634087,
+          "targetJoints": [
+            "left_knee",
+            "left_ankle"
+          ],
+          "rgbaSha256": "ac03ea2b7dbbc314533591122107e466c6498f59358c54fca471cfeea3e4d785"
+        },
+        {
+          "piece": "left_boot",
+          "sourceRect": [
+            97,
+            977,
+            166,
+            175
+          ],
+          "proximalPx": [
+            126,
+            30
+          ],
+          "distalPx": [
+            39,
+            134
+          ],
+          "calibration": "Aim-Prone/NE/phase0",
+          "sourceAxes": "measured_anatomical_clothing_cap_centres_in_source_pixels",
+          "notes": [],
+          "uniformScale": 0.05455241022148909,
+          "viewKind": "bone",
+          "sourceBoneLengthPx": 135.5912976558599,
+          "projectedBoneLengthPx": 7.396832092186501,
+          "targetJoints": [
+            "left_ankle",
+            "left_toe"
+          ],
+          "rgbaSha256": "d21ec456aef4c8796571602c281f7acfe2990a3c136d1f40d20e8ad9bc0eb750"
+        },
+        {
+          "piece": "right_thigh",
+          "sourceRect": [
+            374,
+            979,
+            210,
+            169
+          ],
+          "proximalPx": [
+            162,
+            31
+          ],
+          "distalPx": [
+            36,
+            136
+          ],
+          "calibration": "Aim-Prone/NE/phase0",
+          "sourceAxes": "measured_anatomical_clothing_cap_centres_in_source_pixels",
+          "notes": [],
+          "uniformScale": 0.14683570935297027,
+          "viewKind": "bone",
+          "sourceBoneLengthPx": 164.01524319403975,
+          "projectedBoneLengthPx": 24.083294579096755,
+          "targetJoints": [
+            "right_hip",
+            "right_knee"
+          ],
+          "rgbaSha256": "28f3437b256a0fc78833ffdb9eda21f25349147f503c87d488fbcd6b873caaca"
+        },
+        {
+          "piece": "right_shin",
+          "sourceRect": [
+            676,
+            998,
+            193,
+            156
+          ],
+          "proximalPx": [
+            157,
+            29
+          ],
+          "distalPx": [
+            35,
+            124
+          ],
+          "calibration": "Aim-Prone/NE/phase0",
+          "sourceAxes": "measured_anatomical_clothing_cap_centres_in_source_pixels",
+          "notes": [],
+          "uniformScale": 0.17934264898139665,
+          "viewKind": "bone",
+          "sourceBoneLengthPx": 154.62535367784935,
+          "projectedBoneLengthPx": 27.730920528270847,
+          "targetJoints": [
+            "right_knee",
+            "right_ankle"
+          ],
+          "rgbaSha256": "057138687e94a716b89189ba0386594d854fc65489a655f1405a4d05f437da48"
+        },
+        {
+          "piece": "right_boot",
+          "sourceRect": [
+            1003,
+            979,
+            153,
+            173
+          ],
+          "proximalPx": [
+            37,
+            36
+          ],
+          "distalPx": [
+            65,
+            156
+          ],
+          "calibration": "Aim-Prone/NE/phase0",
+          "sourceAxes": "measured_anatomical_clothing_cap_centres_in_source_pixels",
+          "notes": [],
+          "uniformScale": 0.04838209912566951,
+          "viewKind": "bone",
+          "sourceBoneLengthPx": 123.2233744059949,
+          "projectedBoneLengthPx": 5.961805515110332,
+          "targetJoints": [
+            "right_ankle",
+            "right_toe"
+          ],
+          "rgbaSha256": "750dd3302711c5123971d1eee8569d4c0a0e1a9c1f1e472b4a0a4f4834b221de"
+        }
+      ]
+    },
+    {
+      "direction": "N",
+      "file": "Art/NoTrace/Characters/Sources/OperativeProneRigParts-N-v1.png",
+      "sourceSha256": "9562d29022c3de8cdb7be08cd14956b24419c0a3069c218598585b4b33a5b635",
+      "sourceSize": [
+        1254,
+        1254
+      ],
+      "parts": [
+        {
+          "piece": "head",
+          "sourceRect": [
+            78,
+            117,
+            176,
+            177
+          ],
+          "proximalPx": [
+            88,
+            157
+          ],
+          "distalPx": [
+            92,
+            73
+          ],
+          "calibration": "Aim-Prone/N/phase0",
+          "sourceAxes": "measured_anatomical_clothing_cap_centres_in_source_pixels",
+          "notes": [
+            "Cabeza rígida de máximo26px anclada al collar real; centro craneal distal conservado sólo como anotación, no usar cancelación 3D cuello-cabeza para cambiar volumen."
+          ],
+          "uniformScale": 0.14689265536723164,
+          "viewKind": "object",
+          "sourceBoneLengthPx": 84.09518416651456,
+          "projectedBoneLengthPx": 9.682159082212863,
+          "targetJoints": [
+            "neck",
+            "head"
+          ],
+          "boneScaleDiagnostic": 0.11513333585240132,
+          "anchorJoint": "neck",
+          "anchorPx": [
+            88,
+            157
+          ],
+          "targetDimensionsPx": [
+            25.853107344632768,
+            26.0
+          ],
+          "rgbaSha256": "0749546dce6f774be091493435eda217ecc263945fad63e336dab10f1523b4b0"
+        },
+        {
+          "piece": "torso",
+          "sourceRect": [
+            354,
+            115,
+            238,
+            188
+          ],
+          "proximalPx": [
+            121,
+            168
+          ],
+          "distalPx": [
+            121,
+            23
+          ],
+          "calibration": "Aim-Prone/N/phase0",
+          "sourceAxes": "measured_anatomical_clothing_cap_centres_in_source_pixels",
+          "notes": [
+            "Se conserva eje pelvis-cuello medido. Alternativa rígida sólo diagnóstica: elegir por vista ensamblada; no mover sockets para esconder solape ni forzar aspecto."
+          ],
+          "uniformScale": 0.16521148659201598,
+          "viewKind": "bone",
+          "sourceBoneLengthPx": 145.0,
+          "projectedBoneLengthPx": 23.955665555842316,
+          "targetJoints": [
+            "pelvis",
+            "neck"
+          ],
+          "rigidVolumeAlternative": {
+            "viewKind": "object",
+            "anchorJoint": "pelvis",
+            "anchorPx": [
+              121,
+              168
+            ],
+            "uniformScale": 0.14196012350661946,
+            "targetDimensionsPx": [
+              34.36538956566622,
+              25.9556655558423
+            ],
+            "worldBoxForwardSideHeight": [
+              23.0,
+              18.0,
+              4.0
+            ],
+            "dimensionRelativeErrors": [
+              -0.01684485985484463,
+              0.02823420812791322
+            ],
+            "method": "supuesto QA compatible con largo44/grosor21 deE4 y ancho34 enN; ajuste escalar mínimo cuadrático, no registro aprobado"
+          },
+          "rgbaSha256": "c93dd3b094540af2d773995445aedf49d46764e39dcce50d593ca8798350df4e"
+        },
+        {
+          "piece": "pelvis",
+          "sourceRect": [
+            696,
+            183,
+            170,
+            110
+          ],
+          "proximalPx": [
+            88,
+            84
+          ],
+          "distalPx": null,
+          "calibration": "Aim-Prone/N/phase0",
+          "sourceAxes": "measured_anatomical_clothing_cap_centres_in_source_pixels",
+          "notes": [
+            "Ancla en punto medio de ambas bocas de cadera; ancho calibrado por separación proyectada de caderas, sin modificar giro o grosor por eje."
+          ],
+          "viewKind": "object",
+          "anchorJoint": "pelvis",
+          "anchorPx": [
+            88,
+            84
+          ],
+          "uniformScale": 0.19091883092036782,
+          "sourceHipCapsPx": [
+            [
+              48,
+              84
+            ],
+            [
+              128,
+              84
+            ]
+          ],
+          "projectedHipSpanPx": 15.273506473629425,
+          "rgbaSha256": "6f1cc6a0a7895037815e18d1e27c86eae9f8192a8d79324de3b9efd29166e9bd"
+        },
+        {
+          "piece": "backpack",
+          "sourceRect": [
+            1000,
+            137,
+            192,
+            157
+          ],
+          "proximalPx": [
+            96,
+            79
+          ],
+          "distalPx": null,
+          "calibration": "Aim-Prone/N/phase0",
+          "sourceAxes": "measured_anatomical_clothing_cap_centres_in_source_pixels",
+          "notes": [
+            "La perspectiva/grosor de la mochila fuente difiere>20% de la caja3D de referencia en algún eje; no compensar con escala anisótropa. Requiere juicio de montaje."
+          ],
+          "viewKind": "object",
+          "anchorJoint": "backpack",
+          "anchorPx": [
+            96,
+            79
+          ],
+          "uniformScale": 0.10014818240011727,
+          "targetDimensionsPx": [
+            15.273506473629425,
+            20.55988472000996
+          ],
+          "worldBoxForwardSideHeight": [
+            16.3,
+            8.0,
+            5.0
+          ],
+          "dimensionRelativeErrors": [
+            0.2589414915312034,
+            -0.2352454864926502
+          ],
+          "rgbaSha256": "7c92cad4b881b95bcec4012ff1528b61d6f742a445ddf7dfcb64cb4054834517"
+        },
+        {
+          "piece": "left_upper_arm",
+          "sourceRect": [
+            93,
+            401,
+            176,
+            178
+          ],
+          "proximalPx": [
+            45,
+            32
+          ],
+          "distalPx": [
+            148,
+            147
+          ],
+          "calibration": "Aim-Prone/N/phase0",
+          "sourceAxes": "measured_anatomical_clothing_cap_centres_in_source_pixels",
+          "notes": [],
+          "uniformScale": 0.039933613370954746,
+          "viewKind": "bone",
+          "sourceBoneLengthPx": 154.38264151127873,
+          "projectedBoneLengthPx": 6.165056717298113,
+          "targetJoints": [
+            "left_shoulder",
+            "left_elbow"
+          ],
+          "rgbaSha256": "7e87d3420c94585fdc38a838bee20d21d72f3e513abd3fde4623d374eef4311e"
+        },
+        {
+          "piece": "left_forearm",
+          "sourceRect": [
+            397,
+            431,
+            177,
+            133
+          ],
+          "proximalPx": [
+            28,
+            30
+          ],
+          "distalPx": [
+            153,
+            106
+          ],
+          "calibration": "Aim-Prone/N/phase0",
+          "sourceAxes": "measured_anatomical_clothing_cap_centres_in_source_pixels",
+          "notes": [],
+          "uniformScale": 0.13919762351419437,
+          "viewKind": "bone",
+          "sourceBoneLengthPx": 146.2908062729849,
+          "projectedBoneLengthPx": 20.363332575174898,
+          "targetJoints": [
+            "left_elbow",
+            "left_wrist"
+          ],
+          "rgbaSha256": "d0ff2700d5f2c3381c4a72de75cb0b6f47cc886aae84104b66a85fb9ac73c327"
+        },
+        {
+          "piece": "left_hand",
+          "sourceRect": [
+            696,
+            432,
+            152,
+            128
+          ],
+          "proximalPx": [
+            27,
+            102
+          ],
+          "distalPx": null,
+          "calibration": "Aim-Prone/N/phase0",
+          "sourceAxes": "measured_anatomical_clothing_cap_centres_in_source_pixels",
+          "notes": [
+            "Muñeca en socket de tela; altura5.5px como referencia E4. La orientación nativa de dedos debe revisarse al montar el arma."
+          ],
+          "viewKind": "object",
+          "anchorJoint": "left_wrist",
+          "anchorPx": [
+            27,
+            102
+          ],
+          "uniformScale": 0.04296875,
+          "targetDimensionsPx": [
+            6.53125,
+            5.5
+          ],
+          "rgbaSha256": "bfc4cc5104490b56a2c97cf99b9c8aa2d07e49baa88e33b30e8f80076c555df0"
+        },
+        {
+          "piece": "right_upper_arm",
+          "sourceRect": [
+            988,
+            399,
+            176,
+            178
+          ],
+          "proximalPx": [
+            131,
+            40
+          ],
+          "distalPx": [
+            31,
+            149
+          ],
+          "calibration": "Aim-Prone/N/phase0",
+          "sourceAxes": "measured_anatomical_clothing_cap_centres_in_source_pixels",
+          "notes": [],
+          "uniformScale": 0.04388149054488014,
+          "viewKind": "bone",
+          "sourceBoneLengthPx": 147.92227688891217,
+          "projectedBoneLengthPx": 6.491049994677942,
+          "targetJoints": [
+            "right_shoulder",
+            "right_elbow"
+          ],
+          "rgbaSha256": "d51903237bc1e421ec479bbeffc4a9e1e1885dfbe901b0d666fc59793a96b294"
+        },
+        {
+          "piece": "right_forearm",
+          "sourceRect": [
+            75,
+            717,
+            178,
+            132
+          ],
+          "proximalPx": [
+            146,
+            27
+          ],
+          "distalPx": [
+            31,
+            101
+          ],
+          "calibration": "Aim-Prone/N/phase0",
+          "sourceAxes": "measured_anatomical_clothing_cap_centres_in_source_pixels",
+          "notes": [],
+          "uniformScale": 0.15009400877985984,
+          "viewKind": "bone",
+          "sourceBoneLengthPx": 136.75159962501354,
+          "projectedBoneLengthPx": 20.52559579477666,
+          "targetJoints": [
+            "right_elbow",
+            "right_wrist"
+          ],
+          "rgbaSha256": "04e8d5eaa53cdf2752b2273a2026e3bb2a30d5eac835bc6b3cea13c37f00e7a8"
+        },
+        {
+          "piece": "right_hand",
+          "sourceRect": [
+            400,
+            724,
+            151,
+            125
+          ],
+          "proximalPx": [
+            28,
+            99
+          ],
+          "distalPx": null,
+          "calibration": "Aim-Prone/N/phase0",
+          "sourceAxes": "measured_anatomical_clothing_cap_centres_in_source_pixels",
+          "notes": [
+            "Muñeca en socket de tela; altura5.5px como referencia E4. La orientación nativa de dedos debe revisarse al montar el arma."
+          ],
+          "viewKind": "object",
+          "anchorJoint": "right_wrist",
+          "anchorPx": [
+            28,
+            99
+          ],
+          "uniformScale": 0.044,
+          "targetDimensionsPx": [
+            6.644,
+            5.5
+          ],
+          "rgbaSha256": "d368b5fefa0011aa96505de7aef4dff15939c0038caafc0b58f7ef8bba38cc8d"
+        },
+        {
+          "piece": "left_thigh",
+          "sourceRect": [
+            711,
+            666,
+            165,
+            204
+          ],
+          "proximalPx": [
+            47,
+            35
+          ],
+          "distalPx": [
+            130,
+            169
+          ],
+          "calibration": "Aim-Prone/N/phase0",
+          "sourceAxes": "measured_anatomical_clothing_cap_centres_in_source_pixels",
+          "notes": [],
+          "uniformScale": 0.14955761405904183,
+          "viewKind": "bone",
+          "sourceBoneLengthPx": 157.62296786953354,
+          "projectedBoneLengthPx": 23.57371499547245,
+          "targetJoints": [
+            "left_hip",
+            "left_knee"
+          ],
+          "rgbaSha256": "a18244413cb6a57ca3a990cdbb44999f4b413c34f7688a95a9931e57de9b79e6"
+        },
+        {
+          "piece": "left_shin",
+          "sourceRect": [
+            1022,
+            691,
+            164,
+            181
+          ],
+          "proximalPx": [
+            40,
+            33
+          ],
+          "distalPx": [
+            122,
+            152
+          ],
+          "calibration": "Aim-Prone/N/phase0",
+          "sourceAxes": "measured_anatomical_clothing_cap_centres_in_source_pixels",
+          "notes": [],
+          "uniformScale": 0.1168763251631848,
+          "viewKind": "bone",
+          "sourceBoneLengthPx": 144.51643505151932,
+          "projectedBoneLengthPx": 16.89054985450565,
+          "targetJoints": [
+            "left_knee",
+            "left_ankle"
+          ],
+          "rgbaSha256": "4f757ac0b87acab9536ced90a140cc0975121c0b15489b8e0382546a91642eff"
+        },
+        {
+          "piece": "left_boot",
+          "sourceRect": [
+            94,
+            964,
+            118,
+            201
+          ],
+          "proximalPx": [
+            72,
+            27
+          ],
+          "distalPx": [
+            39,
+            173
+          ],
+          "calibration": "Aim-Prone/N/phase0",
+          "sourceAxes": "measured_anatomical_clothing_cap_centres_in_source_pixels",
+          "notes": [],
+          "uniformScale": 0.03462539237002458,
+          "viewKind": "bone",
+          "sourceBoneLengthPx": 149.68299836654796,
+          "projectedBoneLengthPx": 5.1828325495634715,
+          "targetJoints": [
+            "left_ankle",
+            "left_toe"
+          ],
+          "rgbaSha256": "2dadb4849d934cf2b48ab68fb7557a5e04e2f332fd2217e0ea1b16bc8989ea3f"
+        },
+        {
+          "piece": "right_thigh",
+          "sourceRect": [
+            410,
+            952,
+            166,
+            205
+          ],
+          "proximalPx": [
+            40,
+            33
+          ],
+          "distalPx": [
+            130,
+            169
+          ],
+          "calibration": "Aim-Prone/N/phase0",
+          "sourceAxes": "measured_anatomical_clothing_cap_centres_in_source_pixels",
+          "notes": [],
+          "uniformScale": 0.14455058928928788,
+          "viewKind": "bone",
+          "sourceBoneLengthPx": 163.0828010551695,
+          "projectedBoneLengthPx": 23.57371499547245,
+          "targetJoints": [
+            "right_hip",
+            "right_knee"
+          ],
+          "rgbaSha256": "f68ea827e239bb8640962de189eb10944432c4109d3241441ea3d9c613d71f15"
+        },
+        {
+          "piece": "right_shin",
+          "sourceRect": [
+            704,
+            964,
+            151,
+            197
+          ],
+          "proximalPx": [
+            116,
+            33
+          ],
+          "distalPx": [
+            38,
+            162
+          ],
+          "calibration": "Aim-Prone/N/phase0",
+          "sourceAxes": "measured_anatomical_clothing_cap_centres_in_source_pixels",
+          "notes": [],
+          "uniformScale": 0.11204483512219363,
+          "viewKind": "bone",
+          "sourceBoneLengthPx": 150.74813431681335,
+          "projectedBoneLengthPx": 16.89054985450565,
+          "targetJoints": [
+            "right_knee",
+            "right_ankle"
+          ],
+          "rgbaSha256": "924b92cdd81ced6cbdfd25364e59d66e3392b70990ddcfe2443156fc0a44f8f4"
+        },
+        {
+          "piece": "right_boot",
+          "sourceRect": [
+            1042,
+            961,
+            120,
+            204
+          ],
+          "proximalPx": [
+            47,
+            32
+          ],
+          "distalPx": [
+            84,
+            177
+          ],
+          "calibration": "Aim-Prone/N/phase0",
+          "sourceAxes": "measured_anatomical_clothing_cap_centres_in_source_pixels",
+          "notes": [],
+          "uniformScale": 0.03463389537429552,
+          "viewKind": "bone",
+          "sourceBoneLengthPx": 149.64624953536256,
+          "projectedBoneLengthPx": 5.182832549563467,
+          "targetJoints": [
+            "right_ankle",
+            "right_toe"
+          ],
+          "rgbaSha256": "923554d11864cac5f1734de36710ea90c218290e42dcbfecbd79f19a990a83c7"
+        }
+      ]
+    },
+    {
+      "direction": "NW",
+      "file": "Art/NoTrace/Characters/Sources/OperativeProneRigParts-NW-v1.png",
+      "sourceSha256": "d07041b3fe09df1f1d8f8d92404bb21426f49efd5416a55af8361758a0c18a77",
+      "sourceSize": [
+        1254,
+        1254
+      ],
+      "parts": [
+        {
+          "piece": "head",
+          "sourceRect": [
+            36,
+            98,
+            215,
+            214
+          ],
+          "proximalPx": [
+            185,
+            147
+          ],
+          "distalPx": [
+            108,
+            92
+          ],
+          "calibration": "Aim-Prone/NW/phase0",
+          "sourceAxes": "measured_anatomical_clothing_cap_centres_in_source_pixels",
+          "notes": [
+            "Cabeza rígida de máximo26px anclada al collar real; centro craneal distal conservado sólo como anotación, no usar cancelación 3D cuello-cabeza para cambiar volumen."
+          ],
+          "uniformScale": 0.12093023255813953,
+          "viewKind": "object",
+          "sourceBoneLengthPx": 94.62557793746889,
+          "projectedBoneLengthPx": 12.205659547931033,
+          "targetJoints": [
+            "neck",
+            "head"
+          ],
+          "boneScaleDiagnostic": 0.1289890092507214,
+          "anchorJoint": "neck",
+          "anchorPx": [
+            185,
+            147
+          ],
+          "targetDimensionsPx": [
+            26.0,
+            25.87906976744186
+          ],
+          "rgbaSha256": "58cb1897e6bf94fabfb7992dd1d0454d42ddf368cfdda7a02ce7becf5124c9a9"
+        },
+        {
+          "piece": "torso",
+          "sourceRect": [
+            339,
+            126,
+            271,
+            216
+          ],
+          "proximalPx": [
+            215,
+            181
+          ],
+          "distalPx": [
+            113,
+            28
+          ],
+          "calibration": "Aim-Prone/NW/phase0",
+          "sourceAxes": "measured_anatomical_clothing_cap_centres_in_source_pixels",
+          "notes": [
+            "Se conserva eje pelvis-cuello medido. Alternativa rígida sólo diagnóstica: elegir por vista ensamblada; no mover sockets para esconder solape ni forzar aspecto.",
+            "El volumen fuente presenta discrepancia de perspectiva/grosor>20% frente al supuesto3D; revisar cápsula, cuello y unión de caderas sin anisotropía."
+          ],
+          "uniformScale": 0.19389646623365378,
+          "viewKind": "bone",
+          "sourceBoneLengthPx": 183.88311504866346,
+          "projectedBoneLengthPx": 35.65428620797225,
+          "targetJoints": [
+            "pelvis",
+            "neck"
+          ],
+          "rigidVolumeAlternative": {
+            "viewKind": "object",
+            "anchorJoint": "pelvis",
+            "anchorPx": [
+              215,
+              181
+            ],
+            "uniformScale": 0.1818667410509838,
+            "targetDimensionsPx": [
+              55.349999999999994,
+              31.67500000000001
+            ],
+            "worldBoxForwardSideHeight": [
+              23.0,
+              18.0,
+              4.0
+            ],
+            "dimensionRelativeErrors": [
+              -0.10955940695904942,
+              0.24019624520954985
+            ],
+            "method": "supuesto QA compatible con largo44/grosor21 deE4 y ancho34 enN; ajuste escalar mínimo cuadrático, no registro aprobado"
+          },
+          "rgbaSha256": "e5c1bb08d78acbfe555734660fed1533e99965666ae901e451c0da9945680e91"
+        },
+        {
+          "piece": "pelvis",
+          "sourceRect": [
+            668,
+            146,
+            241,
+            188
+          ],
+          "proximalPx": [
+            136,
+            134.5
+          ],
+          "distalPx": null,
+          "calibration": "Aim-Prone/NW/phase0",
+          "sourceAxes": "measured_anatomical_clothing_cap_centres_in_source_pixels",
+          "notes": [
+            "Ancla en punto medio de ambas bocas de cadera; ancho calibrado por separación proyectada de caderas, sin modificar giro o grosor por eje."
+          ],
+          "viewKind": "object",
+          "anchorJoint": "pelvis",
+          "anchorPx": [
+            136,
+            134.5
+          ],
+          "uniformScale": 0.09911677880108379,
+          "sourceHipCapsPx": [
+            [
+              76,
+              145
+            ],
+            [
+              196,
+              124
+            ]
+          ],
+          "projectedHipSpanPx": 12.074767078498864,
+          "rgbaSha256": "32f39fe578e7f91f72bfafdaef6ee6dd1c8e7daf3ab7cba708d18787527f8a6e"
+        },
+        {
+          "piece": "backpack",
+          "sourceRect": [
+            974,
+            147,
+            248,
+            164
+          ],
+          "proximalPx": [
+            124,
+            82
+          ],
+          "distalPx": null,
+          "calibration": "Aim-Prone/NW/phase0",
+          "sourceAxes": "measured_anatomical_clothing_cap_centres_in_source_pixels",
+          "notes": [],
+          "viewKind": "object",
+          "anchorJoint": "backpack",
+          "anchorPx": [
+            124,
+            82
+          ],
+          "uniformScale": 0.13173812217194578,
+          "targetDimensionsPx": [
+            32.80500000000001,
+            21.402500000000032
+          ],
+          "worldBoxForwardSideHeight": [
+            16.3,
+            8.0,
+            5.0
+          ],
+          "dimensionRelativeErrors": [
+            -0.004083087985290446,
+            0.00946394281972096
+          ],
+          "rgbaSha256": "cacc18045bf5728d14bbf0f8f973d120db59dc2fce6225d08dd4a808b963496a"
+        },
+        {
+          "piece": "left_upper_arm",
+          "sourceRect": [
+            59,
+            411,
+            221,
+            196
+          ],
+          "proximalPx": [
+            46,
+            36
+          ],
+          "distalPx": [
+            187,
+            165
+          ],
+          "calibration": "Aim-Prone/NW/phase0",
+          "sourceAxes": "measured_anatomical_clothing_cap_centres_in_source_pixels",
+          "notes": [],
+          "uniformScale": 0.08304066468411368,
+          "viewKind": "bone",
+          "sourceBoneLengthPx": 191.10729970359583,
+          "projectedBoneLengthPx": 15.869677193372718,
+          "targetJoints": [
+            "left_shoulder",
+            "left_elbow"
+          ],
+          "rgbaSha256": "e860fb57ec975eaf2285d08fff1a4f8da837c7287d88b065a39424b5aa2ac475"
+        },
+        {
+          "piece": "left_forearm",
+          "sourceRect": [
+            369,
+            424,
+            233,
+            169
+          ],
+          "proximalPx": [
+            34,
+            30
+          ],
+          "distalPx": [
+            199,
+            135
+          ],
+          "calibration": "Aim-Prone/NW/phase0",
+          "sourceAxes": "measured_anatomical_clothing_cap_centres_in_source_pixels",
+          "notes": [],
+          "uniformScale": 0.08885293332036373,
+          "viewKind": "bone",
+          "sourceBoneLengthPx": 195.57607215607945,
+          "projectedBoneLengthPx": 17.37750769834277,
+          "targetJoints": [
+            "left_elbow",
+            "left_wrist"
+          ],
+          "rgbaSha256": "22cafc208405f5286fafdf741d2466860a8d531ae1ad0a5477751c493ebda747"
+        },
+        {
+          "piece": "left_hand",
+          "sourceRect": [
+            694,
+            469,
+            198,
+            132
+          ],
+          "proximalPx": [
+            164,
+            96
+          ],
+          "distalPx": null,
+          "calibration": "Aim-Prone/NW/phase0",
+          "sourceAxes": "measured_anatomical_clothing_cap_centres_in_source_pixels",
+          "notes": [
+            "Muñeca en socket de tela; altura5.5px como referencia E4. La orientación nativa de dedos debe revisarse al montar el arma."
+          ],
+          "viewKind": "object",
+          "anchorJoint": "left_wrist",
+          "anchorPx": [
+            164,
+            96
+          ],
+          "uniformScale": 0.041666666666666664,
+          "targetDimensionsPx": [
+            8.25,
+            5.5
+          ],
+          "rgbaSha256": "770259477e77de5cb50a29a2d50df742832b18ed4cc1f68e04a076302a14b67c"
+        },
+        {
+          "piece": "right_upper_arm",
+          "sourceRect": [
+            993,
+            399,
+            211,
+            210
+          ],
+          "proximalPx": [
+            175,
+            38
+          ],
+          "distalPx": [
+            41,
+            177
+          ],
+          "calibration": "Aim-Prone/NW/phase0",
+          "sourceAxes": "measured_anatomical_clothing_cap_centres_in_source_pixels",
+          "notes": [],
+          "uniformScale": 0.03518758058829605,
+          "viewKind": "bone",
+          "sourceBoneLengthPx": 193.07252523339514,
+          "projectedBoneLengthPx": 6.793755041035913,
+          "targetJoints": [
+            "right_shoulder",
+            "right_elbow"
+          ],
+          "rgbaSha256": "5ca4fb39829f557bde4a1183fb1e17edd017ce018d53f3d1f7ac6ceaf0bf609a"
+        },
+        {
+          "piece": "right_forearm",
+          "sourceRect": [
+            45,
+            710,
+            260,
+            182
+          ],
+          "proximalPx": [
+            223,
+            31
+          ],
+          "distalPx": [
+            35,
+            146
+          ],
+          "calibration": "Aim-Prone/NW/phase0",
+          "sourceAxes": "measured_anatomical_clothing_cap_centres_in_source_pixels",
+          "notes": [],
+          "uniformScale": 0.09786025448554128,
+          "viewKind": "bone",
+          "sourceBoneLengthPx": 220.38375620721234,
+          "projectedBoneLengthPx": 21.56681046691729,
+          "targetJoints": [
+            "right_elbow",
+            "right_wrist"
+          ],
+          "rgbaSha256": "bd217160c099094baac5a6da4c951d52ff30b3600bb9be83ed5a0a325655d651"
+        },
+        {
+          "piece": "right_hand",
+          "sourceRect": [
+            372,
+            727,
+            218,
+            151
+          ],
+          "proximalPx": [
+            34,
+            121
+          ],
+          "distalPx": null,
+          "calibration": "Aim-Prone/NW/phase0",
+          "sourceAxes": "measured_anatomical_clothing_cap_centres_in_source_pixels",
+          "notes": [
+            "Muñeca en socket de tela; altura5.5px como referencia E4. La orientación nativa de dedos debe revisarse al montar el arma."
+          ],
+          "viewKind": "object",
+          "anchorJoint": "right_wrist",
+          "anchorPx": [
+            34,
+            121
+          ],
+          "uniformScale": 0.03642384105960265,
+          "targetDimensionsPx": [
+            7.940397350993377,
+            5.5
+          ],
+          "rgbaSha256": "c265eda34f5339b82b36f86b33e5e364895c2b42c961fb3b2e12c104162a22f8"
+        },
+        {
+          "piece": "left_thigh",
+          "sourceRect": [
+            650,
+            708,
+            272,
+            198
+          ],
+          "proximalPx": [
+            41,
+            36
+          ],
+          "distalPx": [
+            236,
+            161
+          ],
+          "calibration": "Aim-Prone/NW/phase0",
+          "sourceAxes": "measured_anatomical_clothing_cap_centres_in_source_pixels",
+          "notes": [],
+          "uniformScale": 0.10397550412135029,
+          "viewKind": "bone",
+          "sourceBoneLengthPx": 231.62469643800938,
+          "projectedBoneLengthPx": 24.083294579096755,
+          "targetJoints": [
+            "left_hip",
+            "left_knee"
+          ],
+          "rgbaSha256": "a5361cb28ef7791e0b051cd3e7c652b495b23092bffc1cbfc8a7515de9dc22c2"
+        },
+        {
+          "piece": "left_shin",
+          "sourceRect": [
+            959,
+            709,
+            262,
+            193
+          ],
+          "proximalPx": [
+            35,
+            35
+          ],
+          "distalPx": [
+            226,
+            149
+          ],
+          "calibration": "Aim-Prone/NW/phase0",
+          "sourceAxes": "measured_anatomical_clothing_cap_centres_in_source_pixels",
+          "notes": [],
+          "uniformScale": 0.12467018585340858,
+          "viewKind": "bone",
+          "sourceBoneLengthPx": 222.43425995111454,
+          "projectedBoneLengthPx": 27.730920528270847,
+          "targetJoints": [
+            "left_knee",
+            "left_ankle"
+          ],
+          "rgbaSha256": "4259fc2fcc3ad85ef204a4c83ef7556a089e55f358084039c0b5347fd6008b35"
+        },
+        {
+          "piece": "left_boot",
+          "sourceRect": [
+            42,
+            993,
+            239,
+            181
+          ],
+          "proximalPx": [
+            202,
+            132
+          ],
+          "distalPx": [
+            39,
+            149
+          ],
+          "calibration": "Aim-Prone/NW/phase0",
+          "sourceAxes": "measured_anatomical_clothing_cap_centres_in_source_pixels",
+          "notes": [],
+          "uniformScale": 0.03637818018327762,
+          "viewKind": "bone",
+          "sourceBoneLengthPx": 163.88410539158457,
+          "projectedBoneLengthPx": 5.961805515110322,
+          "targetJoints": [
+            "left_ankle",
+            "left_toe"
+          ],
+          "rgbaSha256": "ceed9329798411b45cd5863e3ad51fd21114f8746d51f9b3f261d0020524c563"
+        },
+        {
+          "piece": "right_thigh",
+          "sourceRect": [
+            338,
+            977,
+            283,
+            201
+          ],
+          "proximalPx": [
+            38,
+            35
+          ],
+          "distalPx": [
+            247,
+            165
+          ],
+          "calibration": "Aim-Prone/NW/phase0",
+          "sourceAxes": "measured_anatomical_clothing_cap_centres_in_source_pixels",
+          "notes": [],
+          "uniformScale": 0.12048683218757471,
+          "viewKind": "bone",
+          "sourceBoneLengthPx": 246.13207836444238,
+          "projectedBoneLengthPx": 29.655674421875556,
+          "targetJoints": [
+            "right_hip",
+            "right_knee"
+          ],
+          "rgbaSha256": "ec6d7cf822fbc8780fa44466cd736f54c163af0fae645e85f6821f5b8c598f9f"
+        },
+        {
+          "piece": "right_shin",
+          "sourceRect": [
+            660,
+            991,
+            256,
+            183
+          ],
+          "proximalPx": [
+            39,
+            36
+          ],
+          "distalPx": [
+            221,
+            148
+          ],
+          "calibration": "Aim-Prone/NW/phase0",
+          "sourceAxes": "measured_anatomical_clothing_cap_centres_in_source_pixels",
+          "notes": [],
+          "uniformScale": 0.11054518516889907,
+          "viewKind": "bone",
+          "sourceBoneLengthPx": 213.70072531463248,
+          "projectedBoneLengthPx": 23.623586250634084,
+          "targetJoints": [
+            "right_knee",
+            "right_ankle"
+          ],
+          "rgbaSha256": "6e515fedeb2ef1749a1c948d15e67d85c2c198ea9d6da6cc3a02c60553474de6"
+        },
+        {
+          "piece": "right_boot",
+          "sourceRect": [
+            980,
+            996,
+            238,
+            177
+          ],
+          "proximalPx": [
+            34,
+            124
+          ],
+          "distalPx": [
+            207,
+            141
+          ],
+          "calibration": "Aim-Prone/NW/phase0",
+          "sourceAxes": "measured_anatomical_clothing_cap_centres_in_source_pixels",
+          "notes": [],
+          "uniformScale": 0.04255130676092119,
+          "viewKind": "bone",
+          "sourceBoneLengthPx": 173.83325343558406,
+          "projectedBoneLengthPx": 7.396832092186495,
+          "targetJoints": [
+            "right_ankle",
+            "right_toe"
+          ],
+          "rgbaSha256": "d1ad3951bfff7ac064d194e7d5bfc0ca0fd6dee5ac60f47e129d3a69660f4924"
+        }
+      ]
+    },
+    {
+      "direction": "W",
+      "file": "Art/NoTrace/Characters/Sources/OperativeProneRigParts-W-v2.png",
+      "sourceSha256": "cc00d0ccbc75714630008f8327fc381e5c57182f7570a8f26433c69e0fcf8245",
+      "sourceSize": [
+        1536,
+        1024
+      ],
+      "parts": [
+        {
+          "piece": "head",
+          "sourceRect": [
+            41,
+            62,
+            240,
+            211
+          ],
+          "proximalPx": [
+            191,
+            178
+          ],
+          "distalPx": [
+            116,
+            84
+          ],
+          "calibration": "Aim-Prone/W/phase0",
+          "viewKind": "object",
+          "anchorJoint": "neck",
+          "anchorPx": [
+            191,
+            178
+          ],
+          "targetDimensionsPx": [
+            26.0,
+            22.858333333333334
+          ],
+          "notes": "Volumen rígido orientado por la cámara autorada; collar medido; no se reduce por la proyección corta neck/head.",
+          "uniformScale": 0.10833333333333334,
+          "rgbaSha256": "b98f985c51c2d7866410dd2b477bf6fdbd768c6ae58c446be59053d965c3b2da"
+        },
+        {
+          "piece": "torso",
+          "sourceRect": [
+            367,
+            102,
+            372,
+            179
+          ],
+          "proximalPx": [
+            327,
+            105
+          ],
+          "distalPx": [
+            32,
+            85
+          ],
+          "calibration": "Aim-Prone/W/phase0",
+          "viewKind": "bone_similarity",
+          "uniformScale": 0.1486650154450332,
+          "rgbaSha256": "b75b21e1af1fc2a649ae12934678bb4544f29ab54963f83a1be9197f79a44491"
+        },
+        {
+          "piece": "pelvis",
+          "sourceRect": [
+            789,
+            114,
+            280,
+            159
+          ],
+          "proximalPx": [
+            240,
+            71
+          ],
+          "distalPx": null,
+          "calibration": "Aim-Prone/W/phase0",
+          "viewKind": "object",
+          "anchorJoint": "pelvis",
+          "anchorPx": [
+            240,
+            71
+          ],
+          "uniformScale": 0.081,
+          "rgbaSha256": "874e6c0921a17d2a561ac5f444c07bfbbd7e70a48b8d9de9bb8c0ea8949773c7"
+        },
+        {
+          "piece": "backpack",
+          "sourceRect": [
+            1143,
+            85,
+            366,
+            185
+          ],
+          "proximalPx": [
+            182,
+            104
+          ],
+          "distalPx": null,
+          "calibration": "Aim-Prone/W/phase0",
+          "viewKind": "object",
+          "anchorJoint": "backpack",
+          "anchorPx": [
+            182,
+            104
+          ],
+          "uniformScale": 0.09,
+          "rgbaSha256": "0cb620ae74822ef9ad8b91a40ad98d1846143b03933eeac4e14320d2ff7ac7ac"
+        },
+        {
+          "piece": "left_upper_arm",
+          "sourceRect": [
+            52,
+            303,
+            274,
+            188
+          ],
+          "proximalPx": [
+            52,
+            71
+          ],
+          "distalPx": [
+            237,
+            141
+          ],
+          "calibration": "Aim-Prone/W/phase0",
+          "viewKind": "bone_similarity",
+          "uniformScale": 0.09873012533995082,
+          "rgbaSha256": "ca720d7e0a364fe06a38054fd565197e53d05a13c4b711b4ad2d1fe6afe48455"
+        },
+        {
+          "piece": "left_forearm",
+          "sourceRect": [
+            423,
+            342,
+            266,
+            143
+          ],
+          "proximalPx": [
+            38,
+            52
+          ],
+          "distalPx": [
+            229,
+            95
+          ],
+          "calibration": "Aim-Prone/W/phase0",
+          "viewKind": "bone_similarity",
+          "uniformScale": 0.10727813231744807,
+          "rgbaSha256": "320e3e010aac18ff31452de1594f078f821491fffa90a78be2dcc8ab512175d2"
+        },
+        {
+          "piece": "left_hand",
+          "sourceRect": [
+            793,
+            363,
+            285,
+            122
+          ],
+          "proximalPx": [
+            240,
+            61
+          ],
+          "distalPx": null,
+          "calibration": "Aim-Prone/W/phase0",
+          "viewKind": "object",
+          "anchorJoint": "left_wrist",
+          "anchorPx": [
+            240,
+            61
+          ],
+          "uniformScale": 0.045081967213114756,
+          "rgbaSha256": "296d6fd66e9f123eccc40a54886c156448ce6fd40822ec06ba0148c0248b72cf"
+        },
+        {
+          "piece": "right_upper_arm",
+          "sourceRect": [
+            1195,
+            306,
+            286,
+            192
+          ],
+          "proximalPx": [
+            48,
+            68
+          ],
+          "distalPx": [
+            247,
+            144
+          ],
+          "calibration": "Aim-Prone/W/phase0",
+          "viewKind": "bone_similarity",
+          "uniformScale": 0.07571945168830403,
+          "rgbaSha256": "f22179e6e86dff8edaf204f69df5c191b6ef46125c6bedd2d5c116d89504427b"
+        },
+        {
+          "piece": "right_forearm",
+          "sourceRect": [
+            64,
+            549,
+            270,
+            142
+          ],
+          "proximalPx": [
+            233,
+            46
+          ],
+          "distalPx": [
+            43,
+            91
+          ],
+          "calibration": "Aim-Prone/W/phase0",
+          "viewKind": "bone_similarity",
+          "uniformScale": 0.07288593226774781,
+          "rgbaSha256": "c7dabcd502b99e91e0e3702d8a0fc02b51854cab47b06c7a6d095eef476b0897"
+        },
+        {
+          "piece": "right_hand",
+          "sourceRect": [
+            428,
+            556,
+            263,
+            121
+          ],
+          "proximalPx": [
+            39,
+            73
+          ],
+          "distalPx": null,
+          "calibration": "Aim-Prone/W/phase0",
+          "viewKind": "object",
+          "anchorJoint": "right_wrist",
+          "anchorPx": [
+            39,
+            73
+          ],
+          "uniformScale": 0.045454545454545456,
+          "rgbaSha256": "88caa6f0655f9c9dd3e42955b1f97b030268e30eae2b2071d6e4c0f49231c50b"
+        },
+        {
+          "piece": "left_thigh",
+          "sourceRect": [
+            781,
+            545,
+            317,
+            147
+          ],
+          "proximalPx": [
+            36,
+            56
+          ],
+          "distalPx": [
+            278,
+            98
+          ],
+          "calibration": "Aim-Prone/W/phase0",
+          "viewKind": "bone_similarity",
+          "uniformScale": 0.12183261416414783,
+          "rgbaSha256": "f8839a2d592c7eacae618b7a2886236d97ab1227b1363db3fa3d2e174351d4ea"
+        },
+        {
+          "piece": "left_shin",
+          "sourceRect": [
+            1162,
+            568,
+            327,
+            119
+          ],
+          "proximalPx": [
+            38,
+            52
+          ],
+          "distalPx": [
+            295,
+            73
+          ],
+          "calibration": "Aim-Prone/W/phase0",
+          "viewKind": "bone_similarity",
+          "uniformScale": 0.12492812494062483,
+          "rgbaSha256": "bd6b4290643b742dfa7615f0197cec4ca72090796b8788b0bf20e654dbd78c75"
+        },
+        {
+          "piece": "left_boot",
+          "sourceRect": [
+            65,
+            751,
+            229,
+            178
+          ],
+          "proximalPx": [
+            181,
+            47
+          ],
+          "distalPx": [
+            36,
+            133
+          ],
+          "calibration": "Aim-Prone/W/phase0",
+          "viewKind": "bone_similarity",
+          "uniformScale": 0.04675924377421596,
+          "rgbaSha256": "f93e19e34532d2f10381ec2277ea5d4b2890f622a88e3a8df4e322b9ef1021a6"
+        },
+        {
+          "piece": "right_thigh",
+          "sourceRect": [
+            393,
+            751,
+            347,
+            167
+          ],
+          "proximalPx": [
+            40,
+            54
+          ],
+          "distalPx": [
+            304,
+            112
+          ],
+          "calibration": "Aim-Prone/W/phase0",
+          "viewKind": "bone_similarity",
+          "uniformScale": 0.10050705207390925,
+          "rgbaSha256": "51c7b61add743690b3562de10efc7aa566718647a006a89856ba6216cb8bca2b"
+        },
+        {
+          "piece": "right_shin",
+          "sourceRect": [
+            789,
+            765,
+            309,
+            153
+          ],
+          "proximalPx": [
+            266,
+            45
+          ],
+          "distalPx": [
+            46,
+            100
+          ],
+          "calibration": "Aim-Prone/W/phase0",
+          "viewKind": "bone_similarity",
+          "uniformScale": 0.14219181292019958,
+          "rgbaSha256": "dc1d89c8b5ed33771a37b3504f330daa55512ae0372249141434c1d1120ee506"
+        },
+        {
+          "piece": "right_boot",
+          "sourceRect": [
+            1224,
+            751,
+            238,
+            179
+          ],
+          "proximalPx": [
+            43,
+            48
+          ],
+          "distalPx": [
+            201,
+            134
+          ],
+          "calibration": "Aim-Prone/W/phase0",
+          "viewKind": "bone_similarity",
+          "uniformScale": 0.04245337065752597,
+          "rgbaSha256": "61ca803adc6192229ec72bc10e13d081d0d6621e4650e50202bbdc7fee845a2e"
+        }
+      ]
+    },
+    {
+      "direction": "SW",
+      "file": "Art/NoTrace/Characters/Sources/OperativeProneRigParts-SW-v3.png",
+      "sourceSha256": "e3b493993b31f10fbc40d0cbc88be4b076c43ff374bee7d4934cacccb7f56f22",
+      "sourceSize": [
+        1536,
+        1024
+      ],
+      "parts": [
+        {
+          "piece": "head",
+          "sourceRect": [
+            79,
+            61,
+            263,
+            224
+          ],
+          "proximalPx": [
+            203,
+            173
+          ],
+          "distalPx": [
+            111,
+            78
+          ],
+          "calibration": "Aim-Prone/SW/phase0",
+          "viewKind": "object",
+          "anchorJoint": "neck",
+          "anchorPx": [
+            203,
+            173
+          ],
+          "targetDimensionsPx": [
+            26.0,
+            22.14448669201521
+          ],
+          "notes": "Volumen rígido orientado por la cámara autorada; collar medido; no se reduce por la proyección corta neck/head.",
+          "uniformScale": 0.09885931558935361,
+          "rgbaSha256": "1346e892ac3e80993ad67b0ae342dce237357408a0da5f57e80be0923afb6257"
+        },
+        {
+          "piece": "torso",
+          "sourceRect": [
+            422,
+            84,
+            326,
+            221
+          ],
+          "proximalPx": [
+            282,
+            53
+          ],
+          "distalPx": [
+            42,
+            157
+          ],
+          "calibration": "Aim-Prone/SW/phase0",
+          "viewKind": "bone_similarity",
+          "uniformScale": 0.12948164070200122,
+          "rgbaSha256": "ec221c5a14921c4d69d1558c4169d9e486cbb849295a9e6a33d1929bc0e533ac"
+        },
+        {
+          "piece": "pelvis",
+          "sourceRect": [
+            812,
+            107,
+            281,
+            185
+          ],
+          "proximalPx": [
+            211,
+            62
+          ],
+          "distalPx": null,
+          "calibration": "Aim-Prone/SW/phase0",
+          "viewKind": "object",
+          "anchorJoint": "pelvis",
+          "anchorPx": [
+            211,
+            62
+          ],
+          "uniformScale": 0.081,
+          "rgbaSha256": "c27eb21a14a2b47af43ba5eda518d3f4b7d1d77afbef5a619f0eabe7bf07a3ea"
+        },
+        {
+          "piece": "backpack",
+          "sourceRect": [
+            1169,
+            92,
+            332,
+            198
+          ],
+          "proximalPx": [
+            166,
+            97
+          ],
+          "distalPx": null,
+          "calibration": "Aim-Prone/SW/phase0",
+          "viewKind": "object",
+          "anchorJoint": "backpack",
+          "anchorPx": [
+            166,
+            97
+          ],
+          "uniformScale": 0.09,
+          "rgbaSha256": "e4701a7e862703c091a73359fc27b94eb44384ae777daa32ffc220e17d74ed88"
+        },
+        {
+          "piece": "left_upper_arm",
+          "sourceRect": [
+            82,
+            328,
+            273,
+            202
+          ],
+          "proximalPx": [
+            37,
+            69
+          ],
+          "distalPx": [
+            236,
+            153
+          ],
+          "calibration": "Aim-Prone/SW/phase0",
+          "viewKind": "bone_similarity",
+          "uniformScale": 0.08519909354116899,
+          "rgbaSha256": "eb21fc0be87e43b3eb33c9d8c5b8661932d14306cd80ab9c8ce53b59c14fb936"
+        },
+        {
+          "piece": "left_forearm",
+          "sourceRect": [
+            443,
+            355,
+            308,
+            160
+          ],
+          "proximalPx": [
+            44,
+            50
+          ],
+          "distalPx": [
+            274,
+            117
+          ],
+          "calibration": "Aim-Prone/SW/phase0",
+          "viewKind": "bone_similarity",
+          "uniformScale": 0.09208191157432005,
+          "rgbaSha256": "be224d870dc7002f2dc3600a0f7d29982d66465430f5a4eb0438b924db70df05"
+        },
+        {
+          "piece": "left_hand",
+          "sourceRect": [
+            807,
+            379,
+            260,
+            134
+          ],
+          "proximalPx": [
+            41,
+            89
+          ],
+          "distalPx": null,
+          "calibration": "Aim-Prone/SW/phase0",
+          "viewKind": "object",
+          "anchorJoint": "left_wrist",
+          "anchorPx": [
+            41,
+            89
+          ],
+          "uniformScale": 0.041044776119402986,
+          "rgbaSha256": "700dc9898358c063c1e1e5ad6d8fdaedf0802dbdc6e13b05f3368fbd73766f1c"
+        },
+        {
+          "piece": "right_upper_arm",
+          "sourceRect": [
+            1180,
+            331,
+            301,
+            199
+          ],
+          "proximalPx": [
+            45,
+            97
+          ],
+          "distalPx": [
+            264,
+            146
+          ],
+          "calibration": "Aim-Prone/SW/phase0",
+          "viewKind": "bone_similarity",
+          "uniformScale": 0.08663047758693895,
+          "rgbaSha256": "346985968cd41d90ab5c316df65898cdba06bab6a6c1dd4821c98f6edf4c5f89"
+        },
+        {
+          "piece": "right_forearm",
+          "sourceRect": [
+            68,
+            571,
+            306,
+            155
+          ],
+          "proximalPx": [
+            41,
+            50
+          ],
+          "distalPx": [
+            266,
+            109
+          ],
+          "calibration": "Aim-Prone/SW/phase0",
+          "viewKind": "bone_similarity",
+          "uniformScale": 0.011112325187561157,
+          "rgbaSha256": "52a2cf25fe1e0fd457f77462fefca24b9aadc4f3ae35cd2ed89974ccfa667fb3"
+        },
+        {
+          "piece": "right_hand",
+          "sourceRect": [
+            450,
+            583,
+            261,
+            131
+          ],
+          "proximalPx": [
+            45,
+            82
+          ],
+          "distalPx": null,
+          "calibration": "Aim-Prone/SW/phase0",
+          "viewKind": "object",
+          "anchorJoint": "right_wrist",
+          "anchorPx": [
+            45,
+            82
+          ],
+          "uniformScale": 0.04198473282442748,
+          "rgbaSha256": "b82f3009cf0623461e92442d9c4b52be4d2391dc1ce035b8519dfbaba38719c5"
+        },
+        {
+          "piece": "left_thigh",
+          "sourceRect": [
+            787,
+            556,
+            342,
+            183
+          ],
+          "proximalPx": [
+            40,
+            52
+          ],
+          "distalPx": [
+            294,
+            119
+          ],
+          "calibration": "Aim-Prone/SW/phase0",
+          "viewKind": "bone_similarity",
+          "uniformScale": 0.10026720380615521,
+          "rgbaSha256": "c8fd2ce8c6d5aab75e9a1f86c777e304d920f36c13c4e98548f56c260d2054d6"
+        },
+        {
+          "piece": "left_shin",
+          "sourceRect": [
+            1167,
+            564,
+            337,
+            172
+          ],
+          "proximalPx": [
+            43,
+            47
+          ],
+          "distalPx": [
+            302,
+            134
+          ],
+          "calibration": "Aim-Prone/SW/phase0",
+          "viewKind": "bone_similarity",
+          "uniformScale": 0.08553720122039236,
+          "rgbaSha256": "8dde3f566f45cdde733d3dec7d4bce0589412d4274f70981715a4f70145d44a0"
+        },
+        {
+          "piece": "left_boot",
+          "sourceRect": [
+            68,
+            755,
+            299,
+            182
+          ],
+          "proximalPx": [
+            249,
+            133
+          ],
+          "distalPx": [
+            45,
+            105
+          ],
+          "calibration": "Aim-Prone/SW/phase0",
+          "viewKind": "bone_similarity",
+          "uniformScale": 0.03315669096367093,
+          "rgbaSha256": "becd231e94e68c73ffe83b8696e1f88fd511ef553161b72e9065307572b7b3d6"
+        },
+        {
+          "piece": "right_thigh",
+          "sourceRect": [
+            427,
+            755,
+            349,
+            180
+          ],
+          "proximalPx": [
+            42,
+            53
+          ],
+          "distalPx": [
+            312,
+            127
+          ],
+          "calibration": "Aim-Prone/SW/phase0",
+          "viewKind": "bone_similarity",
+          "uniformScale": 0.04679783208923516,
+          "rgbaSha256": "ae85192ff61ab35830a1bd4ed4d0b9ea283a34247f5ec8f543f4985087a8e2d3"
+        },
+        {
+          "piece": "right_shin",
+          "sourceRect": [
+            793,
+            762,
+            333,
+            160
+          ],
+          "proximalPx": [
+            290,
+            48
+          ],
+          "distalPx": [
+            44,
+            108
+          ],
+          "calibration": "Aim-Prone/SW/phase0",
+          "viewKind": "bone_similarity",
+          "uniformScale": 0.1088723623009414,
+          "rgbaSha256": "0de273bbcc7fe986ec530b3dc23da0fc3b8fdd07d788ce5e79971eeb97145102"
+        },
+        {
+          "piece": "right_boot",
+          "sourceRect": [
+            1211,
+            753,
+            284,
+            183
+          ],
+          "proximalPx": [
+            45,
+            131
+          ],
+          "distalPx": [
+            234,
+            102
+          ],
+          "calibration": "Aim-Prone/SW/phase0",
+          "viewKind": "bone_similarity",
+          "uniformScale": 0.02455396370519469,
+          "rgbaSha256": "83c97e622c9b2b40d4f1ff641d73f2fdd8da2062d4f3ce12852d4931b89f4061"
+        }
+      ]
+    }
+  ],
+  "auxiliarySources": {
+    "Art/NoTrace/Characters/Sources/OperativeProneArmEndOn-E-v1.png": "fee0c6d1a89131e63c0e603354fa7d1f3106c4601c15511d71f93655c4eb5d99",
+    "Art/NoTrace/Characters/Sources/OperativeProneArmOblique-E-v1.png": "b084d42889935d849ae260f80ce17313a68c877e1090ed4773eff65a9db35158",
+    "Art/NoTrace/Characters/Sources/OperativeProneArmViews-E-v1.png": "37fcd21060b5bc3613d3f5beda7b0c7c1da9d4c4a6c7cc120d23a0d901614706",
+    "Art/NoTrace/Characters/Sources/OperativeProneUpperMedium-E-v1.png": "32af2c32089efba1389ae9358b155703c549bbc74f1ca457cbe2e9b5ef05ff93"
+  },
+  "auxiliaryParts": [
+    {
+      "id": "end_left_upper",
+      "role": "left_upper_arm",
+      "file": "Art/NoTrace/Characters/Sources/OperativeProneArmEndOn-E-v1.png",
+      "sourceRect": [
+        131,
+        851,
+        117,
+        145
+      ],
+      "proximalPx": null,
+      "distalPx": null,
+      "centrePx": [
+        56.24811055927445,
+        71.80594544014971
+      ],
+      "viewKind": "axial",
+      "socketReview": "Manual centres inspected on source; composition review pending",
+      "sourceRgbaSha256": "2d36b3744e9fa41ce0b81203c633202acec37f0a8cf0faa719b7e0164afde0c5",
+      "diameterSamplingAxisPx": [
+        [
+          56.24811055927445,
+          29.0
+        ],
+        [
+          56.24811055927445,
+          116.0
+        ]
+      ],
+      "anchorMethod": "MIDPOINT of target joints; source centre is opaque-area centroid; fixed diameter; never divide by target length",
+      "nearEnd": "distal/elbow navy face, shoulder strap remains behind",
+      "requiredProjectionDepthSign": "positive/distal-near",
+      "axialUseLimit": "Pad caps require elbow-near; upper caps contain visible shoulder strap and are not neutral wrist cuffs",
+      "sourceDiameterSamples": [
+        117,
+        115,
+        113,
+        110,
+        111
+      ],
+      "naturalDiameterPixels": {
+        "source": 113,
+        "game": 7.904734603947315
+      },
+      "uniformScale": 0.06995340357475499,
+      "referenceAxisLengthGame": null,
+      "referenceAxisLengthSource": null,
+      "coverageGamePixels": [
+        0.0,
+        7.904734603947315
+      ],
+      "scalePolicy": "Fixed uniformScale, independent of target length"
+    },
+    {
+      "id": "end_left_forearm",
+      "role": "left_forearm",
+      "file": "Art/NoTrace/Characters/Sources/OperativeProneArmEndOn-E-v1.png",
+      "sourceRect": [
+        513,
+        852,
+        129,
+        145
+      ],
+      "proximalPx": null,
+      "distalPx": null,
+      "centrePx": [
+        63.94197105444521,
+        72.58835286009649
+      ],
+      "viewKind": "axial",
+      "socketReview": "Manual centres inspected on source; composition review pending",
+      "sourceRgbaSha256": "03bede72a514eb36867d9f35fcd1b452ddddec939d3111fbe5223c507c6a086f",
+      "diameterSamplingAxisPx": [
+        [
+          63.94197105444521,
+          29.0
+        ],
+        [
+          63.94197105444521,
+          116.0
+        ]
+      ],
+      "anchorMethod": "MIDPOINT of target joints; source centre is opaque-area centroid; fixed diameter; never divide by target length",
+      "nearEnd": "proximal/elbow",
+      "requiredProjectionDepthSign": "negative/proximal-near",
+      "axialUseLimit": "Pad caps require elbow-near; upper caps contain visible shoulder strap and are not neutral wrist cuffs",
+      "sourceDiameterSamples": [
+        123,
+        128,
+        129,
+        128,
+        126
+      ],
+      "naturalDiameterPixels": {
+        "source": 128,
+        "game": 5.526319507015101
+      },
+      "uniformScale": 0.043174371148555477,
+      "referenceAxisLengthGame": null,
+      "referenceAxisLengthSource": null,
+      "coverageGamePixels": [
+        0.0,
+        5.526319507015101
+      ],
+      "scalePolicy": "Fixed uniformScale, independent of target length",
+      "idleDiameterAlternativeRequiresViewSelectionReview": {
+        "naturalDiameterGame": 6.9621955609520585,
+        "uniformScale": 0.05439215281993796,
+        "axisLengthGame": null
+      }
+    },
+    {
+      "id": "end_right_upper",
+      "role": "right_upper_arm",
+      "file": "Art/NoTrace/Characters/Sources/OperativeProneArmEndOn-E-v1.png",
+      "sourceRect": [
+        892,
+        851,
+        122,
+        146
+      ],
+      "proximalPx": null,
+      "distalPx": null,
+      "centrePx": [
+        61.6030271031327,
+        72.56789862724393
+      ],
+      "viewKind": "axial",
+      "socketReview": "Manual centres inspected on source; composition review pending",
+      "sourceRgbaSha256": "7821bdf95fdc3c6b2a56a8003a193b20fbfbd272c2c921c44cb36ae7aa71abaf",
+      "diameterSamplingAxisPx": [
+        [
+          61.6030271031327,
+          29.200000000000003
+        ],
+        [
+          61.6030271031327,
+          116.80000000000001
+        ]
+      ],
+      "anchorMethod": "MIDPOINT of target joints; source centre is opaque-area centroid; fixed diameter; never divide by target length",
+      "nearEnd": "distal/elbow navy face, shoulder strap remains behind",
+      "requiredProjectionDepthSign": "positive/distal-near",
+      "axialUseLimit": "Pad caps require elbow-near; upper caps contain visible shoulder strap and are not neutral wrist cuffs",
+      "sourceDiameterSamples": [
+        117,
+        117,
+        115,
+        115,
+        114
+      ],
+      "naturalDiameterPixels": {
+        "source": 115,
+        "game": 11.077683531110399
+      },
+      "uniformScale": 0.09632768287922086,
+      "referenceAxisLengthGame": null,
+      "referenceAxisLengthSource": null,
+      "coverageGamePixels": [
+        0.0,
+        11.077683531110399
+      ],
+      "scalePolicy": "Fixed uniformScale, independent of target length"
+    },
+    {
+      "id": "end_right_forearm",
+      "role": "right_forearm",
+      "file": "Art/NoTrace/Characters/Sources/OperativeProneArmEndOn-E-v1.png",
+      "sourceRect": [
+        1277,
+        853,
+        123,
+        143
+      ],
+      "proximalPx": null,
+      "distalPx": null,
+      "centrePx": [
+        61.340759678597514,
+        72.19072315558802
+      ],
+      "viewKind": "axial",
+      "socketReview": "Manual centres inspected on source; composition review pending",
+      "sourceRgbaSha256": "dce4a7f17f3ec0f1ead401c4bcf557b7155515e2ee22559039898baf631add39",
+      "diameterSamplingAxisPx": [
+        [
+          61.340759678597514,
+          28.6
+        ],
+        [
+          61.340759678597514,
+          114.4
+        ]
+      ],
+      "anchorMethod": "MIDPOINT of target joints; source centre is opaque-area centroid; fixed diameter; never divide by target length",
+      "nearEnd": "proximal/elbow",
+      "requiredProjectionDepthSign": "negative/proximal-near",
+      "axialUseLimit": "Pad caps require elbow-near; upper caps contain visible shoulder strap and are not neutral wrist cuffs",
+      "sourceDiameterSamples": [
+        118,
+        121,
+        123,
+        123,
+        120
+      ],
+      "naturalDiameterPixels": {
+        "source": 121,
+        "game": 6.999932655532675
+      },
+      "uniformScale": 0.05785068310357582,
+      "referenceAxisLengthGame": null,
+      "referenceAxisLengthSource": null,
+      "coverageGamePixels": [
+        0.0,
+        6.999932655532675
+      ],
+      "scalePolicy": "Fixed uniformScale, independent of target length"
+    },
+    {
+      "id": "oblique_col1_left_forearm",
+      "role": "left_forearm",
+      "file": "Art/NoTrace/Characters/Sources/OperativeProneArmOblique-E-v1.png",
+      "sourceRect": [
+        106,
+        845,
+        230,
+        144
+      ],
+      "proximalPx": [
+        34,
+        42
+      ],
+      "distalPx": [
+        199,
+        101
+      ],
+      "centrePx": null,
+      "viewKind": "oblique",
+      "socketReview": "Manual centres inspected on source; composition review pending",
+      "sourceRgbaSha256": "d4718ae860ae62a0d96886ec36ec51de88e3a3d1066f78ba42a6aab1ca80e429",
+      "sourceDiameterSamples": [
+        117,
+        114,
+        111,
+        104,
+        99
+      ],
+      "naturalDiameterPixels": {
+        "source": 111,
+        "game": 5.526319507015101
+      },
+      "uniformScale": 0.049786662225361274,
+      "referenceAxisLengthGame": 8.724180336946231,
+      "referenceAxisLengthSource": 175.231275747225,
+      "coverageGamePixels": [
+        6.543135252709674,
+        10.90522542118279
+      ],
+      "scalePolicy": "Similarity with target length/reference length in [0.75,1.25]; no independent axis scaling",
+      "idleDiameterAlternativeRequiresViewSelectionReview": {
+        "naturalDiameterGame": 6.9621955609520585,
+        "uniformScale": 0.06272248253109963,
+        "axisLengthGame": 10.990940631957622
+      },
+      "semanticCorrection": "Requested upper sleeve but actual visible elbow pad makes this a forearm; cannot count as left upper coverage"
+    },
+    {
+      "id": "oblique_col2_left_forearm",
+      "role": "left_forearm",
+      "file": "Art/NoTrace/Characters/Sources/OperativeProneArmOblique-E-v1.png",
+      "sourceRect": [
+        457,
+        851,
+        260,
+        140
+      ],
+      "proximalPx": [
+        34,
+        43
+      ],
+      "distalPx": [
+        230,
+        98
+      ],
+      "centrePx": null,
+      "viewKind": "oblique",
+      "socketReview": "Manual centres inspected on source; composition review pending",
+      "sourceRgbaSha256": "1356a07f99b123f0223f1a462bc0c77a1a2a0f5ad312410768eed225a8a2236f",
+      "sourceDiameterSamples": [
+        101,
+        99,
+        97,
+        89,
+        87
+      ],
+      "naturalDiameterPixels": {
+        "source": 97,
+        "game": 5.526319507015101
+      },
+      "uniformScale": 0.05697236605170207,
+      "referenceAxisLengthGame": 11.597900254026193,
+      "referenceAxisLengthSource": 203.5706265648362,
+      "coverageGamePixels": [
+        8.698425190519645,
+        14.497375317532741
+      ],
+      "scalePolicy": "Similarity with target length/reference length in [0.75,1.25]; no independent axis scaling",
+      "idleDiameterAlternativeRequiresViewSelectionReview": {
+        "naturalDiameterGame": 6.9621955609520585,
+        "uniformScale": 0.07177521196857792,
+        "axisLengthGame": 14.611324872267337
+      }
+    },
+    {
+      "id": "oblique_col3_right_upper",
+      "role": "right_upper_arm",
+      "file": "Art/NoTrace/Characters/Sources/OperativeProneArmOblique-E-v1.png",
+      "sourceRect": [
+        828,
+        851,
+        252,
+        139
+      ],
+      "proximalPx": [
+        36,
+        48
+      ],
+      "distalPx": [
+        222,
+        100
+      ],
+      "centrePx": null,
+      "viewKind": "oblique",
+      "socketReview": "Manual centres inspected on source; composition review pending",
+      "sourceRgbaSha256": "ae8561869756469af61edd48dd2ccc04ec9f4a8ed6b222cfe19a8c94a3205bad",
+      "sourceDiameterSamples": [
+        135,
+        127,
+        122,
+        115,
+        103
+      ],
+      "naturalDiameterPixels": {
+        "source": 122,
+        "game": 11.077683531110399
+      },
+      "uniformScale": 0.09080068468123277,
+      "referenceAxisLengthGame": 17.53652502148184,
+      "referenceAxisLengthSource": 193.13207915827965,
+      "coverageGamePixels": [
+        13.152393766111379,
+        21.9206562768523
+      ],
+      "scalePolicy": "Similarity with target length/reference length in [0.75,1.25]; no independent axis scaling"
+    },
+    {
+      "id": "oblique_col4_right_forearm",
+      "role": "right_forearm",
+      "file": "Art/NoTrace/Characters/Sources/OperativeProneArmOblique-E-v1.png",
+      "sourceRect": [
+        1189,
+        857,
+        231,
+        125
+      ],
+      "proximalPx": [
+        197,
+        36
+      ],
+      "distalPx": [
+        35,
+        84
+      ],
+      "centrePx": null,
+      "viewKind": "oblique",
+      "socketReview": "Manual centres inspected on source; composition review pending",
+      "sourceRgbaSha256": "09441cd7b50a53dd60af6e4a8b55423ba7a38023e1cd0709bd0ed0e13acba26b",
+      "sourceDiameterSamples": [
+        101,
+        99,
+        101,
+        99,
+        97
+      ],
+      "naturalDiameterPixels": {
+        "source": 99,
+        "game": 6.999932655532675
+      },
+      "uniformScale": 0.07070639045992601,
+      "referenceAxisLengthGame": 11.94666020164749,
+      "referenceAxisLengthSource": 168.96153408394468,
+      "coverageGamePixels": [
+        8.959995151235617,
+        14.933325252059362
+      ],
+      "scalePolicy": "Similarity with target length/reference length in [0.75,1.25]; no independent axis scaling"
+    },
+    {
+      "id": "views_col1_left_upper_medium",
+      "role": "left_upper_arm",
+      "file": "Art/NoTrace/Characters/Sources/OperativeProneArmViews-E-v1.png",
+      "sourceRect": [
+        80,
+        843,
+        250,
+        145
+      ],
+      "proximalPx": [
+        32,
+        38
+      ],
+      "distalPx": [
+        222,
+        108
+      ],
+      "centrePx": null,
+      "viewKind": "oblique",
+      "socketReview": "Manual centres inspected on source; composition review pending",
+      "sourceRgbaSha256": "6ee83b9f5a527c9e8ed85b5d8cd4f5428ab5b13bd4f5da729950d79a2933b0cc",
+      "sourceDiameterSamples": [
+        99,
+        97,
+        96,
+        96,
+        93
+      ],
+      "naturalDiameterPixels": {
+        "source": 96,
+        "game": 7.904734603947315
+      },
+      "uniformScale": 0.08234098545778452,
+      "referenceAxisLengthGame": 16.672778812559184,
+      "referenceAxisLengthSource": 202.48456731316588,
+      "coverageGamePixels": [
+        12.504584109419389,
+        20.840973515698977
+      ],
+      "scalePolicy": "Similarity with target length/reference length in [0.75,1.25]; no independent axis scaling"
+    },
+    {
+      "id": "views_col2_left_upper_long",
+      "role": "left_upper_arm",
+      "file": "Art/NoTrace/Characters/Sources/OperativeProneArmViews-E-v1.png",
+      "sourceRect": [
+        427,
+        851,
+        301,
+        134
+      ],
+      "proximalPx": [
+        34,
+        39
+      ],
+      "distalPx": [
+        273,
+        98
+      ],
+      "centrePx": null,
+      "viewKind": "oblique",
+      "socketReview": "Manual centres inspected on source; composition review pending",
+      "sourceRgbaSha256": "87c591f170acd2d3c7eec3a1c2c8c8ee30f2fca3360b08696f1805f27cd5b8e7",
+      "sourceDiameterSamples": [
+        91,
+        90,
+        89,
+        84,
+        80
+      ],
+      "naturalDiameterPixels": {
+        "source": 89,
+        "game": 7.904734603947315
+      },
+      "uniformScale": 0.08881724274098106,
+      "referenceAxisLengthGame": 21.864561167713923,
+      "referenceAxisLengthSource": 246.1747346906258,
+      "coverageGamePixels": [
+        16.398420875785444,
+        27.330701459642402
+      ],
+      "scalePolicy": "Similarity with target length/reference length in [0.75,1.25]; no independent axis scaling"
+    },
+    {
+      "id": "views_col3_right_forearm_medium",
+      "role": "right_forearm",
+      "file": "Art/NoTrace/Characters/Sources/OperativeProneArmViews-E-v1.png",
+      "sourceRect": [
+        838,
+        868,
+        260,
+        126
+      ],
+      "proximalPx": [
+        222,
+        68
+      ],
+      "distalPx": [
+        32,
+        41
+      ],
+      "centrePx": null,
+      "viewKind": "oblique",
+      "socketReview": "Manual centres inspected on source; composition review pending",
+      "sourceRgbaSha256": "d2dc6511581494fe44d768fcde25ee6be27e0dbe6f1fbdff03fbb1fdb2123989",
+      "sourceDiameterSamples": [
+        83,
+        83,
+        86,
+        88,
+        88
+      ],
+      "naturalDiameterPixels": {
+        "source": 86,
+        "game": 6.999932655532675
+      },
+      "uniformScale": 0.08139456576200785,
+      "referenceAxisLengthGame": 15.620336089031188,
+      "referenceAxisLengthSource": 191.9088325221119,
+      "coverageGamePixels": [
+        11.715252066773392,
+        19.525420111288984
+      ],
+      "scalePolicy": "Similarity with target length/reference length in [0.75,1.25]; no independent axis scaling"
+    },
+    {
+      "id": "views_col4_left_hand_pinch",
+      "role": "left_hand",
+      "file": "Art/NoTrace/Characters/Sources/OperativeProneArmViews-E-v1.png",
+      "sourceRect": [
+        1231,
+        848,
+        205,
+        138
+      ],
+      "proximalPx": [
+        29,
+        102
+      ],
+      "distalPx": null,
+      "centrePx": null,
+      "viewKind": "hand",
+      "socketReview": "Manual centres inspected on source; composition review pending",
+      "sourceRgbaSha256": "44f5afe123616f56dbf280160782e96fcb1fc71ed6ea321344ef468378857ad4",
+      "sourceDiameterSamples": [
+        76,
+        82,
+        98,
+        114,
+        119
+      ],
+      "naturalDiameterPixels": {
+        "source": 98,
+        "game": 3.343137254901961
+      },
+      "uniformScale": 0.034113645458183274,
+      "referenceAxisLengthGame": null,
+      "referenceAxisLengthSource": null,
+      "pinchPx": [
+        162,
+        42
+      ],
+      "anchorMethod": "Wrist socket at target wrist; fixed palm diameter; pinch is an annotation, not a bone-length scaling axis",
+      "referenceHandDiameterSamples": [
+        62,
+        61,
+        58,
+        67,
+        78
+      ],
+      "scalePolicy": "Fixed palm-diameter calibration against E4 left hand"
+    },
+    {
+      "id": "uppermedium_col1_left_upper",
+      "role": "left_upper_arm",
+      "file": "Art/NoTrace/Characters/Sources/OperativeProneUpperMedium-E-v1.png",
+      "sourceRect": [
+        111,
+        845,
+        212,
+        162
+      ],
+      "proximalPx": [
+        34,
+        47
+      ],
+      "distalPx": [
+        166,
+        104
+      ],
+      "centrePx": null,
+      "viewKind": "oblique",
+      "socketReview": "Manual centres inspected on source; composition review pending",
+      "sourceRgbaSha256": "0399f43dc098a6e79bb2626d8097460a52bec6c567595ea733e60f82c315b2e8",
+      "sourceDiameterSamples": [
+        115,
+        116,
+        105,
+        110,
+        104
+      ],
+      "naturalDiameterPixels": {
+        "source": 110,
+        "game": 7.904734603947315
+      },
+      "uniformScale": 0.07186122367224831,
+      "referenceAxisLengthGame": 10.332284608120409,
+      "referenceAxisLengthSource": 143.7810835958611,
+      "coverageGamePixels": [
+        7.749213456090306,
+        12.91535576015051
+      ],
+      "scalePolicy": "Similarity with target length/reference length in [0.75,1.25]; no independent axis scaling"
+    }
+  ]
+}

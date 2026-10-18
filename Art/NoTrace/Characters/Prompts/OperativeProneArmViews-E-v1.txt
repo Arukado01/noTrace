@@ -1,0 +1,9 @@
+Edit ONLY the four components in the bottom FIFTH ROW of image1. Keep all first16 components and the same4-column layout unchanged. Same original NO TRACE dark navy uniform, restrained pixelart details, olive/tan equipment, closed opaque navy overlap surfaces and transparent background.
+
+Bottom row supplementary camera views, exactleft-to-rightorder:
+1. LEFT UPPER SLEEVE, medium oblique view: apparent shoulder-to-elbow joint separation1.3times cloth diameter. Navy sleeve with the small olive shoulder strap, NO elbow pad, NO large tan circle. It is upper-arm costume, not lower sleeve.
+2. LEFT UPPER SLEEVE, extended side/diagonal view: apparent joint separation2.65times cloth diameter. Same navy shoulder sleeve/olive strap, NO elbow pad or large tan circle. Distinct perspective fromcol1, preserving ordinary cloth girth.
+3. RIGHT LOWER SLEEVE, medium oblique view: elbow-to-wrist separation2.05times cloth diameter. Navy fabric and ONE original tan elbow pad at elbow end, closed navy wrist cuff at the other end. No glove.
+4. LEFT GLOVED HAND in a compact gentle PINCH grip, as if manipulating the small separate silencer or a magazine, viewed from EAST with the same tan glove as existing handcells. Thumb and index nearly meet around an empty small gap, other three fingers curl naturally. Entire hand including opaque navy wrist cuff, no object or extra accessory, not a pointing pose.
+
+No changes to topfourrows. No black holes on cloth ends, no metallic joint rims. No full figure, weapon, labels, numbers, grid, pivots, glow, shadow or matte. Genuine RGBA transparency around eachisolatedpart.

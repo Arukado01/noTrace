@@ -1,0 +1,16 @@
+Use case: precise-object-edit, corrective production sprite sheet.
+Image1 is the NORTH component sheet to correct. Image2 is the validated E4 identity reference; ONLY its first16 parts define identity and proportions, ignore its last4 auxiliary parts. Image3 is the genuine NORTH prone back-view pose reference, not a source of guns or shadows.
+
+Keep the same NORTH rear-facing camera, navy/khaki operative, helmet and cloth-cap design from image1, but FIX THREE specific production defects:
+1. Row1 column3 is PELVIS ONLY: compact rear hips/belt with TWO SHORT CLOSED cloth junction caps. Remove the holster and long thigh extensions from this pelvis. No holster anywhere except row4column2.
+2. Row4 column2 must be ONE SINGLE anatomical RIGHT THIGH: exactly ONE slender upper leg, ONE hip fabric cap and ONE knee end, khaki thigh holster on that right thigh. Do not put a pelvis, crotch, pair of thighs or second leg in this cell. The left thigh at row3column3 is also ONE slender upper leg with NO holster.
+3. Make ALL16 cutouts MUCH SMALLER, individually centered, with HUGE transparent separation. Preserve strict4×4 equal-cell order. Every entire part including antialiased outline must fit within the CENTRAL50% of its own cell in both axes. At least25% cell width/height of completely empty transparent padding on EACH of four sides. Smaller individual isolated icons, not large tightly packed pieces. Solid shapes may not reach a cell boundary; remove every faint low-alpha halo between cells. Actual RGBA alpha0 throughout all padding, no backdrop.
+
+Exact row-major order, no labels:
+row1 head,torso,pelvis,backpack;
+row2 left upper arm,left forearm,left hand,right upper arm;
+row3 right forearm,right hand,left thigh,left shin;
+row4 left boot,SINGLE RIGHT THIGH,right shin,right boot.
+Exactly16 complete separate pieces and no extras.
+N faces AWAY toward TOP, back of helmet and nape/collar only, NO visible eyes/face/front chest. Genuine prone upper back, compact slim human torso and thighs like E4, low flattened backpack, no standing-looking components. All cut ends solid navy fabric caps, never black or transparent holes. Anatomical right holster ONLY on the SINGLE right thigh in row4column2.
+No weapons, gun fragments, shadows, halos, glow, ground, text, grid, labels or numbers. Upper-left light, crisp pixel clusters, same palette and identity. Transparent square atlas, four equal columns four equal rows. Do not rotate the East parts to pretend this north view.

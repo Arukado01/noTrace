@@ -1,0 +1,9 @@
+Edit ONLY the four clothing modules in the bottom FIFTH ROW of image1, the NO TRACE modular costume sheet. Keep the top16 components and four-column layout unchanged. Keep exact operative uniform, navy cloth, tan elbow pads, opaque navy overlap ends, pixelart detail and transparent empty background.
+
+Redraw the bottom row as four supplementary MEDIUM OBLIQUE camera views of the same costume modules. They are compact perspective views of ordinary sleeves, with cloth thickness preserved, not resized long side views:
+bottom col1 LEFT upper sleeve: projected joint-to-joint length is1.30times transverse cloth diameter.
+bottom col2 LEFT lower sleeve with elbow pad: projected elbow-to-wrist length is1.33times cloth diameter.
+bottom col3 RIGHT upper sleeve: projected joint-to-joint length is1.33times cloth diameter.
+bottom col4 RIGHT lower sleeve with elbow pad: projected elbow-to-wrist length is1.27times cloth diameter.
+These short broad-looking modules show the real sleeve volume obliquely. Ends are solid matching navy fabric for overlapping animation, no hollow joint rims. Keep left/right elbow-pad placement and jacket costume identity as in image1. Natural cloth folds.
+Do not change top fourrows. No hands, new accessories, weapons, labels, grid, markings, shadow or glow. True RGBA transparency around all components.

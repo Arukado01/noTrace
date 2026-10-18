@@ -8,7 +8,8 @@ from pathlib import Path
 from PIL import Image, ImageDraw
 
 from GenerateNoTraceCharactersGuides import add, elbow, length, scale, unit
-from GenerateNoTraceCharactersRig import ANCHOR, CELL, DIRECTIONS, bone, project, read_parts, render, skeleton
+from GenerateNoTraceCharactersRig import ANCHOR, CELL, DIRECTIONS, body_frame, bone, frame_coordinates, frame_vector, grounded_joint, joint_from_support_angle, joint_support_angle, project, read_parts, render, retarget_joint, skeleton, twisted_body_frame
+from GenerateNoTraceCharactersProne import ProneBindings
 
 
 CLIPS = [
@@ -117,13 +118,16 @@ def solve(points, prone=False):
         for proximal, distal, middle, size, bend in [("hip", "ankle", "knee", 17.0, (1.0, sign * 0.15, 0.0)),
                                                    ("shoulder", "wrist", "elbow", 13.0, (0.0, sign * 0.6, -1.0) if prone else (1.0, sign * 0.15, -0.15))]:
             first, last = points[side + "_" + proximal], points[side + "_" + distal]
+            if last[2] < -1e-8:
+                retarget_joint(points, side + "_" + distal, (last[0], last[1], 0.0))
+                last = points[side + "_" + distal]
             delta = add(last, scale(first, -1.0))
             if length(delta) > size * 1.999:
                 last = add(first, scale(unit(delta), size * 1.999))
                 points[side + "_" + distal] = last
                 if distal == "ankle":
                     points[side + "_toe"] = add(last, (5.0, sign * 1.5, -2.0))
-            points[side + "_" + middle] = elbow(first, last, bend, size)
+            points[side + "_" + middle] = grounded_joint(first, last, bend, size)
     return points
 
 
@@ -174,21 +178,39 @@ def recovery_pose(frame, stance):
         return destination
     t = frame / 7.0
     if stance == "Prone":
-        yaw = math.pi * (1.0 - smooth(t))
+        progress = smooth(t)
+        yaw = math.pi * (1.0 - progress)
         axis = (math.cos(yaw), math.sin(yaw), 0.0)
-        lateral = (-axis[1], axis[0], 0.0)
-        pelvis = mix(fallen["pelvis"], destination["pelvis"], smooth(t))
+        pelvis = mix(fallen["pelvis"], destination["pelvis"], progress)
         neck = add(pelvis, add(scale(axis, 23.0), (0.0, 0.0, 2.0)))
-        points = {"pelvis": pelvis, "neck": neck, "head": add(neck, add(scale(axis, 7.0), (0.0, 0.0, 3.0))),
-                  "backpack": add(pelvis, add(scale(axis, 11.0), (0.0, 0.0, 7.0)))}
+        first_frame, last_frame = body_frame(fallen), body_frame(destination)
+        current_frame = twisted_body_frame(pelvis, neck, math.pi*(1.0-progress))
+        points = {"pelvis": pelvis, "neck": neck}
+        def reference_offset(name, parent):
+            first = frame_coordinates(add(fallen[name], scale(fallen[parent], -1.0)), first_frame)
+            last = frame_coordinates(add(destination[name], scale(destination[parent], -1.0)), last_frame)
+            return frame_vector(mix(first, last, progress), current_frame)
+        for name in ["head", "backpack"]:
+            points[name] = add(neck, reference_offset(name, "neck"))
         for side, sign in [("left", 1.0), ("right", -1.0)]:
             stepping = max(0.0, math.sin(t * math.tau + (0.0 if sign > 0 else math.pi)))
-            points[side + "_hip"] = add(pelvis, add(scale(lateral, sign * 4.0), (0.0, 0.0, -1.0)))
-            foot_axis = (math.cos(yaw + sign * 0.18 * math.sin(t * math.pi)), math.sin(yaw + sign * 0.18 * math.sin(t * math.pi)), 0.0)
-            points[side + "_ankle"] = add(pelvis, add(scale(foot_axis, -31.0 + stepping * 6.0), add(scale(lateral, sign * 8.0), (0.0, 0.0, 2.0 - pelvis[2] + stepping * 2.0))))
-            points[side + "_toe"] = add(points[side + "_ankle"], add(scale(foot_axis, -4.0), (0.0, 0.0, -1.0)))
-            points[side + "_shoulder"] = add(pelvis, add(scale(axis, 20.0), add(scale(lateral, sign * 6.0), (0.0, 0.0, 1.0))))
-            points[side + "_wrist"] = add(pelvis, add(scale(axis, 28.0 - stepping * 5.0), add(scale(lateral, sign * (12.0 + stepping * 3.0)), (0.0, 0.0, 2.0 - pelvis[2] + stepping * 2.0))))
+            for name, parent in [("hip", "pelvis"), ("shoulder", "neck")]:
+                points[side + "_" + name] = add(points[parent], reference_offset(side + "_" + name, parent))
+            for name, forward_step, side_step in [("ankle", 6.0, 0.0), ("wrist", -5.0, sign*3.0)]:
+                joint = side + "_" + name
+                target = add(pelvis, reference_offset(joint, "pelvis"))
+                gait = frame_vector((forward_step*stepping, side_step*stepping, 0.0), current_frame)
+                height = fallen[joint][2]*(1.0-progress) + destination[joint][2]*progress + stepping*2.0
+                points[joint] = (target[0]+gait[0], target[1]+gait[1], height)
+            points[side + "_toe"] = add(points[side + "_ankle"], reference_offset(side + "_toe", side + "_ankle"))
+        points = solve(points, True)
+        for side in ["left", "right"]:
+            for middle, first, last, size in [("knee", "hip", "ankle", 17.0), ("elbow", "shoulder", "wrist", 13.0)]:
+                angles = [joint_support_angle(pose[side + "_" + first], pose[side + "_" + last], pose[side + "_" + middle]) for pose in [fallen, destination]]
+                angle = angles[0]*(1.0-progress) + angles[1]*progress
+                points[side + "_" + middle] = joint_from_support_angle(points[side + "_" + first], points[side + "_" + last], angle, size)
+            points[side + "_toe"] = add(points[side + "_ankle"], reference_offset(side + "_toe", side + "_ankle"))
+        return points
     else:
         crouched = stance == "Crouched"
         pelvis_keys = [(0, fallen["pelvis"]), (1/7, (7, 0, 9)), (2/7, (8, 0, 12)), (3/7, (8, 0, 19)),
@@ -214,7 +236,7 @@ def recovery_pose(frame, stance):
     # Las manos apoyadas resuelven los codos hacia fuera y no bajo el suelo.
     points = solve(points)
     for side, sign in [("left", 1.0), ("right", -1.0)]:
-        points[side + "_elbow"] = elbow(points[side + "_shoulder"], points[side + "_wrist"], (0.0, sign, 0.15), 13.0)
+        points[side + "_elbow"] = grounded_joint(points[side + "_shoulder"], points[side + "_wrist"], (0.0, sign, 0.15), 13.0)
     return points
 
 
@@ -229,7 +251,7 @@ def body_pose(clip, frame, stance="Standing"):
         points = skeleton("CrouchWalk", frame)
         for side in ["left", "right"]:
             foot = points[side + "_ankle"]
-            points[side + "_ankle"] = (foot[0] * 1.4, foot[1], foot[2] + 1.5)
+            retarget_joint(points, side + "_ankle", (foot[0] * 1.4, foot[1], foot[2] + 1.5))
         return solve(points)
     if clip in ["ProneIdle", "Crawl"]:
         return prone_pose(frame, clip == "Crawl")
@@ -298,7 +320,7 @@ def body_pose(clip, frame, stance="Standing"):
         fallen["right_wrist"] = (-7.0, -20.0, 2.0)
         if clip == "Death":
             fallen["head"] = (-24.0, 3.0 + t * 2.0, 12.0)
-            fallen["right_ankle"] = (30.0, -14.0, 2.0)
+            retarget_joint(fallen, "right_ankle", (30.0, -14.0, 2.0))
             amount = smooth(t)
         points = blend_poses(standing, fallen, amount)
         return solve(points, amount > 0.7)
@@ -355,7 +377,8 @@ def body_pose(clip, frame, stance="Standing"):
     elif clip in ["Grab", "Choke", "Push"]:
         if clip == "Push":
             extension = math.sin(t * math.pi)
-            points["left_ankle"], points["right_ankle"] = (-7.0, 7.0, 2.0), (10.0, -6.0, 2.0)
+            retarget_joint(points, "left_ankle", (-7.0, 7.0, 2.0))
+            retarget_joint(points, "right_ankle", (10.0, -6.0, 2.0))
             for side, sign in [("left", 1.0), ("right", -1.0)]:
                 points[side + "_wrist"] = (10.0 + extension * 15.0, sign * 7.0, 42.0)
         else:
@@ -417,7 +440,7 @@ def weapon_image(root, direction, points, weapon="Pistol", suppressed=False):
     return image, first, last
 
 
-def generate(root, content=None):
+def generate(root, content=None, baseline=None, references=None, exceptions=None, toe_witness=None, report_path=None, death_witness=None, crouch_push_witness=None, ik_floor_witness=None, recovery_witness=None):
     output = root / "Atlas"
     output.mkdir(parents=True, exist_ok=True)
     pages, metadata, review_sequences = [], [], []
@@ -426,6 +449,7 @@ def generate(root, content=None):
     clip_variants += [(name, family, first + offset, stance) for name, family, first, _, _ in CLIPS if family in [11, 12] for stance, offset in [("Crouched", 16), ("Prone", 32)]]
     clip_variants += [("ReviveRise", 14, offset, stance) for stance, offset in [("Standing", 0), ("Crouched", 8), ("Prone", 16)]]
     parts_by_direction = {direction: read_parts(root, direction)[0] for direction in DIRECTIONS}
+    prone_rig = ProneBindings(root)
     for name, family, first, stance in clip_variants:
         page_number = len(pages)
         filename = name + ("-" + stance if stance != "Standing" else "")
@@ -437,9 +461,9 @@ def generate(root, content=None):
         for direction_index, direction in enumerate(DIRECTIONS):
             for frame in range(8):
                 points = body_pose(name, frame, stance)
-                rendered = render(parts_by_direction[direction], points, direction)
-                rendered_lower = render(parts_by_direction[direction], points, direction, "lower")
-                rendered_upper = render(parts_by_direction[direction], points, direction, "upper")
+                rendered = prone_rig.render(points, direction, name, frame, stance)
+                rendered_lower = prone_rig.render(points, direction, name, frame, stance, "lower")
+                rendered_upper = prone_rig.render(points, direction, name, frame, stance, "upper")
                 muzzle, grip = [-1.0, -1.0], [-1.0, -1.0]
                 if "weapon_grip" in points and name != "Throw":
                     prop, grip, muzzle = weapon_image(root, direction, points)
@@ -496,8 +520,11 @@ def generate(root, content=None):
         gallery.append(view)
     save_png(gallery[2], output / "CharacterActions-review.png")
     save_png(gallery[0], output / "CharacterActions-animated.png", save_all=True, append_images=gallery[1:], duration=125, loop=0)
-    quality_galleries(root, output, parts_by_direction)
+    quality_galleries(root, output, parts_by_direction, prone_rig)
     if content:
+        # La publicación exige la excepción explícita revisada; regenerar hashes no concede autorización.
+        from GenerateNoTraceCharactersValidate import validate
+        validate(root, baseline, references, exceptions, toe_witness, report_path, death_witness=death_witness, crouch_push_witness=crouch_push_witness, ik_floor_witness=ik_floor_witness, recovery_witness=recovery_witness)
         content.mkdir(parents=True, exist_ok=True)
         for path in list((output / "Packed").glob("*.png")) + [output / "WeaponProps.png", output / "WeaponSelection.png"]:
             save_bytes(content / path.name, path.read_bytes())
@@ -571,7 +598,7 @@ def pack_weapons(root, output):
     return {"file": "WeaponProps.png", "frames": records, "source": "../Manifests/weapons.registration.json"}
 
 
-def quality_galleries(root, output, parts_by_direction):
+def quality_galleries(root, output, parts_by_direction, prone_rig=None):
     target = output / "QualityGate"
     target.mkdir(exist_ok=True)
     for clip, stance in [("Aim", "Prone"), ("Shoot", "Prone"), ("Walk", "Standing"), ("Roll", "Standing"), ("Dive", "Standing"),
@@ -583,7 +610,7 @@ def quality_galleries(root, output, parts_by_direction):
             view = Image.new("RGBA", (CELL * 4, CELL * 2), (25, 33, 42, 255))
             for direction_index, direction in enumerate(DIRECTIONS):
                 points = body_pose(clip, frame, stance)
-                image = render(parts_by_direction[direction], points, direction)
+                image = prone_rig.render(points, direction, clip, frame, stance) if prone_rig else render(parts_by_direction[direction], points, direction)
                 if "weapon_grip" in points:
                     image.alpha_composite(weapon_image(root, direction, points, "Pistol", True)[0])
                 gallery.alpha_composite(image, (frame * CELL, direction_index * CELL))
@@ -599,5 +626,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Autoría IK de clips propios desde piezas originales; capas completas sin recortes de cuerpos")
     parser.add_argument("--root", type=Path, default=Path("Art/NoTrace/Characters"))
     parser.add_argument("--content", type=Path)
+    parser.add_argument("--baseline", type=Path)
+    parser.add_argument("--references", type=Path)
+    parser.add_argument("--exceptions", type=Path)
+    parser.add_argument("--toe-witness", type=Path)
+    parser.add_argument("--report", type=Path)
+    parser.add_argument("--death-witness", type=Path)
+    parser.add_argument("--crouch-push-witness", type=Path)
+    parser.add_argument("--ik-floor-witness", type=Path)
+    parser.add_argument("--recovery-witness", type=Path)
     arguments = parser.parse_args()
-    generate(arguments.root, arguments.content)
+    generate(arguments.root, arguments.content, arguments.baseline, arguments.references, arguments.exceptions, arguments.toe_witness, arguments.report, arguments.death_witness, arguments.crouch_push_witness, arguments.ik_floor_witness, arguments.recovery_witness)

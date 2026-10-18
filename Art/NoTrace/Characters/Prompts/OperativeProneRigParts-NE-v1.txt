@@ -1,0 +1,10 @@
+Use case: precise-object-edit, production component placement correction.
+Image1 is the NE16-component sheet to correct. Keep all16 component designs, identity and genuine rear-three-quarter prone NE camera exactly. Image2 is validated E4 identity reference only. Image3 is the original NE posture reference. The parts are already correct; change only layout so the top row is fully within its proper equal cells instead of crossing into row2.
+Use a genuinely transparent square RGBA canvas with4×4 EQUAL invisible cells. At1280×1280 use column CENTERS x160,480,800,1120 and row CENTERS y160,480,800,1120; scale these coordinates proportionally if output size differs. Center each complete part exactly on its specified row/column center, including top row: do NOT push the top row down toward row2. Each part maximum180px wide or high at1280 canvas, so every solid pixel stays safely within its own320px cell with at least70px gap to cell edges. Entire contours and antialiasing included. No faint low-alpha image remnants in the blank padding. No decorative layout, no extra top margin changing row spacing. All16 separate, uncropped, no overlaps.
+Exact row-major order:
+r1 head,torso,pelvis,backpack;
+r2 anatomical left upper arm,left forearm,left hand,right upper arm;
+r3 right forearm,right hand,left thigh,left shin;
+r4 left boot,right thigh,right shin,right boot.
+Exactly16 complete cutouts. Pelvis has no holster; right thigh is ONE single upper leg with its right-anatomical holster. Do not add helmet/pack to torso. Hands do not hold guns. All cut junctions filled navy fabric, no holes.
+Preserve NE facing away to the upperRIGHT with feet lowerLEFT, upperBACK/rear-side helmet/nape, no front face/eyes/chest, no East rotation or NW mirroring. Same navy/khaki identity, E4 slim proportions, low backpack, upper-left light, crisp pixel clusters. Transparent RGBA alpha0 padding, no shadow/halo/background/grid/text/labels/extra parts.

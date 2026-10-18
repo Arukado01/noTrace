@@ -1,0 +1,9 @@
+Precise edit of image1, the modular NO TRACE game character costume sheet. Keep the top FOUR ROWS (16 existing components) COMPLETELY unchanged. Keep the existing four-column layout and transparent background.
+
+Change ONLY the four navy sleeve components in the bottom FIFTH ROW into a different camera view of the SAME garments:
+bottom col1 left upper sleeve,
+bottom col2 left lower sleeve with elbow pad,
+bottom col3 right upper sleeve,
+bottom col4 right lower sleeve with elbow pad.
+Show these four costume modules viewed much more frontally, looking nearly along the length of the sleeve, so the apparent sleeve length is very short while its ordinary cloth thickness remains. Preserve the natural shoulder/elbow or elbow/wrist garment join, opaque navy cloth overlap surfaces, cloth wrinkles, same tan elbow pads and pixelart style. The camera almost aligns with the sleeve's long axis. Keep each as a clearly recognizable jacket sleeve piece with perspective depth, no glove or other component added.
+No hollow black joint ends, no tan metal rims. Do not merely shrink a long side-view sprite. No changes to helmet, vest, pelvis, backpack, gloves, thighs, shins or boots in the first16cells. No text, grid, labels, shadow, halo or extra background; true transparent empty areas.
