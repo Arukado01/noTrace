@@ -35,23 +35,27 @@ namespace {
     Agent agent; agent.id = 1; agent.position = {300.f, 300.f}; agent.facing = {1.f, 0.f}; agent.hidden = true; agent.hideoutId = 77; agent.stance = Stance::Prone;
     Interactable table{77, ObjectKind::Hideout, agent.position, "Mesa"}; table.hideoutKind = HideoutKind::UnderTable; table.occupantAgent = 1; table.occupied = true;
     world.objects = {table}; world.agents = {agent};
-    Require(Visibility::IsGeometricallyVisible(world, agent, {450.f, 300.f}), "La mesa elimina la visión frontal accesible bajo el tablero");
-    Require(!Visibility::IsGeometricallyVisible(world, agent, {200.f, 300.f}), "La mesa revela enemigos a espaldas del agente");
-    Require(!Visibility::IsGeometricallyVisible(world, agent, {450.f, 450.f}), "La mesa conserva un campo visual demasiado amplio");
+    for (const auto direction : std::array<sf::Vector2f, 8>{{{1.f, 0.f}, {-1.f, 0.f}, {0.f, 1.f}, {0.f, -1.f}, {1.f, 1.f}, {-1.f, 1.f}, {1.f, -1.f}, {-1.f, -1.f}}}) {
+      const auto point = agent.position + direction.normalized() * 150.f;
+      Require(Visibility::IsGeometricallyVisible(world, agent, point), "La visión bajo la mesa pierde una dirección de los 360 grados");
+    }
     Require(!Visibility::IsGeometricallyVisible(world, agent, {500.f, 300.f}), "La mesa conserva el alcance de un agente de pie");
     Require(!Visibility::IsGeometricallyVisible(world, agent, {340.f, 300.f}), "El agente ve una cabeza a través del tablero");
     Require(Visibility::IsGeometricallyVisible(world, agent, {340.f, 300.f}, Stance::Prone), "El tablero bloquea incorrectamente un rayo bajo su altura");
     agent.facing = {0.f, -1.f};
-    Require(Visibility::IsGeometricallyVisible(world, agent, {300.f, 180.f}) && !Visibility::IsGeometricallyVisible(world, agent, {450.f, 300.f}), "Girar bajo la mesa no modifica el campo visual");
+    Require(Visibility::IsGeometricallyVisible(world, agent, {300.f, 180.f}) && Visibility::IsGeometricallyVisible(world, agent, {450.f, 300.f}), "La orientación corporal limita la visión completa bajo la mesa");
     world.obstacles.push_back({{{270.f, 230.f}, {60.f, 12.f}}, CoverKind::High, true, "Pared"});
     Require(!Visibility::IsGeometricallyVisible(world, agent, {300.f, 180.f}), "La visión bajo la mesa atraviesa una pared");
     world.obstacles.clear(); agent.facing = {1.f, 0.f};
     Guard front; front.id = 10; front.position = {450.f, 300.f};
-    Guard back = front; back.id = 11; back.position = {200.f, 300.f};
-    Require(Visibility::GuardVisible(world, agent, front) && !Visibility::GuardVisible(world, agent, back), "Las señales de guardias no respetan la visión parcial");
+    Guard back = front; back.id = 11; back.position = {150.f, 300.f};
+    Require(Visibility::GuardVisible(world, agent, front) && Visibility::GuardVisible(world, agent, back), "La visión completa oculta guardias delante o detrás de la mesa");
+    Interactable cabinet{78, ObjectKind::Armory, {230.f, 300.f}, "Armario opaco"}; cabinet.footprint = {12.f, 60.f}; world.objects.push_back(cabinet);
+    Require(!Visibility::GuardVisible(world, agent, back), "La visión de 360 grados revela guardias detrás de otro objeto opaco");
+    world.objects.pop_back();
     const auto grid = Visibility::BuildGrid(world, agent);
     Require(grid.visualRadii.size() == VisibilityConfig::VisualRayCount, "El escondite no produce frontera continua para la niebla");
-    Require(grid.visualRadii[0] > SpatialConfig::UnderTableViewRange - 0.5f && grid.visualRadii[0] <= SpatialConfig::UnderTableViewRange && grid.visualRadii[180] < 0.5f, "La frontera de niebla no aplica el alcance y la orientación de la mesa");
+    Require(std::ranges::all_of(grid.visualRadii, [](float radius) { return radius > SpatialConfig::UnderTableViewRange - 0.5f && radius <= SpatialConfig::UnderTableViewRange; }), "La niebla no representa los 360 grados bajo la mesa con el alcance autoritativo");
     Require(agent.hidden && agent.hideoutId == table.id, "Calcular la visión expone al agente oculto");
   }
   void ClosetSight() {
@@ -113,11 +117,13 @@ namespace {
     ActionCommand use; use.interact = true; Step(simulation, use);
     ActionCommand mouse; mouse.aimY = -1.f; Step(simulation, mouse);
     Require(simulation.GetState().agents[0].facing == sf::Vector2f{1.f, 0.f}, "El ratón gira el cuerpo oculto bajo la mesa sin una orden WASD");
+    Require(simulation.GetState().agents[0].weaponAim == sf::Vector2f{0.f, -1.f} && !simulation.GetState().agents[0].aiming, "El arma oculta no sigue el cursor o activa el disparo dentro de la mesa");
     ActionCommand look; look.aimX = 1.f; look.moveY = -1.f; Step(simulation, look);
     const auto &agent = simulation.GetState().agents[0];
     Require(agent.hidden && agent.hideoutId == 77 && agent.position == sf::Vector2f{300.f, 300.f} && agent.facing == sf::Vector2f{0.f, -1.f}, "WASD no orienta al agente oculto sin moverlo o el ratón conserva prioridad corporal");
     mouse.aimY = 1.f; Step(simulation, mouse);
     Require(agent.facing == sf::Vector2f{0.f, -1.f} && agent.position == sf::Vector2f{300.f, 300.f}, "Mover sólo el ratón cambia la última orientación WASD bajo la mesa");
+    Require(agent.weaponAim == sf::Vector2f{0.f, 1.f}, "Girar el cursor bajo la mesa pierde la orientación independiente del arma");
     snapshot = Scenario(simulation, HideoutKind::Closet); snapshot["phase"] = static_cast<int>(GamePhase::Base); Load(simulation, snapshot); Step(simulation, use);
     ActionCommand opening; opening.tool = true; Step(simulation, opening);
     snapshot = simulation.SnapshotFor(1); snapshot["phase"] = static_cast<int>(GamePhase::Mission);
@@ -131,6 +137,65 @@ namespace {
     Require(replica.LoadSnapshot(filtered, error) && replica.GetState().agents[0].hidden && replica.GetState().objects[0].open, "La réplica rechaza el armario entreabierto y su visibilidad privada");
     Step(simulation, opening);
     Require(simulation.SnapshotFor(1, true)["guards"].empty(), "Cerrar la puerta no retira las posiciones enemigas del snapshot LAN");
+  }
+  void InstantTableTransitions() {
+    for (const auto kind : {HideoutKind::UnderTable, HideoutKind::Closet, HideoutKind::TrashBin}) {
+      Simulation simulation; auto snapshot = Scenario(simulation, kind); Load(simulation, snapshot);
+      ActionCommand use; use.interact = true; use.crouch = true; Step(simulation, use);
+      const auto &agent = simulation.GetState().agents[0];
+      Require(agent.hidden && agent.position == sf::Vector2f{300.f, 300.f}, "La interacción no coloca inmediatamente al ocupante en su escondite");
+      if (kind == HideoutKind::UnderTable) Require(agent.actionPose == ActionPose::None && agent.actionPoseTime == 0.f && agent.transitionTime == 0.f && agent.transitionFrom == Stance::Prone,
+        "Entrar bajo la mesa conserva una pose o transición de postura gradual");
+      else Require(agent.actionPose == ActionPose::HideEnter && agent.actionPoseTime > 0.f, "Quitar la animación de mesa elimina también la entrada de otro escondite");
+      use.crouch = false; Step(simulation, use);
+      Require(!agent.hidden && agent.hideoutId == 0 && !WorldGeometry::PositionBlocked(simulation.GetState(), agent.position, GameplayConfig::AgentRadius), "Salir del escondite no actualiza la posición exterior libre de colisiones");
+      if (kind == HideoutKind::UnderTable) {
+        Require(agent.actionPose == ActionPose::None && agent.actionPoseTime == 0.f && agent.transitionTime == 0.f, "Salir bajo la mesa reproduce una pose o transición gradual");
+        const auto position = agent.position; Step(simulation);
+        Require(agent.position == position && agent.actionPose == ActionPose::None, "La salida instantánea continúa deslizando al agente en un tick posterior");
+        ActionCommand crawl; crawl.moveX = 1.f; Step(simulation, crawl);
+        Require(agent.position.x > position.x && agent.stance == Stance::Prone && agent.moving, "Eliminar la transición de mesa impide el movimiento normal tumbado después de salir");
+      } else Require(agent.actionPose == ActionPose::HideExit && agent.actionPoseTime > 0.f, "Quitar la animación de mesa elimina también la salida de otro escondite");
+    }
+  }
+  void UnderTableExposureAndCamera() {
+    for (const bool wall : {false, true}) {
+      Simulation simulation; auto snapshot = Scenario(simulation, HideoutKind::UnderTable); Load(simulation, snapshot);
+      ActionCommand use; use.interact = true; Step(simulation, use);
+      auto &world = const_cast<WorldState &>(simulation.GetState());
+      const auto &agent = world.agents[0];
+      Require(simulation.CanSee({200.f, 300.f}, {1.f, 0.f}, agent), "El estado oculto impide ver el cuerpo por una línea válida bajo el tablero");
+      Require(!simulation.CanSee({249.f, 300.f}, {1.f, 0.f}, agent), "El tablero deja de ocultar físicamente al cuerpo cuando corta los rayos visuales");
+      Require(!simulation.CanSee({200.f, 300.f}, {-1.f, 0.f}, agent) && !simulation.CanSee({150.f, 300.f}, {1.f, 0.f}, agent), "La visión de 360 del jugador amplía el cono o alcance normal de los enemigos");
+      if (wall) world.obstacles.push_back({{{240.f, 250.f}, {12.f, 100.f}}, CoverKind::High, true, "Pared opaca"});
+      Require(simulation.CanSee({200.f, 300.f}, {1.f, 0.f}, agent) == !wall, "El guardia no respeta la pared al observar bajo la mesa");
+      Guard guard; guard.id = 91; guard.position = {200.f, 300.f}; guard.facing = {1.f, 0.f}; guard.attackCooldown = 60.f; world.guards.push_back(guard);
+      Interactable camera{92, ObjectKind::Camera, {200.f, 300.f}, "Cámara"}; camera.facing = {1.f, 0.f}; camera.camera.sweeping = false; camera.camera.range = 300.f;
+      world.objects.push_back(camera); Step(simulation);
+      Require((world.guards[0].suspicion > 0.f) == !wall, "La detección real del guardia omite el cuerpo visible bajo la mesa o atraviesa una pared");
+      Require((world.objects.back().progress > 0.f) == !wall, "La cámara trata la mesa como invisibilidad absoluta o ve a través de una pared");
+      Require(agent.hidden && agent.hideoutId == 77 && world.securityAlert != SecurityAlert::Red, "Observar bajo la mesa expulsa al agente o confirma una alerta sin completar detección");
+    }
+  }
+  void UnderTablePrivateOmnidirectionalSnapshots() {
+    Simulation simulation; auto snapshot = Scenario(simulation, HideoutKind::UnderTable); Load(simulation, snapshot);
+    ActionCommand use; use.interact = true; Step(simulation, use);
+    auto &world = const_cast<WorldState &>(simulation.GetState());
+    Guard front; front.id = 91; front.position = {450.f, 300.f};
+    Guard back = front; back.id = 92; back.position = {150.f, 300.f};
+    Guard blocked = front; blocked.id = 93; blocked.position = {300.f, 150.f};
+    world.guards = {front, back, blocked};
+    world.obstacles.push_back({{{270.f, 230.f}, {60.f, 12.f}}, CoverKind::High, true, "Pared"});
+    Agent other; other.id = 2; other.position = blocked.position; world.agents.push_back(other);
+    const auto filtered = simulation.SnapshotFor(1, true);
+    Require(filtered["guards"].size() == 2 && filtered["guards"][0]["id"] == 91 && filtered["guards"][1]["id"] == 92,
+      "La instantánea bajo la mesa pierde guardias a la espalda o transmite un guardia detrás de la pared");
+    Require(filtered["agents"].size() == 1 && filtered["agents"][0]["id"] == 1, "La visión completa revela a otro agente detrás de una pared");
+    Simulation replica; std::string error;
+    Require(replica.LoadSnapshot(filtered, error) && replica.GetState().agents[0].hidden && replica.GetState().agents[0].hideoutId == 77 && replica.GetState().guards.size() == 2,
+      "La réplica rechaza la mesa y las entidades visibles en todas las direcciones");
+    Require(replica.GetState().visibility.visualRadii[0] > SpatialConfig::UnderTableViewRange - 0.5f && replica.GetState().visibility.visualRadii[180] > SpatialConfig::UnderTableViewRange - 0.5f && replica.GetState().visibility.visualRadii[270] < 71.f,
+      "La frontera transmitida pierde visión a la espalda o permite ver por detrás de la pared");
   }
   void UnderTableExitFollowsFacing() {
     for (const auto direction : std::array<sf::Vector2f, 8>{{{1.f, 0.f}, {-1.f, 0.f}, {0.f, 1.f}, {0.f, -1.f}, {1.f, 1.f}, {-1.f, 1.f}, {1.f, -1.f}, {-1.f, -1.f}}}) {
@@ -214,7 +279,7 @@ namespace {
 
 int main() {
   try {
-    UnderTableSight(); ClosetSight(); ClosetEntranceAndExit(); HiddenOrientationAndNetworkPrivacy(); UnderTableExitFollowsFacing(); WitnessedInspection(); DifferentOccupantIsDetected();
+    UnderTableSight(); ClosetSight(); ClosetEntranceAndExit(); HiddenOrientationAndNetworkPrivacy(); InstantTableTransitions(); UnderTableExposureAndCamera(); UnderTablePrivateOmnidirectionalSnapshots(); UnderTableExitFollowsFacing(); WitnessedInspection(); DifferentOccupantIsDetected();
     std::cout << "PASS escondites avanzados: " << checks << " comprobaciones de visión, aberturas, accesos e inspección observada\n";
     return 0;
   } catch (const std::exception &error) { std::cerr << "FAIL escondites avanzados tras " << checks << ": " << error.what() << '\n'; return 1; }

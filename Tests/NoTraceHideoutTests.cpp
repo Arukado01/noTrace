@@ -57,7 +57,7 @@ namespace {
       Require(AgentAt(simulation).position == hiddenPosition && !AgentAt(simulation).moving && !AgentAt(simulation).running, "El agente se mueve libremente dentro del escondite");
       Require(!AgentAt(simulation).aiming, "Mantener el apuntado reactiva una acción incompatible dentro del escondite");
       Require(AgentAt(simulation).loadout.lethalAmmo == ammo.lethalAmmo && AgentAt(simulation).loadout.nonLethalAmmo == ammo.nonLethalAmmo && simulation.GetState().shots.empty(), "El escondite permite disparar a través de su volumen");
-      Require(!simulation.CanSee({120.f, 180.f}, {1.f, 0.f}, AgentAt(simulation)), "La IA detecta sin inspección a un agente oculto");
+      Require(simulation.CanSee({120.f, 180.f}, {1.f, 0.f}, AgentAt(simulation)) == (kind == HideoutKind::UnderTable), "La detección no distingue el espacio abierto bajo una mesa del interior de otros contenedores");
       if (kind == HideoutKind::UnderTable) Require(AgentAt(simulation).stance == Stance::Prone, "Debajo de la mesa el agente puede permanecer de pie");
       simulation.Step(0.1f, {{2, use}});
       Require(!AgentAt(simulation, 1).hidden && simulation.GetState().objects[0].occupantAgent == 1, "El escondite admite dos agentes simultáneos");

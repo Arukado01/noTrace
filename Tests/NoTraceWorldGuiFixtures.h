@@ -545,14 +545,14 @@ namespace EngineTests {
     const auto tableForward = capture(renderer, partialHideout, output / "world-table-view-forward.png");
     partialHideout.agents[0].facing = {-1.f, 0.f};
     const auto tableBackward = capture(renderer, partialHideout, output / "world-table-view-backward.png");
-    if (identical(tableForward, tableBackward)) throw std::runtime_error("La niebla desde debajo de la mesa no gira con la orientación real");
+    if (!identical(tableForward, tableBackward)) throw std::runtime_error("La visión de 360 grados bajo la mesa cambia al girar solamente el cuerpo oculto");
     partialHideout.objects[0].hideoutKind = HideoutKind::Closet; partialHideout.objects[0].facing = {1.f, 0.f};
     partialHideout.agents[0].facing = {1.f, 0.f};
     const auto closetClosed = capture(renderer, partialHideout, output / "world-closet-view-closed.png");
     partialHideout.objects[0].open = true;
     const auto closetOpen = capture(renderer, partialHideout, output / "world-closet-view-open.png");
     if (identical(closetClosed, closetOpen)) throw std::runtime_error("Abrir el armario no modifica su abertura ni su visión exterior limitada");
-    metadata.push_back({{"file", "world-table-view-forward.png"}, {"orientationChangesFog", true}, {"hiddenSilhouetteOmitted", true}});
+    metadata.push_back({{"file", "world-table-view-forward.png"}, {"allDirectionsVisible", true}, {"hiddenSilhouetteOmitted", true}});
     metadata.push_back({{"file", "world-closet-view-open.png"}, {"closedAndOpenDiffer", true}, {"limitedAperture", partialHideout.objects[0].hideoutAperture}});
     renderer.ResetZoom();
     WorldState tactical;

@@ -31,8 +31,7 @@ namespace NoTrace::Visibility {
       if (hideout == world.objects.end() || hideout->occupantAgent != observer.id) return false;
       const auto kind = WorldGeometry::HideoutType(*hideout);
       if (kind == HideoutKind::UnderTable && !hideout->lifted) {
-        const float facingLength = observer.facing.length();
-        if (distance > SpatialConfig::UnderTableViewRange || facingLength <= 0.f || observer.facing.dot(delta) / (facingLength * distance) < SpatialConfig::UnderTableViewCosHalfAngle) return false;
+        if (distance > SpatialConfig::UnderTableViewRange) return false;
         const float targetHeight = targetStance == Stance::Standing ? CombatConfig::StandingHeight - CombatConfig::HeadHeight * 0.5f : targetStance == Stance::Crouched ? CombatConfig::CrouchedHeight - CombatConfig::HeadHeight * 0.5f : SpatialConfig::UnderTableEyeHeight;
         const float rise = targetHeight - SpatialConfig::UnderTableEyeHeight;
         if (rise > 0.f) {
@@ -75,20 +74,32 @@ namespace NoTrace::Visibility {
   }
 
   bool AgentExposed(const WorldState &world, sf::Vector2f from, const Agent &target, std::uint32_t ignoredObject, float eyeHeight) {
-    if (target.hidden || target.extracted) return false;
+    if (target.extracted) return false;
+    const Interactable *table = nullptr;
+    if (target.hidden) {
+      const auto hideout = std::ranges::find_if(world.objects, [&target](const Interactable &object) {
+        return object.id == target.hideoutId && object.occupantAgent == target.id && WorldGeometry::HideoutType(object) == HideoutKind::UnderTable && !object.lifted;
+      });
+      if (hideout == world.objects.end()) return false;
+      table = &*hideout;
+    }
     const auto clear = [&](sf::Vector2f point, float height) {
       const auto delta = point - from;
       const float distance = delta.length();
       if (distance < 0.001f) return true;
       const auto direction = delta / distance;
       const float slope = (height - eyeHeight) / distance;
-      const auto blocked = [&](sf::FloatRect bounds, float top) {
-        const CombatGeometry::HitVolume volume{bounds.position + bounds.size * 0.5f, {1.f, 0.f}, bounds.size * 0.5f, 0.f, top, HitZone::None};
+      const auto blocked = [&](sf::FloatRect bounds, float bottom, float top) {
+        const CombatGeometry::HitVolume volume{bounds.position + bounds.size * 0.5f, {1.f, 0.f}, bounds.size * 0.5f, bottom, top, HitZone::None};
         const auto hit = CombatGeometry::IntersectVolume(from, direction, eyeHeight, slope, distance, volume);
         return hit && *hit < distance - VisibilityConfig::SurfaceOffset;
       };
-      for (const auto &wall : world.obstacles) if (wall.blocksVision && blocked(wall.bounds, WorldGeometry::ObstacleHeight(wall))) return false;
-      for (const auto &object : world.objects) if (object.id != ignoredObject && WorldGeometry::Properties(object).blocksVision && blocked(WorldGeometry::ObjectFootprint(object), WorldGeometry::ObjectHeight(object))) return false;
+      for (const auto &wall : world.obstacles) if (wall.blocksVision && blocked(wall.bounds, 0.f, WorldGeometry::ObstacleHeight(wall))) return false;
+      for (const auto &object : world.objects) if (object.id != ignoredObject && WorldGeometry::Properties(object).blocksVision) {
+        const float top = WorldGeometry::ObjectHeight(object);
+        const float bottom = table == &object ? std::max(0.f, top - SpatialConfig::UnderTableTopThickness) : 0.f;
+        if (blocked(WorldGeometry::ObjectFootprint(object), bottom, top)) return false;
+      }
       return true;
     };
     for (const auto &volume : CombatGeometry::ActorVolumes(target.position, target.facing, target.stance, target.incapacitated)) {

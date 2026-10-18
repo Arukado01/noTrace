@@ -177,6 +177,8 @@ namespace {
     simulation.Step(0.1f, {{1, leave}});
     Interact(simulation, {1425.f, 850.f});
     Require(world.agents[0].hideoutId == 107 && world.agents[0].stance == Stance::Prone, "La mesa de entrenamiento no permite ocultarse tumbado");
+    Require(world.agents[0].actionPose == ActionPose::None && world.agents[0].actionPoseTime == 0.f && world.agents[0].transitionTime == 0.f,
+      "La entrada bajo la mesa de prácticas conserva una animación o transición gradual");
     const auto position = world.agents[0].position, facing = world.agents[0].facing;
     ActionCommand mouse; mouse.aimY = -1.f; simulation.Step(0.1f, {{1, mouse}});
     Require(world.agents[0].position == position && world.agents[0].facing == facing && world.agents[0].hidden,
@@ -184,6 +186,8 @@ namespace {
     leave.moveY = -1.f; leave.aimX = 1.f; simulation.Step(0.1f, {{1, leave}});
     Require(!world.agents[0].hidden && world.agents[0].position.y < 850.f && !WorldGeometry::PositionBlocked(world, world.agents[0].position, GameplayConfig::AgentRadius),
       "La salida de la mesa de prácticas ignora la orientación WASD o termina en un sólido");
+    Require(world.agents[0].actionPose == ActionPose::None && world.agents[0].actionPoseTime == 0.f && world.agents[0].transitionTime == 0.f,
+      "La salida de la mesa de prácticas reproduce una animación retirada únicamente para mesas");
   }
   void DummiesAllowSafeDragging() {
     Simulation simulation; simulation.ResetBase(); auto &world = World(simulation);

@@ -393,7 +393,7 @@ namespace NoTrace {
   }
 
   bool Simulation::CanSee(sf::Vector2f from, sf::Vector2f facing, const Agent &agent, float range) const {
-    if (!agent.alive || agent.incapacitated || !agent.connected || agent.hidden || agent.extracted) return false;
+    if (!agent.alive || agent.incapacitated || !agent.connected || agent.extracted) return false;
     const auto delta = agent.position - from;
     const float distance = Length(delta);
     const float postureFactor = agent.stance == Stance::Prone ? GameplayConfig::ProneVisionFactor : (agent.stance == Stance::Crouched ? GameplayConfig::CrouchedVisionFactor : 1.f);
@@ -668,7 +668,9 @@ namespace NoTrace {
       object.occupantAgent = 0; object.occupied = object.occupantGuard != 0; agent.position = exit; agent.hideoutId = 0; agent.hideoutExit = {}; agent.hidden = false;
       object.inspectionProgress = 0.f;
       if (WorldGeometry::HideoutType(object) == HideoutKind::Closet) object.open = false;
-      agent.actionPose = ActionPose::HideExit; agent.actionPoseTime = GameplayConfig::StanceTransitionDuration;
+      const bool table = WorldGeometry::HideoutType(object) == HideoutKind::UnderTable;
+      agent.actionPose = table ? ActionPose::None : ActionPose::HideExit; agent.actionPoseTime = table ? 0.f : GameplayConfig::StanceTransitionDuration;
+      if (table) { agent.transitionTime = 0.f; agent.transitionFrom = agent.stance; }
       EmitSound(SoundKind::Hideout, agent.position, AudioConfig::QuietRadius, agent.id);
       world_.message = "Has salido del escondite."; return true;
     }
@@ -691,10 +693,13 @@ namespace NoTrace {
     agent.hideoutExit = agent.position; agent.position = object.position; agent.hideoutId = object.id; agent.hidden = true;
     agent.cover = {}; agent.moving = false; agent.running = false; agent.draggingGuard = -1; agent.actionPose = ActionPose::HideEnter; agent.actionPoseTime = GameplayConfig::StanceTransitionDuration;
     CancelManeuver(agent); agent.aiming = false;
-    if (WorldGeometry::HideoutType(object) == HideoutKind::UnderTable) agent.stance = Stance::Prone;
+    if (WorldGeometry::HideoutType(object) == HideoutKind::UnderTable) {
+      agent.stance = Stance::Prone; agent.transitionFrom = agent.stance; agent.transitionTime = 0.f;
+      agent.actionPose = ActionPose::None; agent.actionPoseTime = 0.f;
+    }
     object.occupantAgent = agent.id; object.occupied = true;
     if (WorldGeometry::HideoutType(object) == HideoutKind::Closet) object.open = false;
-    world_.message = WorldGeometry::HideoutType(object) == HideoutKind::Closet ? "Oculto en el armario. T abre o cierra la abertura; E permite salir por la puerta." : WorldGeometry::HideoutType(object) == HideoutKind::UnderTable ? "Oculto bajo la mesa. Gira para observar; pulsa E para salir por un acceso libre." : "Oculto. Pulsa E para salir por un acceso libre.";
+    world_.message = WorldGeometry::HideoutType(object) == HideoutKind::Closet ? "Oculto en el armario. T abre o cierra la abertura; E permite salir por la puerta." : WorldGeometry::HideoutType(object) == HideoutKind::UnderTable ? "Oculto bajo la mesa: visión de 360 grados. WASD orienta la salida; E permite salir." : "Oculto. Pulsa E para salir por un acceso libre.";
     return true;
   }
 
@@ -760,7 +765,16 @@ namespace NoTrace {
       agent.stamina = std::min(MaxStamina, agent.stamina + StaminaRecoveryPerSecond * dt);
       const auto object = std::ranges::find_if(world_.objects, [&](const Interactable &entry) { return entry.id == agent.hideoutId; });
       if (object == world_.objects.end() || object->occupantAgent != agent.id) ReleaseHideout(agent);
-      else { agent.position = object->position; agent.hidden = true; if (WorldGeometry::HideoutType(*object) == HideoutKind::UnderTable) agent.stance = Stance::Prone; if (command.tool) ToggleHideoutOpening(agent); else if (command.interact) UseHideout(agent, *object); }
+      else {
+        agent.position = object->position; agent.hidden = true;
+        if (WorldGeometry::HideoutType(*object) == HideoutKind::UnderTable) {
+          agent.stance = Stance::Prone;
+          const sf::Vector2f aim{command.aimX, command.aimY};
+          if (std::isfinite(aim.x) && std::isfinite(aim.y) && aim.lengthSquared() > 0.01f) agent.weaponAim = Unit(aim);
+          agent.aimSlope = std::isfinite(command.aimSlope) ? std::clamp(command.aimSlope, -CombatConfig::MaximumAimSlope, CombatConfig::MaximumAimSlope) : 0.f;
+        }
+        if (command.tool) ToggleHideoutOpening(agent); else if (command.interact) UseHideout(agent, *object);
+      }
       return;
     }
     agent.staggerRemaining = std::max(0.f, agent.staggerRemaining - dt);

@@ -327,7 +327,7 @@ namespace NoTrace {
           LookTowards(object, {std::cos(angle), std::sin(angle)}, camera.trackingSpeed * dt);
         }
         const auto visible = [&object, &camera, this](const Agent &agent) {
-          if (!Operational(agent)) return false;
+          if (!agent.connected || !agent.alive || agent.incapacitated || agent.extracted) return false;
           const auto delta = agent.position - object.position;
           const float distance = delta.length();
           const float posture = agent.stance == Stance::Prone ? GameplayConfig::ProneVisionFactor : agent.stance == Stance::Crouched ? GameplayConfig::CrouchedVisionFactor : 1.f;

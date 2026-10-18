@@ -632,7 +632,7 @@ namespace NoTrace {
   }
   void WorldRenderer::AgentArt(const Agent &agent, const WorldState &world, sf::Vector2f camera, bool local, bool deferCqc) const {
     using namespace PresentationConfig;
-    const bool entering = local && agent.hidden && agent.actionPose == ActionPose::HideEnter && agent.actionPoseTime > 0.f;
+    const bool entering = AnimateHideoutEntry(world, agent, local);
     if (agent.extracted || (agent.hidden && !entering)) return;
     const float hideProgress = entering ? std::clamp(1.f - agent.actionPoseTime / GameplayConfig::StanceTransitionDuration, 0.f, 1.f) : 1.f;
     const auto position = entering ? agent.hideoutExit + (agent.position - agent.hideoutExit) * hideProgress : agent.position;
@@ -1173,7 +1173,7 @@ namespace NoTrace {
     }
     for (std::size_t index = 0; index < world.agents.size(); ++index) {
       const auto &agent = world.agents[index];
-      const bool entering = agent.id == localPlayer && agent.hidden && agent.actionPose == ActionPose::HideEnter && agent.actionPoseTime > 0.f;
+      const bool entering = AnimateHideoutEntry(world, agent, agent.id == localPlayer);
       if ((agent.hidden && !entering) || agent.extracted) continue;
       const bool partner = observer && !agent.hidden && ((observer->cqcHoldingAgent == agent.id && agent.cqcHeldBy == observer->id) ||
           (observer->cqcHeldBy == agent.id && agent.cqcHoldingAgent == observer->id)) &&

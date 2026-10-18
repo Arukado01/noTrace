@@ -29,7 +29,6 @@ namespace NoTrace::SpatialConfig {
   inline constexpr float UnderTableEyeHeight = 8.f;
   inline constexpr float UnderTableTopThickness = 6.f;
   inline constexpr float UnderTableViewRange = 180.f;
-  inline constexpr float UnderTableViewCosHalfAngle = 0.70710678f;
   inline constexpr float ClosetViewRange = 120.f;
   inline constexpr float ClosetViewCosHalfAngle = 0.96592583f;
   inline constexpr float ClosetDefaultAperture = 0.35f;
