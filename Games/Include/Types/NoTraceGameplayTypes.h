@@ -9,6 +9,7 @@
 #include <SFML/System/Vector2.hpp>
 #include <SFML/Graphics/Rect.hpp>
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <string>
 #include <unordered_map>
@@ -104,6 +105,7 @@ namespace NoTrace {
     sf::Vector2f position;
     sf::Vector2f facing{1.f, 0.f};
     Stance stance = Stance::Standing;
+    sf::Vector2f weaponAim;
     float aimSlope = 0.f;
     Loadout loadout;
     Loadout operationLoadout;
@@ -353,6 +355,9 @@ namespace NoTrace {
     const int total = weapon == WeaponKind::Pistol ? agent.loadout.lethalAmmo : agent.loadout.nonLethalAmmo;
     const int magazine = weapon == WeaponKind::Pistol ? agent.lethalMagazine : agent.nonLethalMagazine;
     return std::max(0, total - magazine);
+  }
+  inline sf::Vector2f WeaponFacing(const Agent &agent) {
+    return std::isfinite(agent.weaponAim.x) && std::isfinite(agent.weaponAim.y) && agent.weaponAim.lengthSquared() > 0.01f ? agent.weaponAim.normalized() : agent.facing;
   }
   inline bool IsTraining(const WorldState &world) { return world.mode == SimulationMode::Training && world.phase == GamePhase::Base; }
   inline bool IsTactical(const WorldState &world) { return world.phase == GamePhase::Mission || IsTraining(world); }

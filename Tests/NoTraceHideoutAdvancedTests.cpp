@@ -111,9 +111,13 @@ namespace {
   void HiddenOrientationAndNetworkPrivacy() {
     Simulation simulation; auto snapshot = Scenario(simulation, HideoutKind::UnderTable); Load(simulation, snapshot);
     ActionCommand use; use.interact = true; Step(simulation, use);
-    ActionCommand look; look.aimY = -1.f; look.moveX = 1.f; Step(simulation, look);
+    ActionCommand mouse; mouse.aimY = -1.f; Step(simulation, mouse);
+    Require(simulation.GetState().agents[0].facing == sf::Vector2f{1.f, 0.f}, "El ratón gira el cuerpo oculto bajo la mesa sin una orden WASD");
+    ActionCommand look; look.aimX = 1.f; look.moveY = -1.f; Step(simulation, look);
     const auto &agent = simulation.GetState().agents[0];
-    Require(agent.hidden && agent.hideoutId == 77 && agent.position == sf::Vector2f{300.f, 300.f} && agent.facing == sf::Vector2f{0.f, -1.f}, "La entrada autoritativa no permite girar bajo la mesa sin mover al agente");
+    Require(agent.hidden && agent.hideoutId == 77 && agent.position == sf::Vector2f{300.f, 300.f} && agent.facing == sf::Vector2f{0.f, -1.f}, "WASD no orienta al agente oculto sin moverlo o el ratón conserva prioridad corporal");
+    mouse.aimY = 1.f; Step(simulation, mouse);
+    Require(agent.facing == sf::Vector2f{0.f, -1.f} && agent.position == sf::Vector2f{300.f, 300.f}, "Mover sólo el ratón cambia la última orientación WASD bajo la mesa");
     snapshot = Scenario(simulation, HideoutKind::Closet); snapshot["phase"] = static_cast<int>(GamePhase::Base); Load(simulation, snapshot); Step(simulation, use);
     ActionCommand opening; opening.tool = true; Step(simulation, opening);
     snapshot = simulation.SnapshotFor(1); snapshot["phase"] = static_cast<int>(GamePhase::Mission);
@@ -134,22 +138,22 @@ namespace {
       snapshot["phase"] = static_cast<int>(GamePhase::Base); Load(simulation, snapshot);
       ActionCommand use; use.interact = true; Step(simulation, use);
       Require(simulation.GetState().agents[0].hideoutId == 77, "La fixture no entra bajo la mesa");
-      ActionCommand look; look.aimX = direction.x; look.aimY = direction.y; Step(simulation, look); Step(simulation, use);
+      ActionCommand look; look.moveX = direction.x; look.moveY = direction.y; look.aimX = -direction.x; look.aimY = -direction.y; Step(simulation, look); Step(simulation, use);
       const auto &world = simulation.GetState(); const auto &agent = world.agents[0]; const auto offset = agent.position - sf::Vector2f{300.f, 300.f};
       Require(!agent.hidden && agent.hideoutId == 0 && world.objects[0].occupantAgent == 0, "La salida orientada conserva una ocupación o un estado oculto obsoleto");
-      Require(offset.dot(direction) > 0.f && std::abs(offset.x * direction.y - offset.y * direction.x) < SpatialConfig::CollisionSkin, "Salir bajo la mesa usa el acceso anterior y no la dirección de visión actual");
+      Require(offset.dot(direction) > 0.f && std::abs(offset.x * direction.y - offset.y * direction.x) < SpatialConfig::CollisionSkin, "Salir bajo la mesa usa el acceso anterior o el cursor en lugar de la orientación WASD");
       Require(!WorldGeometry::PositionBlocked(world, agent.position, GameplayConfig::AgentRadius), "La salida orientada queda dentro del tablero o de otra huella sólida");
     }
     for (const auto direction : {sf::Vector2f{1.f, 0.f}, sf::Vector2f{0.f, -1.f}}) {
       Simulation simulation; auto snapshot = Scenario(simulation, HideoutKind::UnderTable); snapshot["phase"] = static_cast<int>(GamePhase::Base); Load(simulation, snapshot);
-      ActionCommand use; use.interact = true; Step(simulation, use); ActionCommand look; look.aimX = direction.x; look.aimY = direction.y; Step(simulation, look);
+      ActionCommand use; use.interact = true; Step(simulation, use); ActionCommand look; look.moveX = direction.x; look.moveY = direction.y; Step(simulation, look);
       snapshot = simulation.SnapshotFor(1);
       const auto wall = direction.x > 0.f ? Json{{"position", {340.f, 250.f}}, {"size", {16.f, 100.f}}} : Json{{"position", {250.f, 260.f}}, {"size", {100.f, 16.f}}};
       auto obstacle = wall; obstacle["cover"] = 2; obstacle["solid"] = true; obstacle["name"] = "Salida orientada bloqueada"; snapshot["obstacles"].push_back(obstacle); Load(simulation, snapshot); Step(simulation, use);
       const auto &agent = simulation.GetState().agents[0];
       Require(agent.hidden && agent.hideoutId == 77 && agent.position == sf::Vector2f{300.f, 300.f}, "Una salida frontal bloqueada fuerza la salida por el acceso anterior o atraviesa la pared");
       Require(simulation.GetState().objects[0].occupantAgent == 1 && !simulation.GetState().message.empty(), "Rechazar la salida pierde la ocupación o no informa al jugador");
-      look.aimX = -direction.x; look.aimY = -direction.y; Step(simulation, look); Step(simulation, use);
+      look.moveX = -direction.x; look.moveY = -direction.y; Step(simulation, look); Step(simulation, use);
       Require(!simulation.GetState().agents[0].hidden, "Girar hacia un lado libre no permite salir después de un rechazo válido");
     }
   }

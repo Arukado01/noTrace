@@ -79,7 +79,8 @@ namespace NoTrace {
     SpriteFrame AgentFrame(const Agent &agent, const WorldState &world, bool local) const;
     SpriteFrame GuardFrame(const Guard &guard, const WorldState &world) const;
     std::optional<sf::Vector2f> SourceMuzzle(const WorldState &world, const ShotTrace &shot, sf::Vector2f camera, const Agent *observer) const;
-    void Humanoid(sf::Vector2f feet, sf::Vector2f facing, Stance stance, sf::Color uniform, SpriteFrame frame, bool down, bool guard = false, sf::Vector2f bodyOffset = {}) const;
+    void Humanoid(sf::Vector2f feet, sf::Vector2f facing, Stance stance, sf::Color uniform, SpriteFrame frame, bool down, bool guard = false, sf::Vector2f bodyOffset = {}, const Agent *articulated = nullptr) const;
+    void CoverWeapon(const Agent &agent, sf::Vector2f feet, sf::Color uniform) const;
     void AgentArt(const Agent &agent, const WorldState &world, sf::Vector2f camera, bool local, bool deferCqc = false) const;
     void GuardArt(const Guard &guard, const WorldState &world, sf::Vector2f camera) const;
     void DummyArt(const Guard &dummy, const WorldState &world, sf::Vector2f camera) const;
@@ -251,6 +252,35 @@ namespace NoTrace {
       if (agent.stance == Stance::Prone) return select(agent.moving ? Clip::Crawl : Clip::ProneIdle);
       if (agent.stance == Stance::Crouched) return select(agent.moving ? agent.running ? Clip::CrouchRun : Clip::CrouchWalk : Clip::CrouchIdle);
       return select(agent.moving ? agent.running ? Clip::Run : Clip::Walk : Clip::Idle);
+    }
+    static bool HasWeaponLayer(const Agent &agent) {
+      return agent.alive && !agent.incapacitated && !agent.hidden && agent.maneuver.kind == ManeuverKind::None && agent.cqcHeldBy == 0 &&
+          agent.cqcHoldingGuard == 0 && agent.cqcHoldingAgent == 0 && agent.cqcAttackTime <= 0.f && agent.actionPose != ActionPose::KnockWall &&
+          (agent.aiming || agent.reloadRemaining > 0.f || (agent.actionPose == ActionPose::Shoot && agent.actionPoseTime > 0.f));
+    }
+    static SpriteFrame SelectBodySprite(const Agent &agent, bool throwingPreview = false) {
+      if (agent.cover.active && agent.alive && !agent.incapacitated) return ClipFrame(agent.moving ? SpriteConfig::Clip::CoverMove : SpriteConfig::Clip::CoverIdle,
+          agent.cover.normal, agent.animationTime, agent.moving ? std::nullopt : std::optional{0.f});
+      if (!HasWeaponLayer(agent)) return SelectActorSprite(agent, throwingPreview);
+      auto body = agent; body.aiming = false; body.reloadRemaining = 0.f;
+      if (body.actionPose == ActionPose::Shoot) { body.actionPose = ActionPose::None; body.actionPoseTime = 0.f; }
+      return SelectActorSprite(body, throwingPreview);
+    }
+    static SpriteFrame SelectWeaponSprite(const Agent &agent) {
+      auto upper = agent; upper.cover = {}; upper.moving = false; upper.facing = WeaponFacing(agent); upper.aiming = true;
+      return SelectActorSprite(upper);
+    }
+    static sf::Vector2f TorsoPivot(Stance stance) {
+      return {SpriteConfig::FeetX, stance == Stance::Standing ? SpriteConfig::StandingTorsoPivotY : stance == Stance::Crouched ? SpriteConfig::CrouchedTorsoPivotY : SpriteConfig::ProneTorsoPivotY};
+    }
+    static sf::Vector2f TorsoForward(Stance stance, sf::Vector2f facing) {
+      const sf::Vector2f projected{(facing.x - facing.y) * PresentationConfig::GroundProjection.x, (facing.x + facing.y) * PresentationConfig::GroundProjection.y};
+      return stance == Stance::Prone && projected.lengthSquared() > 0.01f ? projected.normalized() : sf::Vector2f{0.f, -1.f};
+    }
+    static sf::Vector2f CoverMuzzle(const Agent &agent, sf::Vector2f feet) {
+      const auto aim = WeaponFacing(agent);
+      const sf::Vector2f projected{(aim.x - aim.y) * PresentationConfig::GroundProjection.x, (aim.x + aim.y) * PresentationConfig::GroundProjection.y};
+      return feet - sf::Vector2f{0.f, WeaponHeight(agent.stance) + 4.f} + projected.normalized() * 26.f;
     }
     static SpriteFrame SelectGuardSprite(const Guard &guard, const WorldState &world) {
       using SpriteConfig::Clip;
@@ -447,7 +477,7 @@ namespace NoTrace {
       return true;
     }
     static ShotTrace LaserFor(const WorldState &world, const Agent &agent) {
-      const auto direction = CombatGeometry::Unit(agent.facing);
+      const auto direction = CombatGeometry::Unit(WeaponFacing(agent));
       const float height = WeaponHeight(agent.stance), slope = std::clamp(agent.aimSlope, -CombatConfig::MaximumAimSlope, CombatConfig::MaximumAimSlope);
       float range = GameplayConfig::WeaponRange;
       if (direction.x > 0.f) range = std::min(range, (world.size.x - agent.position.x) / direction.x);

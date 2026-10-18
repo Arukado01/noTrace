@@ -21,6 +21,27 @@ namespace NoTrace {
   namespace {
     using namespace PresentationConfig;
 
+    class ActorLayer final : public sf::Drawable {
+      const sf::Texture &texture_;
+      sf::VertexArray vertices_{sf::PrimitiveType::Triangles};
+      void draw(sf::RenderTarget &target, sf::RenderStates states) const override {
+        states.texture = &texture_; target.draw(vertices_, states);
+      }
+    public:
+      ActorLayer(const sf::Texture &texture, sf::IntRect rect, WorldRenderer::SpritePlacement placement, sf::Vector2f pivot, sf::Vector2f normal, bool upper, sf::Color color) : texture_(texture) {
+        std::vector<sf::Vector2f> polygon{{0.f,0.f},{static_cast<float>(rect.size.x),0.f},sf::Vector2f(rect.size),{0.f,static_cast<float>(rect.size.y)}};
+        std::vector<sf::Vector2f> clipped;
+        const auto distance = [&](sf::Vector2f point) { return (point-pivot).dot(normal) * (upper ? 1.f : -1.f); };
+        for (std::size_t index=0;index<polygon.size();++index) {
+          const auto from=polygon[index], to=polygon[(index+1)%polygon.size()]; const float a=distance(from), b=distance(to);
+          if (a>=0.f) clipped.push_back(from);
+          if ((a>=0.f)!=(b>=0.f)) clipped.push_back(from+(to-from)*(a/(a-b)));
+        }
+        for (std::size_t index=1;index+1<clipped.size();++index) for (const auto point:{clipped[0],clipped[index],clipped[index+1]})
+          vertices_.append({placement.Map(point),color,sf::Vector2f(rect.position)+point});
+      }
+    };
+
     std::vector<sf::IntRect> LoadFrames(const char *file, std::size_t expected, const sf::Texture *texture) {
       if (!texture) throw std::runtime_error("No se encuentra el atlas de personajes de NO TRACE");
       std::ifstream input(file);
@@ -526,11 +547,10 @@ namespace NoTrace {
 
   WorldRenderer::SpriteFrame WorldRenderer::AgentFrame(const Agent &agent, const WorldState &world, bool local) const {
     const auto frame = world.phase == GamePhase::Results && (!agent.alive || agent.incapacitated) ?
-        ClipFrame(SpriteConfig::Clip::Unconscious, agent.facing, 0.f) : SelectActorSprite(agent, local && decoyPreviewActive_);
+        ClipFrame(SpriteConfig::Clip::Unconscious, agent.facing, 0.f) : SelectBodySprite(agent, local && decoyPreviewActive_);
     auto facing = agent.facing;
     if (agent.maneuver.kind != ManeuverKind::None) facing = agent.maneuver.direction;
-    else if (agent.cover.active && ((agent.actionPose == ActionPose::KnockWall && agent.actionPoseTime > 0.f) ||
-        (!agent.aiming && agent.actionPoseTime <= 0.f && agent.reloadRemaining <= 0.f && agent.cover.peekSide == PeekSide::None))) facing = agent.cover.normal;
+    else if (agent.cover.active) facing = agent.cover.normal;
     return StableFrame(frame, facing, agent.id, agentSpriteDirections_);
   }
 
@@ -552,7 +572,9 @@ namespace NoTrace {
       const auto agent = std::find_if(world.agents.begin(), world.agents.end(), [&shot](const Agent &candidate) { return candidate.id == shot.actor; });
       if (agent == world.agents.end() || agent->hidden || agent->extracted || !agent->connected || !agent->alive || agent->incapacitated) return std::nullopt;
       if (IsTactical(world) && observer && agent->id != observer->id && !Visibility::IsVisible(world, *observer, agent->position, agent->stance)) return std::nullopt;
-      return muzzle(agent->position, agent->facing, agent->stance, AgentFrame(*agent, world, observer && agent->id == observer->id));
+      if (agent->cover.active && HasWeaponLayer(*agent)) return CoverMuzzle(*agent, GroundToScreen(agent->position,camera));
+      return muzzle(agent->position, HasWeaponLayer(*agent) ? WeaponFacing(*agent) : agent->facing, agent->stance,
+          HasWeaponLayer(*agent) ? SelectWeaponSprite(*agent) : AgentFrame(*agent, world, observer && agent->id == observer->id));
     }
     const auto guard = std::find_if(world.guards.begin(), world.guards.end(), [&shot](const Guard &candidate) { return shot.guardId != 0 && candidate.id == shot.guardId; });
     if (guard == world.guards.end() || guard->bodyHidden || guard->storedIn != 0 || guard->state == GuardState::Dead || guard->state == GuardState::Incapacitated ||
@@ -561,7 +583,7 @@ namespace NoTrace {
     return muzzle(guard->position, guard->facing, Stance::Standing, GuardFrame(*guard, world));
   }
 
-  void WorldRenderer::Humanoid(sf::Vector2f feet, sf::Vector2f facing, Stance stance, sf::Color uniform, SpriteFrame frame, bool down, bool guard, sf::Vector2f bodyOffset) const {
+  void WorldRenderer::Humanoid(sf::Vector2f feet, sf::Vector2f facing, Stance stance, sf::Color uniform, SpriteFrame frame, bool down, bool guard, sf::Vector2f bodyOffset, const Agent *articulated) const {
     const auto &rect = frame.operative ? operativeFrames_.at(frame.index) : frame.prone ? proneFrames_.at(frame.index) : actorFrames_.at(frame.index);
     const auto groundPlacement = PlaceSprite(feet, facing, stance, down, frame, rect.size);
     const auto placement = PlaceSprite(feet + bodyOffset, facing, stance, down, frame, rect.size);
@@ -585,7 +607,28 @@ namespace NoTrace {
       sprite.setColor({channel(uniform.r), channel(uniform.g), channel(uniform.b)});
     }
     if (down) sprite.setColor({180, 180, 180});
-    ctx_.renderer.Draw(sprite);
+    if (articulated && HasWeaponLayer(*articulated) && !articulated->cover.active && frame.operative) {
+      // La cintura une dos capas del atlas: las piernas siguen WASD y el torso conserva su puntería independiente.
+      const auto pivot=TorsoPivot(stance); const auto upperFrame=SelectWeaponSprite(*articulated);
+      const auto upperRect=operativeFrames_.at(upperFrame.index);
+      const auto upperPlacement=PlaceSprite(feet+bodyOffset,WeaponFacing(*articulated),stance,false,upperFrame,upperRect.size);
+      ActorLayer lower(*operativeAtlas_,rect,placement,pivot,TorsoForward(stance,facing),false,sprite.getColor());
+      ActorLayer upper(*operativeAtlas_,upperRect,upperPlacement,pivot,TorsoForward(stance,WeaponFacing(*articulated)),true,sprite.getColor());
+      if (stance == Stance::Prone) { ctx_.renderer.Draw(upper); ctx_.renderer.Draw(lower); }
+      else { ctx_.renderer.Draw(lower); ctx_.renderer.Draw(upper); }
+    } else ctx_.renderer.Draw(sprite);
+  }
+  void WorldRenderer::CoverWeapon(const Agent &agent, sf::Vector2f feet, sf::Color uniform) const {
+    if (!HasWeaponLayer(agent)) return;
+    const auto muzzle=CoverMuzzle(agent,feet), shoulder=feet-sf::Vector2f{0.f,WeaponHeight(agent.stance)+4.f};
+    const auto forward=(muzzle-shoulder).normalized(); const sf::Vector2f side{-forward.y,forward.x};
+    const auto grip=muzzle-forward*12.f, elbow=shoulder-forward*3.f+side*8.f;
+    PixelLine(shoulder,elbow,PresentationConfig::Outline,6.f); PixelLine(elbow,grip,PresentationConfig::Outline,6.f);
+    PixelLine(shoulder,elbow,uniform,4.f); PixelLine(elbow,grip,uniform,4.f);
+    PixelLine(grip-forward*3.f,muzzle,PresentationConfig::Outline,5.f);
+    PixelLine(grip-forward*3.f,muzzle-forward*2.f,{83,91,88},3.f);
+    PixelLine(grip,grip-side*5.f,{38,44,42},3.f);
+    PixelRect(grip-sf::Vector2f{2.f,2.f},{4.f,4.f},PresentationConfig::Skin);
   }
   void WorldRenderer::AgentArt(const Agent &agent, const WorldState &world, sf::Vector2f camera, bool local, bool deferCqc) const {
     using namespace PresentationConfig;
@@ -601,7 +644,8 @@ namespace NoTrace {
     }
     auto uniform = AgentUniforms[(agent.id - 1) % AgentUniforms.size()];
     if (!agent.connected || agent.hidden) uniform = Shade(uniform, 0.55f);
-    Humanoid(groundFeet, agent.facing, agent.stance, uniform, AgentFrame(agent, world, local), !agent.alive || agent.incapacitated, false, feet - groundFeet);
+    Humanoid(groundFeet, agent.facing, agent.stance, uniform, AgentFrame(agent, world, local), !agent.alive || agent.incapacitated, false, feet - groundFeet, &agent);
+    if (agent.cover.active) CoverWeapon(agent,feet,uniform);
     if (agent.cover.active && agent.actionPose == ActionPose::KnockWall && agent.actionPoseTime > 0.f) {
       const auto contact = GroundToScreen(WorldGeometry::ClosestPoint(agent.cover.anchor, agent.cover.surface), camera) - sf::Vector2f{0.f, CombatGeometry::TorsoCenterHeight(agent.stance)};
       const sf::Vector2f tangent{-agent.cover.normal.y, agent.cover.normal.x};

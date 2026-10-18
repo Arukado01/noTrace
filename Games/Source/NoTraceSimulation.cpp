@@ -437,7 +437,8 @@ namespace NoTrace {
     }
     if (command.throwDecoy) {
       if (agent.loadout.decoys <= 0) { world_.message = "No quedan señuelos."; return; }
-      const auto trajectory = DistractionGeometry::TraceDecoy(world_, agent.position, agent.facing, command.decoyDistance);
+      const sf::Vector2f target{command.aimX, command.aimY};
+      const auto trajectory = DistractionGeometry::TraceDecoy(world_, agent.position, target.lengthSquared() > 0.01f ? Unit(target) : agent.facing, command.decoyDistance);
       if (!trajectory.valid) { world_.message = "Lanzamiento bloqueado: busca una trayectoria despejada."; return; }
       if (world_.decoys.size() >= MaximumFlyingDecoys) { world_.message = "Espera a que aterricen los discos en vuelo."; return; }
       --agent.loadout.decoys;
@@ -593,7 +594,7 @@ namespace NoTrace {
     cover.canPeekLeft = CoverPeekTarget(cover, PeekSide::Left, left);
     cover.canPeekRight = CoverPeekTarget(cover, PeekSide::Right, right);
     agent.running = false;
-    if (!agent.aiming || cover.peekSide == PeekSide::None || agent.actionPose == ActionPose::KnockWall) agent.facing = cover.normal;
+    agent.facing = cover.normal;
     return true;
   }
 
@@ -746,8 +747,8 @@ namespace NoTrace {
     if (agent.hideoutId != 0) {
       ReleaseCqc(agent);
       agent.aiming = false;
-      const sf::Vector2f look{command.aimX, command.aimY};
-      if (std::isfinite(look.x) && std::isfinite(look.y) && look.lengthSquared() > 0.01f) agent.facing = Unit(look);
+      const sf::Vector2f direction{command.moveX,command.moveY};
+      if (std::isfinite(direction.x) && std::isfinite(direction.y) && direction.lengthSquared()>0.01f) agent.facing=Unit(direction);
       agent.moving = false; agent.running = false; agent.draggingGuard = -1; agent.cover = {};
       agent.stamina = std::min(MaxStamina, agent.stamina + StaminaRecoveryPerSecond * dt);
       const auto object = std::ranges::find_if(world_.objects, [&](const Interactable &entry) { return entry.id == agent.hideoutId; });
@@ -762,9 +763,11 @@ namespace NoTrace {
     agent.aiming = command.aiming && !agent.hidden && !agent.incapacitated && agent.puzzle.target == 0 && agent.cqcHoldingGuard == 0 && agent.cqcHoldingAgent == 0;
     if (wasAiming != agent.aiming) EmitSound(SoundKind::Camera, agent.position, AudioConfig::QuietRadius, agent.id);
     UpdateWeapon(agent, command, dt);
+    sf::Vector2f direction{std::isfinite(command.moveX) ? std::clamp(command.moveX, -1.f, 1.f) : 0.f, std::isfinite(command.moveY) ? std::clamp(command.moveY, -1.f, 1.f) : 0.f};
+    if (Length(direction) > 1.f) direction = Unit(direction);
     if (agent.cqcHoldingGuard == 0 && agent.cqcHoldingAgent == 0 && agent.cqcApproachGuard == 0 && agent.cqcApproachAgent == 0 && agent.cqcAttackTime <= 0.f) {
-      const sf::Vector2f look{command.aimX, command.aimY};
-      if (std::isfinite(look.x) && std::isfinite(look.y) && look.lengthSquared() > 0.01f) agent.facing = Unit(look);
+      if (agent.cover.active) agent.facing = agent.cover.normal;
+      else if (direction.lengthSquared() > 0.0001f) agent.facing = Unit(direction);
     }
     if (UpdateCqc(agent, command, dt)) return;
     UpdateBodyDrag(agent, command.dragBody);
@@ -774,8 +777,6 @@ namespace NoTrace {
     if (previousStance != agent.stance) { agent.transitionFrom = previousStance; agent.transitionTime = StanceTransitionDuration; }
     Move(agent.position, {}, AgentRadius);
     if (command.coverToggle) { ToggleCover(agent); if (agent.cover.active) { agent.actionPose = ActionPose::CoverEnter; agent.actionPoseTime = StanceTransitionDuration; } }
-    sf::Vector2f direction{std::isfinite(command.moveX) ? std::clamp(command.moveX, -1.f, 1.f) : 0.f, std::isfinite(command.moveY) ? std::clamp(command.moveY, -1.f, 1.f) : 0.f};
-    if (Length(direction) > 1.f) direction = Unit(direction);
     agent.running = !agent.cover.active && command.run && Length(direction) > 0.f && agent.stance != Stance::Prone && agent.draggingGuard < 0 && agent.stamina >= MinimumRunningStamina;
     float speed = agent.stance == Stance::Prone ? CrawlSpeed : (agent.stance == Stance::Crouched ? (agent.running ? CrouchRunningSpeed : CrouchSpeed) : (agent.running ? RunSpeed : WalkSpeed));
     if (agent.draggingGuard >= 0) speed = DragSpeed;
@@ -801,15 +802,16 @@ namespace NoTrace {
     if (agent.stance == Stance::Prone) agent.footstepTime = 0.f;
     const sf::Vector2f aim{command.aimX, command.aimY};
     agent.aimSlope = std::isfinite(command.aimSlope) ? std::clamp(command.aimSlope, -CombatConfig::MaximumAimSlope, CombatConfig::MaximumAimSlope) : 0.f;
-    if (std::isfinite(aim.x) && std::isfinite(aim.y) && Length(aim) > 0.1f) agent.facing = Unit(aim);
-    if (agent.cover.active && (!agent.aiming || agent.cover.peekSide == PeekSide::None || agent.actionPose == ActionPose::KnockWall)) agent.facing = agent.cover.normal;
+    if (std::isfinite(aim.x) && std::isfinite(aim.y) && Length(aim) > 0.1f && (agent.aiming || command.fireSelected || command.fireLethal || command.fireNonLethal)) agent.weaponAim = Unit(aim);
+    if (agent.cover.active) agent.facing = agent.cover.normal;
     if (command.prepareDecoy && IsTactical(world_) && agent.loadout.decoys > 0 && agent.draggingGuard < 0 && agent.actionCooldown <= 0.f &&
         !command.dragBody && !command.interact && !command.tool && !command.cqc && !command.cqcHeld && !command.push && !command.knock && !command.fireLethal && !command.fireNonLethal && !command.fireSelected &&
         std::ranges::none_of(world_.guards, [&](const Guard &guard) { return guard.heldBy == agent.id && guard.cqcState != CqcState::None; })) {
       const float distance = std::isfinite(command.decoyDistance) ? std::clamp(command.decoyDistance, 0.f, DistractionConfig::MaximumDecoyDistance) : 0.f;
-      const auto trajectory = DistractionGeometry::TraceDecoy(world_, agent.position, agent.facing, distance);
-      const auto maximum = DistractionGeometry::TraceDecoy(world_, agent.position, agent.facing);
-      agent.decoyGuide = {true, agent.facing, distance, trajectory.to, maximum.to, trajectory.travelled, maximum.travelled, trajectory.valid, trajectory.blocked, maximum.blocked};
+      const auto throwDirection = aim.lengthSquared() > 0.01f ? Unit(aim) : agent.facing;
+      const auto trajectory = DistractionGeometry::TraceDecoy(world_, agent.position, throwDirection, distance);
+      const auto maximum = DistractionGeometry::TraceDecoy(world_, agent.position, throwDirection);
+      agent.decoyGuide = {true, throwDirection, distance, trajectory.to, maximum.to, trajectory.travelled, maximum.travelled, trajectory.valid, trajectory.blocked, maximum.blocked};
     }
     if (command.interact || command.tool) Interact(agent, command.tool);
     if (agent.puzzle.target != 0) { agent.actionPose = ActionPose::Interact; agent.actionPoseTime = StanceTransitionDuration; return; }
@@ -1065,7 +1067,7 @@ namespace NoTrace {
     Record(lethal ? EventKind::WeaponLethal : EventKind::WeaponNonLethal, agent.id);
     ReportWeaponShot(agent, lethal);
     agent.actionPose = ActionPose::Shoot; agent.actionPoseTime = AttackAnimationDuration;
-    const auto direction = Unit(agent.facing);
+    const auto direction = Unit(WeaponFacing(agent));
     const float fromHeight = CombatGeometry::WeaponHeight(agent.stance);
     const float slope = std::isfinite(agent.aimSlope) ? std::clamp(agent.aimSlope, -CombatConfig::MaximumAimSlope, CombatConfig::MaximumAimSlope) : 0.f;
     bool blocked = false;
@@ -1341,6 +1343,7 @@ namespace NoTrace {
       auto cover = agent.cover;
       if (filtered && agent.id != player && cover.object != 0 && !visibleObjects.contains(cover.object)) cover = {};
       json value{{"id", agent.id}, {"name", agent.name}, {"position", VectorJson(agent.position)}, {"facing", VectorJson(agent.facing)},
+        {"weaponAim",VectorJson(agent.weaponAim)},
         {"stance", static_cast<int>(agent.stance)}, {"alive", agent.alive}, {"incapacitated", agent.incapacitated}, {"bodyReported", agent.bodyReported}, {"connected", agent.connected}, {"hidden", agent.hidden},
         {"moving", agent.moving}, {"running", agent.running}, {"extracted", agent.extracted}, {"animationTime", agent.animationTime},
         {"health", agent.health}, {"stamina", agent.stamina}, {"incapacityRemaining", agent.incapacityRemaining}, {"actionCooldown", agent.actionCooldown}, {"footstepTime", agent.footstepTime},
@@ -1513,6 +1516,8 @@ namespace NoTrace {
         if (agent.id == 0 || std::ranges::any_of(replacement.agents, [&agent](const Agent &other) { return other.id == agent.id; })) throw std::runtime_error("Identificador de agente repetido");
         agent.name = text(value.at("name"), GameplayConfig::MaximumNameBytes);
         agent.position = ParseVector(value.at("position")); agent.facing = ParseVector(value.at("facing"));
+        agent.weaponAim = ParseVector(value.at("weaponAim"));
+        if (agent.weaponAim.lengthSquared() > 1.01f) throw std::runtime_error("Dirección de arma inválida");
         agent.stance = ParseEnum<Stance>(value.at("stance"), 2);
         agent.alive = value.at("alive").get<bool>(); agent.incapacitated = value.at("incapacitated").get<bool>(); agent.bodyReported = value.at("bodyReported").get<bool>(); agent.connected = value.at("connected").get<bool>(); agent.hidden = value.at("hidden").get<bool>();
         agent.moving = value.at("moving").get<bool>(); agent.running = value.at("running").get<bool>(); agent.extracted = value.at("extracted").get<bool>();

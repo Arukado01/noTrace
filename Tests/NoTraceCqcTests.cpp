@@ -163,10 +163,11 @@ namespace {
   }
   void RejectionAndCancellation() {
     Simulation simulation; auto &world = Fixture(simulation);
-    auto held = Held(); held.aimX = -1.f; Advance(simulation, held, 5);
+    world.agents[0].facing = {-1.f,0.f};
+    auto held = Held(); held.aimX = 1.f; Advance(simulation, held, 5);
     Require(world.agents[0].cqcHoldingGuard == 0, "Se agarra a un enemigo fuera de orientación");
     world.obstacles.push_back({{{212.f, 260.f}, {4.f, 80.f}}, CoverKind::High, true, "Pared"});
-    held.aimX = 1.f; Advance(simulation, held, 5);
+    world.agents[0].facing = {1.f,0.f}; held.aimX = 1.f; Advance(simulation, held, 5);
     Require(world.agents[0].cqcHoldingGuard == 0, "Se agarra atravesando paredes");
     Fixture(simulation); Advance(simulation, Held(), 3); Advance(simulation, {}, 11);
     Require(world.agents[0].cqcHoldingGuard == 9 && world.guards[0].heldBy == 1, "Soltar F durante la sujeción activa una huida por temporizador ordinario");

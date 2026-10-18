@@ -48,7 +48,7 @@ namespace {
     return value;
   }
 
-  void MovementKeepsIndependentLook() {
+  void MovementOwnsBodyFacing() {
     const sf::Vector2f look = sf::Vector2f{-0.8f, 0.6f};
     for (const auto stance : {Stance::Standing, Stance::Crouched, Stance::Prone}) for (const bool running : {false, true}) {
       for (const auto movement : {sf::Vector2f{1.f,0.f}, {1.f,1.f}, {0.f,1.f}, {-1.f,1.f}, {-1.f,0.f}, {-1.f,-1.f}, {0.f,-1.f}, {1.f,-1.f}}) {
@@ -60,14 +60,15 @@ namespace {
         Advance(simulation,command,5,1.f/60.f);
         const auto displacement=agent.position-initial;
         Require(displacement.length()>0.01f && displacement.normalized().dot(movement.normalized())>0.999f,"El movimiento axonométrico cambia al mirar hacia otra dirección");
-        Require(agent.facing.dot(look)>0.999f,"WASD sustituye la mirada del ratón en alguna postura");
+        Require(agent.facing.dot(movement.normalized())>0.999f,"La orientación corporal no corresponde al movimiento WASD");
         command.aimX=command.aimY=0.f; Advance(simulation,command,2,1.f/60.f);
-        Require(agent.facing.dot(look)>0.999f,"Una orden sin nueva mirada hace girar al agente hacia el movimiento");
+        Require(agent.facing.dot(movement.normalized())>0.999f,"Una orden sin ratón pierde la orientación WASD");
         command.aimX=0.6f; command.aimY=0.8f; command.aiming=true;
         simulation.Step(1.f/60.f,{{1,command}});
-        Require(agent.aiming && agent.facing.dot({0.6f,0.8f})>0.999f,"El apuntado no conserva su orientación durante el desplazamiento lateral");
-        command.aiming=false; simulation.Step(1.f/60.f,{{1,command}});
-        Require(!agent.aiming && agent.facing.dot({0.6f,0.8f})>0.999f,"Soltar el apuntado restaura la orientación del movimiento");
+        Require(agent.aiming && WeaponFacing(agent).dot({0.6f,0.8f})>0.999f && agent.facing.dot(movement.normalized())>0.999f,"Apuntar no separa el arma del cuerpo durante el desplazamiento");
+        command.aiming=false; command.moveX=command.moveY=0.f; command.aimX=-1.f; command.aimY=0.f;
+        simulation.Step(1.f/60.f,{{1,command}});
+        Require(!agent.aiming && agent.facing.dot(movement.normalized())>0.999f,"Mover el ratón en reposo gira el cuerpo o pierde la última orientación");
       }
     }
     Simulation simulation; Load(simulation,EmptyMission(simulation,{500.f,500.f}));
@@ -77,7 +78,7 @@ namespace {
     simulation.Step(1.f/60.f,{{1,command}});
     Require(agent.facing==sf::Vector2f{1.f,0.f} && !agent.moving,"La mirada interrumpe la orientación de una reacción de daño");
     Advance(simulation,command,20,1.f/60.f);
-    Require(agent.facing.x<-.999f && agent.moving,"Al finalizar la reacción no se recupera la mirada del cursor");
+    Require(agent.facing.y>.999f && agent.moving,"Al finalizar la reacción no se recupera la orientación WASD");
   }
 
   void MovementAndBase() {
@@ -876,7 +877,7 @@ namespace {
 int main() {
   try {
     MovementAndBase();
-    MovementKeepsIndependentLook();
+    MovementOwnsBodyFacing();
     PerceptionAndNoise();
     CombatAndTools();
     WeaponTrajectoriesAndVitals();

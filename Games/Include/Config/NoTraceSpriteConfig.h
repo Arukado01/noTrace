@@ -18,6 +18,9 @@ namespace NoTrace::SpriteConfig {
   inline constexpr float DirectionHysteresisDegrees = 3.f;
   inline constexpr unsigned int SupportAlpha = 220;
   inline constexpr int SupportBandPixels = 6;
+  inline constexpr float StandingTorsoPivotY = 62.f;
+  inline constexpr float CrouchedTorsoPivotY = 72.f;
+  inline constexpr float ProneTorsoPivotY = 70.f;
   enum class Clip { Idle, Walk, Run, CrouchIdle, CrouchWalk, CrouchRun, LieDown, ProneIdle, Crawl, StandUp, Dive, Roll,
     Aim, Shoot, Reload, Punch, Kick, Grab, Choke, Push, Throw, WallBang, Damage, Fall, Unconscious, Interact,
     HideEnter, HideExit, CoverEnter, CoverIdle, CoverMove, CrouchEnter, CrouchExit, Count };

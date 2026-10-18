@@ -452,15 +452,17 @@ namespace {
 
   void AimDirectionAndRestartAuthority() {
     Pair pair;
-    ActionCommand aim; aim.aimX = 200.f; aim.aimY = 100.f;
+    ActionCommand aim; aim.aimX = 200.f; aim.aimY = 100.f; aim.aiming = true;
+    const auto bodyFacing = FindAgent(pair.host.GetWorld(), 1).facing;
     pair.host.Submit(aim);
     pair.host.Tick(0.02f);
-    const auto facing = FindAgent(pair.host.GetWorld(), 1).facing;
+    const auto facing = WeaponFacing(FindAgent(pair.host.GetWorld(), 1));
     Require(std::abs(facing.x / facing.y - 2.f) < 0.001f, "La normalización local de puntería cambió el ángulo del cursor");
+    Require(FindAgent(pair.host.GetWorld(), 1).facing == bodyFacing,"Apuntar gira el cuerpo del anfitrión sin WASD");
     aim.aimX = -300.f; aim.aimY = 100.f;
     pair.client.Submit(aim);
     pair.Advance(10);
-    const auto remoteFacing = FindAgent(pair.host.GetWorld(), 2).facing;
+    const auto remoteFacing = WeaponFacing(FindAgent(pair.host.GetWorld(), 2));
     Require(std::abs(remoteFacing.x / remoteFacing.y + 3.f) < 0.001f, "La puntería LAN perdió la proporción entre ejes");
     Require(!pair.host.RestartOperation(), "No se debe reiniciar una operación desde la base");
     pair.Deploy();

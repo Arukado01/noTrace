@@ -11,6 +11,7 @@
 #include "NoTraceWorldGuiFixtures.h"
 #include "NoTraceOptionsGuiTests.h"
 #include "NoTraceMenuGuiTests.h"
+#include "NoTraceOrientationGuiTests.h"
 #include "NoTraceWorldGeometry.h"
 #include <SFML/Graphics/Image.hpp>
 #include <SFML/System/Sleep.hpp>
@@ -419,13 +420,17 @@ namespace EngineTests {
             const auto expectedMove=WorldRenderer::UnprojectGround({800.f+movement.x,480.f+movement.y},agent.position,context.window.GetLogicalSize(),zoom)-WorldRenderer::UnprojectGround({800.f,480.f},agent.position,context.window.GetLogicalSize(),zoom);
             const auto start=agent.position; game.Update(); Step(game);
             Require((agent.position-start).normalized().dot(expectedMove.normalized())>.999f,"WASD cambia de convención al mover el ratón o cambiar resolución/zoom");
-            Require(agent.facing.dot(expectedLook.normalized())>.999f,std::format("Sin apuntar, la mirada difiere del cursor: resolución {}x{}, zoom {}, movimiento {}, facing ({},{}), esperado ({},{}), cursor ({},{}), página {}, fase {}, pose {}",size.x,size.y,zoom,index,agent.facing.x,agent.facing.y,expectedLook.normalized().x,expectedLook.normalized().y,context.cursor.GetPosition().x,context.cursor.GetPosition().y,static_cast<int>(game.page_),static_cast<int>(world.phase),static_cast<int>(agent.actionPose)));
+            Require(agent.facing.dot(expectedMove.normalized())>.999f,"El cuerpo gira con el cursor en vez de seguir WASD");
+            const auto bodyFacing=agent.facing;
+            context.input.Clear(); game.BindInputs(); game.held_.fill(false); context.cursor.SetPosition({1600.f-cursor.x,400.f}); game.Update(); Step(game);
+            Require(agent.facing.dot(bodyFacing)>.999f && !agent.moving,"Mover el cursor en reposo gira el cuerpo");
             Require(game.worldRenderer_.GetZoom()==zoom,"Cambiar ventana o mover el ratón altera el zoom elegido");
             if(size==sf::Vector2u{1280,720} && std::abs(zoom-PresentationConfig::DefaultZoom)<0.0001f)
               Capture(game,context,window,output/std::format("cursor-movement-{}.png",index));
           }
           context.input.Clear(); game.BindInputs(); game.held_.fill(false);
           auto &agent=world.agents.front(); agent.actionCooldown=0.f; agent.lethalMagazine=WeaponConfig::PistolCapacity; agent.loadout.lethalAmmo=12; agent.selectedWeapon=WeaponKind::Pistol;
+          const auto bodyFacing=agent.facing;
           const sf::Vector2f cursor{1050.f,480.f}; context.cursor.SetPosition(cursor);
           context.input.CaptureEvent(sf::Event::MouseButtonPressed{sf::Mouse::Button::Right,{0,0}});
           context.input.CaptureEvent(sf::Event::MouseButtonPressed{sf::Mouse::Button::Left,{0,0}});
@@ -434,9 +439,9 @@ namespace EngineTests {
           Require(agent.aiming && !world.shots.empty(),"Apuntar y disparar falla después de cambiar resolución y zoom");
           const auto shotDirection=(world.shots.back().to-world.shots.back().from).normalized();
           const auto laser=WorldRenderer::LaserFor(world,agent);
-          Require(shotDirection.dot(agent.facing)>.999f && (laser.to-laser.from).normalized().dot(agent.facing)>.999f,"Disparo, láser y orientación no comparten dirección");
+          Require(shotDirection.dot(WeaponFacing(agent))>.999f && (laser.to-laser.from).normalized().dot(WeaponFacing(agent))>.999f && agent.facing.dot(bodyFacing)>.999f,"El arma y el láser no coinciden o el apuntado gira el cuerpo");
           agent.lethalMagazine=0; agent.actionCooldown=0.f; context.input.BeginFrame(); hold(sf::Keyboard::Scan::R); game.Update(); Step(game);
-          Require(agent.reloadRemaining>0.f && agent.facing.dot(shotDirection)>.999f,"Recargar cambia la orientación exigida por el cursor");
+          Require(agent.reloadRemaining>0.f && agent.facing.dot(bodyFacing)>.999f && WeaponFacing(agent).dot(shotDirection)>.999f,"La recarga mezcla la orientación del cuerpo y del arma");
           evidence.push_back({{"layout",layout},{"size",{size.x,size.y}},{"zoom",zoom},{"movements",8},{"aim_fire_laser_reload","PASS"}});
           if(layout>=3 && std::abs(zoom-PresentationConfig::DefaultZoom)<0.0001f) Capture(game,context,window,output/std::format("cursor-mode-{}.png",layout));
         }
@@ -994,6 +999,8 @@ namespace {
       Access::GetSession(game).SetReady(true); Access::GetSession(game).Deploy(); game.UpdateBackground();
       Access::Require(Access::GetSession(game).GetWorld().phase==GamePhase::Mission,"La comprobación visual no pudo desplegar su operación aislada");
       Access::VerifyFireInput(game,context,window); Access::VerifyCursorOrientation(game,context,window,output); Access::VerifyFinalVisuals(context,window,output);
+      const auto captureWorld=[&](WorldRenderer &renderer,const WorldState &world,const std::filesystem::path &file,bool hudVisible=true) { return Access::CaptureWorld(renderer,world,context,window,file,hudVisible); };
+      EngineTests::RunOrientationRenderFixtures(context,output,captureWorld);
       game.OnCleanup(); window.close(); return nlohmann::json::array();
     }
     Access::Require(Access::GetSession(game).IsConnected(), "La conexión individual desde GUI falló");
@@ -1077,6 +1084,8 @@ namespace {
     Access::GetSession(game).Deploy(); game.UpdateBackground();
     Access::Require(Access::GetSession(game).GetWorld().phase == GamePhase::Mission, "No se pudo desplegar después de volver a base");
     Access::VerifyFinalVisuals(context,window,output);
+    const auto captureWorld=[&](WorldRenderer &renderer,const WorldState &world,const std::filesystem::path &file,bool hudVisible=true) { return Access::CaptureWorld(renderer,world,context,window,file,hudVisible); };
+    EngineTests::RunOrientationRenderFixtures(context,output,captureWorld);
     EngineTests::RunWorldRenderFixtures(context, output, [&](WorldRenderer &renderer, const WorldState &world, const std::filesystem::path &file, bool hudVisible = true) {
       return Access::CaptureWorld(renderer, world, context, window, file, hudVisible);
     });
@@ -1123,7 +1132,7 @@ int main(int argc, char **argv) {
     std::ofstream(output / (finalVisualsOnly ? "final-visual-metrics.json" : "text-metrics.json")) << metrics.dump(2);
     std::filesystem::current_path(project);
     Access::Require(ReadFile(project / "Content/Save.json") == userSave, "La prueba alteró el guardado original");
-    if (finalVisualsOnly) { std::cout << "PASS ajustes visuales: cuerpo en cobertura, brazo al golpear, flecha fuera de visión y radio acústico real; Save original intacto\n"; return 0; }
+    if (finalVisualsOnly) { std::cout << "PASS comprobación puntual de presentación; Save original intacto\n"; return 0; }
     unsigned int overflow = 0;
     for (const auto &entry : metrics) if (!entry.at("fits").get<bool>()) {
       ++overflow;
