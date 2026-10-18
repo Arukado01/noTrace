@@ -264,7 +264,7 @@ namespace NoTrace {
     TrapDevice trap;
     PuzzleDevice puzzle;
   };
-  struct NoiseEvent { sf::Vector2f position; float radius = 0.f; float remaining = 0.f; PlayerId actor = 0; std::uint32_t guardId = 0; SoundKind kind = SoundKind::Impact; float duration = GameplayConfig::NoiseDuration; };
+  struct NoiseEvent { sf::Vector2f position; float radius = 0.f; float remaining = 0.f; PlayerId actor = 0; std::uint32_t guardId = 0; SoundKind kind = SoundKind::Impact; float duration = GameplayConfig::NoiseDuration; sf::Vector2f visualDirection{}; };
   struct DecoyProjectile { sf::Vector2f from; sf::Vector2f to; float elapsed = 0.f; float duration = 0.f; float height = 0.f; PlayerId actor = 0; bool blocked = false; };
   struct SoundEvent { std::uint64_t sequence = 0; SoundKind kind = SoundKind::Impact; sf::Vector2f position; float radius = 0.f; float remaining = 0.f; PlayerId actor = 0; };
   struct FootstepCue {

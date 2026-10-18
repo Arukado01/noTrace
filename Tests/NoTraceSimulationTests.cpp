@@ -203,7 +203,7 @@ namespace {
     snapshot = EmptyMission(simulation, {900.f, 700.f});
     snapshot["guards"].push_back(GuardJson(donor, {150.f, 200.f}, {1.f, 0.f}));
     snapshot["obstacles"].push_back({{"position", {190.f, 180.f}}, {"size", {20.f, 60.f}}, {"cover", 2}, {"solid", true}, {"name", "Muro entre guardia y ruido"}});
-    snapshot["noises"].push_back({{"position", {250.f, 200.f}}, {"radius", 300.f}, {"remaining", 0.6f}, {"actor", 1}});
+    snapshot["noises"].push_back({{"position", {250.f, 200.f}}, {"radius", 300.f}, {"remaining", 0.6f}, {"actor", 1}, {"visualDirection", {0.f, 0.f}}});
     Load(simulation, snapshot);
     const auto wallBounds = simulation.GetState().obstacles[0].bounds;
     const sf::Vector2f clearCorner{180.f, 170.f};

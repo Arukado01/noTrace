@@ -420,10 +420,12 @@ namespace NoTrace {
     }
   }
 
-  void Simulation::EmitNoise(sf::Vector2f position, float radius, PlayerId actor, std::uint32_t guardId, SoundKind kind) {
+  void Simulation::EmitNoise(sf::Vector2f position, float radius, PlayerId actor, std::uint32_t guardId, SoundKind kind, sf::Vector2f visualDirection) {
     if (!std::isfinite(radius) || radius <= 0.f) return;
     if (world_.noises.size() >= AudioConfig::MaximumCues) world_.noises.erase(world_.noises.begin());
-    world_.noises.push_back({position, radius, GameplayConfig::NoiseDuration, actor, guardId, kind, GameplayConfig::NoiseDuration});
+    // La onda conserva la dirección física del paso sin desplazar el origen acústico que investiga la IA.
+    const auto visual = std::isfinite(visualDirection.x) && std::isfinite(visualDirection.y) ? Unit(visualDirection) : sf::Vector2f{};
+    world_.noises.push_back({position, radius, GameplayConfig::NoiseDuration, actor, guardId, kind, GameplayConfig::NoiseDuration, visual});
     Record(EventKind::Noise, actor);
   }
 
@@ -819,7 +821,7 @@ namespace NoTrace {
         const float radius = agent.stance == Stance::Crouched ? (agent.running ? CrouchedRunningNoiseRadius : CrouchedNoiseRadius) : agent.running ? RunningNoiseRadius : WalkingNoiseRadius;
         const bool soft = agent.position.x >= AudioConfig::SoftFloorBoundary;
         const auto kind = agent.stance == Stance::Crouched ? (soft ? SoundKind::StepCrouchSoft : SoundKind::StepCrouchHard) : agent.running ? (soft ? SoundKind::StepRunSoft : SoundKind::StepRunHard) : (soft ? SoundKind::StepSoft : SoundKind::StepHard);
-        EmitNoise(agent.position, radius, agent.id, 0, kind);
+        EmitNoise(agent.position, radius, agent.id, 0, kind, agent.position - previous);
         EmitSound(agent.draggingGuard >= 0 ? SoundKind::Drag : kind, agent.position, radius, agent.id);
         agent.footstepTime = std::fmod(agent.footstepTime, interval);
       }
@@ -1460,7 +1462,8 @@ namespace NoTrace {
       if (filtered && (!observer || !Visibility::NoiseAudible(world_, *observer, noise))) continue;
       auto point = noise.position;
       if (filtered && noise.actor != player && !visible(point)) { point.x = std::floor(point.x / AudioConfig::PositionQuantization) * AudioConfig::PositionQuantization; point.y = std::floor(point.y / AudioConfig::PositionQuantization) * AudioConfig::PositionQuantization; }
-      snapshot["noises"].push_back({{"position", VectorJson(point)}, {"radius", noise.radius}, {"remaining", noise.remaining}, {"actor", !filtered || noise.actor == player ? noise.actor : 0}, {"guardId", !filtered ? noise.guardId : 0}, {"kind", static_cast<int>(noise.kind)}, {"duration", noise.duration}});
+      snapshot["noises"].push_back({{"position", VectorJson(point)}, {"radius", noise.radius}, {"remaining", noise.remaining}, {"actor", !filtered || noise.actor == player ? noise.actor : 0}, {"guardId", !filtered ? noise.guardId : 0}, {"kind", static_cast<int>(noise.kind)}, {"duration", noise.duration},
+        {"visualDirection", VectorJson(!filtered || noise.actor == player ? noise.visualDirection : sf::Vector2f{})}});
     }
     snapshot["shots"] = json::array();
     for (const auto &shot : world_.shots) {

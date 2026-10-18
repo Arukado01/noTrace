@@ -69,6 +69,7 @@ namespace {
     Require(world.agents[0].loadout.decoys == 2 && world.decoys.size() == 1, "El cooldown no permite duplicar el lanzamiento");
     Land(simulation);
     Require(world.decoys.empty() && world.noises.size() == 1 && world.noises[0].position == preview.to && world.noises[0].radius == DistractionConfig::DecoyHearingDistance && world.noises[0].kind == SoundKind::Decoy, "El ruido del aterrizaje no coincide con la guía o el tipo y alcance configurados");
+    Require(world.noises[0].visualDirection == sf::Vector2f{}, "El impacto del señuelo hereda un desplazamiento visual reservado a pasos");
     Require(world.guards[0].state == GuardState::Investigate && world.guards[0].lastKnown == preview.to && !world.alarm, "La patrulla no investiga el impacto o conoce automáticamente al lanzador");
     const auto noises = std::ranges::count_if(world.events, [](const MissionEvent &event) { return event.kind == EventKind::Noise; });
     Advance(simulation, 3);
@@ -126,6 +127,7 @@ namespace {
     Guard guard; guard.id = 10; guard.position = {200.f, 500.f}; guard.facing = {1.f, 0.f}; world.guards.push_back(guard);
     simulation.Step(0.1f, {{1, knock}});
     Require(world.noises.size() == 1 && world.noises[0].position == sf::Vector2f{128.f, 500.f} && world.noises[0].radius == DistractionConfig::KnockHearingDistance && world.noises[0].kind == SoundKind::Knock, "El golpe genera ruido en la superficie real de la pared");
+    Require(world.noises[0].visualDirection == sf::Vector2f{}, "El golpe en pared desplaza visualmente su origen como si fuera un paso");
     Require(world.agents[0].actionPose == ActionPose::KnockWall && world.agents[0].actionPoseTime > 0.f, "Un golpe validado conserva un fotograma de acción replicable");
     Require(world.guards[0].state == GuardState::Investigate && world.guards[0].lastKnown == world.noises[0].position && !world.alarm, "El guardia investiga el origen acústico sin conocer al agente");
     for (const auto kind : {HideoutKind::TrashBin, HideoutKind::UnderTable, HideoutKind::None}) {

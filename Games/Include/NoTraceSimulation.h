@@ -83,7 +83,7 @@ namespace NoTrace {
     void ConfirmDeath(Agent &agent, PlayerId actor, bool rescueExpired);
     void Incapacitate(Agent &agent, PlayerId actor, std::uint32_t source);
     void Revive(Agent &agent, PlayerId actor);
-    void EmitNoise(sf::Vector2f position, float radius, PlayerId actor, std::uint32_t guardId = 0, SoundKind kind = SoundKind::Impact);
+    void EmitNoise(sf::Vector2f position, float radius, PlayerId actor, std::uint32_t guardId = 0, SoundKind kind = SoundKind::Impact, sf::Vector2f visualDirection = {});
     void EmitSound(SoundKind kind, sf::Vector2f position, float radius, PlayerId actor = 0);
     void HandleDistractions(Agent &agent, const ActionCommand &command);
     void Record(EventKind kind, PlayerId actor, std::uint32_t target = 0);

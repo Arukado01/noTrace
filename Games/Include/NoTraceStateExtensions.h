@@ -152,6 +152,13 @@ namespace NoTrace::StateExtensions {
       }
     }
     TacticalState::Read(snapshot, world);
+    for (std::size_t i = 0; i < world.noises.size(); ++i) {
+      auto &noise = world.noises[i]; noise.visualDirection = Vector(snapshot.at("noises")[i].at("visualDirection"));
+      const float length = noise.visualDirection.lengthSquared();
+      const bool step = noise.kind == SoundKind::StepHard || noise.kind == SoundKind::StepSoft || noise.kind == SoundKind::StepRunHard ||
+          noise.kind == SoundKind::StepRunSoft || noise.kind == SoundKind::StepCrouchHard || noise.kind == SoundKind::StepCrouchSoft;
+      if (length != 0.f && (std::abs(length - 1.f) > 0.001f || !step || (filtered && noise.actor != recipient))) throw std::runtime_error("Dirección visual de ruido inválida o privada");
+    }
     for (const auto &a : world.agents) {
       if ((a.cqcHeldBy && (a.cqcHoldingAgent || a.cqcHoldingGuard)) || (a.cqcStrikePending && a.cqcAttackTime <= 0.f)) throw std::runtime_error("Estado CQC incompatible");
       if (a.cqcHoldingAgent && a.cqcHoldingGuard) throw std::runtime_error("Dos objetivos CQC simultáneos");

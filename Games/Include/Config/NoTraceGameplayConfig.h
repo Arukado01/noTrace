@@ -99,7 +99,7 @@ namespace NoTrace::GameplayConfig {
   inline constexpr std::uint32_t HostPlayerId = 1;
   inline constexpr std::size_t MaximumEvents = 20000;
   inline constexpr std::size_t MaximumSnapshotBytes = 60 * 1024;
-  inline constexpr std::uint32_t ProtocolVersion = 9;
+  inline constexpr std::uint32_t ProtocolVersion = 10;
   inline constexpr float SimulationHz = 60.f;
   inline constexpr float CommandHz = 30.f;
   inline constexpr float SnapshotHz = 20.f;

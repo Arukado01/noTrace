@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Config/NoTraceCombatConfig.h"
+#include "Config/NoTraceGameplayConfig.h"
 #include "Config/NoTraceSpatialConfig.h"
 #include <SFML/Graphics/Color.hpp>
 #include <SFML/System/Vector2.hpp>
@@ -49,6 +50,9 @@ namespace NoTrace::PresentationConfig {
   inline constexpr sf::Vector2f ProneSilhouetteSize{54.f, 24.f};
   inline constexpr unsigned int WorldLabelSize = 14;
   inline constexpr int NoiseCircleSegments = 40;
+  inline constexpr int NoiseWaveCount = 2;
+  inline constexpr float NoiseWaveLag = 0.22f;
+  inline constexpr float FootstepVisualOffset = GameplayConfig::AgentRadius * 0.5f;
   inline constexpr int VisionSegments = 14;
   inline constexpr float IconOffset = 12.f;
   inline constexpr float IconHalfSize = 9.f;

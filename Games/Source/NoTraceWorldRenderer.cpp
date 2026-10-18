@@ -878,21 +878,23 @@ namespace NoTrace {
   }
 
   void WorldRenderer::Noise(const NoiseEvent &noise, sf::Vector2f camera) const {
-    auto color = PresentationConfig::Amber;
+    if (noise.remaining <= 0.f || noise.duration <= 0.f) return;
     const float fraction = std::clamp(noise.remaining / std::max(0.001f, noise.duration), 0.f, 1.f);
-    color.a = static_cast<std::uint8_t>(fraction * 150.f);
-    const float radius = noise.radius;
     sf::VertexArray ring(sf::PrimitiveType::Lines);
-    for (int step = 0; step < PresentationConfig::NoiseCircleSegments; ++step) {
-      for (int endpoint = 0; endpoint <= 1; ++endpoint) {
-        const float angle = 2.f * std::numbers::pi_v<float> * (step + endpoint) / PresentationConfig::NoiseCircleSegments;
-        ring.append({GroundToScreen(noise.position + sf::Vector2f{std::cos(angle), std::sin(angle)} * radius, camera), color});
+    for (int wave = 0; wave < PresentationConfig::NoiseWaveCount; ++wave) {
+      const float progress = 1.f - fraction - static_cast<float>(wave) * PresentationConfig::NoiseWaveLag;
+      if (progress <= 0.f || progress >= 1.f) continue;
+      auto color = PresentationConfig::Amber;
+      color.a = static_cast<std::uint8_t>((1.f - progress) * 110.f);
+      const float radius = noise.radius * progress;
+      for (int step = 0; step < PresentationConfig::NoiseCircleSegments; ++step) {
+        for (int endpoint = 0; endpoint <= 1; ++endpoint) {
+          const float angle = 2.f * std::numbers::pi_v<float> * (step + endpoint) / PresentationConfig::NoiseCircleSegments;
+          ring.append({GroundToScreen(noise.position + sf::Vector2f{std::cos(angle), std::sin(angle)} * radius, camera), color});
+        }
       }
     }
     ctx_.renderer.Draw(ring);
-    const auto origin = GroundToScreen(noise.position, camera);
-    PixelLine(origin - sf::Vector2f{5.f, 0.f}, origin + sf::Vector2f{5.f, 0.f}, color);
-    PixelLine(origin - sf::Vector2f{0.f, 3.f}, origin + sf::Vector2f{0.f, 3.f}, color);
   }
 
   void WorldRenderer::Combat(const WorldState &world, sf::Vector2f camera, const Agent *observer) const {
@@ -1235,6 +1237,7 @@ namespace NoTrace {
         const float cell = AudioConfig::PositionQuantization;
         perceived.position = {std::floor(noise.position.x / cell) * cell, std::floor(noise.position.y / cell) * cell};
       }
+      if (noise.actor == observer->id) perceived.position += noise.visualDirection * PresentationConfig::FootstepVisualOffset;
       Noise(perceived, camera);
     }
     ctx_.renderer.ResetView();

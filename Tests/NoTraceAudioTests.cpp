@@ -7,12 +7,83 @@
 #include <array>
 #include <filesystem>
 #include <iostream>
+#include <limits>
 #include <set>
 #include <stdexcept>
 
 namespace {
   int checks = 0;
   void Require(bool value, const char *message) { ++checks; if (!value) throw std::runtime_error(message); }
+
+  void FootstepVisualDirectionUsesTheEmittedMovement() {
+    using namespace NoTrace;
+    const auto prepare = [](Simulation &simulation) -> WorldState & {
+      simulation.ResetBase(); simulation.Deploy(0);
+      auto &world = const_cast<WorldState &>(simulation.GetState());
+      world.obstacles.clear(); world.objects.clear(); world.guards.clear(); world.sounds.clear(); world.noises.clear(); world.securityEntries.clear();
+      world.agents[0].position = {400.f, 400.f}; world.agents[0].facing = {1.f, 0.f};
+      return world;
+    };
+    Simulation simulation, replica;
+    auto &world = prepare(simulation);
+    world.agents[0].footstepTime = GameplayConfig::RunningFootstepInterval;
+    ActionCommand east; east.moveX = 1.f; east.run = true; simulation.Step(0.05f, {{1, east}});
+    Require(world.noises.size() == 1 && world.noises[0].visualDirection == sf::Vector2f{1.f, 0.f} && world.noises[0].position == world.agents[0].position && world.noises[0].radius == GameplayConfig::RunningNoiseRadius,
+      "El paso no captura su dirección real manteniendo el origen y radio físicos");
+    const auto emitted = world.noises[0];
+    ActionCommand north; north.moveY = -1.f; simulation.Step(0.05f, {{1, north}}); simulation.Step(0.05f, {});
+    Require(world.noises.size() == 1 && !world.agents[0].moving && world.agents[0].facing == sf::Vector2f{0.f, -1.f} && world.noises[0].visualDirection == emitted.visualDirection && world.noises[0].position == emitted.position && world.noises[0].radius == emitted.radius,
+      "Girar y detenerse reorienta o desplaza una onda que ya fue emitida");
+    std::string error;
+    const auto snapshot = simulation.SnapshotFor(1, true);
+    Require(replica.LoadSnapshot(snapshot, error) && replica.GetState().noises[0].visualDirection == emitted.visualDirection && replica.GetState().noises[0].position == emitted.position,
+      "La réplica no conserva la dirección inmutable del paso propio");
+    const std::array<nlohmann::json, 7> invalidDirections{{nullptr, nlohmann::json::array({1.f}), nlohmann::json::array({1.f, 0.f, 0.f}),
+      nlohmann::json::array({"este", 0.f}), nlohmann::json::array({2.f, 0.f}), nlohmann::json::array({0.5f, 0.f}),
+      nlohmann::json::array({std::numeric_limits<float>::quiet_NaN(), 0.f})}};
+    for (const auto &direction : invalidDirections) {
+      auto invalid = snapshot; invalid["noises"][0]["visualDirection"] = direction;
+      Require(!replica.LoadSnapshot(invalid, error) && replica.GetState().noises[0].visualDirection == emitted.visualDirection,
+        "Una dirección visual malformada altera una réplica válida");
+    }
+    auto invalid = snapshot; invalid["noises"][0].erase("visualDirection");
+    Require(!replica.LoadSnapshot(invalid, error), "El protocolo nuevo acepta un ruido sin metadatos explícitos");
+    invalid = snapshot; invalid["version"] = 9;
+    Require(!replica.LoadSnapshot(invalid, error), "El protocolo anterior acepta un esquema de ruido incompatible");
+    invalid = snapshot; invalid["noises"][0]["kind"] = static_cast<int>(SoundKind::Knock);
+    Require(!replica.LoadSnapshot(invalid, error), "Un golpe admite una dirección visual reservada a pasos");
+
+    auto &blocked = prepare(simulation);
+    blocked.obstacles.push_back({{{412.f, 250.f}, {24.f, 300.f}}, CoverKind::High, true, "Deslizamiento físico"});
+    blocked.agents[0].footstepTime = GameplayConfig::FootstepInterval;
+    ActionCommand diagonal; diagonal.moveX = 1.f; diagonal.moveY = 1.f;
+    simulation.Step(0.05f, {{1, diagonal}});
+    Require(blocked.noises.size() == 1 && blocked.agents[0].position.x == 400.f && blocked.agents[0].position.y > 400.f && blocked.agents[0].facing.x > 0.f && blocked.noises[0].visualDirection == sf::Vector2f{0.f, 1.f},
+      "La onda usa la orden diagonal o facing en lugar del desplazamiento que permite la colisión");
+
+    auto &cover = prepare(simulation); cover.agents[0].position = {387.f, 400.f};
+    cover.obstacles.push_back({{{412.f, 200.f}, {24.f, 400.f}}, CoverKind::High, true, "Pared de cobertura"});
+    ActionCommand enter; enter.coverToggle = true; simulation.Step(0.05f, {{1, enter}});
+    cover.agents[0].footstepTime = GameplayConfig::FootstepInterval;
+    ActionCommand slide; slide.moveY = -1.f; simulation.Step(0.05f, {{1, slide}});
+    Require(cover.agents[0].cover.active && cover.agents[0].facing == sf::Vector2f{-1.f, 0.f} && cover.noises.size() == 1 && cover.noises[0].visualDirection == sf::Vector2f{0.f, -1.f},
+      "El paso lateral en cobertura se orienta por la normal corporal en lugar de su movimiento tangencial");
+    Require(replica.LoadSnapshot(simulation.SnapshotFor(1), error) && replica.GetState().noises[0].visualDirection == sf::Vector2f{0.f, -1.f},
+      "La serialización completa pierde el paso tangencial de cobertura");
+
+    auto &privateWorld = prepare(simulation); privateWorld.agents[0].position = {300.f, 300.f};
+    privateWorld.noises = {{{240.f, 300.f}, 200.f, GameplayConfig::NoiseDuration, 2, 0, SoundKind::StepRunHard, GameplayConfig::NoiseDuration, {0.f, 1.f}},
+      {{360.f, 300.f}, 200.f, GameplayConfig::NoiseDuration, 2, 0, SoundKind::StepHard, GameplayConfig::NoiseDuration, {-1.f, 0.f}}};
+    Require(!Visibility::IsVisible(privateWorld, privateWorld.agents[0], privateWorld.noises[0].position) && Visibility::IsVisible(privateWorld, privateWorld.agents[0], privateWorld.noises[1].position),
+      "La fixture privada debe separar un origen oculto de otro visible");
+    const auto filtered = simulation.SnapshotFor(1, true);
+    Require(filtered["noises"].size() == 2 && filtered["noises"][0]["position"] != nlohmann::json::array({240.f, 300.f}) &&
+      filtered["noises"][0]["visualDirection"] == nlohmann::json::array({0.f, 0.f}) && filtered["noises"][1]["visualDirection"] == nlohmann::json::array({0.f, 0.f}),
+      "El ruido ajeno o cuantizado revela una dirección reservada al movimiento propio");
+    Require(replica.LoadSnapshot(filtered, error) && replica.GetState().noises[0].visualDirection == sf::Vector2f{}, "La réplica rechaza una onda ajena anonimizada");
+    invalid = filtered; invalid["noises"][0]["visualDirection"] = {0.f, 1.f};
+    Require(!replica.LoadSnapshot(invalid, error) && replica.GetState().noises[0].visualDirection == sf::Vector2f{}, "La réplica acepta dirección privada en un ruido de emisor oculto");
+  }
 
   void GuardHearingUsesEventRadiusAcrossWalls() {
     using namespace NoTrace;
@@ -54,6 +125,7 @@ namespace {
 int main() {
   try {
     using namespace NoTrace;
+    FootstepVisualDirectionUsesTheEmittedMovement();
     GuardHearingUsesEventRadiusAcrossWalls();
     Require(GameplayConfig::RunningNoiseRadius == 340.f * 0.90f && GameplayConfig::RunningNoiseRadius == 306.f,
       "La carrera debe reducir exactamente un diez por ciento su radio anterior de 340 unidades");
@@ -113,11 +185,12 @@ int main() {
         Require(state.noises.empty() && state.sounds.empty() && state.agents[0].moving, "Arrastrarse tumbado produce ruido o pasos aunque la posición avance");
         command.moveX = 0.f; command.fireLethal = true; command.aimX = 1.f;
         moving.Step(0.1f, {{1, command}});
-        Require(!state.noises.empty() && !state.sounds.empty(), "La postura tumbada suprime también el ruido independiente de disparar");
+        Require(!state.noises.empty() && !state.sounds.empty() && state.noises.back().visualDirection == sf::Vector2f{}, "La postura tumbada suprime el disparo independiente o le añade desplazamiento visual de pasos");
         continue;
       }
       Require(!state.noises.empty() && state.noises.back().radius==step.radius && step.radius>0.f, "Una postura o carrera elimina el ruido real o usa el mismo alcance para cualquier movimiento");
       Require(state.noises.back().actor==1 && state.noises.back().kind==step.kind && state.noises.back().duration==GameplayConfig::NoiseDuration, "Los pasos no conservan emisor, postura y duración de la simulación");
+      Require(state.noises.back().visualDirection == sf::Vector2f{1.f, 0.f}, "Un paso de pie, agachado o corriendo pierde su dirección capturada");
       Require(state.noises.size() <= 3 && state.sounds.size() <= 3, "El movimiento emite una señal acústica cada fotograma");
       moving.Step(0.1f, {});
       Require(!state.agents[0].moving && state.agents[0].footstepTime == 0.f, "Detenerse conserva un temporizador de pasos pendiente");
