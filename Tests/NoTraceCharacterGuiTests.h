@@ -18,7 +18,7 @@ namespace EngineTests {
     WorldRenderer renderer(context);
     WorldState world; world.phase = GamePhase::Base; world.size = {1400.f, 1400.f};
     Agent observer; observer.id = 1; observer.position = {700.f, 700.f}; observer.hidden = true;
-    struct Case { const char *name; std::function<void(Agent &, float, WorldState &)> configure; bool animated = true, repeatedSelection = false; };
+    struct Case { const char *name; std::function<void(Agent &, float, WorldState &)> configure; bool animated = true, repeatedSelection = false, allowIdenticalPixels = false; };
     const auto pose = [](ActionPose action, bool dead = false) {
       return [action, dead](Agent &actor, float phase, WorldState &) {
         actor.actionPose = action; actor.actionPoseTime = GameplayConfig::AttackAnimationDuration * (1.f - phase); actor.alive = !dead;
@@ -53,7 +53,57 @@ namespace EngineTests {
         actor.actionPoseTime = GameplayConfig::AttackAnimationDuration * (1.f - phase); state.guards.push_back(victim);
       };
     };
+    const auto loop = [](SpriteConfig::Clip clip, Stance stance, bool moving = false, bool running = false, bool aiming = false) {
+      return [clip, stance, moving, running, aiming](Agent &actor, float phase, WorldState &) {
+        actor.stance = stance; actor.moving = moving; actor.running = running; actor.aiming = aiming;
+        actor.animationTime = (phase * 8.f + .125f) / SpriteConfig::Animations[static_cast<std::size_t>(clip)].fps;
+      };
+    };
+    const auto stanceTransition = [](Stance from, Stance to) {
+      return [from, to](Agent &actor, float phase, WorldState &) {
+        actor.stance = to; actor.transitionFrom = from;
+        actor.transitionTime = GameplayConfig::StanceTransitionDuration * (1.f - phase - .0125f);
+      };
+    };
     const std::vector<Case> cases{
+      {"idle-control", loop(SpriteConfig::Clip::Idle, Stance::Standing), true, false, true},
+      {"walk-control", loop(SpriteConfig::Clip::Walk, Stance::Standing, true)},
+      {"run-control", loop(SpriteConfig::Clip::Run, Stance::Standing, true, true)},
+      {"crouch-walk-control", loop(SpriteConfig::Clip::CrouchWalk, Stance::Crouched, true)},
+      {"prone-idle", loop(SpriteConfig::Clip::ProneIdle, Stance::Prone), true, false, true},
+      {"prone-crawl", loop(SpriteConfig::Clip::Crawl, Stance::Prone, true)},
+      {"prone-aim", loop(SpriteConfig::Clip::Aim, Stance::Prone, false, false, true), true, false, true},
+      {"prone-shoot", [](Agent &actor, float phase, WorldState &) {
+        actor.stance = Stance::Prone; actor.aiming = true;
+        actor.actionPose = ActionPose::Shoot; actor.actionPoseTime = GameplayConfig::AttackAnimationDuration * (1.f - phase - .0125f);
+      }, true, false, true},
+      {"prone-reload", [](Agent &actor, float phase, WorldState &) {
+        actor.stance = Stance::Prone; actor.aiming = true;
+        actor.reloadRemaining = WeaponConfig::ReloadDuration * (1.f - phase - .0125f);
+      }, true, false, true},
+      {"prone-throw", [](Agent &actor, float phase, WorldState &) {
+        actor.stance = Stance::Prone; actor.actionPose = ActionPose::ThrowDecoy;
+        actor.actionPoseTime = GameplayConfig::AttackAnimationDuration * (1.f - phase - .0125f);
+      }, true, false, true},
+      {"lie-down", stanceTransition(Stance::Standing, Stance::Prone)},
+      {"stand-up", stanceTransition(Stance::Prone, Stance::Standing)},
+      {"unconscious-agent", [](Agent &actor, float phase, WorldState &) {
+        actor.incapacitated = true;
+        actor.animationTime = (phase * 8.f + .125f) / SpriteConfig::Animations[static_cast<std::size_t>(SpriteConfig::Clip::Unconscious)].fps;
+      }, true, false, true},
+      {"unconscious-guard", [](Agent &actor, float, WorldState &state) {
+        actor.hidden = true;
+        Guard guard; guard.id = 100 + actor.id; guard.position = actor.position; guard.facing = actor.facing;
+        guard.state = GuardState::Incapacitated; guard.incapacityRemaining = GameplayConfig::GuardIncapacityDuration * .5f;
+        state.guards.push_back(guard);
+      }, false},
+      {"fall-guard", [](Agent &actor, float phase, WorldState &state) {
+        actor.hidden = true;
+        Guard guard; guard.id = 100 + actor.id; guard.position = actor.position; guard.facing = actor.facing;
+        guard.state = GuardState::Incapacitated;
+        guard.incapacityRemaining = GameplayConfig::GuardIncapacityDuration - PresentationConfig::CqcFallDuration * (phase + .0125f);
+        state.guards.push_back(guard);
+      }},
       {"push", pose(ActionPose::Push)}, {"death", pose(ActionPose::Fall, true)},
       {"drag", [](Agent &actor, float phase, WorldState &) { actor.draggingGuard = 0; actor.moving = true; actor.animationTime = phase; }},
       {"held-victim", [](Agent &actor, float phase, WorldState &) { actor.cqcHeldBy = 1; actor.animationTime = phase * 2.f; }},
@@ -108,9 +158,13 @@ namespace EngineTests {
           const sf::Vector2f screen{logical.x * (.14f + static_cast<float>(direction % 4) * .24f), logical.y * (.56f + static_cast<float>(direction / 4) * .30f)};
           actor.position = WorldRenderer::UnprojectGround(screen, observer.position, logical, renderer.GetZoom());
           scenario.configure(actor, phase, world);
-          const auto selected = std::string_view(scenario.name) == "guard-wake" ? WorldRenderer::SelectGuardSprite(world.guards.back(), world) : WorldRenderer::SelectBodySprite(actor);
+          const bool guardCase = std::string_view(scenario.name) == "guard-wake" || std::string_view(scenario.name) == "unconscious-guard" || std::string_view(scenario.name) == "fall-guard";
+          const auto selected = guardCase ? WorldRenderer::SelectGuardSprite(world.guards.back(), world) : WorldRenderer::SelectBodySprite(actor);
           if (!renderer.CharacterSprites().Metadata(selected.index).valid) throw std::runtime_error("El renderer seleccionó pose no autorada");
-          poses.push_back({{"direction", direction}, {"frame", selected.index}, {"position", {actor.position.x, actor.position.y}}, {"stance", static_cast<int>(actor.stance)}});
+          const bool weaponLayer = WorldRenderer::HasWeaponLayer(actor);
+          const auto upper = weaponLayer ? WorldRenderer::SelectWeaponSprite(actor) : selected;
+          if (!renderer.CharacterSprites().Metadata(upper.index).valid) throw std::runtime_error("El renderer seleccionó una capa superior no autorada");
+          poses.push_back({{"direction", direction}, {"frame", selected.index}, {"weaponCandidateFrame", weaponLayer ? nlohmann::json(upper.index) : nlohmann::json(nullptr)}, {"position", {actor.position.x, actor.position.y}}, {"stance", static_cast<int>(actor.stance)}});
           world.agents.push_back(actor);
         }
         const auto file = "characters-" + std::string(scenario.name) + "-phase-" + std::to_string(phaseIndex) + ".png";
@@ -158,18 +212,19 @@ namespace EngineTests {
         if (phaseIndex > 0) {
           ++checks;
           const bool changed = different(preceding, pixels);
-          if (scenario.animated ? !changed && (!scenario.repeatedSelection || precedingPoses != poses) : changed)
+          if (scenario.animated ? !changed && !scenario.allowIdenticalPixels && (!scenario.repeatedSelection || precedingPoses != poses) : changed)
             throw std::runtime_error("La secuencia runtime no corresponde a su evolución esperada: " + std::string(scenario.name));
         }
         if (phaseIndex == 0) initial = pixels;
         preceding = pixels;
         precedingPoses = poses;
-        evidence.push_back({{"file", file}, {"case", scenario.name}, {"phase", phase}, {"directions", 8}, {"poses", poses}, {"animated", scenario.animated}, {"zoom", renderer.GetZoom()}});
+        evidence.push_back({{"file", file}, {"case", scenario.name}, {"phase", phase}, {"directions", 8}, {"poses", poses}, {"animated", scenario.animated}, {"allowIdenticalPixels", scenario.allowIdenticalPixels}, {"zoom", renderer.GetZoom()}});
       }
       if (scenario.repeatedSelection && !different(initial, preceding)) throw std::runtime_error("La incorporación hacia agachado no avanza entre inicio y destino");
     }
     nlohmann::json report{{"status", "PASS"}, {"checks", checks}, {"cases", cases.size()}, {"captures", evidence.size()}, {"atlasPoses", SpriteConfig::AuthoredFrameCount},
-      {"scope", "Render real de estados autoritativos preparados; no sustituye prueba de controles ni partida LAN manual"}, {"evidence", evidence}};
+      {"scope", "Render real de estados autoritativos preparados; no sustituye prueba de controles ni partida LAN manual"},
+      {"selectionScope", "frame registra SelectBodySprite o SelectGuardSprite; weaponCandidateFrame registra SelectWeaponSprite sólo si HasWeaponLayer; no enumera overrides privados de gestos/equipamiento"}, {"evidence", evidence}};
     std::ofstream file(output / "character-fixtures.json"); file << report.dump(2);
     return report;
   }
