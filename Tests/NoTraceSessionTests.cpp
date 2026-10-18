@@ -742,6 +742,11 @@ namespace {
     Require(FindAgent(pair.client.GetWorld(), 2).cqcHoldingGuard == 91 && pair.client.GetWorld().guards[0].heldBy == 2, "El cliente no recibe la sujeción confirmada");
     Require(pair.client.GetWorld().visibility.visualRadii.size() == VisibilityConfig::VisualRayCount && pair.client.GetWorld().securityEntries.empty(), "El cliente pierde la frontera suave o recibe accesos privados de seguridad");
     Require(FindAgent(world, 2).cqcProgress == 0, "Mantener F se serializa como pulsaciones repetidas");
+    ActionCommand blockedPush = hold; blockedPush.cqc = false; blockedPush.push = true;
+    pair.client.Submit(blockedPush); pair.Advance(8);
+    Require(world.guards[0].heldBy == 2 && FindAgent(world, 2).cqcHoldingGuard == 91 &&
+      FindAgent(pair.client.GetWorld(), 2).cqcHoldingGuard == 91 && FindAgent(world, 2).cqcProgress == 0,
+      "V durante la sujeción remota libera el agarre o se confunde con un pulso de sometimiento");
     for (unsigned int pulse = 1; pulse <= 3; ++pulse) {
       pair.client.Submit({}); pair.Advance(13);
       pair.client.Submit(hold); pair.Advance(34);
@@ -749,7 +754,8 @@ namespace {
     }
     Require(world.guards[0].state == GuardState::Incapacitated && world.guards[0].health == CombatConfig::MaxGuardHealth && world.guards[0].heldBy == 0, "CQC remoto no termina con inconsciencia y liberación");
     pair.client.Submit({}); pair.Advance(20);
-    world.agents[0].position = {228.f, 300.f}; world.agents[0].cover = {};
+    world.agents[0].position = {228.f, 340.f}; world.agents[0].cover = {};
+    world.agents[1].position = {200.f, 340.f}; world.agents[1].facing = {1.f, 0.f};
     ActionCommand push; push.push = true; push.aimX = 1.f;
     pair.client.Submit(push); pair.Advance(15);
     Require(world.agents[0].position.x > 228.f && world.agents[0].position.x <= 264.01f && world.agents[0].health == GameplayConfig::MaxHealth, "El cliente no empuja a su compañero de forma limitada y no letal");

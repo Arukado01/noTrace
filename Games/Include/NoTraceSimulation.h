@@ -2,11 +2,15 @@
 
 #include "NoTraceMission.h"
 #include <nlohmann/json.hpp>
+#include <optional>
 #include <unordered_map>
 
 namespace NoTrace {
   class Simulation {
   public:
+    enum class CqcAction { Push, Grab };
+    struct CqcTarget { std::uint32_t guard = 0; PlayerId agent = 0; };
+    static std::optional<CqcTarget> FindCqcTarget(const WorldState &world, const Agent &agent, CqcAction action);
     void ResetBase(const std::vector<PlayerProfile> &players = {{1, "Agente"}});
     bool AddPlayer(PlayerId id, const std::string &name);
     void DisconnectPlayer(PlayerId id);

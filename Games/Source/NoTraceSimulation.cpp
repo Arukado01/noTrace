@@ -1166,6 +1166,17 @@ namespace NoTrace {
         for (auto &object : world_.objects) if (object.id == guard.knownHideout) object.inspectionProgress = 0.f;
         continue;
       }
+      const auto approaching = std::ranges::find_if(world_.agents, [&guard](const Agent &owner) {
+        return owner.cqcApproachGuard == guard.id && owner.cqcPressPending && owner.cqcInputDown && owner.connected && owner.alive && !owner.incapacitated &&
+            owner.cqcApproachTime < CqcConfig::ApproachTimeout && (owner.position - guard.position).length() <= CqcConfig::AcquireDistance;
+      });
+      if (approaching != world_.agents.end()) {
+        const bool threatened = std::ranges::any_of(world_.agents, [&](const Agent &other) {
+          return other.id != approaching->id && CanSee(guard.position, guard.facing, other, world_.alarm ? VisionDistance * AlarmVisionMultiplier : VisionDistance);
+        });
+        if (threatened) ReleaseCqc(*approaching);
+        else { guard.stepTime = 0.f; guard.attackTime = 0.f; guard.navigation.clear(); continue; }
+      }
       if (guard.bodyTargetKind != BodyTargetKind::None && guard.state != GuardState::ApproachBody && guard.state != GuardState::InspectBody) {
         guard.bodyTargetKind = BodyTargetKind::None; guard.bodyTargetId = 0; guard.bodyInspectionTime = 0.f;
       }
