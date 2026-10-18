@@ -446,11 +446,18 @@ namespace NoTrace {
     auto identity = [this, name] { auto value = name->getText().toStdString(); if (value.empty()) value = "Agente"; ctx.save.Set("NoTrace:AgentName", value); return value; };
     auto readPort = [port] { const auto value = port->getText().toStdString(); unsigned int number = 0; const auto result = std::from_chars(value.data(), value.data() + value.size(), number); return result.ec == std::errc{} && result.ptr == value.data() + value.size() && number > 0 && number <= 65535 ? static_cast<std::uint16_t>(number) : std::uint16_t{}; };
     Button("OPERACIÓN INDIVIDUAL", 312.f, [this, identity] { session_.StartSolo(identity()); ClosePanel(); });
-    Button("CREAR SALA LAN", 374.f, [this, identity, readPort] {
+    auto host = Button("CREAR SALA LAN", 374.f, [this, identity, readPort] {
       const auto value = readPort();
       if (!value) { status_->setText("Puerto inválido (1–65535)."); return; }
       if (session_.Host(identity(), value)) Open(Page::Deployment); else status_->setText(session_.GetStatus());
     });
+    host->setSize({345.f, 48.f});
+    auto localAddress = Button("MOSTRAR MI IP", 374.f, [this] {
+      const auto address = ctx.network.GetLocalAddress();
+      status_->setText(tgui::String(address == "IP local no disponible" ? address + ". Conéctate a una red local y vuelve a intentarlo." :
+        "Tu IP local: " + address + "\nCompártela con quien vaya a conectarse a tu sala LAN."));
+    });
+    localAddress->setPosition({399.f, 374.f}); localAddress->setSize({345.f, 48.f});
     Button("CONECTAR POR IP", 436.f, [this, ip, identity, readPort] {
       const auto value = readPort();
       if (!value) { status_->setText("Puerto inválido (1–65535)."); return; }

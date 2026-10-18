@@ -590,6 +590,54 @@ namespace EngineTests {
       context.gui.ProcessEvent(sf::Event::MouseButtonReleased{sf::Mouse::Button::Left, pixel});
       game.UpdateBackground();
     }
+    static void VerifyConnectionLocalAddress(Game &game, EngineContext &context, sf::RenderWindow &window, const std::filesystem::path &output) {
+      Require(game.page_ == Game::Page::Connection && !game.session_.IsConnected() && context.network.GetRole() == NetworkRole::Offline,
+        "La consulta de IP no comienza en la pantalla de conexión sin sesión");
+      tgui::EditBox::Ptr name, destination, port;
+      for (const auto &widget : game.panel_->getWidgets()) if (const auto field = std::dynamic_pointer_cast<tgui::EditBox>(widget)) {
+        if (field->getMaximumCharacters() == 24) name = field;
+        else if (field->getMaximumCharacters() == 15) destination = field;
+        else if (field->getMaximumCharacters() == 5) port = field;
+      }
+      Require(name && destination && port, "La pantalla de conexión no conserva nombre, destino y puerto editables");
+      const auto originalName = name->getText(), originalDestination = destination->getText(), originalPort = port->getText();
+      const auto originalSize = window.getSize();
+      name->setText("Agente QA"); destination->setText("203.0.113.7"); port->setText("55037");
+      nlohmann::json layouts = nlohmann::json::array();
+      for (const auto size : {sf::Vector2u{1280, 720}, sf::Vector2u{1920, 1080}}) {
+        window.setSize(size); context.window.HandleResize(size); Sync(context); window.setView(context.window.GetPresentationView());
+        const auto expected = context.network.GetLocalAddress();
+        Click(game, context, window, "MOSTRAR MI IP");
+        Require(game.status_->isVisible() && game.status_->getText().toStdString().find(expected) != std::string::npos,
+          "El botón no muestra la IP local o la ausencia de dirección que devuelve NetworkManager");
+        Require(game.page_ == Game::Page::Connection && !game.session_.IsConnected() && context.network.GetRole() == NetworkRole::Offline,
+          "Mostrar la IP inicia una sala o una conexión en segundo plano");
+        Require(name->getText() == "Agente QA" && destination->getText() == "203.0.113.7" && port->getText() == "55037",
+          "Mostrar la IP reemplaza el nombre, la dirección del anfitrión o el puerto escrito");
+        const auto show = FindButton(game, "MOSTRAR MI IP"), host = FindButton(game, "CREAR SALA LAN"), join = FindButton(game, "CONECTAR POR IP");
+        Require(show->isVisible() && show->isEnabled() && host->isVisible() && host->isEnabled() && join->isVisible() && join->isEnabled(),
+          "La consulta de IP deja inaccesibles los controles de sala LAN");
+        const auto bounds = [](const tgui::Widget::Ptr &widget) {
+          const auto position = widget->getPosition(), extent = widget->getSize();
+          return sf::FloatRect({position.x, position.y}, {extent.x, extent.y});
+        };
+        Require(!bounds(show).findIntersection(bounds(host)) && !bounds(show).findIntersection(bounds(join)),
+          "El botón de IP se superpone a las acciones de crear sala o conectar");
+        for (const auto &widget : game.panel_->getWidgets()) if (widget->isVisible()) {
+          const auto rectangle = bounds(widget);
+          Require(rectangle.position.x >= 0.f && rectangle.position.y >= 0.f && rectangle.position.x + rectangle.size.x <= game.panel_->getSize().x &&
+            rectangle.position.y + rectangle.size.y <= game.panel_->getSize().y, "La pantalla de IP recorta un control fuera de su panel");
+        }
+        const auto metrics = MeasureText(game, "connection-local-ip");
+        for (const auto &entry : metrics) Require(entry.at("fits").get<bool>(), "La pantalla de IP recorta el texto de un botón o aviso");
+        const auto file = std::format("connection-local-ip-{}x{}.png", size.x, size.y);
+        Capture(game, context, window, output / file, true);
+        layouts.push_back({{"file", file}, {"size", {size.x, size.y}}, {"address", expected}, {"textMetrics", metrics}});
+      }
+      name->setText(originalName); destination->setText(originalDestination); port->setText(originalPort);
+      window.setSize(originalSize); context.window.HandleResize(originalSize); Sync(context); window.setView(context.window.GetPresentationView());
+      std::ofstream(output / "connection-local-ip.json") << nlohmann::json{{"status", "PASS"}, {"layouts", layouts}}.dump(2);
+    }
     static void VerifyFireInput(Game &game, EngineContext &context, sf::RenderWindow &window) {
       context.input.Clear(); game.BindInputs(); game.held_.fill(false);
       auto &world = const_cast<WorldState &>(game.session_.GetWorld());
@@ -1347,6 +1395,10 @@ namespace {
       EngineTests::RunRendererPerformanceFixtures(context, output, captureWorld);
       window.close(); return nlohmann::json::array();
     }
+    if (visualSuite == "--connection-local-ip-only") {
+      Game game(context); game.Start(); Access::VerifyConnectionLocalAddress(game, context, window, output);
+      game.OnCleanup(); window.close(); return nlohmann::json::array();
+    }
     if (visualSuite == "--cover-peek-visuals-only") {
       const auto captureWorld = [&](WorldRenderer &renderer, const WorldState &world, const std::filesystem::path &file, bool hudVisible = true) { return Access::CaptureWorld(renderer, world, context, window, file, hudVisible); };
       EngineTests::RunCoverPeekRenderFixtures(context, output, captureWorld);
@@ -1406,6 +1458,7 @@ namespace {
     Access::Require(example.UsesGlobalOverlay(), "Las escenas de ejemplo perdieron el overlay por defecto");
     Game game(context);
     game.Start();
+    Access::VerifyConnectionLocalAddress(game, context, window, output);
     Access::Require(!game.UsesGlobalOverlay(), "NO TRACE todavía permite el overlay genérico");
     Access::Click(game, context, window, "OPERACIÓN INDIVIDUAL");
     Access::VerifyFirstPersonInput(game, context, window, output);
@@ -1559,7 +1612,7 @@ int main(int argc, char **argv) {
   try {
     const std::string visualSuite = argc == 2 ? argv[1] : "";
     const bool focused = visualSuite == "--first-person-only" || visualSuite == "--coordination-visuals-only" || visualSuite == "--icons-visuals-only" || visualSuite == "--character-visuals-only" || visualSuite == "--level-visuals-only" || visualSuite == "--final-visuals-only" || visualSuite == "--alert-hud-visuals-only" || visualSuite == "--security-visuals-only" ||
-      visualSuite == "--orientation-visuals-only" || visualSuite == "--table-visuals-only" || visualSuite == "--world-visuals-only" || visualSuite == "--tactical-fixes-visuals-only" || visualSuite == "--clean-hud-visuals-only" || visualSuite == "--interaction-fixes-only" || visualSuite == "--renderer-performance-only" || visualSuite == "--cover-peek-visuals-only";
+      visualSuite == "--orientation-visuals-only" || visualSuite == "--table-visuals-only" || visualSuite == "--world-visuals-only" || visualSuite == "--tactical-fixes-visuals-only" || visualSuite == "--clean-hud-visuals-only" || visualSuite == "--interaction-fixes-only" || visualSuite == "--renderer-performance-only" || visualSuite == "--cover-peek-visuals-only" || visualSuite == "--connection-local-ip-only";
     const auto project = std::filesystem::current_path();
     const auto userSave = ReadFile(project / "Content/Save.json");
     const auto sandbox = project / "build/gui-test-sandbox";

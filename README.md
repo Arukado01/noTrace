@@ -192,7 +192,7 @@ La música original comparte una paleta de sintetizadores oscuros, motivos conte
 ## Jugar por LAN
 
 1. Usa la misma versión del juego en los equipos y conéctalos a la misma red local.
-2. El anfitrión elige **Crear sala LAN**. La sala muestra su IP y puerto; el predeterminado es **55031/TCP**.
+2. En el acceso, **Mostrar mi IP** permite consultar la dirección local y compartirla antes de crear la sala. El anfitrión elige **Crear sala LAN**. La sala muestra su IP y puerto; el predeterminado es **55031/TCP**.
 3. Los demás eligen **Conectar por IP** e introducen esos datos.
 4. Permite el tráfico del juego en la red privada cuando Windows lo solicite.
 5. Prepara el equipo, marca cada agente como preparado y despliega desde el anfitrión.
