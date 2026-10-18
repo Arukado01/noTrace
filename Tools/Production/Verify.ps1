@@ -112,12 +112,19 @@ try {
     Assert-Production ($validationCode -ne 0) 'Sin publicación válida el lanzador devuelve error y no busca un build de desarrollo.'
     $incomplete = Join-Path $qa 'publicacion-incompleta'
     Sync-ProductionTree $newRelease $incomplete $qa
-    Remove-Item -LiteralPath (Join-Path $incomplete 'Content/Sounds/NoTrace/SuppressorAttach.wav')
+    Remove-Item -LiteralPath (Join-Path $incomplete 'Content/Audio/NoTrace/Weapons/SuppressorAttach-01.wav')
     $validationCode = Invoke-ProductionLauncherValidation $play @('--validate-release', $incomplete)
     Assert-Production ($validationCode -ne 0) 'El lanzador rechaza una publicación completa cuyo efecto de audio obligatorio fue eliminado.'
     $missingResourceRejected = $false
     try { Write-ProductionManifest $incomplete (Join-Path $PSScriptRoot 'RequiredContent.txt') } catch { $missingResourceRejected = $true }
     Assert-Production $missingResourceRejected 'El publicador también rechaza un recurso ausente antes de regenerar el manifiesto.'
+    [IO.File]::Copy((Join-Path $newRelease 'Content/Audio/NoTrace/Weapons/SuppressorAttach-01.wav'), (Join-Path $incomplete 'Content/Audio/NoTrace/Weapons/SuppressorAttach-01.wav'))
+    Remove-Item -LiteralPath (Join-Path $incomplete 'Content/Textures/NoTrace/Environment/MilitaryFurniture.png')
+    $missingEnvironmentRejected = $false
+    try { Write-ProductionManifest $incomplete (Join-Path $PSScriptRoot 'RequiredContent.txt') } catch { $missingEnvironmentRejected = $true }
+    Assert-Production $missingEnvironmentRejected 'El publicador exige la textura de mobiliario militar utilizada por el renderer.'
+    $validationCode = Invoke-ProductionLauncherValidation $play @('--validate-release', $incomplete)
+    Assert-Production ($validationCode -ne 0) 'El lanzador rechaza también una publicación sin la textura obligatoria del entorno.'
     $lock = Get-ProductionLock $repository
     try {
         $blocked = $false
