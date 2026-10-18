@@ -1,0 +1,195 @@
+{
+  "status": "PASS",
+  "scope": "First-person art GPU and coordinated local renderer/input focus; no physical two-computer LAN or human audio-listening claim",
+  "reviewedBy": "Codex audit_presentation",
+  "reviewedUtc": "2026-10-18T09:51:07.670728+00:00",
+  "event": "Final requested first-person event",
+  "generation": {
+    "tool": "OpenAI image_gen builtin",
+    "originalOutputs": 9,
+    "offlineChecks": 247,
+    "packRegenerationByteIdentical": true,
+    "discardedWalkBReplacedByOppositeFootAuthoredSources": true,
+    "packReproductionScope": "Byte-identical atlas and metadata packing from nine preserved fixed image sources; image_gen model generation was not rerun or claimed deterministic."
+  },
+  "runtimeFiles": [
+    {
+      "file": "Content/Textures/NoTrace/FirstPerson/Actors.png",
+      "sourceFile": "Art/NoTrace/FirstPerson/Atlas/Actors.png",
+      "sha256": "e89c79133c34267eeb1f0893b0740bdabff25cb475fd2431b8ab55183ed58780",
+      "byteIdenticalToAuthoredPack": true
+    },
+    {
+      "file": "Content/Textures/NoTrace/FirstPerson/Viewmodels.png",
+      "sourceFile": "Art/NoTrace/FirstPerson/Atlas/Viewmodels.png",
+      "sha256": "aa48420e53254a81dab5f71a0f6693ec21edf83c1a134f1a02047315500aa10d",
+      "byteIdenticalToAuthoredPack": true
+    },
+    {
+      "file": "Content/Textures/NoTrace/FirstPerson/Runtime.json",
+      "sourceFile": "Art/NoTrace/FirstPerson/Atlas/Runtime.json",
+      "sha256": "0cf1892119373c41e837085e10aa8952555d34cdc37598ffb20f93575b148962",
+      "byteIdenticalToAuthoredPack": true
+    }
+  ],
+  "execution": {
+    "startedUtc": "2026-10-18T09:43:36.2197807Z",
+    "endedUtc": "2026-10-18T09:43:53.6223116Z",
+    "exitCode": 0,
+    "seconds": 17.4025335,
+    "executableSha256": "37854548ac3c922457755d1cbbcaf4b8f68755cac98112889688c554f2628194",
+    "command": "NoTraceGameGuiTests.exe --first-person-only",
+    "runEvidence": {
+      "file": "build/qa-evento3-spatial-20261017/gui-fps-52-run.json",
+      "sha256": "84d2a5155cb5a3b24248d7e957f2f3aef579e5cf966ba49c7792ae5ff2945e9f",
+      "modifiedUtc": "2026-10-18T09:43:53.709522+00:00"
+    },
+    "logEvidence": {
+      "file": "build/qa-evento3-spatial-20261017/gui-fps-52.log",
+      "sha256": "23100b785e902f5949611ca49f68b9719c36c5137c7694b03f420d6f01faf831",
+      "modifiedUtc": "2026-10-18T09:43:53.535672+00:00"
+    },
+    "saveOriginalIntact": true
+  },
+  "art": {
+    "status": "PASS",
+    "checks": 202,
+    "actorFrames": 36,
+    "uniqueHumanFrames": 27,
+    "viewmodelFrames": 16,
+    "trainingStaticAliases": true,
+    "report": {
+      "file": "build/qa-evento3-spatial-20261017/gui-fps-52-frozen/first-person-art-fixtures.json",
+      "sha256": "2732daed5eff5c7cff79d7bd51084404a69c08a40f1e4d3118654b80d5efc653",
+      "modifiedUtc": "2026-10-18T09:43:52.246522+00:00",
+      "originalCaptureFile": "build/gui-test-sandbox/captures/first-person-art-fixtures.json"
+    }
+  },
+  "renderer": {
+    "status": "PASS",
+    "checks": 69,
+    "mode": "fixtures de WorldState preparados; no equivalen a adquisición de controles ni partida manual",
+    "report": {
+      "file": "build/qa-evento3-spatial-20261017/gui-fps-52-frozen/fps-render-fixtures.json",
+      "sha256": "06a6e35d242e32212912785d6307ed96366181c81047ef0cb821354c1d79bb91",
+      "modifiedUtc": "2026-10-18T09:43:52.249035+00:00",
+      "originalCaptureFile": "build/gui-test-sandbox/captures/fps-render-fixtures.json"
+    },
+    "nativeResolution": [
+      320,
+      180
+    ],
+    "windowResolution": [
+      1600,
+      900
+    ],
+    "partialOcclusion": true,
+    "solidFloorOcclusionBothDirections": true,
+    "transparentGlass": true,
+    "performanceScope": "Debug: CPU, raycasting y envío de dibujo; excluye PNG, presentación final y espera de GPU"
+  },
+  "realGameInput": {
+    "status": "PASS",
+    "checks": 48,
+    "rapidToggles": 48,
+    "state": "Operation: finite ammunition; real Game input and Session simulation",
+    "report": {
+      "file": "build/qa-evento3-spatial-20261017/gui-fps-52-frozen/fps-game-input-report.json",
+      "sha256": "848e49a1c77390b32a2ac7f3acce139aca8119ea287290cd837a8ce84a662c8b",
+      "modifiedUtc": "2026-10-18T09:43:42.663007+00:00",
+      "originalCaptureFile": "build/gui-test-sandbox/captures/fps-game-input-report.json"
+    }
+  },
+  "visualReview": {
+    "method": "view_image of original PNG captures without opening or running the application",
+    "images": [
+      {
+        "file": "build/qa-evento3-spatial-20261017/gui-fps-52-frozen/fps-actors-atlas-gpu.png",
+        "sha256": "3e792305337c08d74ac82132a30e66c3daddb5f2d5d795ea5413d152717765d0",
+        "modifiedUtc": "2026-10-18T09:43:52.109155+00:00",
+        "originalCaptureFile": "build/gui-test-sandbox/captures/fps-actors-atlas-gpu.png"
+      },
+      {
+        "file": "build/qa-evento3-spatial-20261017/gui-fps-52-frozen/fps-viewmodels-atlas-gpu.png",
+        "sha256": "4a917554d4796fb328cba1d039876af5acc08234808fbbdf1a04349140942b4f",
+        "modifiedUtc": "2026-10-18T09:43:52.243521+00:00",
+        "originalCaptureFile": "build/gui-test-sandbox/captures/fps-viewmodels-atlas-gpu.png"
+      },
+      {
+        "file": "build/qa-evento3-spatial-20261017/gui-fps-52-frozen/fps-actor-exposed-native.png",
+        "sha256": "a5dbdb54885b54cbcb1808b97617f7170094ff8b5a3c4cc2c20d2bc512a992e3",
+        "modifiedUtc": "2026-10-18T09:43:43.211609+00:00",
+        "originalCaptureFile": "build/gui-test-sandbox/captures/fps-actor-exposed-native.png"
+      },
+      {
+        "file": "build/qa-evento3-spatial-20261017/gui-fps-52-frozen/fps-actor-partial-native.png",
+        "sha256": "255a5ee05d7294de54a48e5f303464f35cc644e6afcb672f705710b41f54d815",
+        "modifiedUtc": "2026-10-18T09:43:43.485666+00:00",
+        "originalCaptureFile": "build/gui-test-sandbox/captures/fps-actor-partial-native.png"
+      },
+      {
+        "file": "build/qa-evento3-spatial-20261017/gui-fps-52-frozen/fps-actor-wall-occluded-native.png",
+        "sha256": "d9dd653ab79f2cee0cd146f50bcae9f51045e8a9a753dcf6764d6dd5a29f3dfa",
+        "modifiedUtc": "2026-10-18T09:43:43.774528+00:00",
+        "originalCaptureFile": "build/gui-test-sandbox/captures/fps-actor-wall-occluded-native.png"
+      },
+      {
+        "file": "build/qa-evento3-spatial-20261017/gui-fps-52-frozen/fps-actor-dead-native.png",
+        "sha256": "13d4a63f47d5161bae2589cb1d605be97c7dea4236632965f4be1e86831ac385",
+        "modifiedUtc": "2026-10-18T09:43:47.405454+00:00",
+        "originalCaptureFile": "build/gui-test-sandbox/captures/fps-actor-dead-native.png"
+      },
+      {
+        "file": "build/qa-evento3-spatial-20261017/gui-fps-52-frozen/fps-ally-prone-hit-native.png",
+        "sha256": "a7208f02ed5234e75d10678be5d9343c8a168b71a881138bd569a598801076f7",
+        "modifiedUtc": "2026-10-18T09:43:48.493294+00:00",
+        "originalCaptureFile": "build/gui-test-sandbox/captures/fps-ally-prone-hit-native.png"
+      },
+      {
+        "file": "build/qa-evento3-spatial-20261017/gui-fps-52-frozen/fps-weapon-reload-out-native.png",
+        "sha256": "3f8d88fd62d92cccde35c3b30764a03a4a9d3dfd44019b40fce8a2a53faec79a",
+        "modifiedUtc": "2026-10-18T09:43:49.590204+00:00",
+        "originalCaptureFile": "build/gui-test-sandbox/captures/fps-weapon-reload-out-native.png"
+      },
+      {
+        "file": "build/qa-evento3-spatial-20261017/gui-fps-52-frozen/fps-weapon-fire-native.png",
+        "sha256": "bdd36c2d4eef1fe57f4cc5656dc05b6bc3200bc0fc7f10201abbab94b64ad330",
+        "modifiedUtc": "2026-10-18T09:43:49.043551+00:00",
+        "originalCaptureFile": "build/gui-test-sandbox/captures/fps-weapon-fire-native.png"
+      },
+      {
+        "file": "build/qa-evento3-spatial-20261017/gui-fps-52-frozen/fps-floor-underside-occlusion-native.png",
+        "sha256": "513cfd1b8babc6436bcad4c1a3c3472b26c76ecb63430edee54efe452a5cb8bd",
+        "modifiedUtc": "2026-10-18T09:43:45.450669+00:00",
+        "originalCaptureFile": "build/gui-test-sandbox/captures/fps-floor-underside-occlusion-native.png"
+      },
+      {
+        "file": "build/qa-evento3-spatial-20261017/gui-fps-52-frozen/fps-military-support-10.png",
+        "sha256": "cd3b21df0a6b602ca8236a1d22ec54fa78bc715679957baa172e9f479d82d2c8",
+        "modifiedUtc": "2026-10-18T09:43:50.735964+00:00",
+        "originalCaptureFile": "build/gui-test-sandbox/captures/fps-military-support-10.png"
+      },
+      {
+        "file": "build/qa-evento3-spatial-20261017/gui-fps-52-frozen/fps-game-input.png",
+        "sha256": "312ed6144935f9b3fec53a507e476ad101dcdab0bed3248892dbaa245ba7da1e",
+        "modifiedUtc": "2026-10-18T09:43:40.417401+00:00",
+        "originalCaptureFile": "build/gui-test-sandbox/captures/fps-game-input.png"
+      }
+    ],
+    "findings": [
+      "GPU atlas preserves frontal identity, connected gloves and real rear-of-weapon view; three human variants alternate the authored forward support foot.",
+      "Exposed actor is feet-anchored; partial wall hides lower body and full wall reveals no actor pixels.",
+      "Prone ally hit keeps the same low body extent; impact does not select a standing silhouette.",
+      "Magazine extraction has connected hand and gun poses; fire has one source pose with muzzle flash.",
+      "Solid upper floor occludes the actor from below; real military-support view preserves the same weapon and actor scale.",
+      "No concrete art defect found in the inspected captures."
+    ]
+  },
+  "limits": [
+    "Renderer fixture scenes use prepared WorldState; real input is covered separately by the 48 Game checks.",
+    "This gate covers the focused GPU run, not a later full GUI regression or a manual complete match.",
+    "No claim of physical LAN on two computers or human listening to audio.",
+    "Runtime PNG and reproducible Runtime.json remained unchanged after focus; acceptance metadata is stored only in Art."
+  ],
+  "evidencePreservation": "Focus 52 captures frozen by root before full GUI; hashes verified identical to the files inspected with view_image"
+}

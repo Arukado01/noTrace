@@ -1,0 +1,151 @@
+{
+  "author": "Carlos Cortina",
+  "date": "2026-10-18",
+  "sources": [
+    {
+      "file": "Art/NoTrace/FirstPerson/Sources/GuardA-v1.png",
+      "sha256": "2e64357289b015df7ea1fbee63c0c3e06bff82518c87f71c87d8f7f5d1b22691",
+      "size": [
+        1199,
+        1312
+      ],
+      "alphaExtrema": [
+        0,
+        255
+      ],
+      "prompt": "Art/NoTrace/FirstPerson/Prompts/GuardA-v1.txt",
+      "promptSha256": "ea36c7e449e7c36e13a4075f02442c08b403bb0e1f7563d389aa41e359f296cc",
+      "generator": "OpenAI image_gen builtin",
+      "original": "C:/Users/desar/.codex/generated_images/01a14cd4-aeb2-70b3-b9fc-0b060cadef2e/exec-60d4df74-a62a-4c24-ad55-d22f8ea55b44.png"
+    },
+    {
+      "file": "Art/NoTrace/FirstPerson/Sources/GuardB-v1.png",
+      "sha256": "0c52920a0cda89f43eb5e105306fe4c26f16224e8d760de92911b46badcdc6af",
+      "size": [
+        1199,
+        1312
+      ],
+      "alphaExtrema": [
+        0,
+        255
+      ],
+      "prompt": "Art/NoTrace/FirstPerson/Prompts/GuardB-v1.txt",
+      "promptSha256": "f318ad22f426a361c2675b2b10d58d14c7c8f794b0bc2e7a964e88d2158be226",
+      "generator": "OpenAI image_gen builtin",
+      "original": "C:/Users/desar/.codex/generated_images/01a14cd4-aeb2-70b3-b9fc-0b060cadef2e/exec-bd79c5b3-31a6-4fb0-80a6-565362e0f804.png"
+    },
+    {
+      "file": "Art/NoTrace/FirstPerson/Sources/Ally-v1.png",
+      "sha256": "97b44a8e7ce825cbd9fd7302b2bebd581e77c98f335ea5f0b9919873fbcb264b",
+      "size": [
+        1199,
+        1312
+      ],
+      "alphaExtrema": [
+        0,
+        255
+      ],
+      "prompt": "Art/NoTrace/FirstPerson/Prompts/Ally-v1.txt",
+      "promptSha256": "6ea41cacb9c13ab9771cfa4504ac821d5f33e7d2db3a1a7463e961f30d3ab3e3",
+      "generator": "OpenAI image_gen builtin",
+      "original": "C:/Users/desar/.codex/generated_images/01a14cd4-aeb2-70b3-b9fc-0b060cadef2e/exec-b2a2d9b1-ef1f-4255-ac50-54ef09afd432.png"
+    },
+    {
+      "file": "Art/NoTrace/FirstPerson/Sources/Training-v1.png",
+      "sha256": "6715dac46cbda0d86f400c036bd49625dbe727a38db151b43db8a75abfa005fc",
+      "size": [
+        1536,
+        1024
+      ],
+      "alphaExtrema": [
+        0,
+        254
+      ],
+      "prompt": "Art/NoTrace/FirstPerson/Prompts/Training-v1.txt",
+      "promptSha256": "7a1e6875a8e9b843fb8623ef46f419307f195977e0ccefa50fd5e9988ff0d061",
+      "generator": "OpenAI image_gen builtin",
+      "original": "C:/Users/desar/.codex/generated_images/01a14cd4-aeb2-70b3-b9fc-0b060cadef2e/exec-34f9bc4a-c5dd-4d85-80e2-ff949a470fb6.png"
+    },
+    {
+      "file": "Art/NoTrace/FirstPerson/Sources/ViewmodelPistol-v1.png",
+      "sha256": "6909685df9447eb7dccb818835674a9561a7513a84574539ad05f4a2e0d8c83f",
+      "size": [
+        1536,
+        1024
+      ],
+      "alphaExtrema": [
+        0,
+        254
+      ],
+      "prompt": "Art/NoTrace/FirstPerson/Prompts/ViewmodelPistol-v1.txt",
+      "promptSha256": "45f2eed94d154087837dfc899e4f6f1691a7ebe727b2558be03c7380ca689dc5",
+      "generator": "OpenAI image_gen builtin",
+      "original": "C:/Users/desar/.codex/generated_images/01a14cd4-aeb2-70b3-b9fc-0b060cadef2e/exec-a34d80bf-8e6e-4737-be14-aae3f28ebec4.png"
+    },
+    {
+      "file": "Art/NoTrace/FirstPerson/Sources/ViewmodelNonLethal-v1.png",
+      "sha256": "e7bec5e193691727a95ceffae04c10ba90fa04c16780672cfb434f95d1364d3e",
+      "size": [
+        1536,
+        1024
+      ],
+      "alphaExtrema": [
+        0,
+        254
+      ],
+      "prompt": "Art/NoTrace/FirstPerson/Prompts/ViewmodelNonLethal-v1.txt",
+      "promptSha256": "6ead752641efa214c5d6a31511976c93642f2f9ad558c16448877fed6f8c70e5",
+      "generator": "OpenAI image_gen builtin",
+      "original": "C:/Users/desar/.codex/generated_images/01a14cd4-aeb2-70b3-b9fc-0b060cadef2e/exec-1e477bbc-b1b0-4f4d-8f76-e2629e9344de.png"
+    },
+    {
+      "file": "Art/NoTrace/FirstPerson/Sources/GuardA-WalkB-v2.png",
+      "sha256": "b7310561afd5bcd50176140dba39d4ffedf1fdf6a5aed2be326f8dfa9392c17f",
+      "size": [
+        1024,
+        1536
+      ],
+      "alphaExtrema": [
+        0,
+        254
+      ],
+      "prompt": "Art/NoTrace/FirstPerson/Prompts/GuardA-WalkB-v2.txt",
+      "promptSha256": "8837b6867b996d97bb4ee4d10ba2a043981519c53a79d6772d6545dd674cb6ad",
+      "generator": "OpenAI image_gen builtin",
+      "original": "C:/Users/desar/.codex/generated_images/01a14cd4-aeb2-70b3-b9fc-0b060cadef2e/exec-88bcf53d-be86-4d83-82e9-0fbd91165e46.png"
+    },
+    {
+      "file": "Art/NoTrace/FirstPerson/Sources/GuardB-WalkB-v2.png",
+      "sha256": "378baff40f13910092b541dcfb6c9e96706a8467f0ef77d57f1988140c7ae63a",
+      "size": [
+        1024,
+        1536
+      ],
+      "alphaExtrema": [
+        0,
+        254
+      ],
+      "prompt": "Art/NoTrace/FirstPerson/Prompts/GuardB-WalkB-v2.txt",
+      "promptSha256": "7c505de0bb363876e971c6f26bc353b925269f78406b19c0d2af6aded9cfc3a0",
+      "generator": "OpenAI image_gen builtin",
+      "original": "C:/Users/desar/.codex/generated_images/01a14cd4-aeb2-70b3-b9fc-0b060cadef2e/exec-5db941f5-05f6-4615-a22c-f68e8c49d740.png"
+    },
+    {
+      "file": "Art/NoTrace/FirstPerson/Sources/Ally-WalkB-v2.png",
+      "sha256": "560aa4fc5ebe01466bea2f14c3680d7c491c88353ea0295c3aaaa78a5ea6d1e2",
+      "size": [
+        1199,
+        1312
+      ],
+      "alphaExtrema": [
+        0,
+        255
+      ],
+      "prompt": "Art/NoTrace/FirstPerson/Prompts/Ally-WalkB-v2.txt",
+      "promptSha256": "334721e7e4d5f7c6af761fead472776f58a3cb4f5a6b04790a0ef1a3f2e7e0a6",
+      "generator": "OpenAI image_gen builtin",
+      "original": "C:/Users/desar/.codex/generated_images/01a14cd4-aeb2-70b3-b9fc-0b060cadef2e/exec-1c88bc80-4a92-40b4-a3e2-48cd7e3a3f9c.png"
+    }
+  ],
+  "method": "new_builtin_imagegen_frontal_identity_adaptations_not_axo_crops"
+}

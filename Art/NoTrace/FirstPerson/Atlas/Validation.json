@@ -1,0 +1,56 @@
+{
+  "status": "PASS",
+  "checks": 247,
+  "actorFrames": 36,
+  "humanUniqueFrames": 27,
+  "weaponFrames": 16,
+  "newSourceImages": 9,
+  "walkingSupports": [
+    {
+      "variant": "GuardA",
+      "support": [
+        {
+          "state": "WalkA",
+          "leftFoot": 88,
+          "rightFoot": 4
+        },
+        {
+          "state": "WalkB",
+          "leftFoot": 0,
+          "rightFoot": 104
+        }
+      ]
+    },
+    {
+      "variant": "GuardB",
+      "support": [
+        {
+          "state": "WalkA",
+          "leftFoot": 90,
+          "rightFoot": 8
+        },
+        {
+          "state": "WalkB",
+          "leftFoot": 0,
+          "rightFoot": 118
+        }
+      ]
+    },
+    {
+      "variant": "Ally",
+      "support": [
+        {
+          "state": "WalkA",
+          "leftFoot": 85,
+          "rightFoot": 11
+        },
+        {
+          "state": "WalkB",
+          "leftFoot": 0,
+          "rightFoot": 116
+        }
+      ]
+    }
+  ],
+  "scope": "Offline alpha, complete source rectangles, anchored pose bounds, real alternate walking support and coherent viewmodel scale"
+}

@@ -1,0 +1,1820 @@
+{
+  "author": "Carlos Cortina",
+  "organization": "CIO",
+  "date": "2026-10-18",
+  "schemaVersion": 1,
+  "generator": "Tools/GenerateNoTraceFirstPerson.py",
+  "generatorSha256": "c6575418d92151d56180d188d91ce7f4863eba96d00ee1836b4dde15810c61a0",
+  "sourceMethod": "new_builtin_imagegen_frontal_identity_adaptations_not_axo_crops",
+  "actorCell": [
+    128,
+    128
+  ],
+  "actorColumns": [
+    "Idle",
+    "WalkA",
+    "WalkB",
+    "Fire",
+    "Hurt",
+    "Crouch",
+    "Prone",
+    "Down",
+    "Dead"
+  ],
+  "actorRows": [
+    "GuardA",
+    "GuardB",
+    "Ally",
+    "Training"
+  ],
+  "standingPixels": 112,
+  "worldStandingHeight": 46,
+  "viewmodelCell": [
+    256,
+    160
+  ],
+  "viewmodelColumns": [
+    "Idle",
+    "Fire",
+    "ReloadOut",
+    "ReloadIn"
+  ],
+  "sources": [
+    {
+      "file": "Art/NoTrace/FirstPerson/Sources/GuardA-v1.png",
+      "sha256": "2e64357289b015df7ea1fbee63c0c3e06bff82518c87f71c87d8f7f5d1b22691",
+      "size": [
+        1199,
+        1312
+      ],
+      "alphaExtrema": [
+        0,
+        255
+      ],
+      "prompt": "Art/NoTrace/FirstPerson/Prompts/GuardA-v1.txt",
+      "promptSha256": "ea36c7e449e7c36e13a4075f02442c08b403bb0e1f7563d389aa41e359f296cc",
+      "generator": "OpenAI image_gen builtin",
+      "original": "C:/Users/desar/.codex/generated_images/01a14cd4-aeb2-70b3-b9fc-0b060cadef2e/exec-60d4df74-a62a-4c24-ad55-d22f8ea55b44.png"
+    },
+    {
+      "file": "Art/NoTrace/FirstPerson/Sources/GuardB-v1.png",
+      "sha256": "0c52920a0cda89f43eb5e105306fe4c26f16224e8d760de92911b46badcdc6af",
+      "size": [
+        1199,
+        1312
+      ],
+      "alphaExtrema": [
+        0,
+        255
+      ],
+      "prompt": "Art/NoTrace/FirstPerson/Prompts/GuardB-v1.txt",
+      "promptSha256": "f318ad22f426a361c2675b2b10d58d14c7c8f794b0bc2e7a964e88d2158be226",
+      "generator": "OpenAI image_gen builtin",
+      "original": "C:/Users/desar/.codex/generated_images/01a14cd4-aeb2-70b3-b9fc-0b060cadef2e/exec-bd79c5b3-31a6-4fb0-80a6-565362e0f804.png"
+    },
+    {
+      "file": "Art/NoTrace/FirstPerson/Sources/Ally-v1.png",
+      "sha256": "97b44a8e7ce825cbd9fd7302b2bebd581e77c98f335ea5f0b9919873fbcb264b",
+      "size": [
+        1199,
+        1312
+      ],
+      "alphaExtrema": [
+        0,
+        255
+      ],
+      "prompt": "Art/NoTrace/FirstPerson/Prompts/Ally-v1.txt",
+      "promptSha256": "6ea41cacb9c13ab9771cfa4504ac821d5f33e7d2db3a1a7463e961f30d3ab3e3",
+      "generator": "OpenAI image_gen builtin",
+      "original": "C:/Users/desar/.codex/generated_images/01a14cd4-aeb2-70b3-b9fc-0b060cadef2e/exec-b2a2d9b1-ef1f-4255-ac50-54ef09afd432.png"
+    },
+    {
+      "file": "Art/NoTrace/FirstPerson/Sources/Training-v1.png",
+      "sha256": "6715dac46cbda0d86f400c036bd49625dbe727a38db151b43db8a75abfa005fc",
+      "size": [
+        1536,
+        1024
+      ],
+      "alphaExtrema": [
+        0,
+        254
+      ],
+      "prompt": "Art/NoTrace/FirstPerson/Prompts/Training-v1.txt",
+      "promptSha256": "7a1e6875a8e9b843fb8623ef46f419307f195977e0ccefa50fd5e9988ff0d061",
+      "generator": "OpenAI image_gen builtin",
+      "original": "C:/Users/desar/.codex/generated_images/01a14cd4-aeb2-70b3-b9fc-0b060cadef2e/exec-34f9bc4a-c5dd-4d85-80e2-ff949a470fb6.png"
+    },
+    {
+      "file": "Art/NoTrace/FirstPerson/Sources/ViewmodelPistol-v1.png",
+      "sha256": "6909685df9447eb7dccb818835674a9561a7513a84574539ad05f4a2e0d8c83f",
+      "size": [
+        1536,
+        1024
+      ],
+      "alphaExtrema": [
+        0,
+        254
+      ],
+      "prompt": "Art/NoTrace/FirstPerson/Prompts/ViewmodelPistol-v1.txt",
+      "promptSha256": "45f2eed94d154087837dfc899e4f6f1691a7ebe727b2558be03c7380ca689dc5",
+      "generator": "OpenAI image_gen builtin",
+      "original": "C:/Users/desar/.codex/generated_images/01a14cd4-aeb2-70b3-b9fc-0b060cadef2e/exec-a34d80bf-8e6e-4737-be14-aae3f28ebec4.png"
+    },
+    {
+      "file": "Art/NoTrace/FirstPerson/Sources/ViewmodelNonLethal-v1.png",
+      "sha256": "e7bec5e193691727a95ceffae04c10ba90fa04c16780672cfb434f95d1364d3e",
+      "size": [
+        1536,
+        1024
+      ],
+      "alphaExtrema": [
+        0,
+        254
+      ],
+      "prompt": "Art/NoTrace/FirstPerson/Prompts/ViewmodelNonLethal-v1.txt",
+      "promptSha256": "6ead752641efa214c5d6a31511976c93642f2f9ad558c16448877fed6f8c70e5",
+      "generator": "OpenAI image_gen builtin",
+      "original": "C:/Users/desar/.codex/generated_images/01a14cd4-aeb2-70b3-b9fc-0b060cadef2e/exec-1e477bbc-b1b0-4f4d-8f76-e2629e9344de.png"
+    },
+    {
+      "file": "Art/NoTrace/FirstPerson/Sources/GuardA-WalkB-v2.png",
+      "sha256": "b7310561afd5bcd50176140dba39d4ffedf1fdf6a5aed2be326f8dfa9392c17f",
+      "size": [
+        1024,
+        1536
+      ],
+      "alphaExtrema": [
+        0,
+        254
+      ],
+      "prompt": "Art/NoTrace/FirstPerson/Prompts/GuardA-WalkB-v2.txt",
+      "promptSha256": "8837b6867b996d97bb4ee4d10ba2a043981519c53a79d6772d6545dd674cb6ad",
+      "generator": "OpenAI image_gen builtin",
+      "original": "C:/Users/desar/.codex/generated_images/01a14cd4-aeb2-70b3-b9fc-0b060cadef2e/exec-88bcf53d-be86-4d83-82e9-0fbd91165e46.png"
+    },
+    {
+      "file": "Art/NoTrace/FirstPerson/Sources/GuardB-WalkB-v2.png",
+      "sha256": "378baff40f13910092b541dcfb6c9e96706a8467f0ef77d57f1988140c7ae63a",
+      "size": [
+        1024,
+        1536
+      ],
+      "alphaExtrema": [
+        0,
+        254
+      ],
+      "prompt": "Art/NoTrace/FirstPerson/Prompts/GuardB-WalkB-v2.txt",
+      "promptSha256": "7c505de0bb363876e971c6f26bc353b925269f78406b19c0d2af6aded9cfc3a0",
+      "generator": "OpenAI image_gen builtin",
+      "original": "C:/Users/desar/.codex/generated_images/01a14cd4-aeb2-70b3-b9fc-0b060cadef2e/exec-5db941f5-05f6-4615-a22c-f68e8c49d740.png"
+    },
+    {
+      "file": "Art/NoTrace/FirstPerson/Sources/Ally-WalkB-v2.png",
+      "sha256": "560aa4fc5ebe01466bea2f14c3680d7c491c88353ea0295c3aaaa78a5ea6d1e2",
+      "size": [
+        1199,
+        1312
+      ],
+      "alphaExtrema": [
+        0,
+        255
+      ],
+      "prompt": "Art/NoTrace/FirstPerson/Prompts/Ally-WalkB-v2.txt",
+      "promptSha256": "334721e7e4d5f7c6af761fead472776f58a3cb4f5a6b04790a0ef1a3f2e7e0a6",
+      "generator": "OpenAI image_gen builtin",
+      "original": "C:/Users/desar/.codex/generated_images/01a14cd4-aeb2-70b3-b9fc-0b060cadef2e/exec-1c88bc80-4a92-40b4-a3e2-48cd7e3a3f9c.png"
+    }
+  ],
+  "actors": [
+    {
+      "variant": "GuardA",
+      "state": "Idle",
+      "rect": [
+        0,
+        0,
+        128,
+        128
+      ],
+      "anchor": [
+        64,
+        124
+      ],
+      "sourceFile": "Art/NoTrace/FirstPerson/Sources/GuardA-v1.png",
+      "sourceRect": [
+        104,
+        18,
+        324,
+        482
+      ],
+      "sourcePose": 0,
+      "sourceScale": 0.2413793103448276,
+      "opaqueBounds": [
+        38,
+        12,
+        91,
+        124
+      ],
+      "physicalHeight": 46,
+      "sha256": "f355932127e19a2bae94d767a77a07405ed3aa0eb88621daf94764575e1572ca",
+      "aliasReason": null
+    },
+    {
+      "variant": "GuardA",
+      "state": "WalkA",
+      "rect": [
+        128,
+        0,
+        128,
+        128
+      ],
+      "anchor": [
+        64,
+        124
+      ],
+      "sourceFile": "Art/NoTrace/FirstPerson/Sources/GuardA-v1.png",
+      "sourceRect": [
+        487,
+        14,
+        708,
+        491
+      ],
+      "sourcePose": 1,
+      "sourceScale": 0.2348008385744235,
+      "opaqueBounds": [
+        38,
+        12,
+        90,
+        124
+      ],
+      "physicalHeight": 46,
+      "sha256": "11f9ced4857f7ca2619faf2892aab86f2396ac7f6fc9a75c100539bd197883f2",
+      "aliasReason": null
+    },
+    {
+      "variant": "GuardA",
+      "state": "WalkB",
+      "rect": [
+        256,
+        0,
+        128,
+        128
+      ],
+      "anchor": [
+        64,
+        124
+      ],
+      "sourceFile": "Art/NoTrace/FirstPerson/Sources/GuardA-WalkB-v2.png",
+      "sourceRect": [
+        229,
+        60,
+        795,
+        1419
+      ],
+      "sourcePose": 2,
+      "sourceScale": 0.08241353936718175,
+      "opaqueBounds": [
+        41,
+        12,
+        88,
+        124
+      ],
+      "physicalHeight": 46,
+      "sha256": "83723981c09aa0c63dbb940d8d90ee82f81caea420ad596ea1a991d05a57c6a2",
+      "aliasReason": null
+    },
+    {
+      "variant": "GuardA",
+      "state": "Fire",
+      "rect": [
+        384,
+        0,
+        128,
+        128
+      ],
+      "anchor": [
+        64,
+        124
+      ],
+      "sourceFile": "Art/NoTrace/FirstPerson/Sources/GuardA-v1.png",
+      "sourceRect": [
+        98,
+        518,
+        323,
+        962
+      ],
+      "sourcePose": 3,
+      "sourceScale": 0.2413793103448276,
+      "opaqueBounds": [
+        37,
+        17,
+        91,
+        124
+      ],
+      "physicalHeight": 46,
+      "sha256": "6051a43e6ce8b64eff3cfd1bd909fc0109495be20023ed1aa4e8f57a44519351",
+      "aliasReason": null
+    },
+    {
+      "variant": "GuardA",
+      "state": "Hurt",
+      "rect": [
+        512,
+        0,
+        128,
+        128
+      ],
+      "anchor": [
+        64,
+        124
+      ],
+      "sourceFile": "Art/NoTrace/FirstPerson/Sources/GuardA-v1.png",
+      "sourceRect": [
+        479,
+        519,
+        769,
+        945
+      ],
+      "sourcePose": 4,
+      "sourceScale": 0.2413793103448276,
+      "opaqueBounds": [
+        29,
+        21,
+        99,
+        124
+      ],
+      "physicalHeight": 46,
+      "sha256": "6f3e084c483afe5e2b8bd3cf76e3bcf6d4ab569ea816a9efde6d75f3d4538bc5",
+      "aliasReason": null
+    },
+    {
+      "variant": "GuardA",
+      "state": "Crouch",
+      "rect": [
+        640,
+        0,
+        128,
+        128
+      ],
+      "anchor": [
+        64,
+        124
+      ],
+      "sourceFile": "Art/NoTrace/FirstPerson/Sources/GuardA-v1.png",
+      "sourceRect": [
+        882,
+        609,
+        1111,
+        931
+      ],
+      "sourcePose": 5,
+      "sourceScale": 0.2413793103448276,
+      "opaqueBounds": [
+        37,
+        46,
+        92,
+        124
+      ],
+      "physicalHeight": 34,
+      "sha256": "65196a60401fd6571d402d90029b4239d09697feb0a26833e9abab2197016d52",
+      "aliasReason": null
+    },
+    {
+      "variant": "GuardA",
+      "state": "Prone",
+      "rect": [
+        768,
+        0,
+        128,
+        128
+      ],
+      "anchor": [
+        64,
+        124
+      ],
+      "sourceFile": "Art/NoTrace/FirstPerson/Sources/GuardA-v1.png",
+      "sourceRect": [
+        18,
+        1058,
+        395,
+        1241
+      ],
+      "sourcePose": 6,
+      "sourceScale": 0.18579234972677597,
+      "opaqueBounds": [
+        29,
+        90,
+        99,
+        124
+      ],
+      "physicalHeight": 14,
+      "sha256": "c848f9a3db17713b41f2473e4e5d56f1c762788a075bfbc857465d4b53e0f156",
+      "aliasReason": null
+    },
+    {
+      "variant": "GuardA",
+      "state": "Down",
+      "rect": [
+        896,
+        0,
+        128,
+        128
+      ],
+      "anchor": [
+        64,
+        124
+      ],
+      "sourceFile": "Art/NoTrace/FirstPerson/Sources/GuardA-v1.png",
+      "sourceRect": [
+        421,
+        1073,
+        801,
+        1239
+      ],
+      "sourcePose": 7,
+      "sourceScale": 0.20481927710843373,
+      "opaqueBounds": [
+        25,
+        90,
+        103,
+        124
+      ],
+      "physicalHeight": 14,
+      "sha256": "1a768c32ef1005c13af36ba1c140600bd233c0f9e71d9be1382c46e1fc981a09",
+      "aliasReason": null
+    },
+    {
+      "variant": "GuardA",
+      "state": "Dead",
+      "rect": [
+        1024,
+        0,
+        128,
+        128
+      ],
+      "anchor": [
+        64,
+        124
+      ],
+      "sourceFile": "Art/NoTrace/FirstPerson/Sources/GuardA-v1.png",
+      "sourceRect": [
+        823,
+        1059,
+        1186,
+        1290
+      ],
+      "sourcePose": 8,
+      "sourceScale": 0.1471861471861472,
+      "opaqueBounds": [
+        38,
+        90,
+        91,
+        124
+      ],
+      "physicalHeight": 14,
+      "sha256": "e638394679ba85b03ae303b20850d18fec2564a4f28f75cb05c18fdc06da3c9a",
+      "aliasReason": null
+    },
+    {
+      "variant": "GuardB",
+      "state": "Idle",
+      "rect": [
+        0,
+        128,
+        128,
+        128
+      ],
+      "anchor": [
+        64,
+        124
+      ],
+      "sourceFile": "Art/NoTrace/FirstPerson/Sources/GuardB-v1.png",
+      "sourceRect": [
+        107,
+        14,
+        334,
+        490
+      ],
+      "sourcePose": 0,
+      "sourceScale": 0.23529411764705882,
+      "opaqueBounds": [
+        38,
+        12,
+        91,
+        124
+      ],
+      "physicalHeight": 46,
+      "sha256": "b7fd3634f702ff97d00786942e30946fcdfb57f8a03624e7044b8c318e2589b4",
+      "aliasReason": null
+    },
+    {
+      "variant": "GuardB",
+      "state": "WalkA",
+      "rect": [
+        128,
+        128,
+        128,
+        128
+      ],
+      "anchor": [
+        64,
+        124
+      ],
+      "sourceFile": "Art/NoTrace/FirstPerson/Sources/GuardB-v1.png",
+      "sourceRect": [
+        488,
+        15,
+        715,
+        498
+      ],
+      "sourcePose": 1,
+      "sourceScale": 0.2318840579710145,
+      "opaqueBounds": [
+        38,
+        12,
+        91,
+        124
+      ],
+      "physicalHeight": 46,
+      "sha256": "184501c6ac6886721b5ad449b85e1d65a6483d12021c0d0347ede3dbf3053149",
+      "aliasReason": null
+    },
+    {
+      "variant": "GuardB",
+      "state": "WalkB",
+      "rect": [
+        256,
+        128,
+        128,
+        128
+      ],
+      "anchor": [
+        64,
+        124
+      ],
+      "sourceFile": "Art/NoTrace/FirstPerson/Sources/GuardB-WalkB-v2.png",
+      "sourceRect": [
+        206,
+        28,
+        802,
+        1462
+      ],
+      "sourcePose": 2,
+      "sourceScale": 0.07810320781032078,
+      "opaqueBounds": [
+        41,
+        12,
+        88,
+        124
+      ],
+      "physicalHeight": 46,
+      "sha256": "0cd51432f69f90267632af8b39a7fe514da0e32cf24dd727e782af4983eb73fd",
+      "aliasReason": null
+    },
+    {
+      "variant": "GuardB",
+      "state": "Fire",
+      "rect": [
+        384,
+        128,
+        128,
+        128
+      ],
+      "anchor": [
+        64,
+        124
+      ],
+      "sourceFile": "Art/NoTrace/FirstPerson/Sources/GuardB-v1.png",
+      "sourceRect": [
+        99,
+        518,
+        335,
+        966
+      ],
+      "sourcePose": 3,
+      "sourceScale": 0.23529411764705882,
+      "opaqueBounds": [
+        36,
+        19,
+        92,
+        124
+      ],
+      "physicalHeight": 46,
+      "sha256": "d592a27921ba3fc8e20517b7effb562a616b079cd74df871c3f6966cf78f35cf",
+      "aliasReason": null
+    },
+    {
+      "variant": "GuardB",
+      "state": "Hurt",
+      "rect": [
+        512,
+        128,
+        128,
+        128
+      ],
+      "anchor": [
+        64,
+        124
+      ],
+      "sourceFile": "Art/NoTrace/FirstPerson/Sources/GuardB-v1.png",
+      "sourceRect": [
+        487,
+        522,
+        785,
+        946
+      ],
+      "sourcePose": 4,
+      "sourceScale": 0.23529411764705882,
+      "opaqueBounds": [
+        29,
+        24,
+        99,
+        124
+      ],
+      "physicalHeight": 46,
+      "sha256": "922f376ca3119a7d10690674787b3ffa95ca7e32a545c88634aaa2d816613f5e",
+      "aliasReason": null
+    },
+    {
+      "variant": "GuardB",
+      "state": "Crouch",
+      "rect": [
+        640,
+        128,
+        128,
+        128
+      ],
+      "anchor": [
+        64,
+        124
+      ],
+      "sourceFile": "Art/NoTrace/FirstPerson/Sources/GuardB-v1.png",
+      "sourceRect": [
+        891,
+        613,
+        1130,
+        936
+      ],
+      "sourcePose": 5,
+      "sourceScale": 0.23529411764705882,
+      "opaqueBounds": [
+        36,
+        48,
+        92,
+        124
+      ],
+      "physicalHeight": 34,
+      "sha256": "e711ddb9a0451efbfee999d0e32eceddcd3745cafb9dfb7edc7d3bb18bec8b9e",
+      "aliasReason": null
+    },
+    {
+      "variant": "GuardB",
+      "state": "Prone",
+      "rect": [
+        768,
+        128,
+        128,
+        128
+      ],
+      "anchor": [
+        64,
+        124
+      ],
+      "sourceFile": "Art/NoTrace/FirstPerson/Sources/GuardB-v1.png",
+      "sourceRect": [
+        13,
+        1057,
+        404,
+        1245
+      ],
+      "sourcePose": 6,
+      "sourceScale": 0.18085106382978725,
+      "opaqueBounds": [
+        29,
+        90,
+        100,
+        124
+      ],
+      "physicalHeight": 14,
+      "sha256": "a46de1cf5e79956a1a1380825d1c762d5d7d3ef908058896a0df026fb629d4f8",
+      "aliasReason": null
+    },
+    {
+      "variant": "GuardB",
+      "state": "Down",
+      "rect": [
+        896,
+        128,
+        128,
+        128
+      ],
+      "anchor": [
+        64,
+        124
+      ],
+      "sourceFile": "Art/NoTrace/FirstPerson/Sources/GuardB-v1.png",
+      "sourceRect": [
+        425,
+        1074,
+        805,
+        1243
+      ],
+      "sourcePose": 7,
+      "sourceScale": 0.20118343195266272,
+      "opaqueBounds": [
+        26,
+        90,
+        102,
+        124
+      ],
+      "physicalHeight": 14,
+      "sha256": "ba556d912da5f4bddfe1788012c9aeae5762c9c750d2479ec85eff374a08f53b",
+      "aliasReason": null
+    },
+    {
+      "variant": "GuardB",
+      "state": "Dead",
+      "rect": [
+        1024,
+        128,
+        128,
+        128
+      ],
+      "anchor": [
+        64,
+        124
+      ],
+      "sourceFile": "Art/NoTrace/FirstPerson/Sources/GuardB-v1.png",
+      "sourceRect": [
+        821,
+        1056,
+        1195,
+        1294
+      ],
+      "sourcePose": 8,
+      "sourceScale": 0.14285714285714285,
+      "opaqueBounds": [
+        38,
+        90,
+        91,
+        124
+      ],
+      "physicalHeight": 14,
+      "sha256": "84f0150771bda0676cb3f5878a3d7db1098dc9ef9899699c1f581cbf7ff0e37b",
+      "aliasReason": null
+    },
+    {
+      "variant": "Ally",
+      "state": "Idle",
+      "rect": [
+        0,
+        256,
+        128,
+        128
+      ],
+      "anchor": [
+        64,
+        124
+      ],
+      "sourceFile": "Art/NoTrace/FirstPerson/Sources/Ally-v1.png",
+      "sourceRect": [
+        115,
+        20,
+        321,
+        487
+      ],
+      "sourcePose": 0,
+      "sourceScale": 0.2398286937901499,
+      "opaqueBounds": [
+        40,
+        12,
+        89,
+        124
+      ],
+      "physicalHeight": 46,
+      "sha256": "c3837aaaee24beec6af20e3a8040d9e51dfc3f8ce6ed09691af98405972161cc",
+      "aliasReason": null
+    },
+    {
+      "variant": "Ally",
+      "state": "WalkA",
+      "rect": [
+        128,
+        256,
+        128,
+        128
+      ],
+      "anchor": [
+        64,
+        124
+      ],
+      "sourceFile": "Art/NoTrace/FirstPerson/Sources/Ally-v1.png",
+      "sourceRect": [
+        498,
+        20,
+        706,
+        499
+      ],
+      "sourcePose": 1,
+      "sourceScale": 0.23382045929018788,
+      "opaqueBounds": [
+        40,
+        12,
+        89,
+        124
+      ],
+      "physicalHeight": 46,
+      "sha256": "277a8fa9d09fddec348551de440d4d710efa908f85117b17c2c7b345a72c8d0f",
+      "aliasReason": null
+    },
+    {
+      "variant": "Ally",
+      "state": "WalkB",
+      "rect": [
+        256,
+        256,
+        128,
+        128
+      ],
+      "anchor": [
+        64,
+        124
+      ],
+      "sourceFile": "Art/NoTrace/FirstPerson/Sources/Ally-WalkB-v2.png",
+      "sourceRect": [
+        360,
+        34,
+        845,
+        1224
+      ],
+      "sourcePose": 2,
+      "sourceScale": 0.09411764705882353,
+      "opaqueBounds": [
+        41,
+        12,
+        87,
+        124
+      ],
+      "physicalHeight": 46,
+      "sha256": "9b3e4c93b5c4d985d8d30a64f777d52661ae8f6c63b8611b8d4695d8f44af428",
+      "aliasReason": null
+    },
+    {
+      "variant": "Ally",
+      "state": "Fire",
+      "rect": [
+        384,
+        256,
+        128,
+        128
+      ],
+      "anchor": [
+        64,
+        124
+      ],
+      "sourceFile": "Art/NoTrace/FirstPerson/Sources/Ally-v1.png",
+      "sourceRect": [
+        94,
+        519,
+        338,
+        958
+      ],
+      "sourcePose": 3,
+      "sourceScale": 0.2398286937901499,
+      "opaqueBounds": [
+        35,
+        19,
+        94,
+        124
+      ],
+      "physicalHeight": 46,
+      "sha256": "9dda6e13575efaa40fa05ee41057e4f645cdcd76d04c9ca269871f508f6c7584",
+      "aliasReason": null
+    },
+    {
+      "variant": "Ally",
+      "state": "Hurt",
+      "rect": [
+        512,
+        256,
+        128,
+        128
+      ],
+      "anchor": [
+        64,
+        124
+      ],
+      "sourceFile": "Art/NoTrace/FirstPerson/Sources/Ally-v1.png",
+      "sourceRect": [
+        488,
+        518,
+        772,
+        950
+      ],
+      "sourcePose": 4,
+      "sourceScale": 0.2398286937901499,
+      "opaqueBounds": [
+        30,
+        20,
+        98,
+        124
+      ],
+      "physicalHeight": 46,
+      "sha256": "0c69a18dd94dd079b77bc058674ee96e1582f1ed8e37d42e79b6fc0d165fa431",
+      "aliasReason": null
+    },
+    {
+      "variant": "Ally",
+      "state": "Crouch",
+      "rect": [
+        640,
+        256,
+        128,
+        128
+      ],
+      "anchor": [
+        64,
+        124
+      ],
+      "sourceFile": "Art/NoTrace/FirstPerson/Sources/Ally-v1.png",
+      "sourceRect": [
+        877,
+        606,
+        1106,
+        935
+      ],
+      "sourcePose": 5,
+      "sourceScale": 0.2398286937901499,
+      "opaqueBounds": [
+        37,
+        45,
+        92,
+        124
+      ],
+      "physicalHeight": 34,
+      "sha256": "6a529df4812fec3ff8d773ee721f64937a6c4c6f539ee8a9f9f42356e1a30025",
+      "aliasReason": null
+    },
+    {
+      "variant": "Ally",
+      "state": "Prone",
+      "rect": [
+        768,
+        256,
+        128,
+        128
+      ],
+      "anchor": [
+        64,
+        124
+      ],
+      "sourceFile": "Art/NoTrace/FirstPerson/Sources/Ally-v1.png",
+      "sourceRect": [
+        17,
+        1059,
+        391,
+        1235
+      ],
+      "sourcePose": 6,
+      "sourceScale": 0.19318181818181818,
+      "opaqueBounds": [
+        28,
+        90,
+        100,
+        124
+      ],
+      "physicalHeight": 14,
+      "sha256": "7478e0d7f98556c05aa4690c95fa9a8a171034cc2a173c734a0278f86e1c07bd",
+      "aliasReason": null
+    },
+    {
+      "variant": "Ally",
+      "state": "Down",
+      "rect": [
+        896,
+        256,
+        128,
+        128
+      ],
+      "anchor": [
+        64,
+        124
+      ],
+      "sourceFile": "Art/NoTrace/FirstPerson/Sources/Ally-v1.png",
+      "sourceRect": [
+        417,
+        1054,
+        803,
+        1224
+      ],
+      "sourcePose": 7,
+      "sourceScale": 0.2,
+      "opaqueBounds": [
+        26,
+        90,
+        103,
+        124
+      ],
+      "physicalHeight": 14,
+      "sha256": "3e540a89e64b74c966195aeaa2e7617b5be83b347bcd256fe1a25f4f670a8b1c",
+      "aliasReason": null
+    },
+    {
+      "variant": "Ally",
+      "state": "Dead",
+      "rect": [
+        1024,
+        256,
+        128,
+        128
+      ],
+      "anchor": [
+        64,
+        124
+      ],
+      "sourceFile": "Art/NoTrace/FirstPerson/Sources/Ally-v1.png",
+      "sourceRect": [
+        817,
+        1034,
+        1184,
+        1288
+      ],
+      "sourcePose": 8,
+      "sourceScale": 0.13385826771653545,
+      "opaqueBounds": [
+        40,
+        90,
+        89,
+        124
+      ],
+      "physicalHeight": 14,
+      "sha256": "e1872249cdced57101fd2c01b7f49188266fac9918fc99b5248a7609b7fcbbcf",
+      "aliasReason": null
+    },
+    {
+      "variant": "Training",
+      "state": "Idle",
+      "rect": [
+        0,
+        384,
+        128,
+        128
+      ],
+      "anchor": [
+        64,
+        124
+      ],
+      "sourceFile": "Art/NoTrace/FirstPerson/Sources/Training-v1.png",
+      "sourceRect": [
+        262,
+        16,
+        507,
+        663
+      ],
+      "sourcePose": 0,
+      "sourceScale": 0.1731066460587326,
+      "opaqueBounds": [
+        43,
+        12,
+        85,
+        124
+      ],
+      "physicalHeight": 46,
+      "sha256": "30f09d244fd20957087c6d5e08dd3cb8c91c3446963b8eb6e7bbe50911716713",
+      "aliasReason": null
+    },
+    {
+      "variant": "Training",
+      "state": "WalkA",
+      "rect": [
+        128,
+        384,
+        128,
+        128
+      ],
+      "anchor": [
+        64,
+        124
+      ],
+      "sourceFile": "Art/NoTrace/FirstPerson/Sources/Training-v1.png",
+      "sourceRect": [
+        262,
+        16,
+        507,
+        663
+      ],
+      "sourcePose": 0,
+      "sourceScale": 0.1731066460587326,
+      "opaqueBounds": [
+        43,
+        12,
+        85,
+        124
+      ],
+      "physicalHeight": 46,
+      "sha256": "30f09d244fd20957087c6d5e08dd3cb8c91c3446963b8eb6e7bbe50911716713",
+      "aliasReason": "Static mechanical target has no locomotion/fire cycle"
+    },
+    {
+      "variant": "Training",
+      "state": "WalkB",
+      "rect": [
+        256,
+        384,
+        128,
+        128
+      ],
+      "anchor": [
+        64,
+        124
+      ],
+      "sourceFile": "Art/NoTrace/FirstPerson/Sources/Training-v1.png",
+      "sourceRect": [
+        262,
+        16,
+        507,
+        663
+      ],
+      "sourcePose": 0,
+      "sourceScale": 0.1731066460587326,
+      "opaqueBounds": [
+        43,
+        12,
+        85,
+        124
+      ],
+      "physicalHeight": 46,
+      "sha256": "30f09d244fd20957087c6d5e08dd3cb8c91c3446963b8eb6e7bbe50911716713",
+      "aliasReason": "Static mechanical target has no locomotion/fire cycle"
+    },
+    {
+      "variant": "Training",
+      "state": "Fire",
+      "rect": [
+        384,
+        384,
+        128,
+        128
+      ],
+      "anchor": [
+        64,
+        124
+      ],
+      "sourceFile": "Art/NoTrace/FirstPerson/Sources/Training-v1.png",
+      "sourceRect": [
+        262,
+        16,
+        507,
+        663
+      ],
+      "sourcePose": 0,
+      "sourceScale": 0.1731066460587326,
+      "opaqueBounds": [
+        43,
+        12,
+        85,
+        124
+      ],
+      "physicalHeight": 46,
+      "sha256": "30f09d244fd20957087c6d5e08dd3cb8c91c3446963b8eb6e7bbe50911716713",
+      "aliasReason": "Static mechanical target has no locomotion/fire cycle"
+    },
+    {
+      "variant": "Training",
+      "state": "Hurt",
+      "rect": [
+        512,
+        384,
+        128,
+        128
+      ],
+      "anchor": [
+        64,
+        124
+      ],
+      "sourceFile": "Art/NoTrace/FirstPerson/Sources/Training-v1.png",
+      "sourceRect": [
+        915,
+        49,
+        1331,
+        666
+      ],
+      "sourcePose": 1,
+      "sourceScale": 0.1731066460587326,
+      "opaqueBounds": [
+        28,
+        17,
+        100,
+        124
+      ],
+      "physicalHeight": 46,
+      "sha256": "21be3c2bcf3d2e5df4178ce47487541a4cd971b6be90f1b2dfbd039e47dd4816",
+      "aliasReason": null
+    },
+    {
+      "variant": "Training",
+      "state": "Crouch",
+      "rect": [
+        640,
+        384,
+        128,
+        128
+      ],
+      "anchor": [
+        64,
+        124
+      ],
+      "sourceFile": "Art/NoTrace/FirstPerson/Sources/Training-v1.png",
+      "sourceRect": [
+        37,
+        743,
+        670,
+        996
+      ],
+      "sourcePose": 2,
+      "sourceScale": 0.1731066460587326,
+      "opaqueBounds": [
+        9,
+        80,
+        119,
+        124
+      ],
+      "physicalHeight": 34,
+      "sha256": "214b2236676b0661aa9054524bfcde8c6b0a1ebcd0059e5a1bfe06091034184d",
+      "aliasReason": null
+    },
+    {
+      "variant": "Training",
+      "state": "Prone",
+      "rect": [
+        768,
+        384,
+        128,
+        128
+      ],
+      "anchor": [
+        64,
+        124
+      ],
+      "sourceFile": "Art/NoTrace/FirstPerson/Sources/Training-v1.png",
+      "sourceRect": [
+        37,
+        743,
+        670,
+        996
+      ],
+      "sourcePose": 2,
+      "sourceScale": 0.13438735177865613,
+      "opaqueBounds": [
+        22,
+        90,
+        107,
+        124
+      ],
+      "physicalHeight": 14,
+      "sha256": "f1c0d5fd7d20e4a5fae31abb72a79a0285e7b8919f37b4ce1d22106e987504ac",
+      "aliasReason": null
+    },
+    {
+      "variant": "Training",
+      "state": "Down",
+      "rect": [
+        896,
+        384,
+        128,
+        128
+      ],
+      "anchor": [
+        64,
+        124
+      ],
+      "sourceFile": "Art/NoTrace/FirstPerson/Sources/Training-v1.png",
+      "sourceRect": [
+        37,
+        743,
+        670,
+        996
+      ],
+      "sourcePose": 2,
+      "sourceScale": 0.13438735177865613,
+      "opaqueBounds": [
+        22,
+        90,
+        107,
+        124
+      ],
+      "physicalHeight": 14,
+      "sha256": "f1c0d5fd7d20e4a5fae31abb72a79a0285e7b8919f37b4ce1d22106e987504ac",
+      "aliasReason": null
+    },
+    {
+      "variant": "Training",
+      "state": "Dead",
+      "rect": [
+        1024,
+        384,
+        128,
+        128
+      ],
+      "anchor": [
+        64,
+        124
+      ],
+      "sourceFile": "Art/NoTrace/FirstPerson/Sources/Training-v1.png",
+      "sourceRect": [
+        780,
+        775,
+        1516,
+        970
+      ],
+      "sourcePose": 3,
+      "sourceScale": 0.16304347826086957,
+      "opaqueBounds": [
+        4,
+        92,
+        124,
+        124
+      ],
+      "physicalHeight": 14,
+      "sha256": "f05ad917d4f9fe94112ed8fb68a840a9d494207a774756de77b88f2dc20fe117",
+      "aliasReason": null
+    }
+  ],
+  "viewmodels": [
+    {
+      "weapon": "Pistol",
+      "suppressed": false,
+      "state": "Idle",
+      "rect": [
+        0,
+        0,
+        256,
+        160
+      ],
+      "anchor": [
+        128,
+        160
+      ],
+      "sourceRect": [
+        24,
+        177,
+        364,
+        471
+      ],
+      "sourceScale": 0.32,
+      "opaqueBounds": [
+        74,
+        66,
+        183,
+        160
+      ],
+      "sha256": "d1698332bb54b1345db57421b238a8061984335675f91d754c9a9ea2eea6f584"
+    },
+    {
+      "weapon": "Pistol",
+      "suppressed": false,
+      "state": "Fire",
+      "rect": [
+        256,
+        0,
+        256,
+        160
+      ],
+      "anchor": [
+        128,
+        160
+      ],
+      "sourceRect": [
+        393,
+        103,
+        738,
+        471
+      ],
+      "sourceScale": 0.32,
+      "opaqueBounds": [
+        69,
+        44,
+        179,
+        160
+      ],
+      "sha256": "4eb9e9b6d42a58cf8a0b098fc6fc463fa3d0c8aa2511a582dcddcf66100c2d35"
+    },
+    {
+      "weapon": "Pistol",
+      "suppressed": false,
+      "state": "ReloadOut",
+      "rect": [
+        512,
+        0,
+        256,
+        160
+      ],
+      "anchor": [
+        128,
+        160
+      ],
+      "sourceRect": [
+        765,
+        95,
+        1145,
+        471
+      ],
+      "sourceScale": 0.32,
+      "opaqueBounds": [
+        66,
+        40,
+        188,
+        160
+      ],
+      "sha256": "332287841d4730f385ed48c28c39c36c6cd8349354329c4747d02475357c0dee"
+    },
+    {
+      "weapon": "Pistol",
+      "suppressed": false,
+      "state": "ReloadIn",
+      "rect": [
+        768,
+        0,
+        256,
+        160
+      ],
+      "anchor": [
+        128,
+        160
+      ],
+      "sourceRect": [
+        1172,
+        102,
+        1512,
+        472
+      ],
+      "sourceScale": 0.32,
+      "opaqueBounds": [
+        73,
+        42,
+        182,
+        160
+      ],
+      "sha256": "2aeb38f41b5a111fc448f7211e8e7c79240e521e8715f134522e9f3ed657c662"
+    },
+    {
+      "weapon": "Pistol",
+      "suppressed": true,
+      "state": "Idle",
+      "rect": [
+        0,
+        160,
+        256,
+        160
+      ],
+      "anchor": [
+        128,
+        160
+      ],
+      "sourceRect": [
+        24,
+        611,
+        363,
+        964
+      ],
+      "sourceScale": 0.32,
+      "opaqueBounds": [
+        74,
+        46,
+        182,
+        159
+      ],
+      "sha256": "5721c855c7b397a4da9c479de5535137518a31abb7e1e4dbb439f69267591928"
+    },
+    {
+      "weapon": "Pistol",
+      "suppressed": true,
+      "state": "Fire",
+      "rect": [
+        256,
+        160,
+        256,
+        160
+      ],
+      "anchor": [
+        128,
+        160
+      ],
+      "sourceRect": [
+        393,
+        562,
+        738,
+        964
+      ],
+      "sourceScale": 0.32,
+      "opaqueBounds": [
+        69,
+        30,
+        179,
+        159
+      ],
+      "sha256": "0ab2969aafa8fdfd2cbb8beb99f61614a9b13d6e891af50a8741e79d6bc30222"
+    },
+    {
+      "weapon": "Pistol",
+      "suppressed": true,
+      "state": "ReloadOut",
+      "rect": [
+        512,
+        160,
+        256,
+        160
+      ],
+      "anchor": [
+        128,
+        160
+      ],
+      "sourceRect": [
+        765,
+        525,
+        1143,
+        964
+      ],
+      "sourceScale": 0.32,
+      "opaqueBounds": [
+        66,
+        18,
+        187,
+        158
+      ],
+      "sha256": "4d0cc3f2f4580375a824305af40d29bc64c6dc7d714f54faf21115fe48efea26"
+    },
+    {
+      "weapon": "Pistol",
+      "suppressed": true,
+      "state": "ReloadIn",
+      "rect": [
+        768,
+        160,
+        256,
+        160
+      ],
+      "anchor": [
+        128,
+        160
+      ],
+      "sourceRect": [
+        1170,
+        530,
+        1512,
+        964
+      ],
+      "sourceScale": 0.32,
+      "opaqueBounds": [
+        72,
+        20,
+        181,
+        159
+      ],
+      "sha256": "6196ebd1006dad9f4fd0b1c8e9238982061e47c999bbcaf8e70c34fda0ca6906"
+    },
+    {
+      "weapon": "NonLethal",
+      "suppressed": false,
+      "state": "Idle",
+      "rect": [
+        0,
+        320,
+        256,
+        160
+      ],
+      "anchor": [
+        128,
+        160
+      ],
+      "sourceRect": [
+        14,
+        145,
+        374,
+        479
+      ],
+      "sourceScale": 0.32,
+      "opaqueBounds": [
+        71,
+        53,
+        186,
+        160
+      ],
+      "sha256": "f20b2f7c2c8b71f728d6930a1b7279c7670e2ba7e5d8e1f461e8e7c032ee1bb7"
+    },
+    {
+      "weapon": "NonLethal",
+      "suppressed": false,
+      "state": "Fire",
+      "rect": [
+        256,
+        320,
+        256,
+        160
+      ],
+      "anchor": [
+        128,
+        160
+      ],
+      "sourceRect": [
+        393,
+        60,
+        748,
+        479
+      ],
+      "sourceScale": 0.32,
+      "opaqueBounds": [
+        69,
+        28,
+        183,
+        160
+      ],
+      "sha256": "8b92355af8b0747deddb1e0fe5dad7d1d2bef85b2317f8a897269d71a7ddc7d0"
+    },
+    {
+      "weapon": "NonLethal",
+      "suppressed": false,
+      "state": "ReloadOut",
+      "rect": [
+        512,
+        320,
+        256,
+        160
+      ],
+      "anchor": [
+        128,
+        160
+      ],
+      "sourceRect": [
+        763,
+        75,
+        1150,
+        479
+      ],
+      "sourceScale": 0.32,
+      "opaqueBounds": [
+        65,
+        31,
+        189,
+        160
+      ],
+      "sha256": "30934aae1db08983b8509e74b985777fc31f9c5475d97cb2642f0f29ffceccb0"
+    },
+    {
+      "weapon": "NonLethal",
+      "suppressed": false,
+      "state": "ReloadIn",
+      "rect": [
+        768,
+        320,
+        256,
+        160
+      ],
+      "anchor": [
+        128,
+        160
+      ],
+      "sourceRect": [
+        1169,
+        80,
+        1525,
+        479
+      ],
+      "sourceScale": 0.32,
+      "opaqueBounds": [
+        72,
+        33,
+        186,
+        160
+      ],
+      "sha256": "037dc2be02126394d4812907fe73f9fb0a698765ecd1f0230fef9d7a9abe6f57"
+    },
+    {
+      "weapon": "NonLethal",
+      "suppressed": true,
+      "state": "Idle",
+      "rect": [
+        0,
+        480,
+        256,
+        160
+      ],
+      "anchor": [
+        128,
+        160
+      ],
+      "sourceRect": [
+        14,
+        566,
+        374,
+        969
+      ],
+      "sourceScale": 0.32,
+      "opaqueBounds": [
+        71,
+        31,
+        186,
+        160
+      ],
+      "sha256": "50d561367bbbe3406b16f634a905c6e5dd2276499cf8e2f144534c7b1ff46fcb"
+    },
+    {
+      "weapon": "NonLethal",
+      "suppressed": true,
+      "state": "Fire",
+      "rect": [
+        256,
+        480,
+        256,
+        160
+      ],
+      "anchor": [
+        128,
+        160
+      ],
+      "sourceRect": [
+        393,
+        530,
+        748,
+        969
+      ],
+      "sourceScale": 0.32,
+      "opaqueBounds": [
+        69,
+        23,
+        183,
+        160
+      ],
+      "sha256": "f0bc08eec8e7865cbc90ccbb29859dccd155f7b187f89a9088a6cdc0a4139e4d"
+    },
+    {
+      "weapon": "NonLethal",
+      "suppressed": true,
+      "state": "ReloadOut",
+      "rect": [
+        512,
+        480,
+        256,
+        160
+      ],
+      "anchor": [
+        128,
+        160
+      ],
+      "sourceRect": [
+        763,
+        496,
+        1150,
+        969
+      ],
+      "sourceScale": 0.32,
+      "opaqueBounds": [
+        65,
+        9,
+        189,
+        160
+      ],
+      "sha256": "7cff146773455f8bcb8d3c654d4d7e7da2f21cb0b84744a046703c4894b1be93"
+    },
+    {
+      "weapon": "NonLethal",
+      "suppressed": true,
+      "state": "ReloadIn",
+      "rect": [
+        768,
+        480,
+        256,
+        160
+      ],
+      "anchor": [
+        128,
+        160
+      ],
+      "sourceRect": [
+        1167,
+        502,
+        1525,
+        969
+      ],
+      "sourceScale": 0.32,
+      "opaqueBounds": [
+        71,
+        11,
+        186,
+        160
+      ],
+      "sha256": "d4a55eaefd8a59ace446d06b8d63c6ef3b5dd862fbeccecd81074817e9e06819"
+    }
+  ],
+  "runtimeFiles": [
+    {
+      "file": "Actors.png",
+      "sha256": "e89c79133c34267eeb1f0893b0740bdabff25cb475fd2431b8ab55183ed58780"
+    },
+    {
+      "file": "Viewmodels.png",
+      "sha256": "aa48420e53254a81dab5f71a0f6693ec21edf83c1a134f1a02047315500aa10d"
+    }
+  ],
+  "status": "offline_validated_runtime_pending",
+  "scope": "Frontal raster artwork and source registration; renderer depth/gameplay/LAN validated separately"
+}

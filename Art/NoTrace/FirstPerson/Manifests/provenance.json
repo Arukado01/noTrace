@@ -1,0 +1,204 @@
+{
+  "author": "Carlos Cortina",
+  "organization": "CIO",
+  "date": "2026-10-18",
+  "tool": "OpenAI image_gen builtin",
+  "noCliFallback": true,
+  "scope": "Preserved original alpha outputs and exact reference-image roles; V2 sources only referenced, never modified or cropped into FPS runtime art",
+  "references": [
+    {
+      "output": "Art/NoTrace/FirstPerson/Sources/GuardA-v1.png",
+      "outputSha256": "2e64357289b015df7ea1fbee63c0c3e06bff82518c87f71c87d8f7f5d1b22691",
+      "inputs": [
+        {
+          "file": "Art/NoTrace/Characters/Sources/OperativeIdentity8Directions-v1.png",
+          "sha256": "888609f8bb811e3fad45de03378c69e90fd881be4ec7fcdef5209761bf4449a6",
+          "role": "identity_or_equipment_reference_for_new_frontal_adaptation"
+        }
+      ]
+    },
+    {
+      "output": "Art/NoTrace/FirstPerson/Sources/GuardB-v1.png",
+      "outputSha256": "0c52920a0cda89f43eb5e105306fe4c26f16224e8d760de92911b46badcdc6af",
+      "inputs": [
+        {
+          "file": "Art/NoTrace/FirstPerson/Sources/GuardA-v1.png",
+          "sha256": "2e64357289b015df7ea1fbee63c0c3e06bff82518c87f71c87d8f7f5d1b22691",
+          "role": "identity_or_equipment_reference_for_new_frontal_adaptation"
+        }
+      ]
+    },
+    {
+      "output": "Art/NoTrace/FirstPerson/Sources/Ally-v1.png",
+      "outputSha256": "97b44a8e7ce825cbd9fd7302b2bebd581e77c98f335ea5f0b9919873fbcb264b",
+      "inputs": [
+        {
+          "file": "Art/NoTrace/FirstPerson/Sources/GuardA-v1.png",
+          "sha256": "2e64357289b015df7ea1fbee63c0c3e06bff82518c87f71c87d8f7f5d1b22691",
+          "role": "identity_or_equipment_reference_for_new_frontal_adaptation"
+        },
+        {
+          "file": "Art/NoTrace/Characters/Sources/Weapon-Pistol-16views-v1.png",
+          "sha256": "836947bd799288f075507229a6764e7255b048b4abdaa87254ab96db1655ae85",
+          "role": "identity_or_equipment_reference_for_new_frontal_adaptation"
+        }
+      ]
+    },
+    {
+      "output": "Art/NoTrace/FirstPerson/Sources/ViewmodelPistol-v1.png",
+      "outputSha256": "6909685df9447eb7dccb818835674a9561a7513a84574539ad05f4a2e0d8c83f",
+      "inputs": [
+        {
+          "file": "Art/NoTrace/Characters/Sources/Weapon-Pistol-16views-v1.png",
+          "sha256": "836947bd799288f075507229a6764e7255b048b4abdaa87254ab96db1655ae85",
+          "role": "identity_or_equipment_reference_for_new_frontal_adaptation"
+        }
+      ]
+    },
+    {
+      "output": "Art/NoTrace/FirstPerson/Sources/ViewmodelNonLethal-v1.png",
+      "outputSha256": "e7bec5e193691727a95ceffae04c10ba90fa04c16780672cfb434f95d1364d3e",
+      "inputs": [
+        {
+          "file": "Art/NoTrace/FirstPerson/Sources/ViewmodelPistol-v1.png",
+          "sha256": "6909685df9447eb7dccb818835674a9561a7513a84574539ad05f4a2e0d8c83f",
+          "role": "identity_or_equipment_reference_for_new_frontal_adaptation"
+        },
+        {
+          "file": "Art/NoTrace/Characters/Sources/Weapon-NonLethal-16views-v1.png",
+          "sha256": "623aedb08f5746230bccde9bdc3ee1e40c75ab8ae227194d2e0f9c44aa2b6dc4",
+          "role": "identity_or_equipment_reference_for_new_frontal_adaptation"
+        }
+      ]
+    },
+    {
+      "output": "Art/NoTrace/FirstPerson/Sources/Training-v1.png",
+      "outputSha256": "6715dac46cbda0d86f400c036bd49625dbe727a38db151b43db8a75abfa005fc",
+      "inputs": []
+    },
+    {
+      "output": "Art/NoTrace/FirstPerson/Sources/GuardA-WalkB-v2.png",
+      "outputSha256": "b7310561afd5bcd50176140dba39d4ffedf1fdf6a5aed2be326f8dfa9392c17f",
+      "inputs": [
+        {
+          "file": "Art/NoTrace/FirstPerson/Sources/GuardA-v1.png",
+          "sha256": "2e64357289b015df7ea1fbee63c0c3e06bff82518c87f71c87d8f7f5d1b22691",
+          "role": "identity_or_equipment_reference_for_new_frontal_adaptation"
+        }
+      ]
+    },
+    {
+      "output": "Art/NoTrace/FirstPerson/Sources/GuardB-WalkB-v2.png",
+      "outputSha256": "378baff40f13910092b541dcfb6c9e96706a8467f0ef77d57f1988140c7ae63a",
+      "inputs": [
+        {
+          "file": "Art/NoTrace/FirstPerson/Sources/GuardB-v1.png",
+          "sha256": "0c52920a0cda89f43eb5e105306fe4c26f16224e8d760de92911b46badcdc6af",
+          "role": "identity_or_equipment_reference_for_new_frontal_adaptation"
+        }
+      ]
+    },
+    {
+      "output": "Art/NoTrace/FirstPerson/Sources/Ally-WalkB-v2.png",
+      "outputSha256": "560aa4fc5ebe01466bea2f14c3680d7c491c88353ea0295c3aaaa78a5ea6d1e2",
+      "inputs": [
+        {
+          "file": "Art/NoTrace/FirstPerson/Sources/Ally-v1.png",
+          "sha256": "97b44a8e7ce825cbd9fd7302b2bebd581e77c98f335ea5f0b9919873fbcb264b",
+          "role": "identity_or_equipment_reference_for_new_frontal_adaptation"
+        }
+      ]
+    }
+  ],
+  "rejectedPoseCells": [
+    {
+      "file": "Art/NoTrace/FirstPerson/Sources/GuardA-v1.png",
+      "pose": "WalkB",
+      "reason": "Same leading leg as WalkA despite different pixels; replaced by a new original opposite-support pose with holster side preserved"
+    },
+    {
+      "file": "Art/NoTrace/FirstPerson/Sources/GuardB-v1.png",
+      "pose": "WalkB",
+      "reason": "Same leading leg as WalkA despite different pixels; replaced by a new original opposite-support pose with holster side preserved"
+    },
+    {
+      "file": "Art/NoTrace/FirstPerson/Sources/Ally-v1.png",
+      "pose": "WalkB",
+      "reason": "Same leading leg as WalkA despite different pixels; replaced by a new original opposite-support pose with holster side preserved"
+    }
+  ],
+  "runtimeContract": {
+    "actors": [
+      1152,
+      512
+    ],
+    "actorCell": [
+      128,
+      128
+    ],
+    "actorColumns": [
+      "Idle",
+      "WalkA",
+      "WalkB",
+      "Fire",
+      "Hurt",
+      "Crouch",
+      "Prone",
+      "Down",
+      "Dead"
+    ],
+    "actorRows": [
+      "GuardA",
+      "GuardB",
+      "Ally",
+      "Training"
+    ],
+    "feetAnchor": [
+      64,
+      124
+    ],
+    "standingScale": "46/112",
+    "postureHeightQuantization": "112/83/34 source pixels for46/34/14world units, max1source pixel rounding",
+    "viewmodels": [
+      1024,
+      640
+    ],
+    "viewmodelCell": [
+      256,
+      160
+    ],
+    "viewmodelColumns": [
+      "Idle",
+      "Fire",
+      "ReloadOut",
+      "ReloadIn"
+    ],
+    "viewmodelRows": [
+      "PistolBare",
+      "PistolSuppressed",
+      "NonLethalBare",
+      "NonLethalSuppressed"
+    ],
+    "viewmodelAnchor": [
+      128,
+      160
+    ],
+    "viewmodelSourceScale": 0.32,
+    "trainingActualStates": [
+      "Idle",
+      "Hurt",
+      "Down",
+      "Dead"
+    ],
+    "trainingUnselectedAdditionalCells": [
+      "Crouch",
+      "Prone"
+    ],
+    "trainingStaticAliases": [
+      "WalkA",
+      "WalkB",
+      "Fire"
+    ]
+  },
+  "runtimeReview": "Art/NoTrace/FirstPerson/Manifests/runtime-review.json"
+}

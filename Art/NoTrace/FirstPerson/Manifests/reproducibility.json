@@ -1,0 +1,20 @@
+{
+  "status": "PASS",
+  "sameSourceByteIdentical": true,
+  "runtimeFiles": [
+    {
+      "file": "Actors.png",
+      "sha256": "e89c79133c34267eeb1f0893b0740bdabff25cb475fd2431b8ab55183ed58780"
+    },
+    {
+      "file": "Viewmodels.png",
+      "sha256": "aa48420e53254a81dab5f71a0f6693ec21edf83c1a134f1a02047315500aa10d"
+    },
+    {
+      "file": "Runtime.json",
+      "sha256": "0cf1892119373c41e837085e10aa8952555d34cdc37598ffb20f93575b148962"
+    }
+  ],
+  "scope": "Offline byte-identical regeneration from preserved original imagegen sources; GPU acceptance is recorded separately in runtime-review.json",
+  "runtimeReview": "Art/NoTrace/FirstPerson/Manifests/runtime-review.json"
+}
