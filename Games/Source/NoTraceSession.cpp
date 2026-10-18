@@ -88,14 +88,14 @@ namespace NoTrace {
              (command.dragBody ? 1024u : 0u) | (command.tool ? 2048u : 0u) |
              (command.coverToggle ? 4096u : 0u) | (command.peekLeft ? 8192u : 0u) | (command.peekRight ? 16384u : 0u) | (command.prepareDecoy ? 32768u : 0u) |
              (command.cqcHeld ? 65536u : 0u) | (command.push ? 131072u : 0u) | (command.reloadWeapon ? 262144u : 0u) | (command.fireSelected ? 524288u : 0u) | (command.aiming ? 1048576u : 0u) | (command.dive ? 2097152u : 0u) | (command.roll ? 4194304u : 0u) | (command.toggleSuppressor ? 8388608u : 0u) | (command.puzzleHeld ? 16777216u : 0u) |
-             (command.traverse ? 1u << 25 : 0u) | (command.drop ? 1u << 26 : 0u) | (command.spectateNext ? 1u << 27 : 0u) | (command.spectatePrevious ? 1u << 28 : 0u);
+             (command.traverse ? 1u << 25 : 0u) | (command.drop ? 1u << 26 : 0u) | (command.spectateNext ? 1u << 27 : 0u) | (command.spectatePrevious ? 1u << 28 : 0u) | (command.orientBodyToAim ? 1u << 29 : 0u);
     }
 
     bool ReadCommand(const Json &message, ActionCommand &command) {
       std::uint64_t flags = 0;
       if (!ReadVector(message.at("move"), command.moveX, command.moveY) ||
           !ReadVector(message.at("aim"), command.aimX, command.aimY) ||
-          !ReadUnsigned(message.at("flags"), flags) || flags > (1u << 29) - 1u || !message.at("slope").is_number() || !message.at("decoyDistance").is_number()) {
+          !ReadUnsigned(message.at("flags"), flags) || flags > (1u << 30) - 1u || !message.at("slope").is_number() || !message.at("decoyDistance").is_number()) {
         return false;
       }
       command.run = (flags & 1) != 0;
@@ -121,6 +121,7 @@ namespace NoTrace {
       command.toggleSuppressor = (flags & 8388608) != 0; command.puzzleHeld = (flags & 16777216) != 0;
       command.traverse = (flags & (1u << 25)) != 0; command.drop = (flags & (1u << 26)) != 0;
       command.spectateNext = (flags & (1u << 27)) != 0; command.spectatePrevious = (flags & (1u << 28)) != 0;
+      command.orientBodyToAim = (flags & (1u << 29)) != 0;
       command.aimSlope = message.at("slope").get<float>();
       if (!std::isfinite(command.aimSlope) || std::abs(command.aimSlope) > CombatConfig::MaximumAimSlope) return false;
       command.decoyDistance = message.at("decoyDistance").get<float>();

@@ -669,7 +669,14 @@ namespace NoTrace {
     } else agent.footstepTime = 0.f;
     const sf::Vector2f aim{command.aimX, command.aimY};
     agent.aimSlope = std::isfinite(command.aimSlope) ? std::clamp(command.aimSlope, -CombatConfig::MaximumAimSlope, CombatConfig::MaximumAimSlope) : 0.f;
-    if (std::isfinite(aim.x) && std::isfinite(aim.y) && Length(aim) > 0.1f && (agent.aiming || command.fireSelected || command.fireLethal || command.fireNonLethal)) agent.weaponAim = Unit(aim);
+    const bool orientBody = command.orientBodyToAim && agent.connected && agent.alive && !agent.incapacitated && !agent.hidden && !agent.extracted &&
+      !agent.cover.active && agent.traversal.mode == TraversalMode::Grounded && agent.maneuver.kind == ManeuverKind::None && agent.puzzle.target == 0 &&
+      agent.cqcHeldBy == 0 && agent.cqcHoldingGuard == 0 && agent.cqcHoldingAgent == 0 && agent.cqcApproachGuard == 0 && agent.cqcApproachAgent == 0 && agent.cqcAttackTime <= 0.f && agent.draggingGuard < 0;
+    const float aimLength = Length(aim);
+    if (std::isfinite(aim.x) && std::isfinite(aim.y) && std::isfinite(aimLength) && aimLength > 0.1f) {
+      if (agent.aiming || command.fireSelected || command.fireLethal || command.fireNonLethal || orientBody) agent.weaponAim = aim / aimLength;
+      if (orientBody) agent.facing = aim / aimLength;
+    }
     if (agent.cover.active) agent.facing = agent.cover.normal;
     if (command.prepareDecoy && IsTactical(world_) && agent.loadout.decoys > 0 && agent.draggingGuard < 0 && agent.actionCooldown <= 0.f &&
         !command.dragBody && !command.interact && !command.tool && !command.cqc && !command.cqcHeld && !command.push && !command.knock && !command.fireLethal && !command.fireNonLethal && !command.fireSelected &&

@@ -9,6 +9,7 @@
 #include "Config/NoTraceVisibilityConfig.h"
 #include "Config/NoTraceManeuverConfig.h"
 #include "Config/NoTraceWeaponConfig.h"
+#include "Config/NoTraceSecurityConfig.h"
 
 #include <SFML/System/Clock.hpp>
 #include <SFML/System/Sleep.hpp>
@@ -621,6 +622,110 @@ namespace {
     Require(pair.client.IsConnected() && pair.client.GetLobbyPlayers().size() == 2 && HasAgent(pair.client.GetWorld(), pair.client.GetLocalPlayerId()) && pair.client.GetWorld().seed == seed, "El reinicio perdió participantes o no se propagó al cliente");
   }
 
+  void BodyAimIntentRemainsAuthoritativeAndCameraLocal() {
+    Pair pair; pair.Deploy();
+    auto &world = const_cast<WorldState &>(pair.host.GetWorld());
+    world.objects.clear(); world.obstacles.clear(); world.guards.clear(); world.securityEntries.clear();
+    TestFixture::LegacyPlane(world); world.agents[0].position = {900.f, 800.f}; world.agents[1].position = {300.f, 300.f};
+    const auto remote = [&]() -> const Agent & { return FindAgent(world, 2); };
+    const auto replica = [&]() -> const Agent & { return FindAgent(pair.client.GetWorld(), 2); };
+    ActionCommand oriented; oriented.moveY = 1.f; oriented.aimX = 1.f; oriented.orientBodyToAim = true;
+    pair.client.Submit(oriented);
+    Until([&] { return remote().position.y > 303.f && replica().facing.x > .99f; }, [&] { pair.Tick(); });
+    Require(std::abs(remote().position.x - 300.f) < .001f && remote().facing.x > .99f && remote().weaponAim.x > .99f,
+      "La intención de orientación remota altera el movimiento o no prevalece después de orientar por WASD");
+    const auto before = remote().position; pair.Advance(5);
+    Require(remote().position.y > before.y && remote().facing.x > .99f && replica().facing.x > .99f,
+      "La orientación continua se consume como pulso o requiere reenviar un modo de cámara");
+    auto tactical = oriented; tactical.orientBodyToAim = false; pair.client.Submit(tactical);
+    Until([&] { return remote().facing.y > .99f && replica().facing.y > .99f; }, [&] { pair.Tick(); });
+    Require(remote().weaponAim.x > .99f, "Desactivar la intención de cuerpo cambia la dirección del arma táctica existente");
+    pair.client.Submit({}); pair.Advance(5);
+    auto &actor = world.agents[1]; actor.position = {326.f, 300.f};
+    world.obstacles.push_back({{{340.f, 240.f}, {6.f, 120.f}}, CoverKind::High, true, "Pared para probar prioridad de cobertura"});
+    ActionCommand cover; cover.coverToggle = true; cover.orientBodyToAim = true; cover.aimY = 1.f;
+    pair.client.Submit(cover); cover.coverToggle = false; pair.client.Submit(cover);
+    Until([&] { return remote().cover.active && replica().cover.active; }, [&] { pair.Tick(); });
+    Require(remote().facing == remote().cover.normal && replica().facing == replica().cover.normal,
+      "La intención remota de cuerpo sobrescribe la normal física de cobertura");
+    const auto &snapshot = pair.client.GetWorld();
+    Require(std::ranges::all_of(snapshot.agents, [](const Agent &agent) { return agent.id == 2 || agent.privateOrder == PrivateOrder::None; }),
+      "La orientación remota filtra una orden privada ajena");
+    Simulation restored; std::string error; restored.ResetBase(); const auto full = restored.SnapshotFor(1);
+    Require(full.at("version") == 12 && !full.contains("cameraMode") && !full.contains("firstPerson"),
+      "El protocolo nuevo serializa una cámara local o conserva la versión anterior");
+    auto previous = full; previous["version"] = 11;
+    Require(!restored.LoadSnapshot(previous, error), "El cliente acepta una instantánea de protocolo11 tras ampliar los mandos");
+  }
+
+  void OrientedShotsUseTheExistingWeaponAuthority() {
+    for (const bool lethal : {true, false}) {
+      currentCase = lethal ? "DisparoOrientado/pistola/preparar" : "DisparoOrientado/noletal/preparar";
+      Pair pair; pair.client.SetLoadout({12, 12, 0, 0});
+      Until([&] { return FindAgent(pair.host.GetWorld(), 2).operationLoadout.lethalAmmo == 12 && FindAgent(pair.host.GetWorld(), 2).operationLoadout.nonLethalAmmo == 12; }, [&] { pair.Tick(); });
+      pair.Deploy(); auto &world = const_cast<WorldState &>(pair.host.GetWorld());
+      world.objects.clear(); world.obstacles.clear(); world.guards.clear(); world.securityEntries.clear(); world.events.clear(); world.sounds.clear(); world.noises.clear(); world.shots.clear();
+      TestFixture::LegacyPlane(world); world.agents[0].position = {900.f, 800.f}; world.agents[1].position = {300.f, 300.f};
+      Guard target; target.id = 81; target.position = {400.f, 300.f}; target.facing = {1.f, 0.f}; target.patrol = {target.position}; target.patrolPauseRemaining = SecurityConfig::PatrolPauseMaximum; target.attackCooldown = 10.f;
+      world.guards.push_back(target);
+      const auto remote = [&]() -> const Agent & { return FindAgent(world, 2); };
+      const auto replica = [&]() -> const Agent & { return FindAgent(pair.client.GetWorld(), 2); };
+      const auto ammo = [&](const Agent &agent) { return lethal ? agent.loadout.lethalAmmo : agent.loadout.nonLethalAmmo; };
+      const auto magazine = [&](const Agent &agent) { return lethal ? agent.lethalMagazine : agent.nonLethalMagazine; };
+      const auto wear = [&](const Agent &agent) { return lethal ? agent.pistolSuppressor : agent.nonLethalSuppressor; };
+      const auto event = lethal ? EventKind::WeaponLethal : EventKind::WeaponNonLethal;
+      ActionCommand aim; aim.aimX = 1.f; aim.orientBodyToAim = true; aim.aiming = true;
+      aim.aimSlope = lethal ? 0.f : (CombatGeometry::HeadCenterHeight(Stance::Standing) + CombatConfig::HeadHeight * .25f - CombatGeometry::WeaponHeight(Stance::Standing)) / 100.f;
+      auto select = aim; select.weaponChoice = lethal ? 0 : 1; pair.client.Submit(select); pair.client.Submit(aim);
+      Until([&] { return remote().selectedWeapon == (lethal ? WeaponKind::Pistol : WeaponKind::NonLethal) && remote().actionCooldown <= 0.f && replica().selectedWeapon == remote().selectedWeapon; }, [&] { pair.Tick(); });
+      const float beforeWear = wear(remote()); auto fire = aim; fire.fireSelected = true; pair.client.Submit(fire); pair.client.Submit(aim);
+      currentCase = lethal ? "DisparoOrientado/pistola/impacto" : "DisparoOrientado/noletal/impacto";
+      Until([&] { return std::ranges::count(world.events, event, &MissionEvent::kind) == 1 && ammo(replica()) == 11; }, [&] { pair.Tick(); });
+      Require(ammo(remote()) == 11 && magazine(remote()) == 3 && magazine(replica()) == 3 && remote().facing.x > .99f &&
+        wear(remote()) == beforeWear - (lethal ? WeaponConfig::PistolSuppressorWear : WeaponConfig::NonLethalSuppressorWear),
+        "El disparo orientado no usa el inventario, cargador, desgaste y cuerpo autoritativos existentes");
+      Require(lethal ? world.guards[0].health == CombatConfig::MaxGuardHealth - CombatConfig::LethalTorsoDamage : world.guards[0].state == GuardState::Incapacitated && world.guards[0].health == CombatConfig::MaxGuardHealth,
+        "El disparo orientado no aplica una sola vez el daño real o la inconsciencia no letal");
+      const float health = world.guards[0].health, stun = world.guards[0].stun; pair.Advance(10);
+      Require(std::ranges::count(world.events, event, &MissionEvent::kind) == 1 && ammo(remote()) == 11 && world.guards[0].health == health &&
+        (lethal || world.guards[0].stun == stun) && std::ranges::count(world.events, EventKind::Noise, &MissionEvent::kind) == 1,
+        "Un mando orientado persistente duplica disparo, daño, munición o ruido de IA");
+      auto reload = aim; reload.reloadWeapon = true; pair.client.Submit(reload); pair.client.Submit(aim);
+      currentCase = lethal ? "DisparoOrientado/pistola/recarga" : "DisparoOrientado/noletal/recarga";
+      Until([&] { return remote().reloadRemaining > 0.f && replica().reloadRemaining > 0.f; }, [&] { pair.Tick(); });
+      Until([&] { return remote().reloadRemaining == 0.f && replica().reloadRemaining == 0.f; }, [&] { pair.Tick(); });
+      Require(magazine(remote()) == (lethal ? WeaponConfig::PistolCapacity : WeaponConfig::NonLethalCapacity) && magazine(replica()) == magazine(remote()) && ammo(remote()) == 11 && wear(remote()) == wear(replica()),
+        "La recarga orientada usa otro cargador, inventario o desgaste respecto al arma táctica");
+      world.obstacles.push_back({{{350.f, 260.f}, {4.f, 80.f}}, CoverKind::High, true, "Pared entre boca y objetivo"});
+      currentCase = lethal ? "DisparoOrientado/pistola/pared" : "DisparoOrientado/noletal/pared";
+      pair.client.Submit(fire); pair.client.Submit(aim);
+      Until([&] { return std::ranges::count(world.events, event, &MissionEvent::kind) == 2 && ammo(replica()) == 10; }, [&] { pair.Tick(); });
+      Require(!world.shots.empty() && world.shots.back().blocked && !world.shots.back().hit && world.shots.back().to.x <= 350.f &&
+        world.guards[0].health == health && (lethal || world.guards[0].state == GuardState::Incapacitated) && std::ranges::count(world.events, EventKind::Noise, &MissionEvent::kind) == 2,
+        "La mira orientada atraviesa una pared, daña detrás o duplica el ruido del disparo bloqueado");
+      Require(std::ranges::all_of(pair.client.GetWorld().agents, [](const Agent &agent) { return agent.id == 2 || agent.privateOrder == PrivateOrder::None; }),
+        "El combate orientado recibe órdenes privadas ajenas");
+    }
+  }
+
+  void BodyAimIntentRejectsUnknownBitsAndProtocolEleven() {
+    Require(GameplayConfig::ProtocolVersion == 12, "La ampliación de mandos no incrementa la revisión de protocolo");
+    RawPeer previous(false, 11); Require(previous.rejected || previous.disconnected, "Se admite un cliente de protocolo11 como si entendiera el nuevo mando");
+    RawPeer supported; supported.Command(1, 0.f, 0.f, 1u << 29); supported.Advance(8);
+    Require(!supported.rejected && !supported.disconnected && FindAgent(supported.host.GetWorld(), 2).facing.lengthSquared() > .99f,
+      "El bit29 conocido o un eje nulo de orientación rompen la sesión o la dirección del cuerpo");
+    const auto before = FindAgent(supported.host.GetWorld(), 2);
+    const Json forged{{"type", "command"}, {"seq", 2}, {"epoch", supported.epoch}, {"move", {0, 0}}, {"aim", {0, 1}}, {"slope", 0.f},
+      {"decoyDistance", 100.f}, {"flags", 1u << 29}, {"position", {1500, 1000}}, {"elevation", 500}, {"ammo", 99999}, {"magazine", 99}, {"health", 0}, {"cameraMode", 1}};
+    Require(supported.clientNetwork.Send(NetworkConfig::HostId, forged.dump()), "No se pudo enviar el mando con estado ajeno a su contrato");
+    supported.Advance(8); const auto &after = FindAgent(supported.host.GetWorld(), 2);
+    Require(after.facing.y > .99f && after.position == before.position && after.elevation == before.elevation && after.health == before.health &&
+      after.loadout.lethalAmmo == before.loadout.lethalAmmo && after.lethalMagazine == before.lethalMagazine,
+      "El cliente orientado impone posición, altura, vida o munición al anfitrión mediante campos no autorizados");
+    RawPeer unknown; unknown.Command(1, 0.f, 0.f, 1u << 30);
+    Until([&] { return unknown.rejected || unknown.disconnected; }, [&] { unknown.Tick(); });
+  }
+
   void RejectMidMissionAndVersion() {
     RawPeer running(true);
     Require(running.id == 0 && (running.rejected || running.disconnected) && running.host.GetWorld().agents.size() == 1,
@@ -1206,7 +1311,7 @@ namespace {
       "El espectador hereda los secretos del superviviente o pierde su equipo privado");
     Simulation encoding; const_cast<WorldState &>(encoding.GetState()) = world;
     const auto snapshot = encoding.SnapshotFor(2, true);
-    Require(snapshot.at("version") == 11 && snapshot.at("spectatorTarget") == 1 && snapshot.dump().size() < GameplayConfig::MaximumSnapshotBytes,
+    Require(snapshot.at("version") == 12 && snapshot.at("spectatorTarget") == 1 && snapshot.dump().size() < GameplayConfig::MaximumSnapshotBytes,
       "La réplica multinivel y su vista autorizada exceden el presupuesto o cambian el protocolo");
     for (const auto &agent : snapshot.at("agents")) if (agent.at("id") != 2)
       Require(!agent.contains("privateOrder") && !agent.contains("privateComplete") && !agent.contains("operationLoadout"), "El paquete del espectador contiene secretos ajenos");
@@ -1371,6 +1476,9 @@ int main(int argc, char **argv) {
     run("SequenceTimeoutIdentityAndPulses", SequenceTimeoutIdentityAndPulses);
     run("PendingShotKeepsItsAim", PendingShotKeepsItsAim);
     run("AimDirectionAndRestartAuthority", AimDirectionAndRestartAuthority);
+    run("BodyAimIntentRemainsAuthoritativeAndCameraLocal", BodyAimIntentRemainsAuthoritativeAndCameraLocal);
+    run("OrientedShotsUseTheExistingWeaponAuthority", OrientedShotsUseTheExistingWeaponAuthority);
+    run("BodyAimIntentRejectsUnknownBitsAndProtocolEleven", BodyAimIntentRejectsUnknownBitsAndProtocolEleven);
     run("OrientationAlertAndRecoveryStateRemainAuthoritative", OrientationAlertAndRecoveryStateRemainAuthoritative);
     run("DisconnectAndRejoin", DisconnectAndRejoin);
     run("RejectMidMissionAndVersion", RejectMidMissionAndVersion);

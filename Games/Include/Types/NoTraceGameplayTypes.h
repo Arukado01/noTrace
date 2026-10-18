@@ -84,6 +84,7 @@ namespace NoTrace {
     bool drop = false;
     bool spectateNext = false;
     bool spectatePrevious = false;
+    bool orientBodyToAim = false;
   };
   struct AgentCover {
     bool active = false;
