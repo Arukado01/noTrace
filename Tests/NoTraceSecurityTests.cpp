@@ -1,6 +1,7 @@
 #include "NoTraceSimulation.h"
 #include "Config/NoTraceDevicesConfig.h"
 #include "Config/NoTraceSecurityConfig.h"
+#include "NoTracePerception.h"
 #include "NoTraceWorldGeometry.h"
 #include <algorithm>
 #include <cmath>
@@ -26,13 +27,13 @@ namespace {
   }
   Guard &Observer(WorldState &world, std::uint32_t id = 1, float suspicion = 0.f) {
     Guard guard; guard.id = id; guard.position = {300.f, 300.f}; guard.facing = {-1.f, 0.f};
-    guard.patrol = {{300.f, 300.f}, {320.f, 300.f}}; guard.suspicion = suspicion; guard.attackCooldown = 10000.f;
+    guard.patrol = {{300.f, 300.f}, {320.f, 300.f}}; guard.suspicion = suspicion; guard.attackCooldown = GameplayConfig::GuardAttackInterval;
     world.guards.push_back(guard); return world.guards.back();
   }
   void Advance(Simulation &simulation, float seconds) {
     for (int step = 0; step < static_cast<int>(std::ceil(seconds / 0.1f)); ++step) {
       auto &world = const_cast<WorldState &>(simulation.GetState());
-      for (auto &guard : world.guards) guard.attackCooldown = 10000.f;
+      for (auto &guard : world.guards) guard.attackCooldown = GameplayConfig::GuardAttackInterval;
       simulation.Step(0.1f, {});
     }
   }
@@ -43,7 +44,7 @@ namespace {
   void IncapacitationEndsThreat() {
     Simulation simulation;
     auto &solo = Fixture(simulation); Observer(solo, 1, 1.f); solo.guards[0].state = GuardState::Alert;
-    solo.agents[0].incapacitated = true; solo.agents[0].incapacityRemaining = 0.01f;
+    solo.agents[0].lifeState = LifeState::Incapacitated; solo.agents[0].incapacitated = true; solo.agents[0].incapacityRemaining = 0.01f;
     const auto position = solo.agents[0].position;
     ActionCommand forbidden; forbidden.moveX = 1.f; forbidden.interact = true; forbidden.fireLethal = true;
     simulation.Step(0.1f, {{1, forbidden}});
@@ -52,11 +53,11 @@ namespace {
     Require(solo.results.at(1).reason.find("operativos") != std::string::npos, "La derrota debe identificar la falta de agentes operativos");
 
     auto &coop = Fixture(simulation, true); Observer(coop, 1, 1.f); coop.guards[0].state = GuardState::Alert;
-    coop.agents[0].incapacitated = true; coop.agents[0].incapacityRemaining = 8.f;
+    coop.agents[0].lifeState = LifeState::Incapacitated; coop.agents[0].incapacitated = true; coop.agents[0].incapacityRemaining = GameplayConfig::IncapacityDuration;
     Advance(simulation, 2.f);
     Require(coop.phase == GamePhase::Mission && coop.agents[0].incapacitated, "Un compañero operativo mantiene la operación cooperativa");
     Require(coop.shots.empty() && coop.guards[0].ammo == GameplayConfig::GuardAmmo && coop.guards[0].state != GuardState::Alert, "Los guardias dejan de disparar al agente inconsciente y buscan o patrullan");
-    coop.agents[1].incapacitated = true; coop.agents[1].incapacityRemaining = 8.f;
+    coop.agents[1].lifeState = LifeState::Incapacitated; coop.agents[1].incapacitated = true; coop.agents[1].incapacityRemaining = GameplayConfig::IncapacityDuration;
     simulation.Step(0.1f, {});
     Require(coop.phase == GamePhase::Results && coop.results.size() == 2 && !coop.results.at(1).success && !coop.results.at(2).success, "La incapacitación de todo el equipo comunica la misma derrota a ambos participantes");
   }
@@ -66,12 +67,12 @@ namespace {
     auto &world = Fixture(simulation); Observer(world, 1, 0.2f); Observer(world, 2, 0.4f);
     world.guards[1].position.y += 20.f;
     simulation.Step(0.1f, {});
-    const float expected = 0.4f + 0.1f / GameplayConfig::ConfirmationTime;
+    const float expected = 0.4f + 0.1f * Perception::DetectionRate(world.agents[0], (world.guards[1].position - world.agents[0].position).length(), GameplayConfig::VisionDistance) / GameplayConfig::ConfirmationTime;
     Require(std::abs(world.agents[0].detectionProgress - expected) < 0.0001f && !world.agents[0].detectionConfirmed, "El progreso usa el máximo real de observadores sin sumar detecciones duplicadas");
     Interactable camera{90, ObjectKind::Camera, {300.f, 280.f}, "Cámara"}; camera.facing = {-1.f, 0.f}; camera.progress = camera.camera.confirmationTime - 0.2f; camera.observedAgent = 1;
     world.objects.push_back(camera);
     simulation.Step(0.1f, {});
-    const float cameraProgress = (camera.camera.confirmationTime - 0.1f) / camera.camera.confirmationTime;
+    const float cameraProgress = (camera.camera.confirmationTime - 0.2f + 0.1f * Perception::DetectionRate(world.agents[0], (camera.position - world.agents[0].position).length(), camera.camera.range)) / camera.camera.confirmationTime;
     Require(std::abs(world.agents[0].detectionProgress - cameraProgress) < 0.0001f && !world.agents[0].detectionConfirmed && !world.alarm, "Las cámaras aportan progreso gradual autoritativo sin confirmar antes de su umbral propio");
     Advance(simulation, 0.3f);
     Require(world.agents[0].detectionProgress == 1.f && world.agents[0].detectionConfirmed && world.alarm && world.securityActive, "La confirmación del observador real activa alarma y respuesta de seguridad");
@@ -79,6 +80,10 @@ namespace {
     Require(confirmed == 1, "La cámara registra exactamente una confirmación al alcanzar el umbral");
     Advance(simulation, 0.3f);
     Require(std::ranges::count_if(world.events, [](const MissionEvent &event) { return event.kind == EventKind::ConfirmedDetection && event.target == 1090; }) == confirmed, "Una cámara ya confirmada no repite el evento de detección cada tick");
+    const float guardRate = Perception::DetectionRate(world.agents[0], (world.guards[0].position - world.agents[0].position).length(), GameplayConfig::VisionDistance);
+    const float guardConfirmationRemaining = (1.f - world.guards[0].suspicion) * GameplayConfig::ConfirmationTime / guardRate;
+    Advance(simulation, guardConfirmationRemaining + GameplayConfig::MaximumStep);
+    Require(world.guards[0].suspicion == 1.f && world.guards[0].state == GuardState::Alert, "La prueba de pérdida de contacto requiere un guardia que haya confirmado realmente al agente");
     const auto clue = world.guards[0].lastKnown;
     world.agents[0].hidden = true; world.agents[0].position = {50.f, 700.f};
     simulation.Step(0.1f, {});
@@ -116,7 +121,7 @@ namespace {
     auto &solo = Fixture(simulation); Observer(solo, 1, 1.f);
     solo.agents[0].health = GameplayConfig::GuardShotDamage; solo.guards[0].attackCooldown = 0.f; solo.guards[0].state = GuardState::Alert;
     simulation.Step(0.1f, {});
-    Require(solo.phase == GamePhase::Results && solo.agents[0].incapacitated && !solo.results.at(1).success, "La caída por daño enemigo del último agente operativo activa el resultado de derrota");
+    Require(solo.phase == GamePhase::Results && solo.agents[0].lifeState == LifeState::Dead && !solo.agents[0].alive && solo.agents[0].health == 0.f && !solo.results.at(1).success, "La salud cero del agente individual confirma muerte y derrota sin abrir un rescate imposible");
   }
 
   void WavesAreFiniteAndSpatiallyValid() {
@@ -204,14 +209,66 @@ namespace {
     Require(std::ranges::none_of(world.guards, [id](const Guard &guard) { return guard.id == id; }), "La salida completa la retirada cuando el guardia ha dejado de estar a la vista");
     world.guards.push_back(returning); world.guards.back().facing = {-1.f, 0.f};
     world.agents[0].hidden = false; world.agents[0].facing = {1.f, 0.f};
-    Advance(simulation, 1.f);
+    Advance(simulation, GameplayConfig::ConfirmationTime * 2.f);
     Require(world.securityActive && world.alarm && world.agents[0].detectionConfirmed && std::ranges::any_of(world.guards, [id](const Guard &guard) { return guard.id == id && guard.state == GuardState::Alert; }), "Un refuerzo en retirada conserva la percepción gradual y reanuda la respuesta si confirma un nuevo contacto");
+  }
+
+  void PatrolPausesAndInterruptions() {
+    Simulation simulation, replica;
+    auto &world = Fixture(simulation); world.securityEntries.clear(); world.agents[0].hidden = true;
+    auto &guard = Observer(world); guard.patrol = {{300.f, 300.f}, {390.f, 300.f}};
+    simulation.Step(0.1f, {});
+    Require(guard.patrolPauseRemaining >= SecurityConfig::PatrolPauseMinimum && guard.patrolPauseRemaining <= SecurityConfig::PatrolPauseMaximum && guard.waypoint == 1,
+      "Llegar al punto de patrulla no elige una única pausa entre diez y veinte segundos");
+    const auto position = guard.position, facing = guard.facing;
+    const float pause = guard.patrolPauseRemaining;
+    Advance(simulation, 2.f);
+    Require(guard.position == position && guard.facing == facing && std::abs(guard.patrolPauseRemaining - (pause - 2.f)) < 0.001f && guard.stepTime == 0.f,
+      "La espera mueve al guardia, cambia la dirección de vigilancia o vuelve a sortear su duración");
+    std::string error;
+    const bool loaded = replica.LoadSnapshot(simulation.SnapshotFor(1), error);
+    Require(loaded, (std::string("La réplica de pausa de patrulla rechaza el estado: ") + error).c_str());
+    Require(replica.GetState().guards[0].patrolPauseRemaining == guard.patrolPauseRemaining,
+      "El temporizador de espera no conserva la duración autoritativa en LAN");
+    world.noises.push_back({position + sf::Vector2f{60.f, 0.f}, 100.f, 0.6f, 0, 0, SoundKind::Decoy, 0.6f});
+    simulation.Step(0.1f, {});
+    Require(guard.patrolPauseRemaining == 0.f && guard.state == GuardState::Investigate && guard.position != position,
+      "Un ruido audible no interrumpe la pausa de vigilancia");
+    world.noises.clear();
+    Advance(simulation, GameplayConfig::InvestigationDuration + 3.f);
+    Require(guard.state == GuardState::Patrol && guard.patrolPauseRemaining > 0.f, "Tras investigar no se recupera la ruta con nuevas pausas normales");
+    world.alarm = true;
+    simulation.Step(0.1f, {});
+    Require(guard.patrolPauseRemaining == 0.f && guard.state == GuardState::Search, "La alarma no interrumpe una patrulla detenida");
+  }
+
+  void DetectionPaceAndOcclusionMemory() {
+    Simulation simulation;
+    auto &world = Fixture(simulation); world.securityEntries.clear(); Observer(world);
+    Interactable camera{90, ObjectKind::Camera, {300.f, 300.f}, "Cámara de percepción"}; camera.facing = {-1.f, 0.f};
+    camera.solid = SpatialOverride::Disabled; camera.blocksVision = SpatialOverride::Disabled; world.objects.push_back(camera);
+    Advance(simulation, 0.5f);
+    const float guardProgress = world.guards[0].suspicion, cameraProgress = world.objects[0].progress;
+    Require(guardProgress > 0.f && guardProgress < 0.5f && cameraProgress < camera.camera.confirmationTime && !world.alarm,
+      "Una observación breve todavía confirma demasiado deprisa al agente quieto");
+    Require(cameraProgress / camera.camera.confirmationTime > guardProgress, "La cámara deja de confirmar más rápido que el guardia equivalente");
+    const auto knownGuard = world.guards[0].lastKnown, knownCamera = world.objects[0].camera.lastKnown;
+    world.obstacles.push_back({{{240.f, 250.f}, {20.f, 100.f}}, CoverKind::High, true, "Oclusión breve"});
+    Advance(simulation, 0.3f);
+    Require(world.guards[0].suspicion == guardProgress && world.objects[0].progress == cameraProgress && !world.alarm,
+      "Una oclusión breve borra inmediatamente el progreso acumulado");
+    Require(world.guards[0].lastKnown == knownGuard && world.objects[0].camera.lastKnown == knownCamera, "La oclusión revela una nueva posición sin observación real");
+    Advance(simulation, 1.f);
+    Require(world.guards[0].suspicion < guardProgress && world.objects[0].progress < cameraProgress, "La sospecha permanece indefinidamente tras perder al agente");
+    world.obstacles.clear(); simulation.Step(0.1f, {});
+    Require(world.guards[0].perceptionLostTime == 0.f && world.objects[0].camera.lostSightTime == 0.f && world.guards[0].suspicion > 0.f,
+      "Recuperar la visión no reanuda los temporizadores reales de detección");
   }
 }
 
 int main() {
   try {
-    IncapacitationEndsThreat(); DetectionUsesRealObservers(); EnemyDamageProducesCollapse(); WavesAreFiniteAndSpatiallyValid(); ContactLossPatrolAndWithdrawal(); VisibleExitDoesNotEraseGuard();
+    IncapacitationEndsThreat(); DetectionUsesRealObservers(); EnemyDamageProducesCollapse(); WavesAreFiniteAndSpatiallyValid(); ContactLossPatrolAndWithdrawal(); VisibleExitDoesNotEraseGuard(); PatrolPausesAndInterruptions(); DetectionPaceAndOcclusionMemory();
     std::cout << "NoTraceSecurityTests: " << checks << " comprobaciones correctas\n";
     return 0;
   } catch (const std::exception &error) {

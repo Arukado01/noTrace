@@ -134,7 +134,7 @@ namespace {
     Shot(simulation, HitZone::Torso, true);
     Require(lowWorld.guards[0].health == CombatConfig::MaxGuardHealth && lowWorld.shots.back().blocked, "Una cobertura baja intercepta un rayo situado por debajo de su altura");
     auto &aboveWorld = Fixture(simulation); HeldGuard(aboveWorld); aboveWorld.guards[0].position = {400.f, 300.f};
-    aboveWorld.obstacles.push_back({{{290.f, 260.f}, {20.f, 80.f}}, CoverKind::Low, true, "Caja"});
+    aboveWorld.obstacles.push_back({{{360.f, 260.f}, {20.f, 80.f}}, CoverKind::Low, true, "Caja"});
     Shot(simulation, HitZone::Head, true);
     Require(aboveWorld.guards[0].state == GuardState::Dead, "Una trayectoria por encima de una caja baja conserva el impacto en cabeza");
     for (const auto stance : {Stance::Standing, Stance::Crouched, Stance::Prone}) {
@@ -170,9 +170,28 @@ namespace {
     headWorld.agents[1].position = {300.f, 300.f}; headWorld.agents[1].stance = Stance::Crouched; headWorld.agents[1].hidden = true;
     headWorld.guards.push_back(guard);
     simulation.Step(0.1f, {});
-    Require(headWorld.shots.back().zone == HitZone::Head && headWorld.agents[1].alive && headWorld.agents[1].incapacitated && headWorld.agents[1].health == 0.f, "Una cabeza que intercepta un tiro enemigo recibe el daño inmediato y deja inconsciente al agente");
+    Require(headWorld.shots.back().zone == HitZone::Head && headWorld.agents[1].alive && !headWorld.agents[1].incapacitated && headWorld.agents[1].health == GameplayConfig::MaxHealth - CombatConfig::LethalHeadDamage, "Una cabeza que intercepta un tiro enemigo recibe daño mayor que el torso sin duplicar impactos");
   }
 
+  void MissionSurvivabilityAndDiscreteDamage() {
+    Simulation simulation; auto &world = Fixture(simulation);
+    world.agents[0].position = {300.f, 300.f};
+    Guard guard; guard.id = 88; guard.position = {450.f, 300.f}; guard.facing = {-1.f, 0.f}; guard.state = GuardState::Alert; guard.suspicion = 1.f;
+    world.guards.push_back(guard);
+    for (int hit = 0; hit < 3; ++hit) {
+      world.guards[0].attackCooldown = 0.f;
+      const auto before = world.agents[0].health;
+      simulation.Step(1.f / 60.f, {});
+      Require(world.agents[0].health == before - GameplayConfig::GuardShotDamage && world.agents[0].lifeState == LifeState::Alive,
+        "Cada disparo normal aplica daño corporal una vez y el jugador sobrevive a varios impactos");
+    }
+    const auto received = std::ranges::count_if(world.events, [](const MissionEvent &event) { return event.kind == EventKind::AgentDamaged; });
+    const auto fired = std::ranges::count_if(world.events, [](const MissionEvent &event) { return event.kind == EventKind::GuardShot; });
+    Require(received == 3 && fired == 3 && world.agents[0].health == GameplayConfig::MaxHealth - 3.f * GameplayConfig::GuardShotDamage,
+      "Tres balas generan tres daños discretos sin eventos duplicados por fotograma");
+    Require(CombatConfig::LethalHeadDamage > GameplayConfig::GuardShotDamage && CombatConfig::AgentLethalHeadDamage > CombatConfig::LethalTorsoDamage,
+      "Los impactos en cabeza mantienen una amenaza superior al cuerpo para cada bando");
+  }
   void FriendlyZonesAndSnapshots() {
     Simulation simulation, replica;
     auto &world = Fixture(simulation, true);
@@ -197,6 +216,7 @@ int main() {
     LethalAndNonLethalZones();
     BulletOcclusionAndPosture();
     ProneProtectionAndMelee();
+    MissionSurvivabilityAndDiscreteDamage();
     FriendlyZonesAndSnapshots();
     std::cout << "PASS combate: " << checks << " comprobaciones de zonas, postura, trayectoria y protección tumbado\n";
     return 0;

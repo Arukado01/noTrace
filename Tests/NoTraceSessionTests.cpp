@@ -642,12 +642,12 @@ namespace {
       pair.client.Submit(hold); pair.Advance(34);
       if (pulse < 3) Require(FindAgent(world, 2).cqcProgress == pulse, "Las nuevas pulsaciones F no conservan la cadencia autoritativa");
     }
-    Require(world.guards[0].state == GuardState::Incapacitated && world.guards[0].health == 100.f && world.guards[0].heldBy == 0, "CQC remoto no termina con inconsciencia y liberación");
+    Require(world.guards[0].state == GuardState::Incapacitated && world.guards[0].health == CombatConfig::MaxGuardHealth && world.guards[0].heldBy == 0, "CQC remoto no termina con inconsciencia y liberación");
     pair.client.Submit({}); pair.Advance(20);
     world.agents[0].position = {228.f, 300.f}; world.agents[0].cover = {};
     ActionCommand push; push.push = true; push.aimX = 1.f;
     pair.client.Submit(push); pair.Advance(15);
-    Require(world.agents[0].position.x > 228.f && world.agents[0].position.x <= 264.01f && world.agents[0].health == 100.f, "El cliente no empuja a su compañero de forma limitada y no letal");
+    Require(world.agents[0].position.x > 228.f && world.agents[0].position.x <= 264.01f && world.agents[0].health == GameplayConfig::MaxHealth, "El cliente no empuja a su compañero de forma limitada y no letal");
     Until([&] { return std::ranges::any_of(pair.client.GetWorld().agents, [&](const Agent &agent) { return agent.id == 1 && Distance(agent.position, world.agents[0].position) < 0.01f; }); }, [&] { pair.Tick(); });
   }
 

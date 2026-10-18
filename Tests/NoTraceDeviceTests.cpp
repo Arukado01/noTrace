@@ -109,7 +109,7 @@ namespace {
     world.agents[0].position = {200.f, 300.f};
     simulation.Step(0.1f, {});
     Require(camera.progress > 0.f && camera.progress < camera.camera.confirmationTime && world.agents[0].detectionProgress > 0.f, "Entrar en el campo de la cámara no produce sospecha progresiva");
-    Advance(simulation, 0.8f);
+    Advance(simulation, DevicesConfig::CameraConfirmationTime * 2.f);
     Require(world.alarm && world.securityActive && world.agents[0].detectionConfirmed, "La cámara confirmada no activa alarma y respuesta de seguridad");
     Require(std::ranges::any_of(world.events, [](const MissionEvent &event) { return event.kind == EventKind::ConfirmedDetection && event.target == 1080; }), "La cámara no registra su detección autoritativa");
 
@@ -139,7 +139,7 @@ namespace {
     Require(camera.camera.trackedAgent == 1 && camera.camera.lastKnown == world.agents[0].position && camera.facing.y > 0.01f,
       "La cámara salta al agente más cercano o no gira físicamente siguiendo al objetivo");
     Require(camera.camera.confirmationTime < GameplayConfig::ConfirmationTime, "La cámara no confirma antes que un guardia");
-    Advance(simulation, 0.2f);
+    Advance(simulation, DevicesConfig::CameraConfirmationTime * 2.f);
     Require(camera.camera.perception == CameraPerception::Tracking && camera.camera.confirmedRemaining > 4.9f && camera.camera.indicatorProgress == 1.f,
       "La confirmación no tiene un estado y una duración visibles propios");
     const auto known = camera.camera.lastKnown;
@@ -158,6 +158,29 @@ namespace {
     camera.camera.state = CameraState::Disabled; camera.active = false; simulation.Step(0.1f, {});
     Require(camera.camera.indicatorProgress == 0.f && camera.camera.trackedAgent == 0 && camera.camera.searchRemaining == 0.f,
       "Una cámara apagada conserva un ojo o una persecución activos");
+  }
+  void CameraAndGuardPosturePace() {
+    const auto progress = [](Stance stance, bool run, bool moving, float distance) {
+      Simulation simulation; auto &world = Fixture(simulation);
+      world.agents[0].position = {300.f - distance, 300.f}; world.agents[0].stance = stance;
+      auto &camera = Device(world, ObjectKind::Camera, PuzzleKind::None, {300.f, 300.f}); camera.facing = {-1.f, 0.f};
+      Guard guard; guard.id = 9; guard.position = {300.f, 300.f}; guard.facing = {-1.f, 0.f}; guard.attackCooldown = 1000.f; world.guards.push_back(guard);
+      ActionCommand command; command.moveY = moving ? 1.f : 0.f; command.run = run;
+      simulation.Step(0.1f, {{1, command}});
+      return std::pair{world.guards[0].suspicion, camera.progress};
+    };
+    const auto standing = progress(Stance::Standing, false, false, 60.f);
+    const auto walking = progress(Stance::Standing, false, true, 60.f);
+    const auto running = progress(Stance::Standing, true, true, 60.f);
+    const auto crouched = progress(Stance::Crouched, false, true, 60.f);
+    const auto prone = progress(Stance::Prone, false, true, 60.f);
+    Require(running.first > walking.first && walking.first > crouched.first && crouched.first > prone.first && standing.first < walking.first,
+      "La detección del guardia no distingue carrera, paseo, agachado, arrastre y quietud");
+    Require(running.second > walking.second && walking.second > crouched.second && crouched.second > prone.second && standing.second < walking.second,
+      "La detección de cámara no distingue carrera, paseo, agachado, arrastre y quietud");
+    const auto far = progress(Stance::Standing, false, false, 200.f);
+    Require(far.first > 0.f && far.first < standing.first && far.second > 0.f && far.second < standing.second,
+      "La distancia real del objetivo no modifica el ritmo de confirmación");
   }
   void DoorPuzzleLifecycle() {
     Simulation simulation; auto &world = Fixture(simulation, true);
@@ -357,7 +380,7 @@ namespace {
     ActionCommand joinBoth; joinBoth.interact = true; simulation.Step(0.1f, {{1, joinBoth}, {2, joinBoth}});
     first.puzzleTarget = disabledRelay.id; second = first;
     for (int frame = 0; frame < 6; ++frame) simulation.Step(0.1f, {{1, first}, {2, second}});
-    disabled.agents[1].incapacitated = true; disabled.agents[1].health = 0.f; disabled.agents[1].incapacityRemaining = 60.f;
+    disabled.agents[1].lifeState = LifeState::Incapacitated; disabled.agents[1].incapacitated = true; disabled.agents[1].health = 0.f; disabled.agents[1].incapacityRemaining = GameplayConfig::IncapacityDuration;
     for (int frame = 0; frame < 22; ++frame) simulation.Step(0.1f, {{1, first}});
     Require(!disabledRelay.completed && disabledRelay.puzzle.coordinationProgress == 0.f && disabled.agents[1].puzzle.target == 0,
       "La incapacidad del segundo operador convierte una prueba multijugador en una individual");
@@ -431,7 +454,7 @@ namespace {
 
 int main() {
   try {
-    CameraSweepAndPerception(); CameraTrackingAndMemory(); DoorPuzzleLifecycle(); ComputerAndCameraPanel(); BrokenCameraSurvivesCentralAndPanelReset(); TrapLifecycleAndDamage(); PuzzleFailureAndInvalidation();
+    CameraSweepAndPerception(); CameraTrackingAndMemory(); CameraAndGuardPosturePace(); DoorPuzzleLifecycle(); ComputerAndCameraPanel(); BrokenCameraSurvivesCentralAndPanelReset(); TrapLifecycleAndDamage(); PuzzleFailureAndInvalidation();
     WiresRequireActualPairs(); DistributedLeversNeedPhysicalInteraction(); CoordinationNeedsConcurrentHolds(); MissionDevicesAreReachable(); DistributedPuzzleRoutesAcrossMissions();
     std::cout << "NoTraceDeviceTests: " << checks << " comprobaciones correctas.\n"; return 0;
   } catch (const std::exception &exception) { std::cerr << "NoTraceDeviceTests: " << exception.what() << '\n'; return 1; }

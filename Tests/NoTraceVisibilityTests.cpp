@@ -200,10 +200,36 @@ namespace {
       Require(replica.LoadSnapshot(filtered, error), "El cliente rechaza el resultado propio anonimizado");
     }
   }
+  void BodyExposureAndRescueDirection() {
+    WorldState world; world.phase = GamePhase::Mission; world.size = {1000.f,760.f};
+    Agent target; target.id=2; target.position={250.f,200.f}; target.facing={-1.f,0.f};
+    world.obstacles.push_back({{{200.f,150.f},{25.f,100.f}},CoverKind::High,true,"Pared"});
+    Require(!Visibility::AgentExposed(world,{150.f,200.f},target), "El torso o cabeza atraviesa una pared completa");
+    target.position.y=145.f;
+    Require(Visibility::AgentExposed(world,{150.f,145.f},target), "Una cabeza expuesta junto al borde permanece invisible");
+    target.cover.active=true;
+    Require(Visibility::AgentExposed(world,{150.f,145.f},target), "La bandera cobertura concede invisibilidad fuera de geometría");
+    target.position={250.f,200.f}; target.stance=Stance::Prone;
+    Require(!Visibility::AgentExposed(world,{150.f,200.f},target), "Arrastrarse atraviesa la pared en percepción");
+    Simulation simulation; simulation.AddPlayer(1,"Uno"); simulation.AddPlayer(2,"Dos"); simulation.SetContract(ContractId::GhostArchive); simulation.Deploy(812);
+    auto &state=const_cast<WorldState&>(simulation.GetState()); state.guards.clear(); state.objects.clear(); state.obstacles=world.obstacles;
+    state.agents[0].position={150.f,200.f}; state.agents[1].position={250.f,200.f}; state.agents[1].lifeState=LifeState::Incapacitated;
+    state.agents[1].incapacitated=true; state.agents[1].health=0.f; state.agents[1].incapacityRemaining=42.f;
+    const auto snapshot=simulation.SnapshotFor(1,true);
+    Require(snapshot["agents"].size()==1 && snapshot["rescueSignals"].size()==1,"El rescate revela cuerpo oculto o no avisa al compañero");
+    const auto signal=snapshot["rescueSignals"][0];
+    Require(signal.size()==3 && signal["direction"]==nlohmann::json::array({1.f,0.f}) && signal["remaining"]==42.f, "La señal revela posición exacta o un plazo local");
+    Simulation client; std::string error; Require(client.LoadSnapshot(snapshot,error),"El cliente rechaza el rescate fuera de visión");
+    state.agents[1].position=state.agents[0].position;
+    Require(client.LoadSnapshot(simulation.SnapshotFor(1,true),error),"Coincidir con el compañero incapacitado genera una dirección inválida");
+    auto malformed=snapshot; malformed["rescueSignals"][0]["direction"]={7.f,0.f};
+    Require(!client.LoadSnapshot(malformed,error),"Se acepta una dirección de rescate no unitaria");
+  }
+
 }
 int main() {
   try {
-    GeometryAndGrid(); ReducedPostureRanges(); PrivateSnapshots(); HideoutPrivacy(); PrivateFootstepFiltering(); HiddenNeutralizationFeedback();
+    BodyExposureAndRescueDirection(); GeometryAndGrid(); ReducedPostureRanges(); PrivateSnapshots(); HideoutPrivacy(); PrivateFootstepFiltering(); HiddenNeutralizationFeedback();
     std::cout << "PASS visibilidad: " << checks << " comprobaciones de campo, paredes, puertas, posturas, privacidad y mascaras\n";
     return 0;
   } catch (const std::exception &error) {

@@ -33,7 +33,7 @@ namespace {
   Json Body(std::uint32_t id = 10, sf::Vector2f position = {170.f, 180.f}) {
     Simulation donor; donor.ResetBase(); donor.Deploy(0); auto value = donor.SnapshotFor(1)["guards"][0];
     value["id"] = id; value["position"] = {position.x, position.y}; value["state"] = static_cast<int>(GuardState::Incapacitated);
-    value["health"] = GameplayConfig::MaxHealth; value["stun"] = GameplayConfig::MaxStamina; value["incapacityRemaining"] = GameplayConfig::GuardIncapacityDuration;
+    value["health"] = CombatConfig::MaxGuardHealth; value["stun"] = GameplayConfig::MaxStamina; value["incapacityRemaining"] = GameplayConfig::GuardIncapacityDuration;
     value["bodyHidden"] = false; value["storedIn"] = 0; value["patrol"] = Json::array(); value["waypoint"] = 0;
     return value;
   }

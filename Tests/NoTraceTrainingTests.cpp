@@ -3,6 +3,7 @@
 #include "Config/NoTraceCqcConfig.h"
 #include "Config/NoTraceTrainingConfig.h"
 #include "Config/NoTraceWeaponConfig.h"
+#include "NoTracePerception.h"
 #include <algorithm>
 #include <cmath>
 #include <iostream>
@@ -125,6 +126,11 @@ namespace {
     Simulation simulation; simulation.ResetBase(); auto &world = World(simulation);
     auto &camera = Object(world, 100); camera.camera.sweeping = false; camera.facing = {-1.f, 0.f};
     world.agents[0].position = {1570.f, 260.f}; Advance(simulation, 1.f);
+    Require(!world.agents[0].detectionConfirmed && camera.progress > 0.f && camera.progress < camera.camera.confirmationTime && !world.alarm && !world.securityActive,
+      "La cámara de entrenamiento confirma antes del umbral gradual o genera una respuesta enemiga durante la sospecha");
+    const float cameraRate = Perception::DetectionRate(world.agents[0], (camera.position - world.agents[0].position).length(), camera.camera.range);
+    const float confirmationRemaining = (camera.camera.confirmationTime - camera.progress) / cameraRate;
+    Advance(simulation, confirmationRemaining + GameplayConfig::MaximumStep);
     Require(world.agents[0].detectionConfirmed && world.agents[0].detectionProgress == 1.f && !world.alarm && !world.securityActive,
       "La cámara de entrenamiento no detecta o activa una respuesta operativa enemiga");
     Interact(simulation, {1600.f, 430.f}); Solve(simulation);

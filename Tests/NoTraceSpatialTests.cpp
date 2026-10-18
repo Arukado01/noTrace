@@ -221,6 +221,21 @@ namespace {
     Require(!Local(simulation).cover.active, "La cobertura de pared admite cualquier obstáculo bajo");
   }
 
+  void AutomaticCoverEdgeAndBack() {
+    Simulation simulation;
+    auto snapshot = Empty(simulation, {175.f, 155.f}); snapshot["phase"]=static_cast<int>(GamePhase::Mission);
+    snapshot["obstacles"].push_back(Wall({{200.f,150.f},{30.f,200.f}})); Load(simulation,snapshot);
+    ActionCommand enter; enter.coverToggle=true; Advance(simulation,enter,1);
+    Advance(simulation,{},8);
+    Require(Local(simulation).cover.peekSide==PeekSide::Left && Local(simulation).position.y<150.f,"El extremo no activa el asomado automáticamente");
+    Require(Local(simulation).facing==Local(simulation).cover.normal,"La cobertura no mantiene la espalda contra la pared");
+    ActionCommand inward; inward.moveY=1.f; Advance(simulation,inward,15); Advance(simulation,{},8);
+    Require(Local(simulation).cover.peekSide==PeekSide::None && (Local(simulation).position-Local(simulation).cover.anchor).length()<.2f,"Volver hacia el centro no recupera la cobertura completa");
+    ActionCommand knock; knock.knock=true; Advance(simulation,knock);
+    Require(Local(simulation).actionPose==ActionPose::KnockWall && Local(simulation).facing==Local(simulation).cover.normal,"Golpear la pared gira el cuerpo o inicia otro ataque");
+    Require(!simulation.GetState().noises.empty() && simulation.GetState().noises.back().position.x==200.f,"El golpe no se origina en el contacto real con la pared");
+  }
+
   void MalformedCoverSnapshots() {
     Simulation simulation;
     auto snapshot = Empty(simulation, {175.f, 180.f});
@@ -258,7 +273,7 @@ namespace {
 
 int main() {
   try {
-    PropertiesAndFootprints(); SolidMovement(); GuardNavigation(); GuardCornerRecovery(); WallCoverAndPeek(); MalformedCoverSnapshots();
+    PropertiesAndFootprints(); SolidMovement(); GuardNavigation(); GuardCornerRecovery(); WallCoverAndPeek(); AutomaticCoverEdgeAndBack(); MalformedCoverSnapshots();
     std::cout << "PASS spatial: " << checks << " comprobaciones de huellas, colisiones, navegación, cobertura y asomado físico\n";
     return 0;
   } catch (const std::exception &error) {

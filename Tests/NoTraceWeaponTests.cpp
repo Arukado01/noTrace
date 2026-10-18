@@ -24,6 +24,32 @@ namespace {
   ActionCommand Shoot() { ActionCommand command; command.fireSelected = true; command.aimX = 1.f; return command; }
   int Shots(const WorldState &world) { return static_cast<int>(std::ranges::count_if(world.events, [](const MissionEvent &event) { return event.kind == EventKind::WeaponLethal || event.kind == EventKind::WeaponNonLethal; })); }
   void FireOnce(Simulation &simulation) { simulation.Step(0.1f, {{1, Shoot()}}); Advance(simulation, 8); }
+  void IncreasedStartingAmmoAndConservation() {
+    Simulation simulation; simulation.ResetBase(); simulation.Deploy(17);
+    auto &world = const_cast<WorldState &>(simulation.GetState());
+    world.guards.clear(); world.objects.clear(); world.obstacles.clear(); world.securityEntries.clear();
+    auto &agent = world.agents[0];
+    Require(agent.loadout.lethalAmmo == GameplayConfig::StartingPistolAmmo && agent.loadout.nonLethalAmmo == GameplayConfig::StartingNonLethalAmmo && agent.loadout.lethalAmmo > 4 && agent.loadout.nonLethalAmmo > 4,
+      "Cada arma comienza con más munición limitada y configurable que el cargador inicial");
+    Require(agent.lethalMagazine == WeaponConfig::PistolCapacity && agent.nonLethalMagazine == WeaponConfig::NonLethalCapacity && ReserveAmmo(agent, WeaponKind::Pistol) == agent.loadout.lethalAmmo - agent.lethalMagazine,
+      "Capacidad, cargador real y reserva distinguen inventario sin duplicar su estado");
+    const int initial = agent.loadout.lethalAmmo;
+    simulation.Step(0.1f, {{1, Shoot()}});
+    Require(agent.lethalMagazine == WeaponConfig::PistolCapacity - 1 && agent.loadout.lethalAmmo == initial - 1 && ReserveAmmo(agent, WeaponKind::Pistol) == initial - WeaponConfig::PistolCapacity,
+      "El disparo consume un cartucho cargado sin consumir también uno de reserva");
+    ActionCommand reload; reload.reloadWeapon = true; simulation.Step(0.1f, {{1, reload}}); Advance(simulation, 13);
+    Require(agent.lethalMagazine == WeaponConfig::PistolCapacity && agent.loadout.lethalAmmo == initial - 1 && ReserveAmmo(agent, WeaponKind::Pistol) == initial - 1 - WeaponConfig::PistolCapacity,
+      "Recargar parcialmente transfiere sólo el cartucho necesario sin crear ni destruir munición");
+    const int afterReload = agent.loadout.lethalAmmo;
+    simulation.Step(0.1f, {{1, reload}}); Advance(simulation, 40);
+    Require(agent.loadout.lethalAmmo == afterReload && agent.lethalMagazine == WeaponConfig::PistolCapacity && agent.reloadRemaining == 0.f,
+      "Repetir R con cargador lleno y esperar en combate no repone munición");
+    const auto before = Shots(world);
+    for (int frame = 0; frame < 60; ++frame) simulation.Step(1.f / 60.f, {{1, Shoot()}});
+    const auto emitted = Shots(world) - before;
+    Require(emitted >= 1 && emitted <= 2 && agent.loadout.lethalAmmo == afterReload - emitted && agent.lethalMagazine == WeaponConfig::PistolCapacity - emitted,
+      "Sesenta órdenes de disparo en un segundo respetan la cadencia y un único consumo por impacto");
+  }
   void ReloadAndInventory() {
     Simulation simulation, replica; auto &world = Fixture(simulation);
     Require(world.agents[0].lethalMagazine == WeaponConfig::PistolCapacity && world.agents[0].loadout.lethalAmmo == 8, "El cargador inicial altera la cantidad total preparada");
@@ -109,7 +135,7 @@ namespace {
     world.agents[0].position = {200.f, 300.f}; world.agents[1].position = {260.f, 300.f}; world.agents[0].actionCooldown = 0.f;
     auto lethal = Shoot(); lethal.aimSlope = head.aimSlope;
     simulation.Step(0.1f, {{1, lethal}});
-    Require(!world.agents[1].alive && world.agents[1].health == 0.f, "La protección de entrenamiento persiste al recibir daño letal en una misión real");
+    Require(world.agents[1].alive && world.agents[1].incapacitated && world.agents[1].lifeState == LifeState::Incapacitated && world.agents[1].health == 0.f && world.agents[1].incapacityRemaining == GameplayConfig::IncapacityDuration, "El daño fatal de misión no activa el estado de rescate de 55 segundos del compañero");
   }
   void SuppressorWearAndFiniteAmmo() {
     Simulation simulation, replica; auto &world = Fixture(simulation);
@@ -153,6 +179,6 @@ namespace {
   }
 }
 int main() {
-  try { ReloadAndInventory(); SelectionAndInterruption(); ProneReload(); TrainingProtectionAndTransition(); SuppressorWearAndFiniteAmmo(); std::cout << "PASS armas y seguridad: " << checks << " comprobaciones\n"; return 0; }
+  try { IncreasedStartingAmmoAndConservation(); ReloadAndInventory(); SelectionAndInterruption(); ProneReload(); TrainingProtectionAndTransition(); SuppressorWearAndFiniteAmmo(); std::cout << "PASS armas y seguridad: " << checks << " comprobaciones\n"; return 0; }
   catch (const std::exception &error) { std::cerr << "FAIL armas tras " << checks << ": " << error.what() << '\n'; return 1; }
 }

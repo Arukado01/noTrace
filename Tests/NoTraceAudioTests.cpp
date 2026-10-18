@@ -18,7 +18,9 @@ int main() {
     using namespace NoTrace;
     const auto root = std::filesystem::exists("Content") ? std::filesystem::path(".") : std::filesystem::path("..");
     std::set<std::uint64_t> hashes;
+    std::set<std::string> files;
     for (std::size_t index = 0; index < AudioConfig::Files.size(); ++index) {
+      if (!files.insert(AudioConfig::File(static_cast<SoundKind>(index))).second) continue;
       sf::SoundBuffer buffer;
       Require(buffer.loadFromFile(root / "Content/Sounds" / AudioConfig::File(static_cast<SoundKind>(index))), "Falta un recurso táctico o no es decodificable");
       Require(buffer.getDuration().asSeconds() > .04f && buffer.getDuration().asSeconds() < 2.f, "Duración de recurso inválida");
@@ -53,17 +55,29 @@ int main() {
     Require(!replica.LoadSnapshot(invalid,error), "El cliente acepta un tipo de ruido que no corresponde a ninguna acción");
     invalid=snapshot; invalid["noises"][0]["duration"]=0.5f;
     Require(!replica.LoadSnapshot(invalid,error), "El cliente acepta un ruido cuya duración total es menor que el tiempo restante");
-    struct StepCase { Stance stance; bool run; float radius; };
-    const std::array<StepCase,5> steps{{{Stance::Standing,false,GameplayConfig::WalkingNoiseRadius}, {Stance::Standing,true,GameplayConfig::RunningNoiseRadius},
-      {Stance::Crouched,false,GameplayConfig::CrouchedNoiseRadius}, {Stance::Crouched,true,GameplayConfig::CrouchedRunningNoiseRadius}, {Stance::Prone,false,GameplayConfig::ProneNoiseRadius}}};
+    Require(AudioConfig::Gain(SoundKind::StepRunHard) > AudioConfig::Gain(SoundKind::StepHard) && AudioConfig::Gain(SoundKind::StepHard) > AudioConfig::Gain(SoundKind::StepCrouchHard), "Los pasos no distinguen la intensidad de correr, caminar y agacharse");
+    Require(AudioConfig::File(SoundKind::SuppressorAttach) != AudioConfig::File(SoundKind::SuppressorDetach), "Montar y desmontar el silenciador reutilizan la misma señal mecánica");
+    struct StepCase { Stance stance; bool run; float radius; SoundKind kind; };
+    const std::array<StepCase,5> steps{{{Stance::Standing,false,GameplayConfig::WalkingNoiseRadius,SoundKind::StepHard}, {Stance::Standing,true,GameplayConfig::RunningNoiseRadius,SoundKind::StepRunHard},
+      {Stance::Crouched,false,GameplayConfig::CrouchedNoiseRadius,SoundKind::StepCrouchHard}, {Stance::Crouched,true,GameplayConfig::CrouchedRunningNoiseRadius,SoundKind::StepCrouchHard}, {Stance::Prone,false,GameplayConfig::ProneNoiseRadius,SoundKind::StepHard}}};
     for (const auto &step : steps) {
       Simulation moving; moving.ResetBase(); moving.Deploy(4); auto &state=const_cast<WorldState&>(moving.GetState());
       state.obstacles.clear(); state.objects.clear(); state.guards.clear(); state.sounds.clear(); state.noises.clear(); state.decoys.clear(); state.securityEntries.clear();
       state.agents[0].position={100.f,500.f}; state.agents[0].stance=step.stance;
       ActionCommand command; command.moveX=1.f; command.run=step.run;
-      for(int frame=0;frame<4;++frame) moving.Step(0.1f,{{1,command}});
+      for(int frame=0;frame<7;++frame) moving.Step(0.1f,{{1,command}});
+      if (step.stance == Stance::Prone) {
+        Require(state.noises.empty() && state.sounds.empty() && state.agents[0].moving, "Arrastrarse tumbado produce ruido o pasos aunque la posición avance");
+        command.moveX = 0.f; command.fireLethal = true; command.aimX = 1.f;
+        moving.Step(0.1f, {{1, command}});
+        Require(!state.noises.empty() && !state.sounds.empty(), "La postura tumbada suprime también el ruido independiente de disparar");
+        continue;
+      }
       Require(!state.noises.empty() && state.noises.back().radius==step.radius && step.radius>0.f, "Una postura o carrera elimina el ruido real o usa el mismo alcance para cualquier movimiento");
-      Require(state.noises.back().position==state.agents[0].position && state.noises.back().actor==1 && state.noises.back().kind==SoundKind::StepHard && state.noises.back().duration==GameplayConfig::NoiseDuration, "Los pasos no conservan origen, emisor, tipo y duración de la simulación");
+      Require(state.noises.back().actor==1 && state.noises.back().kind==step.kind && state.noises.back().duration==GameplayConfig::NoiseDuration, "Los pasos no conservan emisor, postura y duración de la simulación");
+      Require(state.noises.size() <= 3 && state.sounds.size() <= 3, "El movimiento emite una señal acústica cada fotograma");
+      moving.Step(0.1f, {});
+      Require(!state.agents[0].moving && state.agents[0].footstepTime == 0.f, "Detenerse conserva un temporizador de pasos pendiente");
     }
     std::cout << "PASS audio y percepción acústica: " << checks << " comprobaciones\n";
   } catch (const std::exception &e) { std::cerr << "FAIL audio: " << e.what() << '\n'; return 1; }

@@ -131,8 +131,9 @@ namespace {
     snapshot = EmptyMission(simulation, {400.f, 500.f});
     snapshot["guards"].push_back(GuardJson(donor, {300.f, 500.f}, {1.f, 0.f}));
     Load(simulation, snapshot);
-    Advance(simulation, {}, 9);
-    Require(simulation.GetState().alarm, "La visión sostenida debe activar alarma");
+    const int confirmationFrames = static_cast<int>(std::ceil(GameplayConfig::ConfirmationTime / (SecurityConfig::StationaryDetectionFactor * (SecurityConfig::DetectionNearFactor - SecurityConfig::DetectionDistanceReduction)) / 0.1f)) + 1;
+    Advance(simulation, {}, confirmationFrames);
+    Require(simulation.GetState().alarm, "La visión sostenida debe activar alarma tras el umbral configurado y su modulación");
     Require(std::ranges::any_of(simulation.GetState().events, [](const MissionEvent &event) { return event.kind == EventKind::ConfirmedDetection; }), "La detección confirmada debe quedar registrada");
     auto escaped = simulation.SnapshotFor(1);
     escaped["agents"][0]["position"] = {800.f, 700.f};
@@ -220,7 +221,7 @@ namespace {
     shoot.fireNonLethal = false; shoot.fireLethal = true;
     simulation.Step(0.1f, {{1, shoot}});
     Require(simulation.GetState().guards[0].state == GuardState::Dead, "El arma letal debe eliminar");
-    Require(simulation.GetState().agents[0].loadout.lethalAmmo == 3, "Disparar debe consumir munición");
+    Require(simulation.GetState().agents[0].loadout.lethalAmmo == GameplayConfig::StartingPistolAmmo - 1, "Disparar debe consumir munición");
   }
 
   void WeaponTrajectoriesAndVitals() {
@@ -240,16 +241,16 @@ namespace {
     Load(replica, fired);
     Require(replica.GetState().shots[0].hit && replica.GetState().shots[0].to == simulation.GetState().shots[0].to, "El snapshot propaga impacto y trayectoria autoritativos");
     simulation.Step(0.1f, {{1, shoot}});
-    Require(simulation.GetState().agents[0].loadout.lethalAmmo == 3, "El cooldown bloquea un segundo disparo inmediato");
+    Require(simulation.GetState().agents[0].loadout.lethalAmmo == GameplayConfig::StartingPistolAmmo - 1, "El cooldown bloquea un segundo disparo inmediato");
     Advance(simulation, {}, 7);
     simulation.Step(0.1f, {{1, shoot}});
-    Require(simulation.GetState().agents[0].loadout.lethalAmmo == 2, "Al vencer la cadencia puede dispararse de nuevo");
+    Require(simulation.GetState().agents[0].loadout.lethalAmmo == GameplayConfig::StartingPistolAmmo - 2, "Al vencer la cadencia puede dispararse de nuevo");
 
     snapshot["obstacles"].push_back({{"position", {350.f, 470.f}}, {"size", {20.f, 60.f}}, {"cover", 2}, {"solid", true}, {"name", "Muro balístico"}});
     Load(simulation, snapshot);
     simulation.Step(0.1f, {{1, shoot}});
     Require(simulation.GetState().guards[0].state != GuardState::Dead && simulation.GetState().shots[0].blocked && std::abs(simulation.GetState().shots[0].to.x - 350.f) < 0.01f, "Un muro sólido detiene la bala antes del objetivo");
-    Require(simulation.GetState().agents[0].loadout.lethalAmmo == 3, "Un disparo bloqueado también gasta munición");
+    Require(simulation.GetState().agents[0].loadout.lethalAmmo == GameplayConfig::StartingPistolAmmo - 1, "Un disparo bloqueado también gasta munición");
     snapshot["obstacles"] = nlohmann::json::array();
     snapshot["objects"].push_back({{"id", 90}, {"kind", static_cast<int>(ObjectKind::Door)}, {"position", {370.f, 500.f}}, {"name", "Puerta"}, {"active", true}, {"completed", false}, {"open", false}, {"progress", 0.f}, {"facing", {1.f, 0.f}}});
     Load(simulation, snapshot);
@@ -317,11 +318,11 @@ namespace {
     simulation.ResetBase({{1, "Uno"}, {2, "Dos"}}); simulation.Deploy(0);
     snapshot = simulation.SnapshotFor(1);
     snapshot["guards"] = nlohmann::json::array(); snapshot["obstacles"] = nlohmann::json::array(); snapshot["objects"] = nlohmann::json::array();
-    snapshot["agents"][0]["incapacitated"] = true; snapshot["agents"][0]["incapacityRemaining"] = 0.15f; snapshot["agents"][0]["stamina"] = 0.f;
+    snapshot["agents"][0]["incapacitated"] = true; snapshot["agents"][0]["lifeState"] = static_cast<int>(LifeState::Incapacitated); snapshot["agents"][0]["incapacityRemaining"] = 0.15f; snapshot["agents"][0]["stamina"] = 0.f;
     snapshot["agents"][1]["position"] = {900.f, 700.f};
     Load(simulation, snapshot);
     Advance(simulation, {}, 2);
-    Require(simulation.GetState().phase == GamePhase::Mission && !simulation.GetState().agents[0].incapacitated && simulation.GetState().agents[0].stamina > 0.f, "Un compañero operativo mantiene la sesión y permite la recuperación cooperativa explícita por temporizador");
+    Require(simulation.GetState().phase == GamePhase::Results && simulation.GetState().agents[0].lifeState == LifeState::Dead && simulation.GetState().agents[0].rescueExpired, "Vencer el plazo de rescate termina la operación y nunca recupera por temporizador");
 
     snapshot = EmptyMission(simulation, {300.f, 500.f});
     snapshot["guards"].push_back(GuardJson(donor, {400.f, 500.f}, {1.f, 0.f}));
@@ -360,14 +361,96 @@ namespace {
     Require(!replica.LoadSnapshot(invalid, error), "El snapshot rechaza munición fraccionaria de guardia");
   }
 
+  void AtomicLifeAndExplicitRescue() {
+    const auto prepare = [](Simulation &simulation, bool partner) -> WorldState & {
+      simulation.ResetBase(partner ? std::vector<PlayerProfile>{{1, "Uno"}, {2, "Dos"}} : std::vector<PlayerProfile>{{1, "Uno"}});
+      simulation.Deploy(7);
+      auto &world = const_cast<WorldState &>(simulation.GetState());
+      world.guards.clear(); world.objects.clear(); world.obstacles.clear(); world.securityEntries.clear(); world.events.clear(); world.noises.clear();
+      world.agents[0].position = {400.f, 400.f};
+      if (partner) world.agents[1].position = {900.f, 700.f};
+      return world;
+    };
+    const auto attack = [](WorldState &world) {
+      Guard guard; guard.id = 44; guard.position = {550.f, 400.f}; guard.facing = {-1.f, 0.f}; guard.state = GuardState::Alert; guard.suspicion = 1.f;
+      world.guards.push_back(guard);
+      world.agents[0].health = GameplayConfig::GuardShotDamage; world.agents[0].stamina = 0.f;
+    };
+    Simulation solo;
+    auto &soloWorld = prepare(solo, false); attack(soloWorld); solo.Step(0.1f, {});
+    Require(soloWorld.phase == GamePhase::Results && !soloWorld.agents[0].alive && soloWorld.agents[0].lifeState == LifeState::Dead && soloWorld.agents[0].health == 0.f && soloWorld.agents[0].stamina == 0.f,
+      "Vida y stamina agotadas simultáneamente confirman muerte y derrota individual en el mismo paso");
+    Advance(solo, {}, 600);
+    Require(soloWorld.agents[0].lifeState == LifeState::Dead && soloWorld.agents[0].health == 0.f && !soloWorld.results.at(1).success,
+      "La derrota y el estado muerto no permiten regeneración ni resurrección posterior");
+    Simulation cooperative, replica;
+    auto &world = prepare(cooperative, true); attack(world); cooperative.Step(0.1f, {}); world.guards.clear();
+    Require(world.phase == GamePhase::Mission && world.agents[0].lifeState == LifeState::Incapacitated && world.agents[0].health == 0.f && world.agents[0].stamina == 0.f && world.agents[0].incapacityRemaining == 55.f,
+      "El daño fatal cooperativo inicia exactamente 55 segundos autoritativos sin prioridad de stamina");
+    Advance(cooperative, {}, 100);
+    Require(world.agents[0].incapacitated && world.agents[0].health == 0.f && world.agents[0].stamina == 0.f && world.agents[0].incapacityRemaining < 45.1f && world.agents[0].incapacityRemaining > 44.9f,
+      "Diez segundos de espera no recuperan vida ni stamina de un incapacitado");
+    std::string error;
+    Require(replica.LoadSnapshot(cooperative.SnapshotFor(2), error) && replica.GetState().agents[0].incapacityRemaining == world.agents[0].incapacityRemaining && replica.GetState().agents[0].lifeState == LifeState::Incapacitated,
+      "El cliente recibe el plazo y estado vital exactos del anfitrión");
+    ActionCommand rescue; rescue.interact = true;
+    cooperative.Step(0.1f, {{2, rescue}});
+    Require(world.agents[0].incapacitated, "Una orden de rescate fuera de alcance no recupera al compañero");
+    world.agents[1].position = {360.f, 400.f}; world.obstacles.push_back({{{379.f, 390.f}, {4.f, 20.f}}, CoverKind::High, true, "Muro de rescate"});
+    cooperative.Step(0.1f, {{2, rescue}});
+    Require(world.agents[0].incapacitated, "Un rescate no atraviesa una pared aunque esté dentro del radio de interacción");
+    world.obstacles.clear();
+    Guard nearbyBody; nearbyBody.id = 90; nearbyBody.position = {365.f, 400.f}; nearbyBody.state = GuardState::Dead; nearbyBody.health = 0.f; world.guards.push_back(nearbyBody);
+    rescue.dragBody = true; cooperative.Step(0.1f, {{2, rescue}}); rescue.dragBody = false;
+    Require(world.agents[1].draggingGuard < 0, "E prioriza el rescate válido frente al cuerpo neutralizado que está junto al compañero");
+    Require(world.agents[0].lifeState == LifeState::Alive && !world.agents[0].incapacitated && world.agents[0].health == GameplayConfig::RevivedHealth && world.agents[0].incapacityRemaining == 0.f,
+      "E valida un rescate próximo, sin oclusión y antes del plazo con la salud configurada");
+    Require(std::ranges::count_if(world.events, [](const MissionEvent &event) { return event.kind == EventKind::AgentRevived; }) == 1,
+      "Sólo el rescate explícito registra una recuperación y no la espera ni la resistencia");
+    auto &fullDeadline = prepare(cooperative, true); attack(fullDeadline); cooperative.Step(0.1f, {}); fullDeadline.guards.clear();
+    Advance(cooperative, {}, 540);
+    Require(fullDeadline.phase == GamePhase::Mission && fullDeadline.agents[0].incapacitated && fullDeadline.agents[0].incapacityRemaining > 0.9f && fullDeadline.agents[0].incapacityRemaining < 1.1f,
+      "Un compañero activo conserva la operación durante 54 segundos completos del plazo de rescate");
+    Advance(cooperative, {}, 11);
+    Require(fullDeadline.phase == GamePhase::Results && fullDeadline.agents[0].rescueExpired && !fullDeadline.agents[0].alive,
+      "El plazo real de 55 segundos vence sin autorecuperar al agente y cancela la operación cooperativa");
+    auto &expired = prepare(cooperative, true);
+    expired.agents[1].lifeState = LifeState::Incapacitated; expired.agents[1].incapacitated = true; expired.agents[1].health = expired.agents[1].stamina = 0.f;
+    expired.agents[1].incapacityRemaining = 0.05f; expired.agents[1].position = {430.f, 400.f};
+    cooperative.Step(0.1f, {{1, rescue}});
+    Require(expired.phase == GamePhase::Results && expired.agents[1].rescueExpired && expired.agents[1].lifeState == LifeState::Dead && expired.agents[1].health == 0.f,
+      "El plazo vence antes de las órdenes incluso si el rescatador se actualiza primero");
+    auto &allDown = prepare(cooperative, true);
+    for (auto &agent : allDown.agents) { agent.lifeState = LifeState::Incapacitated; agent.incapacitated = true; agent.health = agent.stamina = 0.f; agent.incapacityRemaining = 55.f; }
+    cooperative.Step(0.1f, {});
+    Require(allDown.phase == GamePhase::Results && !allDown.results.at(1).success, "Todos incapacitados provocan derrota sin una recuperación automática del equipo");
+  }
+
   void ScoringAndObjectives() {
     WorldState world;
     Agent agent; agent.id = 1; agent.extracted = true;
     world.agents.push_back(agent); world.objectives = 1; world.secondary = 1;
+    Interactable secondary{12, ObjectKind::Secondary, {}, "Objetivo secundario"}; secondary.completed = true; world.objects.push_back(secondary);
     const auto &contract = GetContract(ContractId::GhostArchive);
     world.events.push_back({1, 1, 1, EventKind::Noise, 0});
     auto result = EvaluateMission(contract, world, 1, true);
-    Require(result.rank == Rank::Maestro && result.maestroEligible, "Una distracción limpia permite Maestro");
+    Require(result.rank == Rank::Maestro && result.maestroEligible && result.maestroDeniedReason.empty(), "Una distracción limpia y todas las secundarias permiten Maestro");
+    world.events.push_back({2, 2, 0, EventKind::BodyFound, 2});
+    world.alarm = false;
+    result = EvaluateMission(contract, world, 1, true);
+    Require(!result.maestroEligible && result.rank != Rank::Maestro && result.maestroDeniedReason.find("cuerpos") != std::string::npos,
+      "Descubrir un cuerpo impide Maestro aunque se haya calmado la alarma y no existan eventos de armas, CQC o detección");
+    world.events.pop_back();
+    world.objects[0].completed = false; world.secondary = 8;
+    Interactable optional{999, ObjectKind::Secondary, {}, "Recogida opcional"}; optional.completed = true; world.objects.push_back(optional);
+    result = EvaluateMission(contract, world, 1, true);
+    Require(!result.maestroEligible && result.rank != Rank::Maestro && result.maestroDeniedReason.find("secundarias") != std::string::npos, "Un contador alto y una recogida ajena no sustituyen una misión secundaria pendiente");
+    world.objects[0].completed = true; world.secondary = 1;
+    Contract expanded = contract; expanded.secondaryObjectives = 2; expanded.secondaryTargets = {12, 999};
+    Require(EvaluateMission(expanded, world, 1, true).maestroEligible, "Un contrato puede declarar explícitamente una recogida como segunda misión secundaria");
+    world.objects[1].completed = false;
+    Require(!EvaluateMission(expanded, world, 1, true).maestroEligible, "Todas las secundarias declaradas son necesarias aunque la principal esté completa");
+    world.objects.pop_back();
     for (const auto kind : {EventKind::WeaponLethal, EventKind::WeaponNonLethal, EventKind::Cqc, EventKind::ConfirmedDetection, EventKind::AgentAlarm}) {
       world.events.push_back({2, 2, 1, kind, 0});
       result = EvaluateMission(contract, world, 1, true);
@@ -751,6 +834,7 @@ namespace {
     ActionCommand approach; approach.moveX = 1.f; approach.moveY = 0.25f; approach.run = true;
     Advance(clean, approach, 7, 1.f / 30.f);
     ReachAndInteract(clean, ObjectKind::Terminal, true);
+    ReachAndInteract(clean, ObjectKind::Secondary, true);
     ReachAndInteract(clean, ObjectKind::Extraction, true);
     Require(clean.GetState().results.at(1).rank == Rank::Maestro, "Una infiltración real limpia debe lograr Maestro");
     Require(clean.GetState().events.size() >= 2, "La misión limpia debe conservar registro real de objetivos y extracción");
@@ -764,6 +848,7 @@ int main() {
     CombatAndTools();
     WeaponTrajectoriesAndVitals();
     GuardAttacksAndRecovery();
+    AtomicLifeAndExplicitRescue();
     ScoringAndObjectives();
     PrivacyAndDisconnect();
     DisconnectNeutralizesMovement();

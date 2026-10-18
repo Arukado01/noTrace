@@ -102,7 +102,7 @@ namespace {
       for (int frame = 0; frame < 12 && world.phase != GamePhase::Results; ++frame) Tick(simulation);
       Require(world.objects[0].trap.state == TrapState::Detonated, "La zambullida suspende la trampa en lugar de aplicar sus reglas reales");
       if (training) Require(world.agents[0].alive && !world.agents[0].incapacitated && world.agents[0].health >= 1.f && world.phase == GamePhase::Base, "Aterrizar sobre explosivos omite la protección del entrenamiento");
-      else Require(world.agents[0].incapacitated && world.phase == GamePhase::Results, "La maniobra concede invulnerabilidad de entrenamiento a una misión real");
+      else Require(world.agents[0].lifeState == LifeState::Dead && !world.agents[0].alive && world.phase == GamePhase::Results, "La maniobra concede invulnerabilidad de entrenamiento a una misión real");
     }
   }
 }

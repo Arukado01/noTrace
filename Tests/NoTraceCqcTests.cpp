@@ -123,7 +123,9 @@ namespace {
     Fixture(simulation, true); Advance(simulation, Held(), 3); simulation.DisconnectPlayer(1);
     Require(world.agents[0].cqcHoldingAgent == 0 && world.agents[1].cqcHeldBy == 0, "La desconexión del dueño deja bloqueado al compañero");
     Fixture(simulation, true); Advance(simulation, Held(), 3); Advance(simulation, {}, 11);
-    Require(world.agents[0].cqcHoldingAgent == 0 && world.agents[1].cqcHeldBy == 0 && !world.agents[1].incapacitated, "La liberación por soltar F no restaura la libertad del compañero");
+    Require(world.agents[0].cqcHoldingAgent == 2 && world.agents[1].cqcHeldBy == 1 && !world.agents[1].incapacitated, "Soltar F libera automáticamente al compañero sin una acción explícita");
+    Advance(simulation, Held(), 24);
+    Require(world.agents[0].cqcHoldingAgent == 0 && world.agents[1].cqcHeldBy == 0, "La presión larga explícita no permite terminar la sujeción amistosa");
     Fixture(simulation, true); ShortPress(simulation); Advance(simulation, {}, 7);
     Require(world.agents[1].health == GameplayConfig::MaxHealth && world.agents[1].stamina == GameplayConfig::MaxStamina && !world.agents[1].incapacitated, "Un golpe breve dirigido junto a un aliado le aplica daño accidental");
   }
@@ -167,7 +169,9 @@ namespace {
     held.aimX = 1.f; Advance(simulation, held, 5);
     Require(world.agents[0].cqcHoldingGuard == 0, "Se agarra atravesando paredes");
     Fixture(simulation); Advance(simulation, Held(), 3); Advance(simulation, {}, 11);
-    Require(world.agents[0].cqcHoldingGuard == 0 && world.guards[0].heldBy == 0 && world.guards[0].cqcState == CqcState::None, "Soltar F deja la pareja bloqueada");
+    Require(world.agents[0].cqcHoldingGuard == 9 && world.guards[0].heldBy == 1, "Soltar F durante la sujeción activa una huida por temporizador ordinario");
+    Advance(simulation, Held(), 24);
+    Require(world.agents[0].cqcHoldingGuard == 0 && world.guards[0].heldBy == 0 && world.guards[0].cqcState == CqcState::None, "El umbral de presión continua explícita no permite escapar al guardia");
     Fixture(simulation); Advance(simulation, Held(), 3); simulation.DisconnectPlayer(1);
     Require(world.guards[0].heldBy == 0 && world.guards[0].cqcState == CqcState::None, "La desconexión conserva un agarre huérfano");
   }
@@ -181,7 +185,7 @@ namespace {
       const auto position = partner ? world.agents[1].position : world.guards[0].position;
       Require(position.x > 228.f && position.x <= 258.01f && !WorldGeometry::PositionBlocked(world, position, GameplayConfig::AgentRadius), "El empujón atraviesa la pared o no desplaza al personaje");
       const auto health = partner ? world.agents[1].health : world.guards[0].health;
-      Require(health == 100.f, "El empujón causa daño letal");
+      Require(health == (partner ? GameplayConfig::MaxHealth : CombatConfig::MaxGuardHealth), "El empujón causa daño letal");
       if (partner) Require(world.agents[1].staggerRemaining > 0.f && !world.agents[1].aiming, "El compañero empujado conserva el apuntado mientras está desestabilizado");
       simulation.Step(0.1f, {{1, push}});
       Require((partner ? world.agents[1].position : world.guards[0].position) == position, "El empujón no respeta su enfriamiento");
@@ -264,8 +268,50 @@ namespace {
     Advance(simulation, Held(), 12);
     Require(world.agents[0].cqcHoldingGuard == 0 && !WorldGeometry::PositionBlocked(world, world.agents[0].position, GameplayConfig::AgentRadius) && (world.agents[0].position - world.guards[0].position).length() >= CqcConfig::MinimumGripDistance, "Una aproximación bloqueada atraviesa pared o cuerpo para imponer el agarre");
   }
+  void StableGripAndExtendedApproach() {
+    Simulation simulation; auto &world = Fixture(simulation);
+    Advance(simulation, Held(), 3); world.agents[0].stamina = 0.f;
+    Advance(simulation, {}, 500);
+    Require(world.agents[0].cqcHoldingGuard == 9 && world.guards[0].heldBy == 1 && world.guards[0].state != GuardState::Incapacitated,
+      "La sujeción válida termina por tiempo ordinario, animación, IA o resistencia agotada sin presión de F");
+    world.agents[0].stamina = GameplayConfig::MaxStamina;
+    Advance(simulation, Held(), 20);
+    Require(world.agents[0].cqcHoldingGuard == 9 && world.agents[0].cqcProgress == 1, "La presión continua escapa antes del umbral propio o suma pulsaciones automáticas");
+    Advance(simulation, Held(), 4);
+    Require(world.agents[0].cqcHoldingGuard == 0 && world.guards[0].heldBy == 0 && world.guards[0].state != GuardState::Incapacitated,
+      "Mantener F más allá del umbral no libera físicamente al objetivo consciente");
+    for (const bool front : {false, true}) {
+      Fixture(simulation); world.phase = GamePhase::Base; world.mode = SimulationMode::Training; world.guards[0].trainingDummy = true;
+      world.guards[0].position = {270.f, 300.f}; world.guards[0].facing = front ? sf::Vector2f{-1.f, 0.f} : sf::Vector2f{1.f, 0.f};
+      const auto target = world.guards[0].position;
+      for (int frame = 0; frame < 30 && world.agents[0].cqcHoldingGuard == 0; ++frame) {
+        const auto previous = world.agents[0].position;
+        simulation.Step(0.1f, {{1, Held()}});
+        Require((world.agents[0].position - previous).length() <= CqcConfig::ApproachSpeed * 0.1f + 0.1f && world.guards[0].position == target,
+          "La aproximación ampliada salta posiciones o arrastra al objetivo");
+      }
+      Require(world.agents[0].cqcHoldingGuard == 9 && (target - world.agents[0].position).length() <= CqcConfig::GripReach,
+        "El alcance de interacción ampliado no aproxima físicamente al objetivo hasta una sujeción válida");
+    }
+  }
+  void CollapseCancelsGripWithoutRecovery() {
+    Simulation simulation; auto &world = Fixture(simulation, true);
+    Advance(simulation, Held(), 3);
+    Require(world.agents[0].cqcHoldingAgent == 2, "La regresión de caída requiere una sujeción amistosa ya establecida");
+    world.agents[0].health = 0.f;
+    simulation.Step(0.1f, {{1, Held()}});
+    Require(world.agents[0].lifeState == LifeState::Incapacitated && world.agents[0].health == 0.f && world.agents[0].cqcHoldingAgent == 0 && world.agents[1].cqcHeldBy == 0,
+      "Llegar a salud cero no cancela recíprocamente el agarre antes de fijar la incapacitación");
+    Advance(simulation, Held(), 40);
+    Require(world.agents[0].lifeState == LifeState::Incapacitated && world.agents[0].health == 0.f && world.agents[0].stamina == 0.f && world.agents[0].incapacityRemaining < GameplayConfig::IncapacityDuration - 3.f,
+      "Las órdenes CQC o la regeneración de resistencia revierten una incapacitación confirmada");
+    ActionCommand rescue; rescue.interact = true;
+    simulation.Step(0.1f, {{2, rescue}});
+    Require(world.agents[0].lifeState == LifeState::Alive && world.agents[0].health >= GameplayConfig::RevivedHealth && world.agents[0].cqcHoldingAgent == 0,
+      "El rescate explícito no recupera al agente o restaura accidentalmente el agarre anterior");
+  }
 }
 int main() {
-  try { AcquisitionAndSubdue(); RejectionAndCancellation(); PushAndCollisions(); PushInterruptsPuzzle(); PunchKickAndRecovery(); ImpactValidationAndRearApproach(); FriendlyGripAndCleanup(); TrainingCqcSafety(); ContextualWallAndHeldPriority(); PhysicalRearAlignment(); std::cout << "PASS CQC y empujones: " << checks << " comprobaciones\n"; return 0; }
+  try { AcquisitionAndSubdue(); RejectionAndCancellation(); PushAndCollisions(); PushInterruptsPuzzle(); PunchKickAndRecovery(); ImpactValidationAndRearApproach(); FriendlyGripAndCleanup(); TrainingCqcSafety(); ContextualWallAndHeldPriority(); PhysicalRearAlignment(); StableGripAndExtendedApproach(); CollapseCancelsGripWithoutRecovery(); std::cout << "PASS CQC y empujones: " << checks << " comprobaciones\n"; return 0; }
   catch (const std::exception &error) { std::cerr << "FAIL CQC tras " << checks << ": " << error.what() << '\n'; return 1; }
 }
