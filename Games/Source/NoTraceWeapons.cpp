@@ -1,6 +1,7 @@
 #include "NoTraceSimulation.h"
 #include "Config/NoTraceAudioConfig.h"
 #include "Config/NoTraceWeaponConfig.h"
+#include "Config/NoTraceTrainingConfig.h"
 #include <algorithm>
 
 namespace NoTrace {
@@ -17,7 +18,7 @@ namespace NoTrace {
     auto &total = lethal ? agent.loadout.lethalAmmo : agent.loadout.nonLethalAmmo;
     const int magazine = lethal ? agent.lethalMagazine : agent.nonLethalMagazine;
     const int capacity = lethal ? PistolCapacity : NonLethalCapacity;
-    if (IsTraining(world_)) total = std::max(total, TrainingAmmo);
+    if (IsTraining(world_) && TrainingConfig::UnlimitedAmmo) total = std::max(total, TrainingAmmo);
     if (magazine >= std::min(capacity, total)) { world_.message = total <= 0 ? "No quedan cartuchos para recargar." : "El cargador ya contiene toda la munición disponible."; return; }
     agent.reloadingWeapon = agent.selectedWeapon;
     agent.reloadRemaining = ReloadDuration;
@@ -42,7 +43,7 @@ namespace NoTrace {
       auto &equipped = agent.selectedWeapon == WeaponKind::Pistol ? agent.pistolSuppressorEquipped : agent.nonLethalSuppressorEquipped;
       const float durability = agent.selectedWeapon == WeaponKind::Pistol ? agent.pistolSuppressor : agent.nonLethalSuppressor;
       equipped = durability > 0.f ? !equipped : false;
-      EmitSound(SoundKind::Lock, agent.position, AudioConfig::QuietRadius, agent.id);
+      if (durability > 0.f) EmitSound(equipped ? SoundKind::SuppressorAttach : SoundKind::SuppressorDetach, agent.position, AudioConfig::QuietRadius, agent.id);
       world_.message = durability <= 0.f ? "Silenciador roto; equipa otro en la preparación de una operación." : equipped ? "Silenciador instalado." : "Silenciador retirado; el arma producirá un ruido fuerte.";
     }
     if (agent.reloadRemaining > 0.f) {

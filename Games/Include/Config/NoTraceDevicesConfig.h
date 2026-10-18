@@ -5,7 +5,9 @@
 namespace NoTrace::DevicesConfig {
   inline constexpr float CameraRange = 240.f;
   inline constexpr float CameraCosHalfAngle = 0.8f;
-  inline constexpr float CameraConfirmationTime = 0.4f;
+  inline constexpr float CameraConfirmationTime = 1.5f;
+  inline constexpr float CameraLostSightGrace = 0.65f;
+  inline constexpr float CameraSuspicionDecay = 0.45f;
   inline constexpr float CameraTrackingSpeed = 3.5f;
   inline constexpr float CameraSearchDuration = 3.f;
   inline constexpr float CameraSuspicionIndicatorDuration = 1.5f;

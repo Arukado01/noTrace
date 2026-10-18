@@ -1,4 +1,5 @@
 #include "NoTraceSimulation.h"
+#include "Config/NoTraceWeaponConfig.h"
 #include "Config/NoTraceTrainingConfig.h"
 #include "NoTraceWorldGeometry.h"
 #include <algorithm>
@@ -76,8 +77,9 @@ namespace NoTrace {
       dummy.bodyHidden = false; dummy.storedIn = 0; dummy.navigation.clear(); dummy.patrol.clear(); dummy.suspicion = 0.f;
     }
     for (auto &agent : world_.agents) if (agent.connected) {
-      agent.health = std::min(GameplayConfig::MaxHealth, agent.health + TrainingConfig::HealthRecoveryPerSecond * dt);
-      agent.loadout.lethalAmmo = TrainingConfig::RefilledAmmo; agent.loadout.nonLethalAmmo = TrainingConfig::RefilledAmmo;
+      agent.lifeState = LifeState::Alive; agent.alive = true; agent.incapacitated = false; agent.rescueExpired = false; agent.incapacityRemaining = 0.f;
+      agent.health = std::clamp(agent.health + TrainingConfig::HealthRecoveryPerSecond * dt, WeaponConfig::TrainingMinimumHealth, GameplayConfig::MaxHealth);
+      if (TrainingConfig::UnlimitedAmmo) { agent.loadout.lethalAmmo = TrainingConfig::RefilledAmmo; agent.loadout.nonLethalAmmo = TrainingConfig::RefilledAmmo; }
       agent.loadout.decoys = TrainingConfig::RefilledDecoys; agent.loadout.tools = TrainingConfig::RefilledTools;
     }
   }

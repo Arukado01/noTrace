@@ -67,7 +67,7 @@ namespace NoTrace::TacticalState {
     const auto known = [&](const char *list, std::uint32_t id) { return !filtered || std::ranges::any_of(snapshot[list],[&](const Json &v){return v["id"]==id;}); };
     for (auto &j:snapshot["agents"]) {
       const auto &a=*std::ranges::find_if(world.agents,[&](const Agent &v){return v.id==j["id"];});
-      j.update({{"aiming",a.aiming},{"pistolSuppressor",a.pistolSuppressor},{"nonLethalSuppressor",a.nonLethalSuppressor},{"pistolSuppressorEquipped",a.pistolSuppressorEquipped},{"nonLethalSuppressorEquipped",a.nonLethalSuppressorEquipped},
+      j.update({{"lifeState",static_cast<int>(a.lifeState)},{"rescueExpired",a.rescueExpired},{"cqcHeldPressTime",a.cqcHeldPressTime},{"cqcLongPressArmed",a.cqcLongPressArmed},{"aiming",a.aiming},{"pistolSuppressor",a.pistolSuppressor},{"nonLethalSuppressor",a.nonLethalSuppressor},{"pistolSuppressorEquipped",a.pistolSuppressorEquipped},{"nonLethalSuppressorEquipped",a.nonLethalSuppressorEquipped},
         {"transitionFrom",static_cast<int>(a.transitionFrom)},{"transitionTime",a.transitionTime},{"cqcApproachGuard",known("guards",a.cqcApproachGuard)?a.cqcApproachGuard:0},{"cqcApproachAgent",known("agents",a.cqcApproachAgent)?a.cqcApproachAgent:0},{"cqcApproachTime",a.cqcApproachTime},{"cqcApproachSide",a.cqcApproachSide}});
       j["detectionIndicatorRemaining"]=a.id==player?a.detectionIndicatorRemaining:0.f; j["confirmedIndicatorRemaining"]=a.id==player?a.confirmedIndicatorRemaining:0.f;
       const auto &m=a.maneuver;
@@ -75,12 +75,13 @@ namespace NoTrace::TacticalState {
     }
     for (auto &j:snapshot["guards"]) {
       const auto &g=*std::ranges::find_if(world.guards,[&](const Guard &v){return v.id==j["id"];});
+      j["patrolPauseRemaining"]=g.patrolPauseRemaining; j["perceptionLostTime"]=g.perceptionLostTime;
       j["suspicionRemaining"]=g.suspicionRemaining; j["indicatorProgress"]=g.indicatorProgress;
     }
     for (auto &j:snapshot["objects"]) {
       const auto &o=*std::ranges::find_if(world.objects,[&](const Interactable &v){return v.id==j["id"];}); const auto &c=o.camera; const auto &p=o.puzzle;
       const bool clueKnown=!filtered || c.trackedAgent==player || known("agents",c.trackedAgent);
-      j["camera"].update({{"perception",static_cast<int>(c.perception)},{"trackedAgent",clueKnown?c.trackedAgent:0},{"lastKnown",Vec(clueKnown?c.lastKnown:o.position)},{"trackingSpeed",c.trackingSpeed},{"searchRemaining",c.searchRemaining},{"suspicionRemaining",c.suspicionRemaining},{"confirmedRemaining",c.confirmedRemaining},{"indicatorProgress",c.indicatorProgress}});
+      j["camera"].update({{"lostSightTime",c.lostSightTime},{"perception",static_cast<int>(c.perception)},{"trackedAgent",clueKnown?c.trackedAgent:0},{"lastKnown",Vec(clueKnown?c.lastKnown:o.position)},{"trackingSpeed",c.trackingSpeed},{"searchRemaining",c.searchRemaining},{"suspicionRemaining",c.suspicionRemaining},{"confirmedRemaining",c.confirmedRemaining},{"indicatorProgress",c.indicatorProgress}});
       j["puzzleDevice"].update({{"family",static_cast<int>(p.family)},{"sequenceProgress",p.sequenceProgress},{"coordinationProgress",p.coordinationProgress},{"requiredAgents",p.requiredAgents},{"soloAllowed",p.soloAllowed},{"wireCrossingAllowed",p.wireCrossingAllowed},{"parentDevice",p.parentDevice},{"nodeIndex",p.nodeIndex},{"leverOrder",!filtered?p.leverOrder:std::vector<std::uint8_t>{}}});
     }
     snapshot["decoys"]=Json::array();
@@ -95,12 +96,15 @@ namespace NoTrace::TacticalState {
   inline void Read(const Json &snapshot, WorldState &world) {
     for (std::size_t i=0;i<world.agents.size();++i) {
       auto &a=world.agents[i]; const auto &j=snapshot["agents"][i];
+      a.lifeState=static_cast<LifeState>(Integer(j,"lifeState",0,2)); a.rescueExpired=j.value("rescueExpired",false);
+      if (a.lifeState != (!a.alive ? LifeState::Dead : a.incapacitated ? LifeState::Incapacitated : LifeState::Alive) || (a.rescueExpired && a.lifeState!=LifeState::Dead)) throw std::runtime_error("Estado vital contradictorio");
+      a.cqcHeldPressTime=Bounded(j,"cqcHeldPressTime",0.f,CqcConfig::LongPressEscape); a.cqcLongPressArmed=j.value("cqcLongPressArmed",false);
       a.aiming=j.value("aiming",false); a.pistolSuppressor=Bounded(j,"pistolSuppressor",100.f,100.f); a.nonLethalSuppressor=Bounded(j,"nonLethalSuppressor",100.f,100.f);
       a.pistolSuppressorEquipped=j.value("pistolSuppressorEquipped",true); a.nonLethalSuppressorEquipped=j.value("nonLethalSuppressorEquipped",true);
       if ((a.pistolSuppressor==0.f && a.pistolSuppressorEquipped) || (a.nonLethalSuppressor==0.f && a.nonLethalSuppressorEquipped)) throw std::runtime_error("Silenciador roto equipado");
       a.transitionFrom=static_cast<Stance>(Integer(j,"transitionFrom",0,2)); a.transitionTime=Bounded(j,"transitionTime",0.f,GameplayConfig::StanceTransitionDuration);
       a.detectionIndicatorRemaining=Bounded(j,"detectionIndicatorRemaining",0.f,GameplayConfig::SuspicionIndicatorDuration); a.confirmedIndicatorRemaining=Bounded(j,"confirmedIndicatorRemaining",0.f,GameplayConfig::ConfirmedIndicatorDuration);
-      a.cqcApproachGuard=Integer(j,"cqcApproachGuard",0,1000000); a.cqcApproachAgent=Integer(j,"cqcApproachAgent",0,1000000); a.cqcApproachTime=Bounded(j,"cqcApproachTime",0.f,2.f);
+      a.cqcApproachGuard=Integer(j,"cqcApproachGuard",0,1000000); a.cqcApproachAgent=Integer(j,"cqcApproachAgent",0,1000000); a.cqcApproachTime=Bounded(j,"cqcApproachTime",0.f,CqcConfig::ApproachTimeout);
       a.cqcApproachSide=j.value("cqcApproachSide",0); if (a.cqcApproachSide < -1 || a.cqcApproachSide > 1) throw std::runtime_error("Lado CQC inválido");
       if (j.contains("maneuver")) {
         const auto &m=j["maneuver"]; a.maneuver.kind=static_cast<ManeuverKind>(Integer(m,"kind",0,2)); a.maneuver.phase=static_cast<ManeuverPhase>(Integer(m,"phase",0,4));
@@ -108,11 +112,11 @@ namespace NoTrace::TacticalState {
         if (a.maneuver.kind!=ManeuverKind::None && (a.maneuver.phase==ManeuverPhase::None || std::abs(a.maneuver.direction.length()-1.f)>.01f || a.hidden || a.incapacitated || !a.alive)) throw std::runtime_error("Maniobra inválida");
       }
     }
-    for (std::size_t i=0;i<world.guards.size();++i) { auto &g=world.guards[i]; const auto &j=snapshot["guards"][i]; g.suspicionRemaining=Bounded(j,"suspicionRemaining",0.f,GameplayConfig::SuspicionIndicatorDuration); g.indicatorProgress=Bounded(j,"indicatorProgress",0.f,1.f); }
+    for (std::size_t i=0;i<world.guards.size();++i) { auto &g=world.guards[i]; const auto &j=snapshot["guards"][i]; g.patrolPauseRemaining=Bounded(j,"patrolPauseRemaining",0.f,SecurityConfig::PatrolPauseMaximum); g.perceptionLostTime=Bounded(j,"perceptionLostTime",0.f,86400.f); g.suspicionRemaining=Bounded(j,"suspicionRemaining",0.f,GameplayConfig::SuspicionIndicatorDuration); g.indicatorProgress=Bounded(j,"indicatorProgress",0.f,1.f); }
     for (std::size_t i=0;i<world.objects.size();++i) {
       auto &o=world.objects[i]; const auto &j=snapshot["objects"][i];
       if (j.contains("camera")) { const auto &c=j["camera"]; auto &v=o.camera;
-        v.perception=static_cast<CameraPerception>(Integer(c,"perception",0,3)); v.trackedAgent=Integer(c,"trackedAgent",0,1000000); v.lastKnown=c.contains("lastKnown")?Point(c["lastKnown"]):o.position;
+        v.lostSightTime=Bounded(c,"lostSightTime",0.f,86400.f); v.perception=static_cast<CameraPerception>(Integer(c,"perception",0,3)); v.trackedAgent=Integer(c,"trackedAgent",0,1000000); v.lastKnown=c.contains("lastKnown")?Point(c["lastKnown"]):o.position;
         v.trackingSpeed=Bounded(c,"trackingSpeed",3.5f,20.f); v.searchRemaining=Bounded(c,"searchRemaining",0.f,10.f); v.suspicionRemaining=Bounded(c,"suspicionRemaining",0.f,5.f); v.confirmedRemaining=Bounded(c,"confirmedRemaining",0.f,10.f); v.indicatorProgress=Bounded(c,"indicatorProgress",0.f,1.f);
       }
       if (j.contains("puzzleDevice")) { const auto &p=j["puzzleDevice"]; auto &v=o.puzzle;
@@ -121,7 +125,7 @@ namespace NoTrace::TacticalState {
         if (!v.requiredAgents || (v.parentDevice && !v.nodeIndex)) throw std::runtime_error("Dispositivo táctico inválido");
       }
     }
-    for (std::size_t i=0;i<world.noises.size();++i) { auto &n=world.noises[i]; const auto &j=snapshot["noises"][i]; n.kind=static_cast<SoundKind>(Integer(j,"kind",4,25)); n.duration=Bounded(j,"duration",GameplayConfig::NoiseDuration,5.f); if(n.remaining>n.duration) throw std::runtime_error("Ruido con duración incoherente"); }
+    for (std::size_t i=0;i<world.noises.size();++i) { auto &n=world.noises[i]; const auto &j=snapshot["noises"][i]; n.kind=static_cast<SoundKind>(Integer(j,"kind",4,31)); n.duration=Bounded(j,"duration",GameplayConfig::NoiseDuration,5.f); if(n.remaining>n.duration) throw std::runtime_error("Ruido con duración incoherente"); }
     if (snapshot.contains("decoys")) {
       if (!snapshot["decoys"].is_array() || snapshot["decoys"].size()>DistractionConfig::MaximumFlyingDecoys) throw std::runtime_error("Demasiados discos en vuelo");
       for (const auto &j:snapshot["decoys"]) { DecoyProjectile d{Point(j.at("from")),Point(j.at("to")),Bounded(j,"elapsed",0.f,3.f),Bounded(j,"duration",0.f,3.f),Bounded(j,"height",0.f,200.f),Integer(j,"actor",0,1000000),j.value("blocked",false)};

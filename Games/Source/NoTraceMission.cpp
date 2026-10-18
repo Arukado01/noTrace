@@ -46,21 +46,33 @@ namespace NoTrace {
     result.success = success && extracted && world.objectives >= contract.requiredObjectives;
     result.score = world.objectives * MainObjectiveScore + world.secondary * SecondaryObjectiveScore + (extracted ? ExtractionScore : 0);
     bool clean = true;
+    bool usedWeapon = false, usedCqc = false, detected = false, bodyDiscovered = false;
     for (const auto &event : world.events) {
       // La elegibilidad se evalúa sobre el registro completo, aunque después desaparezca la alarma.
       switch (event.kind) {
-      case EventKind::ConfirmedDetection: result.score -= DetectionPenalty; clean = false; break;
-      case EventKind::AgentAlarm: result.score -= AlarmPenalty; clean = false; break;
-      case EventKind::WeaponLethal: result.score -= contract.lethalAllowed ? NonLethalPenalty : LethalPenalty; clean = false; break;
-      case EventKind::WeaponNonLethal: result.score -= NonLethalPenalty; clean = false; break;
-      case EventKind::Cqc: result.score -= CqcPenalty; clean = false; break;
-      case EventKind::BodyFound: result.score -= BodyFoundPenalty; break;
+      case EventKind::ConfirmedDetection: result.score -= DetectionPenalty; clean = false; detected = true; break;
+      case EventKind::AgentAlarm: result.score -= AlarmPenalty; clean = false; detected = true; break;
+      case EventKind::WeaponLethal: result.score -= contract.lethalAllowed ? NonLethalPenalty : LethalPenalty; clean = false; usedWeapon = true; break;
+      case EventKind::WeaponNonLethal: result.score -= NonLethalPenalty; clean = false; usedWeapon = true; break;
+      case EventKind::Cqc: result.score -= CqcPenalty; clean = false; usedCqc = true; break;
+      case EventKind::BodyFound: result.score -= BodyFoundPenalty; clean = false; bodyDiscovered = true; break;
       case EventKind::PrivateObjective: if (event.actor == player) result.score += PrivateBonus; break;
       default: break;
       }
     }
     result.score = std::max(0, result.score);
-    result.maestroEligible = result.success && clean;
+    const auto completedSecondary = std::ranges::count_if(contract.secondaryTargets, [&world](std::uint32_t id) {
+      return std::ranges::any_of(world.objects, [id](const Interactable &object) { return object.id == id && object.completed; });
+    });
+    const bool allSecondary = static_cast<std::size_t>(completedSecondary) == contract.secondaryTargets.size() && completedSecondary >= contract.secondaryObjectives;
+    result.maestroEligible = result.success && clean && allSecondary;
+    const auto deny = [&result](const std::string &condition) { if (!result.maestroDeniedReason.empty()) result.maestroDeniedReason += "; "; result.maestroDeniedReason += condition; };
+    if (!result.success) deny("Completar los objetivos principales y extraerse");
+    if (!allSecondary) deny("Completar todas las misiones secundarias del contrato");
+    if (usedWeapon) deny("No utilizar armas");
+    if (detected) deny("No ser detectado ni activar alarmas de descubrimiento");
+    if (usedCqc) deny("No utilizar CQC");
+    if (bodyDiscovered) deny("No permitir el descubrimiento de cuerpos");
     if (!result.success) {
       result.rank = Rank::D;
     } else if (result.maestroEligible) {

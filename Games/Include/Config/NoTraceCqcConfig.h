@@ -2,7 +2,9 @@
 
 namespace NoTrace::CqcConfig {
   inline constexpr float AcquireHold = 0.22f;
-  inline constexpr float ReleaseGrace = 0.9f;
+  inline constexpr float LongPressEscape = 2.25f;
+  inline constexpr float AcquireDistance = 76.f;
+  inline constexpr float GripReach = 38.f;
   inline constexpr float MinimumRelease = 0.06f;
   inline constexpr float PulseInterval = 0.3f;
   inline constexpr float FacingCosine = 0.65f;
@@ -11,7 +13,7 @@ namespace NoTrace::CqcConfig {
   inline constexpr float MaximumPressBuffer = 1.f;
   inline constexpr float GripSeparation = 28.f;
   inline constexpr float ApproachSpeed = 180.f;
-  inline constexpr float ApproachTimeout = 1.2f;
+  inline constexpr float ApproachTimeout = 2.4f;
   inline constexpr float ApproachBlockedTolerance = 0.05f;
   inline constexpr float PunchReach = 38.f;
   inline constexpr float KickReach = 44.f;

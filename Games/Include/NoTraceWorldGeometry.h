@@ -83,7 +83,8 @@ namespace NoTrace::WorldGeometry {
     if (HideoutType(object) == HideoutKind::Closet) return SpatialConfig::ClosetHeight;
     if (HideoutType(object) == HideoutKind::UnderTable) return SpatialConfig::UnderTableHeight;
     const auto index = static_cast<std::size_t>(object.kind);
-    return index < SpatialConfig::ObjectHeights.size() ? SpatialConfig::ObjectHeights[index] : 0.f;
+    const float height = index < SpatialConfig::ObjectHeights.size() ? SpatialConfig::ObjectHeights[index] : 0.f;
+    return Properties(object).cover == CoverKind::Low ? std::max(height, SpatialConfig::LowCoverHeight) : height;
   }
 
   inline float ObstacleHeight(const Obstacle &obstacle) {

@@ -16,6 +16,7 @@ namespace NoTrace::TrainingConfig {
   inline constexpr float DummyFeedbackDuration = 1.2f;
   inline constexpr float DummyReactionDuration = 0.32f;
   inline constexpr unsigned int CameraControlGroup = 42;
+  inline constexpr bool UnlimitedAmmo = true;
   inline constexpr int RefilledAmmo = GameplayConfig::MaximumAmmo;
   inline constexpr int RefilledDecoys = GameplayConfig::MaximumDecoys;
   inline constexpr int RefilledTools = GameplayConfig::MaximumTools;

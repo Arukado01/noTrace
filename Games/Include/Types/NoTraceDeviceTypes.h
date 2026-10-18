@@ -38,6 +38,7 @@ namespace NoTrace {
     float suspicionRemaining = 0.f;
     float confirmedRemaining = 0.f;
     float indicatorProgress = 0.f;
+    float lostSightTime = 0.f;
   };
   struct TrapDevice {
     TrapState state = TrapState::Armed;

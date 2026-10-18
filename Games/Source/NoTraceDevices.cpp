@@ -1,6 +1,7 @@
 #include "NoTraceSimulation.h"
 #include "Config/NoTraceDevicesConfig.h"
 #include "NoTraceVisibility.h"
+#include "NoTracePerception.h"
 #include "NoTraceWorldGeometry.h"
 #include <algorithm>
 #include <cmath>
@@ -51,6 +52,7 @@ namespace NoTrace {
       object.progress = 0.f; object.observedAgent = 0; object.camera.trackedAgent = 0; object.camera.lastKnown = {};
       object.camera.perception = CameraPerception::Sweeping; object.camera.searchRemaining = 0.f;
       object.camera.suspicionRemaining = 0.f; object.camera.confirmedRemaining = 0.f; object.camera.indicatorProgress = 0.f;
+      object.camera.lostSightTime = 0.f;
     }
     void LookTowards(Interactable &object, sf::Vector2f direction, float maximumTurn) {
       if (direction.lengthSquared() < 0.0001f) return;
@@ -330,7 +332,7 @@ namespace NoTrace {
           const float distance = delta.length();
           const float posture = agent.stance == Stance::Prone ? GameplayConfig::ProneVisionFactor : agent.stance == Stance::Crouched ? GameplayConfig::CrouchedVisionFactor : 1.f;
           return distance <= camera.range * posture && object.facing.dot(delta) >= camera.cosHalfAngle * distance * object.facing.length() &&
-            Visibility::HasLineOfSight(world_, object.position, agent.position, agent.stance, object.id);
+            Visibility::AgentExposed(world_, object.position, agent, object.id);
         };
         Agent *seen = nullptr;
         if (camera.trackedAgent != 0) {
@@ -340,12 +342,13 @@ namespace NoTrace {
         }
         if (!seen) for (auto &agent : world_.agents) if (visible(agent) && (!seen || (agent.position - object.position).lengthSquared() < (seen->position - object.position).lengthSquared())) seen = &agent;
         if (seen) {
+          camera.lostSightTime = 0.f;
           if (object.observedAgent != 0 && object.observedAgent != seen->id) { object.progress = 0.f; camera.confirmedRemaining = 0.f; }
           object.observedAgent = seen->id; camera.trackedAgent = seen->id; camera.lastKnown = seen->position;
           camera.searchRemaining = CameraSearchDuration; camera.suspicionRemaining = CameraSuspicionIndicatorDuration;
           LookTowards(object, seen->position - object.position, camera.trackingSpeed * dt);
           const bool confirmed = camera.confirmedRemaining > 0.f;
-          object.progress = std::min(camera.confirmationTime, object.progress + dt);
+          object.progress = std::min(camera.confirmationTime, object.progress + dt * Perception::DetectionRate(*seen, (seen->position - object.position).length(), camera.range));
           camera.perception = object.progress >= camera.confirmationTime ? CameraPerception::Tracking : CameraPerception::Suspicion;
           if (object.progress >= camera.confirmationTime) {
             camera.confirmedRemaining = CameraConfirmedIndicatorDuration;
@@ -356,7 +359,8 @@ namespace NoTrace {
           }
           ReportPerception(*seen, object.progress / std::max(0.001f, camera.confirmationTime), camera.confirmedRemaining > 0.f);
         } else {
-          object.progress = std::max(0.f, object.progress - dt);
+          camera.lostSightTime = std::min(CameraLostSightGrace + 1.f, camera.lostSightTime + dt);
+          if (camera.lostSightTime > CameraLostSightGrace) object.progress = std::max(0.f, object.progress - dt * camera.confirmationTime * CameraSuspicionDecay);
           camera.perception = camera.searchRemaining > 0.f ? CameraPerception::Searching : CameraPerception::Sweeping;
           if (camera.searchRemaining > 0.f) LookTowards(object, camera.lastKnown - object.position, camera.trackingSpeed * dt);
           if (camera.searchRemaining <= 0.f && camera.confirmedRemaining <= 0.f && camera.suspicionRemaining <= 0.f) object.observedAgent = 0;

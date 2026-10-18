@@ -3,6 +3,7 @@
 #include "Config/NoTraceDistractionConfig.h"
 #include "Config/NoTraceAudioConfig.h"
 #include "NoTraceWorldGeometry.h"
+#include "NoTraceCombatGeometry.h"
 #include <algorithm>
 #include <cmath>
 
@@ -71,6 +72,32 @@ namespace NoTrace::Visibility {
       if (WorldGeometry::BlocksVision(object, stance) && WorldGeometry::SegmentRect(from, to, WorldGeometry::ObjectFootprint(object), &intersection) && intersection < 1.f - 0.0001f) return false;
     }
     return true;
+  }
+
+  bool AgentExposed(const WorldState &world, sf::Vector2f from, const Agent &target, std::uint32_t ignoredObject, float eyeHeight) {
+    if (target.hidden || target.extracted) return false;
+    const auto clear = [&](sf::Vector2f point, float height) {
+      const auto delta = point - from;
+      const float distance = delta.length();
+      if (distance < 0.001f) return true;
+      const auto direction = delta / distance;
+      const float slope = (height - eyeHeight) / distance;
+      const auto blocked = [&](sf::FloatRect bounds, float top) {
+        const CombatGeometry::HitVolume volume{bounds.position + bounds.size * 0.5f, {1.f, 0.f}, bounds.size * 0.5f, 0.f, top, HitZone::None};
+        const auto hit = CombatGeometry::IntersectVolume(from, direction, eyeHeight, slope, distance, volume);
+        return hit && *hit < distance - VisibilityConfig::SurfaceOffset;
+      };
+      for (const auto &wall : world.obstacles) if (wall.blocksVision && blocked(wall.bounds, WorldGeometry::ObstacleHeight(wall))) return false;
+      for (const auto &object : world.objects) if (object.id != ignoredObject && WorldGeometry::Properties(object).blocksVision && blocked(WorldGeometry::ObjectFootprint(object), WorldGeometry::ObjectHeight(object))) return false;
+      return true;
+    };
+    for (const auto &volume : CombatGeometry::ActorVolumes(target.position, target.facing, target.stance, target.incapacitated)) {
+      if (volume.zone != HitZone::Head && volume.zone != HitZone::Torso) continue;
+      const sf::Vector2f side{-volume.forward.y, volume.forward.x};
+      const float height = (volume.bottom + volume.top) * 0.5f;
+      for (float offset : {-0.8f, 0.f, 0.8f}) if (clear(volume.center + side * (volume.halfSize.y * offset), height)) return true;
+    }
+    return false;
   }
 
   bool IsVisible(const WorldState &world, const Agent &observer, sf::Vector2f point, Stance targetStance) {

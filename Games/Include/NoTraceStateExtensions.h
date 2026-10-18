@@ -169,7 +169,7 @@ namespace NoTrace::StateExtensions {
       const auto &list=snapshot.at("sounds"); if (!list.is_array() || list.size()>AudioConfig::MaximumCues) throw std::runtime_error("Demasiadas señales de audio");
       std::uint64_t previous=0;
       for (const auto &j:list) {
-        SoundEvent s{j.at("sequence").get<std::uint64_t>(),Enum<SoundKind>(j,"kind",25),Vector(j.at("position")),Number(j,"radius",0.f,0.f,10000.f),Number(j,"remaining",0.f,0.f,AudioConfig::CueLifetime),j.value("actor",PlayerId{0})};
+        SoundEvent s{j.at("sequence").get<std::uint64_t>(),Enum<SoundKind>(j,"kind",31),Vector(j.at("position")),Number(j,"radius",0.f,0.f,10000.f),Number(j,"remaining",0.f,0.f,AudioConfig::CueLifetime),j.value("actor",PlayerId{0})};
         if (s.sequence<=previous || (filtered && s.actor!=0 && s.actor!=recipient)) throw std::runtime_error("Señal de audio inválida");
         previous=s.sequence; world.sounds.push_back(s);
       }

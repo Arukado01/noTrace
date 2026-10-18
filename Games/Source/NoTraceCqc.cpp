@@ -35,6 +35,7 @@ namespace NoTrace {
     }
     agent.cqcHoldingGuard = 0; agent.cqcHoldingAgent = 0; agent.cqcHoldTime = 0.f; agent.cqcReleaseTime = 0.f;
     agent.cqcPulseTime = 0.f; agent.cqcPulseReady = false; agent.cqcProgress = 0;
+    agent.cqcHeldPressTime = 0.f; agent.cqcLongPressArmed = false;
     agent.cqcPressPending = false; agent.cqcStrikePending = false; agent.cqcAttackTime = 0.f;
     agent.cqcApproachGuard = 0; agent.cqcApproachAgent = 0; agent.cqcApproachTime = 0.f; agent.cqcApproachSide = 0;
     if (interrupted) {
@@ -92,9 +93,11 @@ namespace NoTrace {
       else { partner->facing = agent.facing; partner->moving = false; partner->running = false; partner->cover = {}; partner->actionPose = ActionPose::Grab; partner->actionPoseTime = GameplayConfig::AttackAnimationDuration; }
       agent.cqcPulseTime = std::min(MaximumPressBuffer, agent.cqcPulseTime + dt);
       if (!command.cqcHeld && !command.cqc) {
-        agent.cqcReleaseTime += dt;
-        if (agent.cqcReleaseTime >= MinimumRelease) agent.cqcPulseReady = true;
+        agent.cqcReleaseTime = std::min(MinimumRelease, agent.cqcReleaseTime + dt);
+        agent.cqcHeldPressTime = 0.f;
+        if (agent.cqcReleaseTime >= MinimumRelease) { agent.cqcPulseReady = true; agent.cqcLongPressArmed = true; }
       } else if (!newPress) agent.cqcReleaseTime = 0.f;
+      if (command.cqcHeld && agent.cqcLongPressArmed) agent.cqcHeldPressTime = std::min(LongPressEscape, agent.cqcHeldPressTime + dt);
       if (newPress && agent.cqcPulseReady && agent.cqcPulseTime >= PulseInterval && agent.stamina >= GameplayConfig::CqcStaminaCost) {
         agent.cqcPulseReady = false; agent.cqcReleaseTime = 0.f; agent.cqcPulseTime = 0.f;
         agent.stamina -= GameplayConfig::CqcStaminaCost; ++agent.cqcProgress;
@@ -119,7 +122,11 @@ namespace NoTrace {
         world_.message = "Sujeción: suelta brevemente y vuelve a pulsar F para someter.";
       }
       if (agent.actionPoseTime <= 0.f) { agent.actionPose = ActionPose::Grab; agent.actionPoseTime = GameplayConfig::AttackAnimationDuration; }
-      if (agent.cqcReleaseTime > ReleaseGrace || agent.stamina <= 0.f) { ReleaseCqc(agent); return false; }
+      if (agent.cqcHeldPressTime >= LongPressEscape) {
+        ReleaseCqc(agent);
+        world_.message = "La presión prolongada deshizo la sujeción; vuelve a acercarte y alterna pulsaciones breves de F.";
+        return true;
+      }
       return true;
     }
     if (agent.cqcAttackTime > 0.f) {
@@ -180,7 +187,7 @@ namespace NoTrace {
     }
     agent.cqcHoldTime = std::min(MaximumPressBuffer, agent.cqcHoldTime + dt);
     if (agent.cqcHoldTime < AcquireHold || agent.stamina < GameplayConfig::CqcStaminaCost) return false;
-    Guard *target = nullptr; Agent *partner = nullptr; float nearest = GameplayConfig::CqcDistance;
+    Guard *target = nullptr; Agent *partner = nullptr; float nearest = AcquireDistance;
     const auto candidateEligible = [&](sf::Vector2f position) {
       const auto offset = position - agent.position; const float distance = offset.length();
       if (distance < MinimumGripDistance || distance >= nearest || CqcUnit(agent.facing).dot(CqcUnit(offset)) < FacingCosine ||
@@ -205,18 +212,20 @@ namespace NoTrace {
     const auto targetFacing = CqcUnit(target ? target->facing : partner->facing);
     const auto offset = targetPosition - agent.position;
     agent.cqcApproachTime = std::min(ApproachTimeout, agent.cqcApproachTime + dt);
-    if (offset.length() > GameplayConfig::CqcDistance * GameplayConfig::CqcMaximumStretch || agent.cqcApproachTime >= ApproachTimeout ||
+    if (offset.length() > AcquireDistance || agent.cqcApproachTime >= ApproachTimeout ||
         !WorldGeometry::ClearMovementSegment(world_, agent.position, targetPosition, GameplayConfig::AgentRadius)) { ReleaseCqc(agent); return false; }
-    if (offset.length() < MinimumGripDistance || targetFacing.dot(CqcUnit(offset)) < RearCosine) {
+    if (offset.length() < MinimumGripDistance || offset.length() > GripReach || targetFacing.dot(CqcUnit(offset)) < RearCosine) {
       const auto radial = CqcUnit(agent.position - targetPosition);
       const auto rear = -targetFacing;
       float angle = std::remainder(std::atan2(rear.y, rear.x) - std::atan2(radial.y, radial.x), 2.f * std::numbers::pi_v<float>);
       if (agent.cqcApproachSide == 0) agent.cqcApproachSide = angle < 0.f ? -1 : 1;
       if (agent.cqcApproachSide > 0 && angle < 0.f) angle += 2.f * std::numbers::pi_v<float>;
       if (agent.cqcApproachSide < 0 && angle > 0.f) angle -= 2.f * std::numbers::pi_v<float>;
-      const float turn = std::clamp(angle, -ApproachSpeed * dt / GripSeparation, ApproachSpeed * dt / GripSeparation);
+      const float radialDistance = std::max(GripSeparation, offset.length());
+      const float turn = std::clamp(angle, -ApproachSpeed * dt / radialDistance, ApproachSpeed * dt / radialDistance);
       const float nextAngle = std::atan2(radial.y, radial.x) + turn;
-      const auto destination = targetPosition + sf::Vector2f{std::cos(nextAngle), std::sin(nextAngle)} * GripSeparation;
+      const float nextRadius = targetFacing.dot(CqcUnit(offset)) >= RearCosine ? std::max(GripSeparation, radialDistance - ApproachSpeed * dt) : radialDistance;
+      const auto destination = targetPosition + sf::Vector2f{std::cos(nextAngle), std::sin(nextAngle)} * nextRadius;
       auto movement = destination - agent.position;
       if (movement.length() > ApproachSpeed * dt) movement = CqcUnit(movement) * ApproachSpeed * dt;
       const auto previous = agent.position;
@@ -228,11 +237,12 @@ namespace NoTrace {
       agent.position = reached;
       if ((agent.position - previous).length() < ApproachBlockedTolerance) { ReleaseCqc(agent); return false; }
       agent.facing = CqcUnit(targetPosition - agent.position); agent.running = false; agent.moving = true; agent.decoyGuide = {}; agent.aiming = false;
-      if ((targetPosition - agent.position).length() < MinimumGripDistance || targetFacing.dot(CqcUnit(targetPosition - agent.position)) < RearCosine) return true;
+      if ((targetPosition - agent.position).length() < MinimumGripDistance || (targetPosition - agent.position).length() > GripReach || targetFacing.dot(CqcUnit(targetPosition - agent.position)) < RearCosine) return true;
     }
-    if ((targetPosition - agent.position).length() >= GameplayConfig::CqcDistance || !WorldGeometry::ClearMovementSegment(world_, agent.position, targetPosition, GameplayConfig::AgentRadius)) { ReleaseCqc(agent); return false; }
+    if ((targetPosition - agent.position).length() > GripReach || !WorldGeometry::ClearMovementSegment(world_, agent.position, targetPosition, GameplayConfig::AgentRadius)) { ReleaseCqc(agent); return false; }
     agent.cqcHoldingGuard = target ? target->id : 0; agent.cqcHoldingAgent = partner ? partner->id : 0;
     agent.cqcProgress = 0; agent.cqcReleaseTime = 0.f; agent.cqcPulseTime = 0.f; agent.cqcPulseReady = false;
+    agent.cqcHeldPressTime = 0.f; agent.cqcLongPressArmed = true;
     agent.cqcHoldTime = 0.f; agent.cqcPressPending = false;
     agent.cqcApproachGuard = 0; agent.cqcApproachAgent = 0; agent.cqcApproachTime = 0.f; agent.cqcApproachSide = 0;
     agent.stamina = std::max(0.f, agent.stamina - GameplayConfig::CqcStaminaCost);

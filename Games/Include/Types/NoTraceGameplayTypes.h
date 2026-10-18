@@ -8,6 +8,7 @@
 #include "Types/NoTraceManeuverTypes.h"
 #include <SFML/System/Vector2.hpp>
 #include <SFML/Graphics/Rect.hpp>
+#include <algorithm>
 #include <cstdint>
 #include <string>
 #include <unordered_map>
@@ -20,10 +21,11 @@ namespace NoTrace {
   enum class WeaponKind { Pistol, NonLethal };
   enum class ContractId { GhostArchive, SilentRelay, DoubleCross };
   enum class Stance { Standing, Crouched, Prone };
+  enum class LifeState { Alive, Incapacitated, Dead };
   enum class HitZone { None, Head, Torso, Limbs };
   enum class ShotTarget { None, Agent, Guard };
   enum class ActionPose { None, ThrowDecoy, KnockWall, Push, Subdue, Punch, Kick, Recover, Grab, Choke, Aim, Shoot, Reload, TakeDamage, Fall, Interact, HideEnter, HideExit, CoverEnter };
-  enum class SoundKind { Pistol, Rifle, Suppressed, Reload, Impact, Punch, Kick, Grab, Choke, Fall, StepHard, StepSoft, Knock, TrapTick, Explosion, Lock, PuzzleStep, PuzzleFailed, PuzzleSolved, Camera, Alarm, Reinforcement, Cabinet, Hideout, Drag, Decoy };
+  enum class SoundKind { Pistol, Rifle, Suppressed, Reload, Impact, Punch, Kick, Grab, Choke, Fall, StepHard, StepSoft, Knock, TrapTick, Explosion, Lock, PuzzleStep, PuzzleFailed, PuzzleSolved, Camera, Alarm, Reinforcement, Cabinet, Hideout, Drag, Decoy, SuppressorAttach, SuppressorDetach, StepRunHard, StepRunSoft, StepCrouchHard, StepCrouchSoft };
   enum class GuardState { Patrol, Suspicion, Investigate, Alert, Search, Incapacitated, Dead, Retiring };
   enum class CoverKind { None, Low, High, Hide };
   enum class SpatialOverride { Default, Enabled, Disabled };
@@ -36,7 +38,7 @@ namespace NoTrace {
   enum class Rank { D, C, B, A, S, SPlus, Maestro };
 
   struct PlayerProfile { PlayerId id = 1; std::string name = "Agente"; };
-  struct Loadout { int lethalAmmo = 4; int nonLethalAmmo = 4; int decoys = 3; int tools = 2; };
+  struct Loadout { int lethalAmmo = GameplayConfig::StartingPistolAmmo; int nonLethalAmmo = GameplayConfig::StartingNonLethalAmmo; int decoys = 3; int tools = 2; };
   struct ActionCommand {
     float moveX = 0.f;
     float moveY = 0.f;
@@ -118,6 +120,8 @@ namespace NoTrace {
     ManeuverState maneuver;
     Stance transitionFrom = Stance::Standing;
     float transitionTime = 0.f;
+    LifeState lifeState = LifeState::Alive;
+    bool rescueExpired = false;
     bool alive = true;
     bool incapacitated = false;
     bool bodyReported = false;
@@ -151,6 +155,8 @@ namespace NoTrace {
     bool cqcStrikePending = false;
     float cqcAttackTime = 0.f;
     PuzzleSession puzzle;
+    float cqcHeldPressTime = 0.f;
+    bool cqcLongPressArmed = false;
     float cqcHoldTime = 0.f;
     float cqcReleaseTime = 0.f;
     float cqcPulseTime = 0.f;
@@ -203,6 +209,8 @@ namespace NoTrace {
     float navigationRejectTime = 0.f;
     sf::Vector2f navigationRejectedTarget;
     sf::Vector2f navigationRecoveryTarget;
+    float patrolPauseRemaining = 0.f;
+    float perceptionLostTime = 0.f;
     float stepTime = 0.f;
     std::uint32_t knownHideout = 0;
     float hideoutInspectionTime = 0.f;
@@ -284,11 +292,13 @@ namespace NoTrace {
     bool traitor = false;
     float timeLimit = 600.f;
     int maxAlarms = 4;
+    std::vector<std::uint32_t> secondaryTargets{12};
   };
   struct MissionResult {
     bool success = false;
     bool traitorVictory = false;
     bool maestroEligible = false;
+    std::string maestroDeniedReason;
     int score = 0;
     Rank rank = Rank::D;
     std::string reason;
@@ -308,6 +318,7 @@ namespace NoTrace {
     sf::Vector2f position;
     sf::Vector2f rally;
   };
+  struct RescueSignal { PlayerId agent = 0; sf::Vector2f direction; float remaining = 0.f; };
   struct WorldState {
     GamePhase phase = GamePhase::Base;
     SimulationMode mode = SimulationMode::Operation;
@@ -333,10 +344,16 @@ namespace NoTrace {
     std::vector<ShotTrace> shots;
     std::vector<FootstepCue> footsteps;
     std::vector<MissionEvent> events;
+    std::vector<RescueSignal> rescueSignals;
     std::unordered_map<PlayerId, MissionResult> results;
     VisibilityGrid visibility;
     std::string message;
   };
+  inline int ReserveAmmo(const Agent &agent, WeaponKind weapon) {
+    const int total = weapon == WeaponKind::Pistol ? agent.loadout.lethalAmmo : agent.loadout.nonLethalAmmo;
+    const int magazine = weapon == WeaponKind::Pistol ? agent.lethalMagazine : agent.nonLethalMagazine;
+    return std::max(0, total - magazine);
+  }
   inline bool IsTraining(const WorldState &world) { return world.mode == SimulationMode::Training && world.phase == GamePhase::Base; }
   inline bool IsTactical(const WorldState &world) { return world.phase == GamePhase::Mission || IsTraining(world); }
 }

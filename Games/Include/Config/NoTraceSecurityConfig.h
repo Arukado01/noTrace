@@ -15,4 +15,13 @@ namespace NoTrace::SecurityConfig {
   inline constexpr float EntryRetryDelay = 1.f;
   inline constexpr float ExitArrivalDistance = 12.f;
   inline constexpr float SearchProbeDistance = 48.f;
+  inline constexpr float PatrolPauseMinimum = 10.f;
+  inline constexpr float PatrolPauseMaximum = 20.f;
+  inline constexpr float GuardLostSightGrace = 0.8f;
+  inline constexpr float DetectionNearFactor = 1.15f;
+  inline constexpr float DetectionDistanceReduction = 0.45f;
+  inline constexpr float StationaryDetectionFactor = 0.8f;
+  inline constexpr float RunningDetectionFactor = 1.3f;
+  inline constexpr float CrouchedDetectionFactor = 0.7f;
+  inline constexpr float ProneDetectionFactor = 0.45f;
 }

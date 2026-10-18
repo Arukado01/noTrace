@@ -11,6 +11,7 @@ namespace NoTrace::Visibility {
   bool IsGeometricallyVisible(const WorldState &world, const Agent &observer, sf::Vector2f point, Stance targetStance = Stance::Standing);
   bool IsVisible(const WorldState &world, const Agent &observer, sf::Vector2f point, Stance targetStance = Stance::Standing);
   bool GuardVisible(const WorldState &world, const Agent &observer, const Guard &guard);
+  bool AgentExposed(const WorldState &world, sf::Vector2f from, const Agent &target, std::uint32_t ignoredObject = 0, float eyeHeight = CombatConfig::StandingHeight - CombatConfig::HeadHeight * 0.5f);
   bool ObjectVisible(const WorldState &world, const Agent &observer, const Interactable &object);
   bool FootstepAudible(const WorldState &world, const Agent &observer, const FootstepCue &cue);
   bool NoiseAudible(const WorldState &world, const Agent &observer, const NoiseEvent &noise);

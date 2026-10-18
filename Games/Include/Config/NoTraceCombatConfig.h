@@ -41,6 +41,7 @@ namespace NoTrace::CombatConfig {
   inline constexpr float ArmTopMargin = 2.f;
   inline constexpr float MaxGuardHealth = 100.f;
   inline constexpr float MaxGuardStun = 100.f;
+  inline constexpr float AgentLethalHeadDamage = 200.f;
   inline constexpr float LethalHeadDamage = 100.f;
   inline constexpr float LethalTorsoDamage = 45.f;
   inline constexpr float LethalLimbDamage = 20.f;
