@@ -438,6 +438,21 @@ int main() {
     Require(WorldRenderer::IndicatorFor(guard) == WorldRenderer::GuardIndicator::Unconscious, "La inconsciencia no sigue el estado real");
     guard.bodyHidden = true;
     Require(WorldRenderer::IndicatorFor(guard) == WorldRenderer::GuardIndicator::None, "Un cuerpo oculto revela su icono");
+    guard.bodyHidden = false; guard.state = NoTrace::GuardState::Dead;
+    Require(WorldRenderer::IndicatorFor(guard) == WorldRenderer::GuardIndicator::Dead, "El cadáver no tiene un símbolo distinto de la inconsciencia");
+    guard.storedIn = 105;
+    Require(WorldRenderer::IndicatorFor(guard) == WorldRenderer::GuardIndicator::None, "Un cadáver almacenado revela su icono fuera del contenedor");
+    guard.storedIn = 0;
+    NoTrace::Agent bodyAgent;
+    Require(WorldRenderer::BodyIndicatorFor(bodyAgent) == WorldRenderer::GuardIndicator::None, "Un agente operativo muestra un icono de cuerpo");
+    bodyAgent.incapacitated = true; bodyAgent.lifeState = NoTrace::LifeState::Incapacitated;
+    Require(WorldRenderer::BodyIndicatorFor(bodyAgent) == WorldRenderer::GuardIndicator::Unconscious, "El agente inconsciente no comparte el icono reconocible de inconsciencia");
+    bodyAgent.alive = false; bodyAgent.lifeState = NoTrace::LifeState::Dead;
+    Require(WorldRenderer::BodyIndicatorFor(bodyAgent) == WorldRenderer::GuardIndicator::Dead, "El agente muerto conserva el símbolo de inconsciencia");
+    bodyAgent.hidden = true;
+    Require(WorldRenderer::BodyIndicatorFor(bodyAgent) == WorldRenderer::GuardIndicator::None, "El estado vital revela un agente oculto");
+    bodyAgent.hidden = false; bodyAgent.extracted = true;
+    Require(WorldRenderer::BodyIndicatorFor(bodyAgent) == WorldRenderer::GuardIndicator::None, "El icono vital revela un agente ya extraído");
     guard.bodyHidden = false; guard.state = NoTrace::GuardState::Search;
     Require(WorldRenderer::IndicatorFor(guard) == WorldRenderer::GuardIndicator::Searching, "La búsqueda pierde su indicador al romper el contacto visual");
     guard.state = NoTrace::GuardState::Patrol; guard.suspicionRemaining = 0.4f; guard.indicatorProgress = 0.5f;
@@ -454,6 +469,11 @@ int main() {
     Require(WorldRenderer::VisibleCell(visibility, fogWorld.agents[0].position), "La niebla oculta al propio agente");
     Require(!WorldRenderer::VisibleCell(visibility, guard.position), "La niebla revela suelo detrás de una pared");
     Require(!NoTrace::Visibility::GuardVisible(fogWorld, fogWorld.agents[0], guard), "Un guardia invisible conserva representación e icono");
+    for (const auto state : {NoTrace::GuardState::Incapacitated, NoTrace::GuardState::Dead}) {
+      guard.state = state;
+      Require(!NoTrace::Visibility::GuardVisible(fogWorld, fogWorld.agents[0], guard), "El icono de un cuerpo atraviesa la pared que lo oculta");
+    }
+    guard.state = NoTrace::GuardState::Alert;
     NoTrace::Interactable hiddenTerminal;
     hiddenTerminal.kind = NoTrace::ObjectKind::Terminal; hiddenTerminal.position = {460.f, 320.f};
     Require(hiddenTerminal.id == 0 && fogWorld.agents[0].hideoutId == 0 && !NoTrace::Visibility::ObjectVisible(fogWorld, fogWorld.agents[0], hiddenTerminal),

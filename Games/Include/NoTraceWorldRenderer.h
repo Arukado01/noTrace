@@ -26,7 +26,7 @@ namespace NoTrace {
   class WorldRenderer {
   public:
     using AimSolution = CombatGeometry::AimSolution;
-    enum class GuardIndicator { None, Suspicion, Confirmed, Combat, Unconscious, Searching };
+    enum class GuardIndicator { None, Suspicion, Confirmed, Combat, Unconscious, Searching, Dead };
     struct SpriteFrame { std::size_t index = 0; bool prone = false; bool mirror = false; bool operative = false; };
     struct DetectionVisual { unsigned int segments = 0; sf::Color color; bool confirmed = false; };
     struct CqcVisual { float extension = 0.f; float phase = 0.f; bool kick = false; bool gripping = false; };
@@ -92,6 +92,8 @@ namespace NoTrace {
     void Noise(const NoiseEvent &noise, sf::Vector2f camera) const;
     void Combat(const WorldState &world, sf::Vector2f camera, const Agent *observer) const;
     void GuardIcon(const Guard &guard, sf::Vector2f camera) const;
+    void BodyStatus(const Agent &agent, sf::Vector2f camera) const;
+    void BodyStatusGlyph(sf::Vector2f center, GuardIndicator indicator) const;
     void CameraIcon(const Interactable &object, sf::Vector2f camera) const;
     void DecoyPreview(const WorldState &world, sf::Vector2f camera, const Agent *observer) const;
     void DecoyArt(const DecoyProjectile &disc, sf::Vector2f camera) const;
@@ -366,13 +368,19 @@ namespace NoTrace {
     }
     static float ShotImpactHeight(const ShotTrace &shot, const WorldState &) { return shot.toHeight; }
     static GuardIndicator IndicatorFor(const Guard &guard) {
-      if (guard.trainingDummy || guard.bodyHidden || guard.storedIn != 0 || guard.state == GuardState::Dead) return GuardIndicator::None;
+      if (guard.trainingDummy || guard.bodyHidden || guard.storedIn != 0) return GuardIndicator::None;
+      if (guard.state == GuardState::Dead) return GuardIndicator::Dead;
       if (guard.state == GuardState::Incapacitated) return GuardIndicator::Unconscious;
       if (guard.detectedTime > 0.f) return GuardIndicator::Confirmed;
       if (guard.state == GuardState::Alert) return GuardIndicator::Combat;
       if (guard.state == GuardState::Search) return GuardIndicator::Searching;
       if (guard.suspicionRemaining > 0.f || guard.state == GuardState::Suspicion || guard.state == GuardState::Investigate) return GuardIndicator::Suspicion;
       return GuardIndicator::None;
+    }
+    static GuardIndicator BodyIndicatorFor(const Agent &agent) {
+      if (agent.hidden || agent.extracted) return GuardIndicator::None;
+      if (agent.lifeState == LifeState::Dead || !agent.alive) return GuardIndicator::Dead;
+      return agent.lifeState == LifeState::Incapacitated || agent.incapacitated ? GuardIndicator::Unconscious : GuardIndicator::None;
     }
     static bool VisibleCell(const VisibilityGrid &grid, sf::Vector2f point) {
       if (grid.cellSize <= 0.f || point.x < 0.f || point.y < 0.f) return false;

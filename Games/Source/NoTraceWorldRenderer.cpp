@@ -660,7 +660,7 @@ namespace NoTrace {
       PixelRect(wrist - sf::Vector2f{1.f,1.f}, {2.f,2.f}, glove);
     }
     if (!deferCqc && agent.alive && !agent.incapacitated) CqcArt(agent, world, camera, feet, uniform);
-    if (!agent.alive || agent.incapacitated) PixelRect(feet + sf::Vector2f{-2.f, -6.f}, {6.f, 4.f}, agent.alive ? Amber : Red);
+    BodyStatus(agent,camera);
     if (local || agent.hidden || !agent.connected) {
       Label(!agent.connected ? "SIN CONEXIÓN" : (agent.hidden ? "OCULTO" : agent.name), feet - sf::Vector2f{0.f, 72.f}, local ? Green : Light);
     }
@@ -800,15 +800,11 @@ namespace NoTrace {
     using namespace PresentationConfig;
     const auto indicator = IndicatorFor(guard);
     if (indicator == GuardIndicator::None) return;
-    const float height = guard.state == GuardState::Incapacitated ? CombatConfig::ProneHeight : ActorHeight;
+    const bool body = indicator == GuardIndicator::Unconscious || indicator == GuardIndicator::Dead;
+    const float height = body ? CombatConfig::ProneHeight : ActorHeight;
     const auto center = ProjectGround(guard.position, camera, ctx_.window.GetLogicalSize(), zoom_) - sf::Vector2f{0.f, height * zoom_ + IconOffset};
     const auto at = [&](float x, float y) { return center + sf::Vector2f{x, y}; };
-    if (indicator == GuardIndicator::Unconscious) {
-      PixelRect(center - sf::Vector2f{IconHalfSize + 2.f, IconHalfSize + 2.f}, {IconHalfSize * 2.f + 4.f, IconHalfSize * 2.f + 4.f}, Outline);
-      PixelLine(at(-7.f, -3.f), at(-2.f, 1.f), Violet); PixelLine(at(-2.f, 1.f), at(4.f, -3.f), Violet);
-      PixelRect(at(-6.f, 5.f), {6.f, 2.f}, Violet); PixelRect(at(3.f, 5.f), {4.f, 2.f}, Violet);
-      return;
-    }
+    if (body) { BodyStatusGlyph(center, indicator); return; }
     EyeGlyph(center, GuardDetectionFor(guard), GuardEyeScale, false);
     if (indicator == GuardIndicator::Searching) Label("?", at(21.f, -12.f), Amber, 16);
     if (indicator == GuardIndicator::Confirmed || indicator == GuardIndicator::Combat) {
@@ -816,6 +812,34 @@ namespace NoTrace {
       PixelRect(at(20.f, -9.f), {3.f, 11.f}, indicator == GuardIndicator::Confirmed ? Cyan : Red);
       PixelRect(at(20.f, 6.f), {3.f, 3.f}, Red);
     }
+  }
+
+  void WorldRenderer::BodyStatus(const Agent &agent, sf::Vector2f camera) const {
+    const auto indicator = BodyIndicatorFor(agent);
+    if (indicator == GuardIndicator::None) return;
+    const auto center = ProjectGround(agent.position, camera, ctx_.window.GetLogicalSize(), zoom_) -
+      sf::Vector2f{0.f, CombatConfig::ProneHeight * zoom_ + PresentationConfig::IconOffset};
+    ctx_.renderer.ResetView();
+    BodyStatusGlyph(center, indicator);
+    ctx_.renderer.SetView(WorldView(ctx_.window.GetLogicalSize(), zoom_));
+  }
+
+  void WorldRenderer::BodyStatusGlyph(sf::Vector2f center, GuardIndicator indicator) const {
+    using namespace PresentationConfig;
+    const auto &glyph = indicator == GuardIndicator::Dead ? DeadGlyph : UnconsciousGlyph;
+    const sf::Vector2f size{BodyIconWidth * BodyIconPixelSize, BodyIconHeight * BodyIconPixelSize};
+    const auto origin = SnapToPixels(center - size * 0.5f);
+    PixelRect(origin - sf::Vector2f{2.f, 2.f}, size + sf::Vector2f{4.f, 4.f}, Outline);
+    sf::VertexArray pixels(sf::PrimitiveType::Triangles);
+    for (std::size_t row = 0; row < glyph.size(); ++row) for (std::size_t column = 0; column < glyph[row].size(); ++column) {
+      const char value = glyph[row][column];
+      if (value == '.') continue;
+      const auto color = value == 'S' ? Skin : value == 'L' ? Light : value == 'R' ? Red : value == 'X' ? Outline : Violet;
+      const auto point = origin + sf::Vector2f{static_cast<float>(column), static_cast<float>(row)} * BodyIconPixelSize;
+      const sf::Vector2f right{BodyIconPixelSize, 0.f}, down{0.f, BodyIconPixelSize};
+      for (const auto vertex : {point, point + right, point + right + down, point, point + right + down, point + down}) pixels.append({vertex, color});
+    }
+    ctx_.renderer.Draw(pixels);
   }
 
   void WorldRenderer::CameraIcon(const Interactable &object, sf::Vector2f camera) const {

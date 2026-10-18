@@ -11,6 +11,7 @@
 #include "NoTraceWorldGuiFixtures.h"
 #include "NoTraceOptionsGuiTests.h"
 #include "NoTraceMenuGuiTests.h"
+#include "NoTraceBodyStatusGuiTests.h"
 #include "NoTraceOrientationGuiTests.h"
 #include "NoTraceSecurityGuiTests.h"
 #include "NoTraceWorldGeometry.h"
@@ -1001,6 +1002,7 @@ namespace {
       Access::Require(Access::GetSession(game).GetWorld().phase==GamePhase::Mission,"La comprobación visual no pudo desplegar su operación aislada");
       Access::VerifyFireInput(game,context,window); Access::VerifyCursorOrientation(game,context,window,output); Access::VerifyFinalVisuals(context,window,output);
       const auto captureWorld=[&](WorldRenderer &renderer,const WorldState &world,const std::filesystem::path &file,bool hudVisible=true) { return Access::CaptureWorld(renderer,world,context,window,file,hudVisible); };
+      EngineTests::RunBodyStatusRenderFixtures(context,output,captureWorld);
       EngineTests::RunOrientationRenderFixtures(context,output,captureWorld);
       EngineTests::RunSecurityRenderFixtures(context,output,captureWorld);
       game.OnCleanup(); window.close(); return nlohmann::json::array();
@@ -1087,6 +1089,7 @@ namespace {
     Access::Require(Access::GetSession(game).GetWorld().phase == GamePhase::Mission, "No se pudo desplegar después de volver a base");
     Access::VerifyFinalVisuals(context,window,output);
     const auto captureWorld=[&](WorldRenderer &renderer,const WorldState &world,const std::filesystem::path &file,bool hudVisible=true) { return Access::CaptureWorld(renderer,world,context,window,file,hudVisible); };
+    EngineTests::RunBodyStatusRenderFixtures(context,output,captureWorld);
     EngineTests::RunOrientationRenderFixtures(context,output,captureWorld);
     EngineTests::RunSecurityRenderFixtures(context,output,captureWorld);
     EngineTests::RunWorldRenderFixtures(context, output, [&](WorldRenderer &renderer, const WorldState &world, const std::filesystem::path &file, bool hudVisible = true) {

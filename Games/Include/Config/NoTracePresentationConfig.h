@@ -6,6 +6,7 @@
 #include <SFML/System/Vector2.hpp>
 #include <array>
 #include <cstddef>
+#include <string_view>
 
 namespace NoTrace::PresentationConfig {
   inline constexpr const char *ActorAtlas = "NoTrace/Characters/SoldiersAtlas.png";
@@ -51,6 +52,21 @@ namespace NoTrace::PresentationConfig {
   inline constexpr int VisionSegments = 14;
   inline constexpr float IconOffset = 12.f;
   inline constexpr float IconHalfSize = 9.f;
+  inline constexpr std::size_t BodyIconWidth = 24;
+  inline constexpr std::size_t BodyIconHeight = 16;
+  inline constexpr float BodyIconPixelSize = 2.f;
+  inline constexpr std::array<std::string_view, BodyIconHeight> UnconsciousGlyph{{
+    "........................", "................VVVVV...", "......OOOOO........V....", "....OSSSSSSO......V.....",
+    "...OSSSSSSSSO....V......", "..OSSSSSSSSSSO..VVVVV...", "..OSXXSSSSSSSO..........", "...OSSXSSSSSSSO....VVVV.",
+    "...OSSSSSSXXXSO......V..", "....OSSSSSSSSSO.....V...", ".....OSXXSSSSO.....VVVV.", "......OSSSSSO...........",
+    ".......OOOOO....VVV.....", ".................V......", "................VVV.....", "........................"
+  }};
+  inline constexpr std::array<std::string_view, BodyIconHeight> DeadGlyph{{
+    "........................", "........................", ".......RRRRRRRR.........", ".....RLLLLLLLLLLR.......",
+    "....RLLLLLLLLLLLLR......", "....RLLLLLLLLLLLLR......", "....RLLXLXLLXLXLLR......", "....RLLLXLLLLXLLLR......",
+    ".....RLXLXLLXLXLR.......", "......RLLLXXLLLR........", ".......RLLLLLLR.........", ".......RLLLLLLR.........",
+    ".......RXLXLXLX.........", "........RLLLLR..........", "........................", "........................"
+  }};
   inline constexpr float FogEffectStep = 12.f;
   inline constexpr float FogFeatherWidth = 34.f;
   inline constexpr unsigned int FogFeatherBands = 6;
