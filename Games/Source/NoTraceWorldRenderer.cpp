@@ -53,6 +53,28 @@ namespace NoTrace {
       return muzzles;
     }
 
+    std::vector<WorldRenderer::GroundSupport> LoadSupports(const sf::Texture &texture, const std::vector<sf::IntRect> &frames) {
+      const auto image = texture.copyToImage();
+      std::vector<WorldRenderer::GroundSupport> supports(frames.size());
+      for (std::size_t first = 0; first < frames.size(); first += 4) {
+        const auto support = WorldRenderer::MeasureGroundSupport(image, {frames.at(first), frames.at(first + 1), frames.at(first + 2), frames.at(first + 3)});
+        std::fill_n(supports.begin() + first, 4, support);
+      }
+      return supports;
+    }
+
+    template <typename Id>
+    WorldRenderer::SpriteFrame StableFrame(WorldRenderer::SpriteFrame frame, sf::Vector2f facing, Id id, std::unordered_map<Id, std::size_t> &directions) {
+      if (!frame.operative) return frame;
+      const auto original = frame.index / SpriteConfig::Columns % SpriteConfig::Directions;
+      if (WorldRenderer::SpriteDirection(facing) != original) { directions[id] = original; return frame; }
+      const auto previous = directions.find(id);
+      const auto direction = WorldRenderer::StableSpriteDirection(facing, previous == directions.end() ? std::nullopt : std::optional{previous->second});
+      frame.index = frame.index - original * SpriteConfig::Columns + direction * SpriteConfig::Columns;
+      directions[id] = direction;
+      return frame;
+    }
+
     sf::Color Shade(sf::Color color, float factor) {
       return {static_cast<std::uint8_t>(std::clamp(color.r * factor, 0.f, 255.f)),
               static_cast<std::uint8_t>(std::clamp(color.g * factor, 0.f, 255.f)),
@@ -151,7 +173,8 @@ namespace NoTrace {
         proneFrames_(LoadFrames(PresentationConfig::ProneFrameTable, PresentationConfig::ProneAtlasRows * PresentationConfig::ProneAtlasColumns, proneAtlas_)),
         actorMuzzles_(LoadMuzzles(PresentationConfig::ActorMuzzleTable, actorFrames_)), proneMuzzles_(LoadMuzzles(PresentationConfig::ProneMuzzleTable, proneFrames_)),
         operativeFrames_(LoadFrames(SpriteConfig::FrameTable, SpriteConfig::FrameCount, operativeAtlas_)),
-        operativeMuzzles_(LoadMuzzles(SpriteConfig::MuzzleTable, operativeFrames_)) {
+        operativeMuzzles_(LoadMuzzles(SpriteConfig::MuzzleTable, operativeFrames_)),
+        operativeSupports_(LoadSupports(*operativeAtlas_, operativeFrames_)) {
     actorAtlas_->setSmooth(false); proneAtlas_->setSmooth(false); operativeAtlas_->setSmooth(false);
   }
 
@@ -502,13 +525,19 @@ namespace NoTrace {
   }
 
   WorldRenderer::SpriteFrame WorldRenderer::AgentFrame(const Agent &agent, const WorldState &world, bool local) const {
-    if (world.phase == GamePhase::Results && (!agent.alive || agent.incapacitated)) return ClipFrame(SpriteConfig::Clip::Unconscious, agent.facing, 0.f);
-    return SelectActorSprite(agent, local && decoyPreviewActive_);
+    const auto frame = world.phase == GamePhase::Results && (!agent.alive || agent.incapacitated) ?
+        ClipFrame(SpriteConfig::Clip::Unconscious, agent.facing, 0.f) : SelectActorSprite(agent, local && decoyPreviewActive_);
+    auto facing = agent.facing;
+    if (agent.maneuver.kind != ManeuverKind::None) facing = agent.maneuver.direction;
+    else if (agent.cover.active && ((agent.actionPose == ActionPose::KnockWall && agent.actionPoseTime > 0.f) ||
+        (!agent.aiming && agent.actionPoseTime <= 0.f && agent.reloadRemaining <= 0.f && agent.cover.peekSide == PeekSide::None))) facing = agent.cover.normal;
+    return StableFrame(frame, facing, agent.id, agentSpriteDirections_);
   }
 
   WorldRenderer::SpriteFrame WorldRenderer::GuardFrame(const Guard &guard, const WorldState &world) const {
-    if (world.phase == GamePhase::Results && (guard.state == GuardState::Dead || guard.state == GuardState::Incapacitated)) return ClipFrame(SpriteConfig::Clip::Unconscious, guard.facing, 0.f);
-    return SelectGuardSprite(guard, world);
+    const auto frame = world.phase == GamePhase::Results && (guard.state == GuardState::Dead || guard.state == GuardState::Incapacitated) ?
+        ClipFrame(SpriteConfig::Clip::Unconscious, guard.facing, 0.f) : SelectGuardSprite(guard, world);
+    return StableFrame(frame, guard.facing, guard.id, guardSpriteDirections_);
   }
 
   std::optional<sf::Vector2f> WorldRenderer::SourceMuzzle(const WorldState &world, const ShotTrace &shot, sf::Vector2f camera, const Agent *observer) const {
@@ -532,12 +561,16 @@ namespace NoTrace {
     return muzzle(guard->position, guard->facing, Stance::Standing, GuardFrame(*guard, world));
   }
 
-  void WorldRenderer::Humanoid(sf::Vector2f feet, sf::Vector2f facing, Stance stance, sf::Color uniform, SpriteFrame frame, bool down, bool guard) const {
+  void WorldRenderer::Humanoid(sf::Vector2f feet, sf::Vector2f facing, Stance stance, sf::Color uniform, SpriteFrame frame, bool down, bool guard, sf::Vector2f bodyOffset) const {
     const auto &rect = frame.operative ? operativeFrames_.at(frame.index) : frame.prone ? proneFrames_.at(frame.index) : actorFrames_.at(frame.index);
-    const auto placement = PlaceSprite(feet, facing, stance, down, frame, rect.size);
+    const auto groundPlacement = PlaceSprite(feet, facing, stance, down, frame, rect.size);
+    const auto placement = PlaceSprite(feet + bodyOffset, facing, stance, down, frame, rect.size);
+    const auto support = frame.operative ? operativeSupports_.at(frame.index) : GroundSupport{};
+    const auto shadow = frame.operative ? groundPlacement.Map(support.anchor) : groundPlacement.position;
+    const float footprintWidth = std::max(stance == Stance::Prone || down ? 34.f : 24.f, support.width * std::abs(groundPlacement.scale.x));
     for (float y = -4.f; y <= 4.f; y += PresentationConfig::PixelSize) {
-      const float width = (stance == Stance::Prone || down ? 34.f : 24.f) * (1.f - y * y / 36.f);
-      PixelRect(feet + sf::Vector2f{-width * 0.5f, y}, {width, PresentationConfig::PixelSize}, {0, 0, 0, 80});
+      const float width = footprintWidth * (1.f - y * y / 36.f);
+      PixelRect(shadow + sf::Vector2f{-width * 0.5f, y}, {width, PresentationConfig::PixelSize}, {0, 0, 0, 80});
     }
     sf::Sprite sprite(*(frame.operative ? operativeAtlas_ : frame.prone ? proneAtlas_ : actorAtlas_), rect);
     sprite.setOrigin(placement.origin);
@@ -560,18 +593,15 @@ namespace NoTrace {
     if (agent.extracted || (agent.hidden && !entering)) return;
     const float hideProgress = entering ? std::clamp(1.f - agent.actionPoseTime / GameplayConfig::StanceTransitionDuration, 0.f, 1.f) : 1.f;
     const auto position = entering ? agent.hideoutExit + (agent.position - agent.hideoutExit) * hideProgress : agent.position;
-    auto feet = GroundToScreen(position, camera);
+    const auto groundFeet = GroundToScreen(position, camera);
+    auto feet = groundFeet;
     if (agent.cqcHeldBy != 0) {
       const auto holder = std::ranges::find_if(world.agents, [&](const Agent &other) { return other.id == agent.cqcHeldBy; });
       if (holder != world.agents.end()) feet += sf::Vector2f{0.f, CqcGripSway * holder->cqcProgress};
     }
     auto uniform = AgentUniforms[(agent.id - 1) % AgentUniforms.size()];
     if (!agent.connected || agent.hidden) uniform = Shade(uniform, 0.55f);
-    if (local && agent.alive) {
-      PixelLine(feet + sf::Vector2f{-18.f, 8.f}, feet + sf::Vector2f{-8.f, 12.f}, Green);
-      PixelLine(feet + sf::Vector2f{8.f, 12.f}, feet + sf::Vector2f{18.f, 8.f}, Green);
-    }
-    Humanoid(feet, agent.facing, agent.stance, uniform, AgentFrame(agent, world, local), !agent.alive || agent.incapacitated);
+    Humanoid(groundFeet, agent.facing, agent.stance, uniform, AgentFrame(agent, world, local), !agent.alive || agent.incapacitated, false, feet - groundFeet);
     if (agent.cover.active && agent.actionPose == ActionPose::KnockWall && agent.actionPoseTime > 0.f) {
       const auto contact = GroundToScreen(WorldGeometry::ClosestPoint(agent.cover.anchor, agent.cover.surface), camera) - sf::Vector2f{0.f, CombatGeometry::TorsoCenterHeight(agent.stance)};
       const sf::Vector2f tangent{-agent.cover.normal.y, agent.cover.normal.x};
@@ -597,7 +627,8 @@ namespace NoTrace {
     using namespace PresentationConfig;
     if (guard.bodyHidden || guard.storedIn != 0) return;
     if (guard.trainingDummy) { DummyArt(guard, world, camera); return; }
-    auto feet = GroundToScreen(guard.position, camera);
+    const auto groundFeet = GroundToScreen(guard.position, camera);
+    auto feet = groundFeet;
     const bool body = guard.state == GuardState::Dead || guard.state == GuardState::Incapacitated;
     const float fall = std::clamp((GameplayConfig::GuardIncapacityDuration - guard.incapacityRemaining) / CqcFallDuration, 0.f, 1.f);
     const bool falling = guard.state == GuardState::Incapacitated && fall < 0.5f;
@@ -612,7 +643,7 @@ namespace NoTrace {
       if (holder != world.agents.end()) feet += sf::Vector2f{0.f, CqcGripSway * holder->cqcProgress};
     }
     if (falling) feet += forward * (CqcRecoil * fall * 2.f) + sf::Vector2f{0.f, ActorHeight * fall * 0.25f};
-    Humanoid(feet, guard.facing, Stance::Standing, {126, 99, 77}, GuardFrame(guard, world), down, true);
+    Humanoid(groundFeet, guard.facing, Stance::Standing, {126, 99, 77}, GuardFrame(guard, world), down, true, feet - groundFeet);
     if (guard.meleeAttack && guard.attackTime > 0.f && !down) {
       const auto target = GroundToScreen(guard.position + guard.facing * GameplayConfig::GuardAttackDistance, camera) - sf::Vector2f{0.f, ShotHeight};
       PixelLine(feet - sf::Vector2f{0.f, ShotHeight}, target, Amber, 4.f);

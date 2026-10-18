@@ -18,6 +18,60 @@ namespace {
   bool Near(sf::Vector2f first, sf::Vector2f second, float tolerance) {
     return std::abs(first.x - second.x) <= tolerance && std::abs(first.y - second.y) <= tolerance;
   }
+  void GroundSupportsAndDirectionBoundaries(const std::filesystem::path &project) {
+    using namespace NoTrace;
+    sf::Image image;
+    Require(image.loadFromFile(project / "Content/Textures/NoTrace/Characters/OperativeAtlas.png"), "No se puede inspeccionar el apoyo real del atlas operativo");
+    std::ifstream table(project / SpriteConfig::FrameTable);
+    std::vector<sf::IntRect> frames;
+    sf::IntRect frame;
+    while (table >> frame.position.x >> frame.position.y >> frame.size.x >> frame.size.y) frames.push_back(frame);
+    Require(frames.size() == SpriteConfig::FrameCount, "La inspección de apoyos no recorre los 896 fotogramas");
+    const sf::Vector2f feet{802.f, 486.f}, camera{420.f, 380.f};
+    for (std::size_t first = 0; first < frames.size(); first += 4) {
+      const auto support = WorldRenderer::MeasureGroundSupport(image, {frames[first], frames[first + 1], frames[first + 2], frames[first + 3]});
+      Require(support.anchor.x > 0.f && support.anchor.x < SpriteConfig::CellSize && support.anchor.y == SpriteConfig::FeetY && support.width > 0.f,
+        "Un apoyo medido abandona el plano del suelo o el área útil del personaje");
+      for (std::size_t offset = 0; offset < 4; ++offset) {
+        const WorldRenderer::SpriteFrame selected{first + offset, false, false, true};
+        const auto placement = WorldRenderer::PlaceSprite(feet, {1.f, 0.f}, Stance::Standing, false, selected, frames[first + offset].size);
+        const auto shadow = placement.Map(support.anchor);
+        Require(shadow.y == feet.y && std::abs(shadow.x - feet.x) < SpriteConfig::CellSize * placement.scale.x * 0.5f,
+          "La sombra se separa verticalmente del suelo o pierde la proporción del atlas");
+        for (const sf::Vector2f logical : {sf::Vector2f{1280.f, 720.f}, sf::Vector2f{1600.f, 900.f}, sf::Vector2f{1920.f, 1080.f}})
+          for (const float zoom : {PresentationConfig::MinimumZoom, PresentationConfig::DefaultZoom, PresentationConfig::MaximumZoom}) {
+            const auto projected = WorldRenderer::ProjectGround(camera, camera, logical);
+            const auto transformed = WorldRenderer::PlaceSprite(projected, {1.f, 0.f}, Stance::Standing, false, selected, frames[first + offset].size).Map(support.anchor);
+            Require(Near(projected + (transformed - projected) * zoom,
+              projected + sf::Vector2f{(support.anchor.x - SpriteConfig::FeetX) * placement.scale.x * zoom, 0.f}, 0.001f),
+              "El zoom o la resolución aplican una segunda transformación al apoyo de suelo");
+          }
+      }
+    }
+    const auto diagonalIdle = WorldRenderer::MeasureGroundSupport(image, {frames[16], frames[17], frames[18], frames[19]});
+    Require(std::abs(diagonalIdle.anchor.x - 43.75f) < 0.01f && diagonalIdle.anchor.x != SpriteConfig::FeetX,
+      "La sombra vuelve a usar el centro fijo de la celda pese al apoyo diagonal real");
+    const auto facingAt = [](float degrees) {
+      const float angle = degrees * std::numbers::pi_v<float> / 180.f;
+      const float horizontal = std::sin(angle) / PresentationConfig::GroundProjection.x;
+      const float vertical = std::cos(angle) / PresentationConfig::GroundProjection.y;
+      return CombatGeometry::Unit({horizontal + vertical, vertical - horizontal});
+    };
+    for (std::size_t sector = 0; sector < SpriteConfig::Directions; ++sector) {
+      const float center = static_cast<float>(sector) * 45.f;
+      const auto next = (sector + 1) % SpriteConfig::Directions;
+      Require(WorldRenderer::StableSpriteDirection(facingAt(center + 24.f), sector) == sector &&
+        WorldRenderer::StableSpriteDirection(facingAt(center + 26.f), sector) == next,
+        "La mirada oscila cerca del límite angular o no gira tras superarlo");
+      Require(WorldRenderer::StableSpriteDirection(facingAt(center + 21.f), next) == next &&
+        WorldRenderer::StableSpriteDirection(facingAt(center + 19.f), next) == sector,
+        "La histéresis no conserva el margen al volver de la dirección vecina");
+      Require(WorldRenderer::StableSpriteDirection(facingAt(center), std::nullopt) == sector,
+        "La primera orientación visual no coincide con la proyección axonométrica");
+    }
+    Require(WorldRenderer::StableSpriteDirection({}, 7) == 7 && WorldRenderer::StableSpriteDirection({std::numeric_limits<float>::quiet_NaN(), 0.f}, 2) == 2,
+      "Un cursor coincidente o inválido borra la última orientación visual válida");
+  }
   void OperativeAnimationBindings() {
     using namespace NoTrace;
     std::set<std::size_t> orientations;
@@ -347,6 +401,7 @@ int main() {
     inspectAtlas("SoldiersAtlas.png", "SoldiersAtlas.frames", NoTrace::PresentationConfig::ActorAtlasRows, NoTrace::PresentationConfig::ActorAtlasColumns);
     inspectAtlas("ProneAtlas.png", "ProneAtlas.frames", NoTrace::PresentationConfig::ProneAtlasRows, NoTrace::PresentationConfig::ProneAtlasColumns);
     inspectAtlas("OperativeAtlas.png", "OperativeAtlas.frames", NoTrace::SpriteConfig::FrameCount / NoTrace::SpriteConfig::Columns, NoTrace::SpriteConfig::Columns);
+    GroundSupportsAndDirectionBoundaries(project);
     OperativeAnimationBindings();
     AimingLaserUsesPhysicalSurfaces();
     std::set<std::pair<std::size_t, bool>> directions;

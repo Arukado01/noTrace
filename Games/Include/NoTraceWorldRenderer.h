@@ -10,12 +10,14 @@
 #include "NoTraceVisibility.h"
 #include "NoTraceWorldGeometry.h"
 #include <SFML/Graphics/Color.hpp>
+#include <SFML/Graphics/Image.hpp>
 #include <SFML/Graphics/View.hpp>
 #include <algorithm>
 #include <cmath>
 #include <initializer_list>
 #include <optional>
 #include <numbers>
+#include <unordered_map>
 
 struct EngineContext;
 namespace sf { class Font; class Texture; }
@@ -32,6 +34,7 @@ namespace NoTrace {
       sf::Vector2f position, origin, scale;
       sf::Vector2f Map(sf::Vector2f point) const { return position + (point - origin).componentWiseMul(scale); }
     };
+    struct GroundSupport { sf::Vector2f anchor{SpriteConfig::FeetX, SpriteConfig::FeetY}; float width = 0.f; };
   private:
     EngineContext &ctx_;
     const sf::Font *font_;
@@ -44,6 +47,9 @@ namespace NoTrace {
     std::vector<sf::Vector2f> proneMuzzles_;
     std::vector<sf::IntRect> operativeFrames_;
     std::vector<sf::Vector2f> operativeMuzzles_;
+    std::vector<GroundSupport> operativeSupports_;
+    mutable std::unordered_map<PlayerId, std::size_t> agentSpriteDirections_;
+    mutable std::unordered_map<std::uint32_t, std::size_t> guardSpriteDirections_;
     float zoom_ = PresentationConfig::DefaultZoom;
     bool decoyPreviewActive_ = false;
     sf::Vector2f decoyPreviewDirection_;
@@ -73,7 +79,7 @@ namespace NoTrace {
     SpriteFrame AgentFrame(const Agent &agent, const WorldState &world, bool local) const;
     SpriteFrame GuardFrame(const Guard &guard, const WorldState &world) const;
     std::optional<sf::Vector2f> SourceMuzzle(const WorldState &world, const ShotTrace &shot, sf::Vector2f camera, const Agent *observer) const;
-    void Humanoid(sf::Vector2f feet, sf::Vector2f facing, Stance stance, sf::Color uniform, SpriteFrame frame, bool down, bool guard = false) const;
+    void Humanoid(sf::Vector2f feet, sf::Vector2f facing, Stance stance, sf::Color uniform, SpriteFrame frame, bool down, bool guard = false, sf::Vector2f bodyOffset = {}) const;
     void AgentArt(const Agent &agent, const WorldState &world, sf::Vector2f camera, bool local, bool deferCqc = false) const;
     void GuardArt(const Guard &guard, const WorldState &world, sf::Vector2f camera) const;
     void DummyArt(const Guard &dummy, const WorldState &world, sf::Vector2f camera) const;
@@ -145,6 +151,36 @@ namespace NoTrace {
       const sf::Vector2f screen{(facing.x - facing.y) * PresentationConfig::GroundProjection.x, (facing.x + facing.y) * PresentationConfig::GroundProjection.y};
       const int sector = static_cast<int>(std::lround(std::atan2(screen.x, screen.y) / (std::numbers::pi_v<float> * 0.25f)));
       return static_cast<std::size_t>((sector + 8) % 8);
+    }
+    static std::size_t StableSpriteDirection(sf::Vector2f facing, std::optional<std::size_t> previous) {
+      const sf::Vector2f screen{(facing.x - facing.y) * PresentationConfig::GroundProjection.x, (facing.x + facing.y) * PresentationConfig::GroundProjection.y};
+      if (!std::isfinite(screen.x) || !std::isfinite(screen.y) || screen.lengthSquared() < 0.000001f)
+        return previous && *previous < SpriteConfig::Directions ? *previous : 0;
+      if (previous && *previous < SpriteConfig::Directions) {
+        const float turn = std::numbers::pi_v<float> * 2.f;
+        const float offset = std::remainder(std::atan2(screen.x, screen.y) - static_cast<float>(*previous) * turn / SpriteConfig::Directions, turn);
+        const float threshold = turn / (SpriteConfig::Directions * 2.f) + SpriteConfig::DirectionHysteresisDegrees * std::numbers::pi_v<float> / 180.f;
+        if (std::abs(offset) <= threshold) return *previous;
+      }
+      return SpriteDirection(facing);
+    }
+    static GroundSupport MeasureGroundSupport(const sf::Image &image, const std::array<sf::IntRect, 4> &frames) {
+      std::array<float, 4> centers{}, widths{};
+      for (std::size_t index = 0; index < frames.size(); ++index) {
+        const auto &frame = frames[index];
+        int bottom = -1, left = frame.size.x, right = -1;
+        for (int y = frame.size.y - 1; y >= 0 && bottom < 0; --y) for (int x = 0; x < frame.size.x; ++x)
+          if (image.getPixel(sf::Vector2u(frame.position + sf::Vector2i{x, y})).a >= SpriteConfig::SupportAlpha) bottom = y;
+        if (bottom < 0) { centers[index] = SpriteConfig::FeetX; continue; }
+        for (int y = std::max(0, bottom - SpriteConfig::SupportBandPixels); y <= bottom; ++y) for (int x = 0; x < frame.size.x; ++x) {
+          if (image.getPixel(sf::Vector2u(frame.position + sf::Vector2i{x, y})).a < SpriteConfig::SupportAlpha) continue;
+          left = std::min(left, x); right = std::max(right, x);
+        }
+        centers[index] = (left + right + 1) * 0.5f; widths[index] = static_cast<float>(right - left + 1);
+      }
+      std::sort(centers.begin(), centers.end()); std::sort(widths.begin(), widths.end());
+      // La mediana del ciclo evita que un pie en vuelo o un extremo del arma hagan bailar la sombra.
+      return {{(centers[1] + centers[2]) * 0.5f, SpriteConfig::FeetY}, (widths[1] + widths[2]) * 0.5f};
     }
     static SpriteFrame ClipFrame(SpriteConfig::Clip clip, sf::Vector2f facing, float seconds, std::optional<float> progress = std::nullopt) {
       const auto &animation = SpriteConfig::Animations.at(static_cast<std::size_t>(clip));

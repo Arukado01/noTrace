@@ -33,6 +33,14 @@ namespace EngineTests {
     };
     const auto bitmapFrames = readBitmapFrames("SoldiersAtlas"), proneBitmapFrames = readBitmapFrames("ProneAtlas"), operativeBitmapFrames = readBitmapFrames("OperativeAtlas");
     if (operativeBitmapFrames.size() != SpriteConfig::FrameCount) throw std::runtime_error("Los fixtures y el atlas operativo no tienen la misma cantidad de celdas");
+    sf::Image operativeImage;
+    if (!operativeImage.loadFromFile("Content/Textures/NoTrace/Characters/OperativeAtlas.png")) throw std::runtime_error("No se puede comprobar el apoyo visible del atlas en los fixtures");
+    std::vector<WorldRenderer::GroundSupport> operativeSupports(operativeBitmapFrames.size());
+    for (std::size_t first = 0; first < operativeBitmapFrames.size(); first += 4) {
+      const auto support = WorldRenderer::MeasureGroundSupport(operativeImage, {operativeBitmapFrames[first].rectangle, operativeBitmapFrames[first + 1].rectangle,
+        operativeBitmapFrames[first + 2].rectangle, operativeBitmapFrames[first + 3].rectangle});
+      std::fill_n(operativeSupports.begin() + first, 4, support);
+    }
     const auto bitmapMuzzle = [&](WorldRenderer::SpriteFrame selected, sf::Vector2f position, sf::Vector2f facing, Stance stance, sf::Vector2f camera, float zoom) {
       const auto &frame = (selected.operative ? operativeBitmapFrames : selected.prone ? proneBitmapFrames : bitmapFrames).at(selected.index);
       if (frame.muzzle.x < 0.f) throw std::runtime_error("La pose disparando no tiene una boca real visible en el PNG");
@@ -162,14 +170,17 @@ namespace EngineTests {
       shooter.hidden = false; world.shots = shot;
       const auto pixels = capture(renderer, world, file);
       const auto logicalSize = context.window.GetLogicalSize();
-      const auto selected = WorldRenderer::SelectActorSprite(shooter);
+      auto selected = WorldRenderer::SelectActorSprite(shooter);
+      // El giro previo de 63,4 a 70,1 grados conserva el sector uno hasta superar su margen visual.
+      const auto visualDirection = blocked ? WorldRenderer::SpriteDirection(shooter.facing) : std::size_t{1};
+      selected.index = selected.index - (selected.index / SpriteConfig::Columns % SpriteConfig::Directions) * SpriteConfig::Columns + visualDirection * SpriteConfig::Columns;
       const auto muzzle = bitmapMuzzle(selected, shooter.position, shooter.facing, shooter.stance, shooter.position, renderer.GetZoom());
       const auto pixel = muzzle.componentWiseDiv(logicalSize).componentWiseMul(sf::Vector2f(pixels.getSize()));
       const sf::Vector2u sample{static_cast<unsigned int>(std::floor(pixel.x)), static_cast<unsigned int>(std::floor(pixel.y))};
       requireBitmapFlash(body, absent, pixels, muzzle, stem);
       metadata.push_back({{"file", file.filename().string()}, {"stance", shotNames[index]},
           {"sourceHeight", WorldRenderer::WeaponHeight(shooter.stance)}, {"impactHeight", WorldRenderer::ShotImpactHeight(world.shots[0], world)},
-          {"muzzleSample", {sample.x, sample.y}}, {"atlasFrame", selected.index}, {"muzzleFromBitmap", true}, {"blocked", blocked}});
+          {"muzzleSample", {sample.x, sample.y}}, {"atlasFrame", selected.index}, {"expectedVisualDirection", visualDirection}, {"muzzleFromBitmap", true}, {"blocked", blocked}});
     }
     world.agents[0].actionPose = ActionPose::None; world.agents[0].actionPoseTime = 0.f;
     WorldState fogWorld;
@@ -795,6 +806,12 @@ namespace EngineTests {
     // El escenario cubre el viewport completo sin dibujar cuatro veces más suelo fuera de cámara.
     WorldState matrix; matrix.phase = GamePhase::Base; matrix.size = {1000.f, 1000.f};
     Agent matrixObserver; matrixObserver.id = 1; matrixObserver.position = {500.f, 500.f}; matrixObserver.hidden = true;
+    std::array<sf::Image, 3> bareFloors;
+    matrix.agents = {matrixObserver};
+    for (std::size_t zoomIndex = 0; zoomIndex < zoomNames.size(); ++zoomIndex) {
+      renderer.ResetZoom(); if (zoomIndex != 1) renderer.AdjustZoom(zoomIndex == 0 ? -100.f : 100.f);
+      bareFloors[zoomIndex] = capture(renderer, matrix, output / ("world-shadow-floor-" + std::string(zoomNames[zoomIndex]) + ".png"));
+    }
     for (const auto &clip : clips) for (std::size_t zoomIndex = 0; zoomIndex < zoomNames.size(); ++zoomIndex) {
       renderer.ResetZoom(); if (zoomIndex != 1) renderer.AdjustZoom(zoomIndex == 0 ? -100.f : 100.f);
       std::array<std::set<std::size_t>, 8> framesByDirection;
@@ -813,17 +830,61 @@ namespace EngineTests {
           if (!frame.operative || frame.index >= operativeBitmapFrames.size() || WorldRenderer::SpriteDirection(actor.facing) != direction)
             throw std::runtime_error("La matriz de ocho direcciones no selecciona una celda operativa válida");
           framesByDirection[direction].insert(frame.index);
-          selected.push_back({{"direction", direction}, {"frame", frame.index}, {"stance", static_cast<int>(actor.stance)}, {"ground", {actor.position.x, actor.position.y}}});
+          const auto ground = WorldRenderer::ProjectGround(actor.position, matrixObserver.position, logical);
+          const auto placement = WorldRenderer::PlaceSprite(ground, actor.facing, actor.stance, false, frame, operativeBitmapFrames[frame.index].rectangle.size);
+          const auto shadow = placement.Map(operativeSupports[frame.index].anchor);
+          const auto focus = WorldRenderer::ProjectGround(matrixObserver.position, matrixObserver.position, logical);
+          const auto screenShadow = focus + (shadow - focus) * renderer.GetZoom();
+          selected.push_back({{"direction", direction}, {"frame", frame.index}, {"stance", static_cast<int>(actor.stance)}, {"ground", {actor.position.x, actor.position.y}},
+            {"shadowAnchor", {screenShadow.x, screenShadow.y}}, {"shadowGroundHeight", shadow.y - ground.y}});
           matrix.agents.push_back(actor);
         }
         const auto name = "world-clips-" + std::string(clip.name) + "-" + zoomNames[zoomIndex] + "-phase-" + std::to_string(phaseIndex) + ".png";
         const auto pixels = capture(renderer, matrix, output / name);
+        for (auto &actor : selected) {
+          const auto logical = context.window.GetLogicalSize();
+          const auto scale = sf::Vector2f(pixels.getSize()).componentWiseDiv(logical);
+          const sf::Vector2f shadow{actor["shadowAnchor"][0].get<float>(), actor["shadowAnchor"][1].get<float>()};
+          unsigned int shadowPixels = 0;
+          for (float y = 2.f; y <= 4.f; y += 1.f) for (float x = -4.f; x <= 4.f; x += 1.f) {
+            const auto point = sf::Vector2u((shadow + sf::Vector2f{x, y} * renderer.GetZoom()).componentWiseMul(scale));
+            if (point.x < pixels.getSize().x && point.y < pixels.getSize().y && pixels.getPixel(point) != bareFloors[zoomIndex].getPixel(point)) ++shadowPixels;
+          }
+          if (!shadowPixels || actor["shadowGroundHeight"].get<float>() != 0.f) throw std::runtime_error("La sombra pierde el apoyo real o flota fuera del suelo en " + name);
+          actor["verifiedShadowPixels"] = shadowPixels;
+        }
         if (phaseIndex > 0 && identical(precedingPhase, pixels)) throw std::runtime_error("La matriz conserva el mismo bitmap en dos fases de " + std::string(clip.name));
         precedingPhase = pixels;
         metadata.push_back({{"file", name}, {"clip", clip.name}, {"directions", 8}, {"phase", phase}, {"expectedDistinctFrames", clip.frames}, {"zoom", renderer.GetZoom()},
             {"nativeSpriteScale", PresentationConfig::ActorHeight / SpriteConfig::StandingPixels}, {"renderedSpriteScale", renderer.GetZoom() * PresentationConfig::ActorHeight / SpriteConfig::StandingPixels}, {"selectedFrames", selected}});
       }
       for (const auto &frames : framesByDirection) if (frames.size() != clip.frames) throw std::runtime_error("Una dirección no recorre las celdas PNG previstas de " + std::string(clip.name));
+    }
+    for (std::size_t zoomIndex = 0; zoomIndex < zoomNames.size(); ++zoomIndex) {
+      renderer.ResetZoom(); if (zoomIndex != 1) renderer.AdjustZoom(zoomIndex == 0 ? -100.f : 100.f);
+      for (const auto stance : {Stance::Standing, Stance::Crouched, Stance::Prone}) {
+        WorldState clean; clean.phase = GamePhase::Base; clean.size = matrix.size;
+        Agent local; local.id = 1; local.name = "AGENTE"; local.position = matrixObserver.position; local.stance = stance;
+        local.facing = facingFor(static_cast<unsigned int>(stance) * 3); local.moving = true; local.animationTime = 0.4f;
+        clean.agents = {local};
+        const auto name = "world-clean-local-" + std::to_string(static_cast<int>(stance)) + "-" + zoomNames[zoomIndex] + ".png";
+        const auto pixels = capture(renderer, clean, output / name);
+        const auto logical = context.window.GetLogicalSize();
+        const auto feet = WorldRenderer::ProjectGround(local.position, local.position, logical, renderer.GetZoom());
+        const auto scale = sf::Vector2f(pixels.getSize()).componentWiseDiv(logical);
+        unsigned int selectionPixels = 0, statusPixels = 0;
+        for (float y = 6.f; y <= 15.f; y += 0.5f) for (float x = -25.f; x <= 25.f; x += 0.5f) {
+          const auto point = sf::Vector2u((feet + sf::Vector2f{x, y} * renderer.GetZoom()).componentWiseMul(scale));
+          if (point.x < pixels.getSize().x && point.y < pixels.getSize().y && pixels.getPixel(point) == PresentationConfig::Green) ++selectionPixels;
+        }
+        for (float y = -82.f; y <= -44.f; y += 0.5f) for (float x = -50.f; x <= 50.f; x += 0.5f) {
+          const auto point = sf::Vector2u((feet + sf::Vector2f{x, y} * renderer.GetZoom()).componentWiseMul(scale));
+          if (point.x < pixels.getSize().x && point.y < pixels.getSize().y && pixels.getPixel(point) == PresentationConfig::Green) ++statusPixels;
+        }
+        if (selectionPixels != 0) throw std::runtime_error("Reaparecen los cuadrados verdes de selección bajo el agente local en " + name);
+        if (statusPixels == 0) throw std::runtime_error("Eliminar la selección desactiva también el indicador verde legítimo del agente en " + name);
+        metadata.push_back({{"file", name}, {"localSelectionPixels", selectionPixels}, {"preservedStatusPixels", statusPixels}, {"stance", static_cast<int>(stance)}, {"zoom", renderer.GetZoom()}});
+      }
     }
     renderer.ResetZoom();
     for (unsigned int direction = 0; direction < 8; ++direction) for (std::size_t phaseIndex = 0; phaseIndex < clipPhases.size(); ++phaseIndex) {
