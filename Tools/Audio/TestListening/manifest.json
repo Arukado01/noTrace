@@ -1,0 +1,652 @@
+{
+  "purpose": "Secuencias de grabaciones reales para revisión humana; no mezcla ni grabación de gameplay",
+  "processing": "Concatenación PCM, pausas de 250 ms y reducción de estéreo a mono sólo en estos montajes; ambientes limitados a cuatro segundos; sin tonos ni ruido sintetizados",
+  "auditoryAcceptance": false,
+  "reviewer": null,
+  "montages": [
+    {
+      "file": "01-sigilo-materiales.wav",
+      "durationSeconds": 15.0,
+      "bytes": 1440044,
+      "sha256": "bd5e64a5be4c9b61027cceea165bbc56069737c1a3c721ccae273070a894b0eb",
+      "timeline": [
+        {
+          "kind": "AmbientRoom",
+          "file": "Ambience/AmbientRoom-01.wav",
+          "startSeconds": 0.0,
+          "durationSeconds": 4.0,
+          "originalSha256": "b2e302341866886a8f2b70028e288e2ef2aea2144cda35e021eef2aa8563b7a4",
+          "source": "source-1147cbce3635",
+          "excerpt": true
+        },
+        {
+          "kind": "StepHard",
+          "file": "Movement/StepHard-01.wav",
+          "startSeconds": 4.25,
+          "durationSeconds": 0.345,
+          "originalSha256": "f53698baf65affcf1e2357d16deb6221fa697054ae9613f3811ccc67c6a31b2e",
+          "source": "source-6c684a28724d",
+          "excerpt": false
+        },
+        {
+          "kind": "StepMetal",
+          "file": "Movement/StepMetal-01.wav",
+          "startSeconds": 4.845,
+          "durationSeconds": 0.375,
+          "originalSha256": "b79d09127b44248fdb8d67686bccb67b0783d5561ea29f2561df12fd8c917f95",
+          "source": "source-6527089b589e",
+          "excerpt": false
+        },
+        {
+          "kind": "StepStair",
+          "file": "Movement/StepStair-01.wav",
+          "startSeconds": 5.47,
+          "durationSeconds": 0.265,
+          "originalSha256": "7744d61ecbb03194c31a46fb40e2ccd46c421d534da191fa126470da96d1d2e2",
+          "source": "source-aa55eb1b1904",
+          "excerpt": false
+        },
+        {
+          "kind": "StepSoft",
+          "file": "Movement/StepSoft-01.wav",
+          "startSeconds": 5.985,
+          "durationSeconds": 0.5700416666666667,
+          "originalSha256": "f21a18b5325810f7232c7d38be497a4b33041793a2adbfaab06ca2a0a2ce9205",
+          "source": "source-a6af2b910c2f",
+          "excerpt": false
+        },
+        {
+          "kind": "StepCrouchHard",
+          "file": "Movement/StepCrouchHard-01.wav",
+          "startSeconds": 6.805041666666667,
+          "durationSeconds": 0.295,
+          "originalSha256": "8db061acc2af1d43c3a647a03a6639a3bef32d5f9280f4348197b948c9e841bd",
+          "source": "source-44c173508f5a",
+          "excerpt": false
+        },
+        {
+          "kind": "StepCrouchMetal",
+          "file": "Movement/StepCrouchMetal-01.wav",
+          "startSeconds": 7.350041666666667,
+          "durationSeconds": 0.28572916666666665,
+          "originalSha256": "3ddb1bea84480d0f8cb74ff076583ddeefbe2b56a7af999f60070312cefd0eb5",
+          "source": "source-7cf683484964",
+          "excerpt": false
+        },
+        {
+          "kind": "StepCrouchStair",
+          "file": "Movement/StepCrouchStair-01.wav",
+          "startSeconds": 7.885770833333333,
+          "durationSeconds": 0.265,
+          "originalSha256": "237f22dfbb91550a1254c0a48a1378c917fe548553a5587b9fbfe1bad0ef2a43",
+          "source": "source-aa55eb1b1904",
+          "excerpt": false
+        },
+        {
+          "kind": "StepCrouchSoft",
+          "file": "Movement/StepCrouchSoft-01.wav",
+          "startSeconds": 8.400770833333333,
+          "durationSeconds": 0.4,
+          "originalSha256": "e9172e9518b7306ea2b6caadf55a6386b8f289e236c7794e2de7edfe94a4f67b",
+          "source": "source-5999211e7eab",
+          "excerpt": false
+        },
+        {
+          "kind": "ProneCrawl",
+          "file": "Movement/ProneCrawl-01.wav",
+          "startSeconds": 9.050770833333333,
+          "durationSeconds": 0.5,
+          "originalSha256": "eccdaa9981a7e0b4064b7995615bbbeed9f4d3c954694b6946bc4adbc63f9309",
+          "source": "source-23997ee2850d",
+          "excerpt": false
+        },
+        {
+          "kind": "CoverEnter",
+          "file": "Movement/CoverEnter-01.wav",
+          "startSeconds": 9.800770833333333,
+          "durationSeconds": 0.93,
+          "originalSha256": "f791fdc96c433b603984acddda8154fb4513ba51a9af29ebdf8343ab04d55e5f",
+          "source": "source-ca80a2748e0a",
+          "excerpt": false
+        },
+        {
+          "kind": "Hideout",
+          "file": "Objects/Hideout-01.wav",
+          "startSeconds": 10.980770833333333,
+          "durationSeconds": 0.51,
+          "originalSha256": "9ec50a5af4ecb939900eaaac8a6e8e7879685e32e37caec899fda3f1fb576aed",
+          "source": "source-538db0484d61",
+          "excerpt": false
+        },
+        {
+          "kind": "Drag",
+          "file": "Cqc/Drag-01.wav",
+          "startSeconds": 11.740770833333332,
+          "durationSeconds": 0.85,
+          "originalSha256": "0c610c48fb3470b7419533bd5938f6df4cc7899d6c70b25266e66f6a347753ef",
+          "source": "source-fa36d80b3da8",
+          "excerpt": false
+        },
+        {
+          "kind": "CoverExit",
+          "file": "Movement/CoverExit-01.wav",
+          "startSeconds": 12.840770833333334,
+          "durationSeconds": 0.97,
+          "originalSha256": "8d2f7b46fe9952f6676d186cb38ed733f67108be4b9f827e92cf0ad584a652f3",
+          "source": "source-b5e0106ca81c",
+          "excerpt": false
+        }
+      ]
+    },
+    {
+      "file": "02-armas-contacto.wav",
+      "durationSeconds": 17.82283333333333,
+      "bytes": 1711036,
+      "sha256": "eba5f44ed5fd3e0f54c3c7454fa0139361de94169d6b01a252dfca2ca844ac87",
+      "timeline": [
+        {
+          "kind": "WeaponReady",
+          "file": "Weapons/WeaponReady-01.wav",
+          "startSeconds": 0.0,
+          "durationSeconds": 0.65,
+          "originalSha256": "b4e28e45c9ddae9bd792401bdf3b3caed8143c28242cb0ea091bfb55850ee77f",
+          "source": "source-416392d56f5b",
+          "excerpt": false
+        },
+        {
+          "kind": "WeaponSwitch",
+          "file": "Weapons/WeaponSwitch-01.wav",
+          "startSeconds": 0.9,
+          "durationSeconds": 1.5619791666666667,
+          "originalSha256": "ca26d8997e0ab84236d423edae9740b01a3c84b73d8c060d5c0337796bcd5e94",
+          "source": "source-598817a1d0d9",
+          "excerpt": false
+        },
+        {
+          "kind": "DryFire",
+          "file": "Weapons/DryFire-01.wav",
+          "startSeconds": 2.7119791666666666,
+          "durationSeconds": 0.18745833333333334,
+          "originalSha256": "ea077a52d25ee764e92fb941590ed38a52af00e9c1a36afdd6dd616bdd40363e",
+          "source": "source-e05a1a45780c",
+          "excerpt": false
+        },
+        {
+          "kind": "DryFire",
+          "file": "Weapons/DryFire-02.wav",
+          "startSeconds": 3.1494375,
+          "durationSeconds": 0.3093125,
+          "originalSha256": "567b21757801e6434cffeb8f8e202509a575f4a2672438c43d24637e9b453f5c",
+          "source": "source-ad3623be468d",
+          "excerpt": false
+        },
+        {
+          "kind": "Reload",
+          "file": "Weapons/Reload-01.wav",
+          "startSeconds": 3.70875,
+          "durationSeconds": 0.407375,
+          "originalSha256": "ae421e168e66ced24909f44f87249fe4b3dfde552631b7f39100ca7048d45d51",
+          "source": "source-629f277f7c94",
+          "excerpt": false
+        },
+        {
+          "kind": "ReloadFinish",
+          "file": "Weapons/ReloadFinish-01.wav",
+          "startSeconds": 4.366125,
+          "durationSeconds": 0.3554583333333333,
+          "originalSha256": "b9a185f3c21882bd63871641aa390c3102428d509f7054e4b645e4a4504e64c2",
+          "source": "source-629f277f7c94",
+          "excerpt": false
+        },
+        {
+          "kind": "Pistol",
+          "file": "Weapons/Pistol-01.wav",
+          "startSeconds": 4.971583333333333,
+          "durationSeconds": 0.8306458333333333,
+          "originalSha256": "f214be9bf02e4eadaf919a48cbaa3d32cb132fef0ea26b7d66704df01a4f4bbe",
+          "source": "source-338d9dfb9f97",
+          "excerpt": false
+        },
+        {
+          "kind": "Suppressed",
+          "file": "Weapons/Suppressed-01.wav",
+          "startSeconds": 6.052229166666667,
+          "durationSeconds": 1.6,
+          "originalSha256": "1b6eb5428fc387173d01419d1c5c7c8cdd985b21981db51d992dfda0b91af692",
+          "source": "source-268de62a97b6",
+          "excerpt": false
+        },
+        {
+          "kind": "Rifle",
+          "file": "Weapons/Rifle-01.wav",
+          "startSeconds": 7.902229166666666,
+          "durationSeconds": 0.6908958333333334,
+          "originalSha256": "dac5520977489f9a4aadae17cfcd5a9af9cd68db25c8952bb0116882781e3155",
+          "source": "source-0a463f3c7d26",
+          "excerpt": false
+        },
+        {
+          "kind": "NonLethal",
+          "file": "Weapons/NonLethal-01.wav",
+          "startSeconds": 8.843125,
+          "durationSeconds": 0.3829166666666667,
+          "originalSha256": "245765f85c9a9034a16cb293fc91d457dc92b1f3cd86457575b61e477b3c977f",
+          "source": "source-d7a4500f8490",
+          "excerpt": false
+        },
+        {
+          "kind": "SuppressedNonLethal",
+          "file": "Weapons/SuppressedNonLethal-01.wav",
+          "startSeconds": 9.476041666666667,
+          "durationSeconds": 0.23,
+          "originalSha256": "bf95a2d951739b7d3d812b1e771a31c659ddc4b8cbd68f1c326a6ac491d949ee",
+          "source": "source-d7a4500f8490",
+          "excerpt": false
+        },
+        {
+          "kind": "SuppressorAttach",
+          "file": "Weapons/SuppressorAttach-01.wav",
+          "startSeconds": 9.956041666666666,
+          "durationSeconds": 1.0,
+          "originalSha256": "88a6cc008b14f3e276753fab51857984b1957c27d22284424d218b83daf88fdd",
+          "source": "source-e5b36a7c73c2",
+          "excerpt": false
+        },
+        {
+          "kind": "SuppressorDetach",
+          "file": "Weapons/SuppressorDetach-01.wav",
+          "startSeconds": 11.206041666666666,
+          "durationSeconds": 1.0,
+          "originalSha256": "594fbf1583065ca71e401de92af34f382114d6d0a6af67a4e8cdb1d45e5e6b61",
+          "source": "source-e5b36a7c73c2",
+          "excerpt": false
+        },
+        {
+          "kind": "SuppressorBreak",
+          "file": "Weapons/SuppressorBreak-01.wav",
+          "startSeconds": 12.456041666666666,
+          "durationSeconds": 0.39397916666666666,
+          "originalSha256": "150159892a076328c47bd0de376888e0dc192a9e08d98c7522dcb05370d437c3",
+          "source": "source-10a04e761115",
+          "excerpt": false
+        },
+        {
+          "kind": "ImpactBody",
+          "file": "Impacts/ImpactBody-01.wav",
+          "startSeconds": 13.100020833333334,
+          "durationSeconds": 0.6461458333333333,
+          "originalSha256": "2b96f35c19fe968c8d8871f7c981ec06fa4a94355180eb1f003b59004e15589b",
+          "source": "source-367815abe143",
+          "excerpt": false
+        },
+        {
+          "kind": "Punch",
+          "file": "Cqc/Punch-01.wav",
+          "startSeconds": 13.996166666666667,
+          "durationSeconds": 0.6666666666666666,
+          "originalSha256": "96dcdfd21e15c2f72479297550c95d767b4c909777d008d88d9d45373f281354",
+          "source": "source-de7a40c1a0b2",
+          "excerpt": false
+        },
+        {
+          "kind": "Kick",
+          "file": "Cqc/Kick-01.wav",
+          "startSeconds": 14.912833333333333,
+          "durationSeconds": 0.3426458333333333,
+          "originalSha256": "e7e56a9311d3dc51495d9b5c196c91d5792cf23dcf0116b9c94c5f85347cc892",
+          "source": "source-367815abe143",
+          "excerpt": false
+        },
+        {
+          "kind": "Grab",
+          "file": "Cqc/Grab-01.wav",
+          "startSeconds": 15.505479166666667,
+          "durationSeconds": 0.8169583333333333,
+          "originalSha256": "043dcdbd1f5d398ec7dd234049c170bf2edba32ff5240bf27d4aaf68f527eeea",
+          "source": "source-b2ed0ec606cd",
+          "excerpt": false
+        },
+        {
+          "kind": "Push",
+          "file": "Cqc/Push-01.wav",
+          "startSeconds": 16.5724375,
+          "durationSeconds": 0.39895833333333336,
+          "originalSha256": "d92543b6e9cdf87b6ce4eb34fc79ffe2012b0ad593e872a88dd289f0f1c7d44e",
+          "source": "source-367815abe143",
+          "excerpt": false
+        },
+        {
+          "kind": "Fall",
+          "file": "Cqc/Fall-01.wav",
+          "startSeconds": 17.221395833333332,
+          "durationSeconds": 0.3514375,
+          "originalSha256": "497a7a0e3ae4df04ef1d15b37e15da5e641964257f7ccafb3040272ddb2f4e08",
+          "source": "source-c5398a547ea6",
+          "excerpt": false
+        }
+      ]
+    },
+    {
+      "file": "03-verticalidad.wav",
+      "durationSeconds": 17.800229166666668,
+      "bytes": 1708866,
+      "sha256": "5c87367befb91aec678f22c55c8106ad50931e364a957e06ec591682170db366",
+      "timeline": [
+        {
+          "kind": "GripAttach",
+          "file": "Traversal/GripAttach-01.wav",
+          "startSeconds": 0.0,
+          "durationSeconds": 0.33,
+          "originalSha256": "052fe3a1f424c541013f7abc2c82a580fd30c47472425e583ff2b2f067623e47",
+          "source": "source-4072c6c69e97",
+          "excerpt": false
+        },
+        {
+          "kind": "GripMove",
+          "file": "Traversal/GripMove-01.wav",
+          "startSeconds": 0.58,
+          "durationSeconds": 0.4,
+          "originalSha256": "55520d938521f76a7071c1ca5f48b6b3ab3edbd5d98d2ef6287fd99d5ade7cbe",
+          "source": "source-4072c6c69e97",
+          "excerpt": false
+        },
+        {
+          "kind": "GripRelease",
+          "file": "Traversal/GripRelease-01.wav",
+          "startSeconds": 1.23,
+          "durationSeconds": 0.3,
+          "originalSha256": "d1d0b30047033f610890c0622a137804f9913a08be2ffebc6b002969f449f791",
+          "source": "source-4072c6c69e97",
+          "excerpt": false
+        },
+        {
+          "kind": "StepStair",
+          "file": "Movement/StepStair-01.wav",
+          "startSeconds": 1.78,
+          "durationSeconds": 0.265,
+          "originalSha256": "7744d61ecbb03194c31a46fb40e2ccd46c421d534da191fa126470da96d1d2e2",
+          "source": "source-aa55eb1b1904",
+          "excerpt": false
+        },
+        {
+          "kind": "StepRunStair",
+          "file": "Movement/StepRunStair-01.wav",
+          "startSeconds": 2.295,
+          "durationSeconds": 0.265,
+          "originalSha256": "ac09dbf889838a8f3f0e00f70aeb0caacf1e288b376d126474169f227eafb68a",
+          "source": "source-aa55eb1b1904",
+          "excerpt": false
+        },
+        {
+          "kind": "StepCrouchStair",
+          "file": "Movement/StepCrouchStair-01.wav",
+          "startSeconds": 2.81,
+          "durationSeconds": 0.265,
+          "originalSha256": "237f22dfbb91550a1254c0a48a1378c917fe548553a5587b9fbfe1bad0ef2a43",
+          "source": "source-aa55eb1b1904",
+          "excerpt": false
+        },
+        {
+          "kind": "ElevatorClose",
+          "file": "Traversal/ElevatorClose-01.wav",
+          "startSeconds": 3.325,
+          "durationSeconds": 0.42,
+          "originalSha256": "c363ba6bde52b055a6bcbde676349039325d0a63677c47f49b236116917ec462",
+          "source": "source-43de9cc3d18e",
+          "excerpt": false
+        },
+        {
+          "kind": "ElevatorStart",
+          "file": "Traversal/ElevatorStart-01.wav",
+          "startSeconds": 3.995,
+          "durationSeconds": 1.15,
+          "originalSha256": "5de0d7172ebf89d4c96c52d5cd0ea96a0d41800d1ba5bb39a75a19a596d48dfb",
+          "source": "source-fafcdae8829c",
+          "excerpt": false
+        },
+        {
+          "kind": "ElevatorMove",
+          "file": "Traversal/ElevatorMove-01.wav",
+          "startSeconds": 5.395,
+          "durationSeconds": 4.0,
+          "originalSha256": "e65683daee171c8bb3f4f9c22bab29e66ba042b7f7bc7b73a7f605e8909a0b07",
+          "source": "source-fafcdae8829c",
+          "excerpt": true
+        },
+        {
+          "kind": "ElevatorStop",
+          "file": "Traversal/ElevatorStop-01.wav",
+          "startSeconds": 9.645,
+          "durationSeconds": 1.4,
+          "originalSha256": "6f82ec677df5e727b649f012f03655080f3664e47cefe639166639090904ac85",
+          "source": "source-fafcdae8829c",
+          "excerpt": false
+        },
+        {
+          "kind": "ElevatorOpen",
+          "file": "Traversal/ElevatorOpen-01.wav",
+          "startSeconds": 11.295,
+          "durationSeconds": 0.42,
+          "originalSha256": "35bc0f401446cadbf9e4f99e830827f5a925b63a0fc69c4e20d96a10ab9472b9",
+          "source": "source-60fcca96fec0",
+          "excerpt": false
+        },
+        {
+          "kind": "Land",
+          "file": "Movement/Land-01.wav",
+          "startSeconds": 11.965,
+          "durationSeconds": 0.65375,
+          "originalSha256": "3161619040d6df317f917dd5b78358177d353c834e27b592ae1e13da26380b2f",
+          "source": "source-9a27e4407ca0",
+          "excerpt": false
+        },
+        {
+          "kind": "GetUp",
+          "file": "Movement/GetUp-01.wav",
+          "startSeconds": 12.86875,
+          "durationSeconds": 1.8,
+          "originalSha256": "2b0d1b3de16aadf9be3c5e1ff5d4167fa8d505605694a7ae7a2bf6cbeb1c06e8",
+          "source": "source-4b96a692007b",
+          "excerpt": false
+        },
+        {
+          "kind": "Dive",
+          "file": "Movement/Dive-01.wav",
+          "startSeconds": 14.91875,
+          "durationSeconds": 0.7314791666666667,
+          "originalSha256": "d0b2356bca54c4cd6b8833ba946705d97ecad0a176b517b67955e7404f648e07",
+          "source": "source-b8ef328834a5",
+          "excerpt": false
+        },
+        {
+          "kind": "Roll",
+          "file": "Movement/Roll-01.wav",
+          "startSeconds": 15.900229166666668,
+          "durationSeconds": 1.65,
+          "originalSha256": "8ce69a58d970fd909a9405465538b9dccee8baa80f431106b833126e3535f94a",
+          "source": "source-4b3795f6ce96",
+          "excerpt": false
+        }
+      ]
+    },
+    {
+      "file": "04-dispositivos-alerta.wav",
+      "durationSeconds": 22.653770833333333,
+      "bytes": 2174806,
+      "sha256": "a302b4e187b64d92d2a2988e5b7c5186465cdfdaed1e7bc7bd1c1da9f26977d4",
+      "timeline": [
+        {
+          "kind": "AmbientElectrical",
+          "file": "Ambience/AmbientElectrical-01.wav",
+          "startSeconds": 0.0,
+          "durationSeconds": 4.0,
+          "originalSha256": "c2603662bc3b4dce0e337014d9470c906b246a76c74b35d28ed1be234ab7a76e",
+          "source": "source-c42ed2601f1f",
+          "excerpt": true
+        },
+        {
+          "kind": "DoorOpen",
+          "file": "Objects/DoorOpen-01.wav",
+          "startSeconds": 4.25,
+          "durationSeconds": 0.690875,
+          "originalSha256": "aba47f38331af6392d899e772a6e0a9d853851b740c1faa8f796e0a409b09926",
+          "source": "source-ca0e95ba2c1f",
+          "excerpt": false
+        },
+        {
+          "kind": "DoorClose",
+          "file": "Objects/DoorClose-01.wav",
+          "startSeconds": 5.190875,
+          "durationSeconds": 0.5464375,
+          "originalSha256": "b0dff7ef4ad6b09d14ac237f54fba4884bd521d0c89236810fce7f45e23dc0f6",
+          "source": "source-f95d4269db26",
+          "excerpt": false
+        },
+        {
+          "kind": "CabinetOpen",
+          "file": "Objects/CabinetOpen-01.wav",
+          "startSeconds": 5.9873125,
+          "durationSeconds": 0.5174791666666667,
+          "originalSha256": "23eeb450b2329be01cb54199c0842df4a8cd822e76c1fc3a44776cc56aebe165",
+          "source": "source-9c1059bd7c3f",
+          "excerpt": false
+        },
+        {
+          "kind": "CabinetClose",
+          "file": "Objects/CabinetClose-01.wav",
+          "startSeconds": 6.754791666666667,
+          "durationSeconds": 0.7565833333333334,
+          "originalSha256": "cc759892b7647d56fab35c3cffd714b733512efa6be293c4e00d70da5b23eff4",
+          "source": "source-0d0cbefa9cda",
+          "excerpt": false
+        },
+        {
+          "kind": "TableFlip",
+          "file": "Objects/TableFlip-01.wav",
+          "startSeconds": 7.761375,
+          "durationSeconds": 2.8,
+          "originalSha256": "9c0f734a8d1c69dadc733a7e2be149247cf763bf52dae6770a89b9f06f124f10",
+          "source": "source-e8c9e2cbfb5f",
+          "excerpt": false
+        },
+        {
+          "kind": "Lock",
+          "file": "Devices/Lock-01.wav",
+          "startSeconds": 10.811375,
+          "durationSeconds": 0.74,
+          "originalSha256": "f108dc0cd964c93137c1b4981564ba9d03b2e21fae13e481ac9f4862ad38b094",
+          "source": "source-8a533041b805",
+          "excerpt": false
+        },
+        {
+          "kind": "ComputerKey",
+          "file": "Devices/ComputerKey-01.wav",
+          "startSeconds": 11.801375,
+          "durationSeconds": 0.25,
+          "originalSha256": "496d1722928491e8a6acaf26ad5ce18ec016ad2ccfa2ef62d36b61bc42a85f30",
+          "source": "source-aa0cd36513e5",
+          "excerpt": false
+        },
+        {
+          "kind": "WireConnect",
+          "file": "Devices/WireConnect-01.wav",
+          "startSeconds": 12.301375,
+          "durationSeconds": 0.3005833333333333,
+          "originalSha256": "669fac46c6a1a4c8ac6d6ef07c95f354e90a0be977e64648a00a8b2cdfe69979",
+          "source": "source-188d1fe47014",
+          "excerpt": false
+        },
+        {
+          "kind": "Lever",
+          "file": "Devices/Lever-01.wav",
+          "startSeconds": 12.851958333333334,
+          "durationSeconds": 0.8753333333333333,
+          "originalSha256": "b0a2a2fe60cfadb2b85fb64ee41eb2ee1752301fe9455231db8cbab2d990ab8e",
+          "source": "source-2089d87c6ad0",
+          "excerpt": false
+        },
+        {
+          "kind": "PuzzleSolved",
+          "file": "Devices/PuzzleSolved-01.wav",
+          "startSeconds": 13.977291666666666,
+          "durationSeconds": 0.5779375,
+          "originalSha256": "2126c9457797acddfee3de68a7604c99bebb629571e533a0e054df8b8be4a51f",
+          "source": "source-723b1e4bab6e",
+          "excerpt": false
+        },
+        {
+          "kind": "TrapArm",
+          "file": "Devices/TrapArm-01.wav",
+          "startSeconds": 14.805229166666667,
+          "durationSeconds": 0.6697916666666667,
+          "originalSha256": "c07a56f6a00f0d5194bf1d10dcfae00ad46b9ee2079248e61678ad4b5be7ac67",
+          "source": "source-b14a6b4b7e03",
+          "excerpt": false
+        },
+        {
+          "kind": "TrapDisarm",
+          "file": "Devices/TrapDisarm-01.wav",
+          "startSeconds": 15.725020833333334,
+          "durationSeconds": 0.76875,
+          "originalSha256": "3a40070f6cb341c719f0c8c32ca00f579408bda1cf604ee344656229b32afb19",
+          "source": "source-0b4fba775b52",
+          "excerpt": false
+        },
+        {
+          "kind": "DetectionConfirmed",
+          "file": "Security/DetectionConfirmed-01.wav",
+          "startSeconds": 16.743770833333333,
+          "durationSeconds": 0.96,
+          "originalSha256": "10210fee26bc54f75494e7b57a1221cb1bc05ca00ec1c26c79e1367f67b7799d",
+          "source": "source-57e4bb42f1e3",
+          "excerpt": false
+        },
+        {
+          "kind": "SearchStart",
+          "file": "Security/SearchStart-01.wav",
+          "startSeconds": 17.953770833333333,
+          "durationSeconds": 0.55,
+          "originalSha256": "200e1b57566ac252288b5a5220ce84e32a5d8a60b22ad632a7eb98d8651453af",
+          "source": "source-57e4bb42f1e3",
+          "excerpt": false
+        },
+        {
+          "kind": "VigilanceStart",
+          "file": "Security/VigilanceStart-01.wav",
+          "startSeconds": 18.753770833333334,
+          "durationSeconds": 0.45,
+          "originalSha256": "2720e74fea2663978e36c6af2f86184c586083d9e7f321e3eebe9774ddfad52e",
+          "source": "source-57e4bb42f1e3",
+          "excerpt": false
+        },
+        {
+          "kind": "AlertEnd",
+          "file": "Security/AlertEnd-01.wav",
+          "startSeconds": 19.453770833333333,
+          "durationSeconds": 0.3,
+          "originalSha256": "41296edc5650bdeb0e154bd15f68f48dd14896027762ca04ecb24046918969b6",
+          "source": "source-57e4bb42f1e3",
+          "excerpt": false
+        },
+        {
+          "kind": "Wake",
+          "file": "Characters/Wake-01.wav",
+          "startSeconds": 20.003770833333334,
+          "durationSeconds": 1.0,
+          "originalSha256": "f644a29150b4bcb9f96195af3da33dcbf750c260663dc73cfab334571ea4ceac",
+          "source": "source-ee30778b7560",
+          "excerpt": false
+        },
+        {
+          "kind": "Death",
+          "file": "Characters/Death-01.wav",
+          "startSeconds": 21.253770833333334,
+          "durationSeconds": 1.15,
+          "originalSha256": "a664aac48f142e41961206e4c8d1e8f24308247b091f7e218f1decd37e6c1e0d",
+          "source": "source-ee30778b7560",
+          "excerpt": false
+        }
+      ]
+    }
+  ]
+}

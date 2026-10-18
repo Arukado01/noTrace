@@ -1,0 +1,5 @@
+NO TRACE — biblioteca de grabaciones CC0 1.0.
+Los autores y las páginas primarias constan por recurso en manifest.json.
+https://creativecommons.org/publicdomain/zero/1.0/
+Las conversiones y los recortes no convierten estas grabaciones en autoría propia.
+No se incluyen recursos de los lotes rechazados ni grabaciones de juegos propietarios.
