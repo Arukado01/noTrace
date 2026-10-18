@@ -199,6 +199,19 @@ namespace {
       recovered.stance = Stance::Standing; recovered.actionPose = ActionPose::Recover; recovered.actionPoseTime = CqcConfig::PunchRecovery;
       Require(WorldRenderer::SelectBodySprite(recovered).index == WorldRenderer::ClipFrame(SpriteConfig::Clip::Idle, facing, 0.f).index,
           "Soltar CQC activa indebidamente una incorporación desde el suelo");
+      Agent priority; priority.facing = facing; priority.actionPose = ActionPose::Revive; priority.actionPoseTime = GameplayConfig::StanceTransitionDuration;
+      priority.traversal.mode = TraversalMode::Hang;
+      Require(WorldRenderer::SelectBodySprite(priority).index == WorldRenderer::ClipFrame(SpriteConfig::Clip::TraversalHang, facing, 0.f).index,
+          "La recuperación oculta el agarre real a pared o tubo");
+      priority.traversal = {}; priority.maneuver.kind = ManeuverKind::Roll; priority.maneuver.direction = facing; priority.maneuver.phase = ManeuverPhase::Start;
+      Require(WorldRenderer::SelectBodySprite(priority).index == WorldRenderer::ClipFrame(SpriteConfig::Clip::Roll, facing, 0.f, 0.f).index,
+          "La recuperación oculta una maniobra adquirida después del rescate");
+      priority.maneuver = {}; priority.cqcHoldingGuard = 91;
+      Require(WorldRenderer::SelectBodySprite(priority).index == WorldRenderer::ClipFrame(SpriteConfig::Clip::Grab, facing, 0.f).index,
+          "La recuperación oculta el contacto CQC del atacante");
+      priority.cqcHoldingGuard = 0; priority.cqcHeldBy = 2;
+      Require(WorldRenderer::SelectBodySprite(priority).index == WorldRenderer::ClipFrame(SpriteConfig::Clip::GripVictimHold, facing, 0.f).index,
+          "La recuperación oculta el contacto CQC de la víctima");
       Guard guard; WorldState world; world.elapsed = 1234.f; guard.facing = facing;
       for (const bool melee : {false, true}) {
         guard.meleeAttack = melee; guard.attackTime = GameplayConfig::AttackAnimationDuration;

@@ -11,6 +11,7 @@ namespace NoTrace {
       if (selection.link) {
         if (state.surfaceId != 0) EmitSound(SoundKind::GripRelease, agent.position, AudioConfig::QuietRadius, agent.id);
         CancelReload(agent); CancelPuzzle(agent); ReleaseCqc(agent); agent.cover = {};
+        if (agent.actionPose == ActionPose::Revive) { agent.actionPose = ActionPose::None; agent.actionPoseTime = 0.f; }
         state.linkId = selection.link->id; state.reversed = selection.reversed; state.progress = 0.f;
         state.from = WorldGeometry::Feet(agent); state.to = Traversal::To(selection); state.targetSupport = Traversal::ToSupport(selection);
         state.mode = command.drop ? TraversalMode::Drop : selection.link->kind == VerticalLinkKind::Climb ? TraversalMode::Climb :

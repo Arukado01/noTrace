@@ -205,11 +205,6 @@ namespace NoTrace {
       if ((!agent.alive || agent.incapacitated) && agent.actionPose == ActionPose::Fall && agent.actionPoseTime > 0.f)
         return select(agent.alive ? Clip::Fall : Clip::Death, 1.f - agent.actionPoseTime / GameplayConfig::AttackAnimationDuration);
       if (!agent.alive || agent.incapacitated) return select(agent.alive ? Clip::Unconscious : Clip::Death, agent.alive ? std::nullopt : std::optional{1.f});
-      if (agent.actionPose == ActionPose::Revive && agent.actionPoseTime > 0.f) {
-        auto frame = select(Clip::ReviveRise, 1.f - agent.actionPoseTime / GameplayConfig::StanceTransitionDuration);
-        frame.index += agent.stance == Stance::Crouched ? 8 : agent.stance == Stance::Prone ? 16 : 0;
-        return frame;
-      }
       if (agent.traversal.mode != TraversalMode::Grounded) {
         const auto clip = agent.traversal.mode == TraversalMode::Attach ? Clip::TraversalAttach : agent.traversal.mode == TraversalMode::Hang ? Clip::TraversalHang :
             agent.traversal.mode == TraversalMode::Shimmy ? Clip::TraversalShimmy : agent.traversal.mode == TraversalMode::Transfer ? Clip::TraversalTransfer :
@@ -235,6 +230,11 @@ namespace NoTrace {
         const float elapsed = std::max(0.f, duration - agent.cqcAttackTime);
         const float phase = elapsed < windup ? 0.f : elapsed < windup + (duration - windup) * 0.4f ? 0.25f : elapsed < duration * 0.85f ? 0.5f : 0.75f;
         return select(kick ? Clip::Kick : Clip::Punch, phase);
+      }
+      if (agent.actionPose == ActionPose::Revive && agent.actionPoseTime > 0.f) {
+        auto frame = select(Clip::ReviveRise, 1.f - agent.actionPoseTime / GameplayConfig::StanceTransitionDuration);
+        frame.index += agent.stance == Stance::Crouched ? 8 : agent.stance == Stance::Prone ? 16 : 0;
+        return frame;
       }
       if (agent.reloadRemaining > 0.f) return select(Clip::Reload, 1.f - agent.reloadRemaining / WeaponConfig::ReloadDuration);
       if (agent.actionPoseTime > 0.f) {

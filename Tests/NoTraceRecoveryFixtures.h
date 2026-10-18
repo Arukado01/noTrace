@@ -2,6 +2,7 @@
 
 #include "NoTraceSimulation.h"
 #include "NoTraceSpatialFixture.h"
+#include "NoTraceTraversal.h"
 #include "Config/NoTraceSecurityConfig.h"
 #include <cmath>
 #include <limits>
@@ -64,6 +65,40 @@ namespace EngineTests {
       victim.health = 0.f; simulation.Step(1.f / 60.f, {});
       require(victim.lifeState == LifeState::Incapacitated && victim.actionPose == ActionPose::Fall && victim.incapacityRemaining == GameplayConfig::IncapacityDuration,
           "Una nueva incapacidad conserva la pose Revive o pierde el plazo real de rescate");
+    }
+    for (const auto stance : {Stance::Standing, Stance::Crouched}) {
+      Simulation simulation, replica;
+      auto &world = scene(simulation); auto &victim = world.agents[0];
+      victim.stance = stance; victim.health = 0.f;
+      simulation.Step(1.f / 60.f, {});
+      ActionCommand rescue; rescue.interact = true;
+      simulation.Step(1.f / 60.f, {{2, rescue}});
+      require(victim.actionPose == ActionPose::Revive && victim.actionPoseTime > 0.f, "El fixture de agarre no adquiere una incorporación por rescate real");
+      ActionCommand grab; grab.traverse = true;
+      const float before = victim.actionPoseTime;
+      require(!Traversal::CanTraverse(world, victim), "El intento inválido ya tiene una conexión de agarre");
+      simulation.Step(1.f / 60.f, {{1, grab}});
+      require(victim.traversal.mode == TraversalMode::Grounded && victim.actionPose == ActionPose::Revive &&
+        std::abs(victim.actionPoseTime - (before - 1.f / 60.f)) < .000001f, "Un B inválido cancela o congela la incorporación del rescatado");
+      world.walkSurfaces.push_back({1, 0, WalkSurfaceKind::Floor, {{0.f, 0.f}, world.size}, 0.f});
+      for (auto &agent : world.agents) agent.supportId = 1;
+      Obstacle wall{{{390.f, 358.f}, {220.f, 16.f}}, CoverKind::High, true, "Muro de recuperación"};
+      wall.height = 96.f; world.obstacles.push_back(wall);
+      world.gripSurfaces.push_back({41, GripKind::Wall, {400.f, 374.f, 64.f}, {600.f, 374.f, 64.f}, {0.f, 1.f}});
+      const auto contact = Traversal::BodyAt(world.gripSurfaces[0], 0.f);
+      world.verticalLinks.push_back({20, VerticalLinkKind::Attach, 1, 0, 0, 41, {400.f, 400.f, 0.f}, contact, 24.f, true});
+      require(Traversal::CanTraverse(world, victim), "El rescatado no dispone de una conexión física válida con el muro");
+      const auto origin = WorldGeometry::Feet(victim);
+      simulation.Step(1.f / 60.f, {{1, grab}});
+      require(victim.traversal.mode == TraversalMode::Attach && victim.traversal.linkId == 20 && victim.traversal.progress > 0.f &&
+        victim.actionPose == ActionPose::None && victim.actionPoseTime == 0.f, "Un agarre adquirido realmente conserva la pose Revive y oculta su animación");
+      require(WorldGeometry::SpatialDistance(origin, WorldGeometry::Feet(victim)) <= TraversalConfig::TransitionSpeed / 60.f + .001f &&
+        !WorldGeometry::PositionBlocked(world, victim.position, GameplayConfig::AgentRadius, victim.elevation, CombatConfig::StandingHeight),
+        "Cancelar la incorporación teletransporta al rescatado o atraviesa el muro durante el agarre");
+      std::string error;
+      require(replica.LoadSnapshot(simulation.SnapshotFor(2), error) && replica.GetState().agents[0].traversal.mode == TraversalMode::Attach &&
+        replica.GetState().agents[0].actionPose == ActionPose::None && replica.GetState().agents[0].actionPoseTime == 0.f,
+        "La réplica no conserva la adquisición de agarre y la cancelación de Revive");
     }
     Simulation simulation, replica;
     auto &world = scene(simulation);
