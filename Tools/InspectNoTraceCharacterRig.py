@@ -40,6 +40,13 @@ def image_bindings(bindings):
     for direction, parts in bindings.original.items():
         for role, image in parts.items():
             result[id(image)] = {'role': role, 'view': direction + '/' + role, 'sourceRect': [0, 0, *image.size], 'bank': 'original_mip64'}
+    for direction, parts in (bindings.canonical or {}).items():
+        for role, view in parts.items():
+            piece = view['image']
+            result[id(piece)] = {'role': role, 'view': direction + '/' + role, 'sourceRect': [0, 0, *piece.size],
+                                 'bank': 'original_complete', 'sourceFile': view['file'], 'sourceSha256': view['sourceSha256'],
+                                 'registeredProximalPx': view['proximalPx'], 'registeredDistalPx': view.get('distalPx'),
+                                 'registeredAnchorPx': view['anchorPx'], 'registeredUniformScale': view['uniformScale']}
     return result
 
 
@@ -78,6 +85,8 @@ def trace_render(bindings, points, direction, clip, phase, stance):
         transform['kind'] = kind
         transform['sampleSize'] = list(piece.size)
         transform['jointNames'] = list(rig.PART_JOINTS.get(identity['role'].replace('_idle', ''), ()))
+        if identity.get('bank') == 'original_complete' and identity['role'] == 'torso':
+            transform['jointNames'] = ['neck', 'waist']
         transform['transformedRect'] = [affine(transform['localToGlobal'], point) for point in [(0, 0), (piece.width, 0), (piece.width, piece.height), (0, piece.height)]]
         records.append(transform)
 
@@ -93,7 +102,7 @@ def trace_render(bindings, points, direction, clip, phase, stance):
 def joint_records(points, direction):
     rows = []
     for name, point in points.items():
-        parent = rig.JOINT_PARENTS.get(name)
+        parent = 'waist' if name == 'neck' and 'waist' in points else rig.JOINT_PARENTS.get(name)
         relative = [point[index] - points[parent][index] for index in range(3)] if parent in points else list(point)
         rows.append({'name': name, 'parent': parent, 'modelGlobal': list(point), 'parentRelative': relative,
                      'orientedWorldRelative': list(rig.local(point, direction)), 'spritePosition': list(rig.project(point, direction))})
@@ -143,17 +152,22 @@ def diagnostic_image(rendered, rows, transforms, label, scale):
     return sheet
 
 
-def inspect(root, output, clip, stance, directions, phases, scale):
+def inspect(root, output, clip, stance, directions, phases, scale, canonical=False):
     if output.exists():
         raise ValueError('La salida de diagnostico ya existe; elija otra carpeta')
     output.mkdir(parents=True)
-    source_files = [Path(__file__), Path(rig.__file__), Path(actions.__file__), ROOT / 'Tools/GenerateNoTraceCharactersProne.py', root / 'Manifests/prone-rig-pieces.registration.json']
+    registration = 'rig-pieces.canonical.json' if canonical else 'prone-rig-pieces.registration.json'
+    source_files = [Path(__file__), Path(rig.__file__), Path(actions.__file__), ROOT / 'Tools/GenerateNoTraceCharactersProne.py', root / 'Manifests' / registration]
     sources = [{'file': str(path.relative_to(ROOT)), 'sha256': hashlib.sha256(path.read_bytes()).hexdigest()} for path in source_files]
-    bindings = ProneBindings(root)
+    bindings = ProneBindings(root, canonical=canonical)
     records = []
     for direction in directions:
         for phase in phases:
-            points = actions.body_pose(clip, phase, stance)
+            intent = actions.body_pose(clip, phase, stance)
+            intent_snapshot = json.dumps(intent, sort_keys=True)
+            points = bindings.resolve_pose(intent, direction, clip, phase, stance)
+            if json.dumps(intent, sort_keys=True) != intent_snapshot:
+                raise ValueError('El solver canónico modifica su pose de intención de entrada')
             untouched = json.dumps(points, sort_keys=True)
             rendered, transforms = trace_render(bindings, points, direction, clip, phase, stance)
             if json.dumps(points, sort_keys=True) != untouched:
@@ -195,5 +209,6 @@ if __name__ == '__main__':
     parser.add_argument('--directions', choices=rig.DIRECTIONS, nargs='+', default=rig.DIRECTIONS)
     parser.add_argument('--phases', choices=range(8), type=int, nargs='+', default=list(range(8)))
     parser.add_argument('--scale', type=int, choices=range(2, 7), default=3)
+    parser.add_argument('--canonical', action='store_true', help='Inspeccionar piezas originales completas con el registro canónico')
     args = parser.parse_args()
-    inspect(args.root.resolve(), args.output.resolve(), args.clip, args.stance, args.directions, args.phases, args.scale)
+    inspect(args.root.resolve(), args.output.resolve(), args.clip, args.stance, args.directions, args.phases, args.scale, args.canonical)
