@@ -104,7 +104,15 @@ Mantén **E** cerca de un guardia neutralizado para arrastrar un solo cuerpo y s
 
 **Tab mantenida** muestra los nombres de los agentes visibles, flechas hacia compañeros conocidos fuera del encuadre y tu orden privada: obtener una copia adicional, recuperar un dispositivo o cumplir la orden de traición de Doble filo. Al soltar Tab se ocultan inmediatamente; no revela enemigos detrás de paredes. Las órdenes de otros agentes no se envían a tu cliente. El HUD conserva estado, recursos, alertas y objetivos; las acciones cercanas muestran una indicación compacta válida. Los controles se consultan en Configuración → Controles, agrupados por categoría y con las dos maniobras reasignables. Los objetos no llevan nombres flotantes. Las ondas de pasos se expanden sin cruz central; su pequeño desplazamiento visual no altera el origen que investiga la IA.
 
-El traidor gana si elimina a todos los demás agentes sin activar alarmas. El equipo gana al cumplir el contrato y extraerse. El traidor comparte las reglas físicas y de percepción: sus disparos, ruidos y cuerpos pueden comprometer su propia operación. Las otras modalidades no asignan traidor.
+El traidor gana si elimina a todos los demás agentes sin activar alarmas. El equipo gana al cumplir el contrato y extraerse. El traidor comparte las reglas físicas y de percepción: sus disparos, ruidos y cuerpos pueden comprometer su propia operación. Los tres contratos asignan exactamente uno cuando participan entre dos y cuatro agentes; en individual no hay traidor.
+
+## Primera persona
+
+**Mayús+F** alterna entre la vista táctica y una vista retro en primera persona sobre el mismo nivel. WASD o las flechas avanzan y desplazan lateralmente respecto a la cámara; el ratón gira el cuerpo y orienta la mira central. Clic izquierdo, R, 1/2, Q y H utilizan las armas, munición, recarga y silenciadores existentes. El campo visual se ajusta entre **60° y 110°** en Opciones. La cámara es local: en LAN cada participante puede elegir su perspectiva y el anfitrión sigue validando movimiento, impactos y daño.
+
+El renderizador 2.5D utiliza paredes, puertas, mobiliario, losas, pendientes y cabinas reales, con profundidad por píxel y sprites frontales propios. Los objetos se representan mediante volúmenes texturados; el cristal deja ver a través del centro y conserva sus marcos. La vista del ojo converge hacia la trayectoria del arma: una cobertura puede bloquear la boca aunque el objetivo sea visible por encima. La distancia visual máxima es de 768 unidades y el alcance del arma se mantiene en 340. La inclinación usa desplazamiento del horizonte, propio de una presentación retro.
+
+El modo se centra en movimiento y disparo. Para CQC, cobertura, arrastre, herramientas, señuelos y agarres verticales se usa la vista táctica. Los estados incompatibles rechazan la entrada; la incapacitación o una interacción bloqueante restauran la vista táctica. Esc, Q, foco y confirmaciones de pantalla liberan el ratón; al regresar se recuperan el cursor y el zoom tácticos. Mayús+F tiene prioridad sobre F y no alterna por repetición del teclado.
 
 ## Informe y rango Maestro
 
@@ -114,11 +122,13 @@ Maestro exige completar los objetivos obligatorios y **todas las misiones secund
 
 ## Controles
 
-WASD controla el movimiento axonométrico y la orientación del cuerpo en ocho direcciones. Al detenerte conservas la última orientación; mover el ratón no gira el cuerpo. Mantener clic derecho orienta el arma hacia el cursor y activa la mira y el láser desde el cañón. El disparo sigue esa misma dirección. En cobertura, la normal de la pared fija la postura, incluso al apuntar o deslizarte; F golpea la pared con el brazo sin girar el cuerpo. Las maniobras y el CQC conservan su orientación durante la acción.
+En la vista táctica, WASD controla el movimiento axonométrico y la orientación del cuerpo en ocho direcciones. Al detenerte conservas la última orientación; mover el ratón no gira el cuerpo. Mantener clic derecho orienta el arma hacia el cursor y activa la mira y el láser desde el cañón. El disparo sigue esa misma dirección. En cobertura, la normal de la pared fija la postura, incluso al apuntar o deslizarte; F golpea la pared con el brazo sin girar el cuerpo. Las maniobras y el CQC conservan su orientación durante la acción.
 
 | Acción | Control |
 | --- | --- |
 | Moverse | WASD o flechas |
+| Alternar vista táctica / primera persona | Mayús+F |
+| Mirar en primera persona | Ratón |
 | Correr | Mayús |
 | Agacharse / levantarse | C |
 | Tumbarse / levantarse | Z |
@@ -179,7 +189,7 @@ La biblioteca nueva contiene **184 WAV a48 kHz en91 familias activas**, obtenido
 4. Permite el tráfico del juego en la red privada cuando Windows lo solicite.
 5. Prepara el equipo, marca cada agente como preparado y despliega desde el anfitrión.
 
-El protocolo de esta versión es **11**: el anfitrión resuelve movimiento multinivel, vigilancia, explosivos, puzles, armas, silenciadores, CQC, maniobras, protección y recuperación de entrenamiento, navegación, muerte y alarmas. Cada cliente recibe los resultados y las señales que puede percibir, conservando la privacidad de órdenes y desafíos ajenos, también al observar a un superviviente. Los relojes de red usan tiempo real aunque el motor recorte el delta de juego. Usa la misma versión en todos los equipos. **La validación en dos computadores físicos sigue pendiente**: las pruebas locales entre procesos no la sustituyen.
+El protocolo de esta versión es **12**: el anfitrión resuelve movimiento multinivel, vigilancia, explosivos, puzles, armas, silenciadores, CQC, maniobras, protección y recuperación de entrenamiento, navegación, muerte y alarmas. Incluye una intención validada para orientar el cuerpo al apuntar; la perspectiva elegida no se transmite. Cada cliente recibe los resultados y las señales que puede percibir, conservando la privacidad de órdenes y desafíos ajenos, también al observar a un superviviente. Los relojes de red usan tiempo real aunque el motor recorte el delta de juego. Usa la misma versión en todos los equipos. **La validación en dos computadores físicos sigue pendiente**: las pruebas locales entre procesos no la sustituyen.
 
 ## Ejecutar
 

@@ -3,6 +3,7 @@
 #include "Config/NoTraceConfig.h"
 #include "Config/NoTraceOptionsConfig.h"
 #include "Config/NoTraceControlsConfig.h"
+#include "Config/NoTraceFirstPersonConfig.h"
 #include "Core/EngineConfig.h"
 #include "Core/EngineContext.h"
 #include <algorithm>
@@ -94,6 +95,8 @@ namespace NoTrace {
     context.save.Set(VOLUME_SAVE_KEY, master); context.save.Set(OptionsConfig::EffectsVolumeSaveKey, effects);
     context.save.Set(OptionsConfig::AmbienceVolumeSaveKey, ambience);
     context.save.Set(CURSOR_SPEED_SAVE_KEY, cursor);
+    context.save.Set(FirstPersonConfig::FovSaveKey, Preference(context.save, FirstPersonConfig::FovSaveKey,
+      FirstPersonConfig::DefaultFov, FirstPersonConfig::MinimumFov, FirstPersonConfig::MaximumFov));
     const int dive = ControlPreference(context.save, ControlsConfig::DiveSaveKey, 0);
     int roll = ControlPreference(context.save, ControlsConfig::RollSaveKey, 1);
     if (roll == dive) roll = dive == 1 ? 0 : 1;
@@ -149,8 +152,17 @@ namespace NoTrace {
       cursorLabel->setText("Cursor del mando: " + std::to_string(static_cast<int>(value)));
     });
     panel->add(widgets.cursorSpeed);
-    Text(panel, "Pantalla completa usa la resolución del escritorio.\nVSync sincroniza con el monitor y sustituye el límite de FPS.", 30.f, 354.f, 714.f, 42.f, 15);
-    widgets.status = Text(panel, "Aplica y confirma vídeo. Audio y mando se guardan al ajustarlos.", 30.f, 400.f, 714.f, 28.f, 16);
+    const float fov = Preference(context.save, FirstPersonConfig::FovSaveKey, FirstPersonConfig::DefaultFov, FirstPersonConfig::MinimumFov, FirstPersonConfig::MaximumFov);
+    auto fovLabel = Text(panel, std::format("Visión FPS: {:.0f}°", fov), 30.f, 346.f, 300.f);
+    widgets.firstPersonFov = tgui::Slider::create(FirstPersonConfig::MinimumFov, FirstPersonConfig::MaximumFov);
+    widgets.firstPersonFov->setStep(1.f); widgets.firstPersonFov->setFocusable(true);
+    widgets.firstPersonFov->setPosition({340.f, 354.f}); widgets.firstPersonFov->setSize({404.f, 22.f}); widgets.firstPersonFov->setValue(fov);
+    widgets.firstPersonFov->onValueChange([&context, fovLabel](float value) {
+      context.save.Set(FirstPersonConfig::FovSaveKey, value); fovLabel->setText(std::format("Visión FPS: {:.0f}°", value));
+    });
+    panel->add(widgets.firstPersonFov);
+    Text(panel, "Pantalla completa usa el escritorio. VSync sustituye el límite de FPS.", 30.f, 378.f, 714.f, 22.f, 13);
+    widgets.status = Text(panel, "Aplica y confirma vídeo. Los demás ajustes se guardan al cambiarlos.", 30.f, 400.f, 714.f, 28.f, 16);
     Action(context, panel, "Controles", 30.f, 434.f, 714.f, std::move(onControls));
     Action(context, panel, "RESTABLECER VÍDEO", 30.f, 474.f, 345.f, [&context, widgets] {
       const auto defaults = context.window.GetDefaultDisplaySettings();
@@ -191,6 +203,7 @@ namespace NoTrace {
     widgets.effectsVolume->setValue(context.audio.GetEffectsVolume());
     widgets.ambienceVolume->setValue(context.audio.GetAmbienceVolume());
     widgets.cursorSpeed->setValue(context.cursor.GetSpeed());
+    widgets.firstPersonFov->setValue(Preference(context.save, FirstPersonConfig::FovSaveKey, FirstPersonConfig::DefaultFov, FirstPersonConfig::MinimumFov, FirstPersonConfig::MaximumFov));
   }
 
   void BuildControlsUi(EngineContext &context, const tgui::Panel::Ptr &panel,
@@ -202,7 +215,7 @@ namespace NoTrace {
     const std::array<std::string, 6> descriptions{
       std::format("{}{}{}{} / flechas: movimiento\n{}: correr · {}: agacharse · {}: tumbarse\n{}: zambullida · {}: rodada", KeyName(Control::Up), KeyName(Control::Left), KeyName(Control::Down), KeyName(Control::Right),
         KeyName(Control::Run), KeyName(Control::Crouch), KeyName(Control::Prone), ControlsConfig::MovementKeyNames[diveKey], ControlsConfig::MovementKeyNames[rollKey]),
-      std::format("Ratón derecho: apuntar\nRatón izquierdo: disparar · {}: recargar\n{}/{}: arma · {}: silenciador", KeyName(Control::Reload), KeyName(Control::SelectPistol), KeyName(Control::SelectNonLethal), KeyName(Control::Suppressor)),
+      std::format("Ratón izq.: disparar · der.: apuntar\n{}: recarga · {}/{}: arma · {}: silenciador\nMayús+F: cambiar vista · Ratón: mirar", KeyName(Control::Reload), KeyName(Control::SelectPistol), KeyName(Control::SelectNonLethal), KeyName(Control::Suppressor)),
       std::format("{}: interactuar / rescatar\n{}: golpes; mantener para agarrar\n{} en agarre: someter · {}: empujar", KeyName(Control::Interact), KeyName(Control::Cqc), KeyName(Control::Cqc), KeyName(Control::Shove)),
       std::format("{}: cobertura / asomarse · {}: pared\n{}: entrar / salir; mantener: arrastrar\n{}: armario / voltear mesa", KeyName(Control::WallCover), KeyName(Control::Cqc), KeyName(Control::Interact), KeyName(Control::Tool)),
       std::format("{}: mantener / soltar señuelo\n{}: agarre / trepar · Mayús+{}: soltar\nRueda: zoom táctico", KeyName(Control::Decoy), KeyName(Control::Traverse), KeyName(Control::Traverse)),
@@ -237,7 +250,7 @@ namespace NoTrace {
 
   void HandleOptionsKey(const sf::Event &event, const OptionsWidgets &widgets) {
     const auto *key = event.getIf<sf::Event::KeyPressed>(); if (!key) return;
-    for (const auto &slider : {widgets.masterVolume, widgets.effectsVolume, widgets.ambienceVolume, widgets.cursorSpeed}) {
+    for (const auto &slider : {widgets.masterVolume, widgets.effectsVolume, widgets.ambienceVolume, widgets.cursorSpeed, widgets.firstPersonFov}) {
       if (!slider || !slider->isFocused()) continue;
       switch (key->scancode) {
       case sf::Keyboard::Scan::Left: slider->setValue(slider->getValue() - slider->getStep()); break;

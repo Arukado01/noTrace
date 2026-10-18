@@ -4,6 +4,7 @@
 #include "Config/NoTraceConfig.h"
 #include "Config/NoTraceOptionsConfig.h"
 #include "Config/NoTraceControlsConfig.h"
+#include "Config/NoTraceFirstPersonConfig.h"
 #include "Core/EngineConfig.h"
 #include "Core/EngineContext.h"
 #include <SFML/Audio/Listener.hpp>
@@ -89,6 +90,11 @@ namespace EngineTests {
       widgets.cursorSpeed->setValue(1250.f);
       require(context.cursor.GetSpeed() == 1250.f && context.save.Get(NoTrace::CURSOR_SPEED_SAVE_KEY, 0.f) == 1250.f,
               "El control del mando aplica y guarda su velocidad real");
+      widgets.firstPersonFov->setValue(94.f); widgets.firstPersonFov->setFocused(true);
+      sf::Event::KeyPressed fovKey; fovKey.scancode = sf::Keyboard::Scan::Right; NoTrace::HandleOptionsKey(fovKey, widgets);
+      require(widgets.firstPersonFov->getValue() == 95.f && context.save.Get(NoTrace::FirstPersonConfig::FovSaveKey, 0.f) == 95.f,
+              "El teclado ajusta y guarda el campo visual de primera persona");
+      widgets.firstPersonFov->setFocused(false);
       voice->stop(); voice.reset(); context.audio.SetEffectsVolume(25.f); context.audio.RegisterEffect({}, 80.f);
       ambientVoice->stop(); ambientVoice.reset();
       require(context.audio.GetEffectsVolume() == 25.f, "El bus elimina referencias caducadas y admite sonidos ausentes");
@@ -133,15 +139,20 @@ namespace EngineTests {
               "Un nuevo contexto restaura volumen general, efectos, ambiente y velocidad del mando desde disco");
       require(context.save.Get("NoTrace:DiveKey", -1) == 2 && context.save.Get("NoTrace:RollKey", -1) == 3,
               "Un nuevo contexto conserva las reasignaciones de ambas acciones");
+      require(context.save.Get(NoTrace::FirstPersonConfig::FovSaveKey, 0.f) == 95.f,
+              "Un nuevo contexto conserva el campo visual FPS desde el guardado aislado");
       context.save.Set(NoTrace::VOLUME_SAVE_KEY, "incorrecto");
       context.save.Set(NoTrace::OptionsConfig::EffectsVolumeSaveKey, std::numeric_limits<float>::quiet_NaN());
       context.save.Set(NoTrace::OptionsConfig::AmbienceVolumeSaveKey, "incorrecto");
       context.save.Set(NoTrace::CURSOR_SPEED_SAVE_KEY, -100.f);
       context.save.Set("NoTrace:DiveKey", 999); context.save.Set("NoTrace:RollKey", "incorrecto");
+      context.save.Set(NoTrace::FirstPersonConfig::FovSaveKey, "incorrecto");
       NoTrace::ApplyUserPreferences(context);
       require(context.audio.GetGlobalVolume() == gConfig.globalVolume && context.audio.GetEffectsVolume() == NoTrace::OptionsConfig::EffectsVolume &&
               context.audio.GetAmbienceVolume() == NoTrace::OptionsConfig::AmbienceVolume && context.cursor.GetSpeed() == NoTrace::MIN_CURSOR_SPEED && context.save.Get("NoTrace:DiveKey", -1) == 0 && context.save.Get("NoTrace:RollKey", -1) == 1,
               "Tipos de guardado inválidos, NaN y rangos incorrectos se normalizan sin lanzar excepciones");
+      require(context.save.Get(NoTrace::FirstPersonConfig::FovSaveKey, 0.f) == NoTrace::FirstPersonConfig::DefaultFov,
+              "El campo visual inválido se normaliza sin impedir entrar en primera persona");
       context.audio.SetGlobalVolume(200.f); require(context.audio.GetGlobalVolume() == 100.f, "El volumen general limita valores superiores al máximo");
       context.audio.SetEffectsVolume(-1.f); require(context.audio.GetEffectsVolume() == 0.f, "El bus de efectos limita valores negativos");
       context.audio.SetEffectsVolume(std::numeric_limits<float>::infinity());

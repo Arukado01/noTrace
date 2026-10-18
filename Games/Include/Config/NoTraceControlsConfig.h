@@ -24,6 +24,7 @@ namespace NoTrace::ControlsConfig {
   inline constexpr std::array<std::string_view, MovementKeys.size()> MovementKeyNames{"Espacio", "Ctrl izq.", "X", "J", "K"};
   inline constexpr std::string_view DiveSaveKey = "NoTrace:DiveKey";
   inline constexpr std::string_view RollSaveKey = "NoTrace:RollKey";
+  inline constexpr auto PerspectiveKey = sf::Keyboard::Scan::F;
   inline constexpr std::array<std::string_view, 6> Categories{
     "Movimiento y posturas", "Apuntado y armas", "Interacción y combate",
     "Cobertura y escondites", "Acciones tácticas", "Interfaz y navegación"

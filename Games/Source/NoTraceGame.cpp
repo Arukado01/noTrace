@@ -4,6 +4,7 @@
 #include "Config/NoTracePreparationConfig.h"
 #include "Config/NoTraceConfig.h"
 #include "Config/NoTraceDistractionConfig.h"
+#include "Config/NoTraceFirstPersonConfig.h"
 #include "NoTraceVisibility.h"
 #include "NoTraceWorldGeometry.h"
 #include "NoTraceInteraction.h"
@@ -15,6 +16,7 @@
 #include <charconv>
 #include <cmath>
 #include <format>
+#include <numbers>
 
 namespace NoTrace {
   namespace {
@@ -28,7 +30,7 @@ namespace NoTrace {
   }
 
   Game::Game(EngineContext &context)
-      : Scene(context), session_(ctx.network, ctx.random), worldRenderer_(context), audioPlayback_(context) {
+      : Scene(context), session_(ctx.network, ctx.random), worldRenderer_(context), firstPersonRenderer_(context), audioPlayback_(context) {
     root_ = tgui::Group::create({"100%", "100%"});
     auto header = tgui::Panel::create({"100%", 116.f});
     header->getRenderer()->setBackgroundColor({5, 12, 20, 235});
@@ -117,9 +119,11 @@ namespace NoTrace {
     puzzleFailure_ = {}; puzzleFailureUntil_ = 0.f; puzzleFailurePhase_ = GamePhase::Base;
     preparingDecoy_ = false; cancelledDecoy_ = false; worldRenderer_.SetDecoyPreview(false, {}, 0.f);
     cqcBlocked_ = true;
+    firstPerson_ = false; perspectiveKeyDown_ = false; perspectivePulseConsumed_ = false; focused_ = true; firstPersonPointerReset_ = false;
+    ctx.cursor.SetCaptured(false);
     BindInputs(); worldRenderer_.ResetZoom(); ctx.renderer.ResetView(); ctx.renderer.SetPostProcessingEnabled(false);
     ctx.renderer.SetTextureSmoothing(false); ctx.cursor.SetVisible(true); ctx.cursor.SetHovered(false);
-    root_->setEnabled(true); ctx.gui.Add(root_); Open(Page::Connection); RefreshHud();
+    root_->setVisible(true); root_->setEnabled(true); ctx.gui.Add(root_); Open(Page::Connection); RefreshHud();
   }
 
   bool Game::Pressed(Action action, bool edge) {
@@ -137,8 +141,68 @@ namespace NoTrace {
     return session_.GetLocalPlayerId();
   }
 
+  bool Game::CanUseFirstPerson() const {
+    const auto *agent = LocalAgent();
+    return session_.IsConnected() && IsTactical(session_.GetWorld()) && agent && agent->connected && agent->alive &&
+      agent->lifeState == LifeState::Alive && !agent->incapacitated && !agent->extracted && !agent->hidden && !agent->cover.active &&
+      agent->draggingGuard < 0 && !agent->cqcHoldingGuard && !agent->cqcHoldingAgent && !agent->cqcHeldBy &&
+      !agent->cqcApproachGuard && !agent->cqcApproachAgent && !agent->cqcPressPending && agent->cqcAttackTime <= 0.f &&
+      agent->maneuver.kind == ManeuverKind::None && agent->traversal.mode == TraversalMode::Grounded && !agent->puzzle.target &&
+      agent->actionPose != ActionPose::Revive && !preparingDecoy_ && !agent->decoyGuide.active;
+  }
+
+  bool Game::ToggleFirstPerson() {
+    if (firstPerson_) { LeaveFirstPerson(); return true; }
+    if (paused_ || !focused_ || page_ != Page::None || ctx.window.IsDisplayConfirmationPending() || !CanUseFirstPerson()) return false;
+    const auto *agent = LocalAgent();
+    savedTacticalCursor_ = ctx.cursor.GetPosition();
+    firstPersonCamera_.yaw = std::atan2(agent->facing.y, agent->facing.x); firstPersonCamera_.pitch = 0.f;
+    firstPersonCamera_.fieldOfView = ctx.save.Get(FirstPersonConfig::FovSaveKey, FirstPersonConfig::DefaultFov);
+    firstPersonRenderer_.Reset(session_.GetWorld(), agent->id);
+    firstPerson_ = true; cqcBlocked_ = true; showOrders_ = false; worldRenderer_.SetNamesVisible(false);
+    session_.Submit({}); SyncFirstPersonInput(); return true;
+  }
+
+  void Game::LeaveFirstPerson() {
+    if (!firstPerson_) return;
+    firstPerson_ = false; cqcBlocked_ = true; firstPersonPointerReset_ = false;
+    ctx.cursor.SetCaptured(false); ctx.cursor.SetVisible(true); ctx.cursor.SetHovered(false);
+    const auto size = ctx.window.GetLogicalSize();
+    ctx.cursor.SetPosition({std::clamp(savedTacticalCursor_.x, 0.f, std::max(0.f, size.x - 1.f)),
+      std::clamp(savedTacticalCursor_.y, 0.f, std::max(0.f, size.y - 1.f))});
+    root_->setVisible(true); session_.Submit({});
+  }
+
+  void Game::SyncFirstPersonInput() {
+    if (firstPerson_ && !CanUseFirstPerson()) LeaveFirstPerson();
+    const bool capture = firstPerson_ && focused_ && !paused_ && page_ == Page::None && !ctx.window.IsDisplayConfirmationPending();
+    const auto display = ctx.window.GetDisplaySettings(); const auto viewport = ctx.window.GetViewport();
+    const bool changed = display != firstPersonDisplay_ || viewport != firstPersonViewport_;
+    if (capture != ctx.cursor.IsCaptured() || (capture && changed)) {
+      ctx.cursor.SetCaptured(capture); ctx.cursor.SetVisible(!capture); ctx.cursor.SetHovered(false);
+      if (capture) { ctx.cursor.SetPosition(ctx.window.GetLogicalSize() * .5f); firstPersonPointerReset_ = true; }
+    }
+    firstPersonDisplay_ = display; firstPersonViewport_ = viewport;
+    root_->setVisible(!firstPerson_ || page_ != Page::None);
+    if (firstPerson_) firstPersonCamera_.fieldOfView = ctx.save.Get(FirstPersonConfig::FovSaveKey, FirstPersonConfig::DefaultFov);
+  }
+
+  void Game::UpdateFirstPersonLook() {
+    if (!firstPerson_ || !ctx.cursor.IsCaptured()) return;
+    const auto center = ctx.window.GetLogicalSize() * .5f;
+    const auto delta = ctx.cursor.GetPosition() - center;
+    if (!firstPersonPointerReset_) {
+      firstPersonCamera_.yaw = std::remainder(firstPersonCamera_.yaw + delta.x * FirstPersonConfig::MouseSensitivity, 2.f * std::numbers::pi_v<float>);
+      firstPersonCamera_.pitch = std::clamp(firstPersonCamera_.pitch - delta.y * FirstPersonConfig::MouseSensitivity,
+        -FirstPersonConfig::MaximumPitch, FirstPersonConfig::MaximumPitch);
+    }
+    firstPersonPointerReset_ = false; ctx.cursor.SetPosition(center);
+  }
+
   void Game::Update() {
-    showOrders_ = !paused_ && page_ == Page::None && ctx.input.Held(Orders);
+    SyncFirstPersonInput();
+    const bool perspectiveConsumed = perspectivePulseConsumed_; perspectivePulseConsumed_ = false;
+    showOrders_ = !firstPerson_ && !paused_ && page_ == Page::None && ctx.input.Held(Orders);
     worldRenderer_.SetNamesVisible(showOrders_);
     if (page_ == Page::Weapons) {
       if (!ctx.input.Held(WeaponMenu)) ClosePanel();
@@ -172,44 +236,50 @@ namespace NoTrace {
       preparingDecoy_ = false; worldRenderer_.SetDecoyPreview(false, {}, 0.f);
       session_.Submit(spectator); return;
     }
-    worldRenderer_.AdjustZoom(ctx.input.WheelDelta());
+    if (firstPerson_) UpdateFirstPersonLook(); else worldRenderer_.AdjustZoom(ctx.input.WheelDelta());
     ActionCommand command;
     const auto moving = [this](Action action) { return Pressed(action) || ctx.input.Held(action); };
     const sf::Vector2f screenMove{static_cast<float>(moving(Right)) - static_cast<float>(moving(Left)), static_cast<float>(moving(Down)) - static_cast<float>(moving(Up))};
     const auto &world = session_.GetWorld();
     auto direction = worldRenderer_.ScreenToGround({800.f + screenMove.x, 480.f + screenMove.y}, world, agent->id) - worldRenderer_.ScreenToGround({800.f, 480.f}, world, agent->id);
+    if (firstPerson_) {
+      const sf::Vector2f forward{std::cos(firstPersonCamera_.yaw), std::sin(firstPersonCamera_.yaw)}, right{-forward.y, forward.x};
+      direction = forward * -screenMove.y + right * screenMove.x;
+    }
     const float length = std::sqrt(direction.x * direction.x + direction.y * direction.y);
     if (length > 0.f) direction /= length;
     command.moveX = direction.x; command.moveY = direction.y;
     const auto cursor = ctx.cursor.GetPosition();
     command.aiming = ctx.input.Held(NonLethal);
     const bool weaponRay = command.aiming || ctx.input.JustPressed(Lethal);
-    const auto aimSolution = worldRenderer_.AimAt(cursor, world, agent->id);
-    const auto lookAt = weaponRay ? aimSolution.ground : worldRenderer_.ScreenToGround(cursor, world, agent->id);
+    const auto aimSolution = firstPerson_ ? firstPersonRenderer_.Aim(world, agent->id, firstPersonCamera_) : worldRenderer_.AimAt(cursor, world, agent->id);
+    const auto lookAt = firstPerson_ || weaponRay ? aimSolution.ground : worldRenderer_.ScreenToGround(cursor, world, agent->id);
     auto aim = lookAt - agent->position;
     const float aimLength = std::sqrt(aim.x * aim.x + aim.y * aim.y);
     if (aimLength > 1.f) aim /= aimLength; else aim = agent->facing;
     command.aimX = aim.x; command.aimY = aim.y;
-    command.aimSlope = weaponRay ? aimSolution.slope : 0.f;
-    command.coverToggle = ctx.input.JustPressed(WallCover);
-    command.dive = ctx.input.JustPressed(Dive); command.roll = ctx.input.JustPressed(Roll);
+    command.aimSlope = firstPerson_ || weaponRay ? aimSolution.slope : 0.f;
+    command.orientBodyToAim = firstPerson_;
+    command.coverToggle = !firstPerson_ && ctx.input.JustPressed(WallCover);
+    command.dive = !firstPerson_ && ctx.input.JustPressed(Dive); command.roll = !firstPerson_ && ctx.input.JustPressed(Roll);
     command.toggleSuppressor = ctx.input.JustPressed(Suppressor);
     command.run = Pressed(Run); command.crouch = Pressed(Crouch, true); command.prone = Pressed(Prone, true);
-    command.traverse = ctx.input.JustPressed(Traverse) && !command.run;
-    command.drop = ctx.input.JustPressed(Traverse) && command.run;
+    command.traverse = !firstPerson_ && ctx.input.JustPressed(Traverse) && !command.run;
+    command.drop = !firstPerson_ && ctx.input.JustPressed(Traverse) && command.run;
     command.interact = Pressed(Interact, true);
-    command.dragBody = held_[Interact];
-    if (!ctx.input.Held(Cqc)) cqcBlocked_ = false;
-    command.cqc = !cqcBlocked_ && ctx.input.JustPressed(Cqc);
-    command.cqcHeld = !cqcBlocked_ && ctx.input.Held(Cqc);
-    command.push = ctx.input.JustPressed(Shove); command.knock = ctx.input.JustPressed(Knock);
-    command.tool = Pressed(Tool, true);
+    command.dragBody = !firstPerson_ && held_[Interact];
+    if (!ctx.input.Held(Cqc) && !perspectiveConsumed) cqcBlocked_ = false;
+    if (firstPerson_) cqcBlocked_ = true;
+    command.cqc = !perspectiveConsumed && !cqcBlocked_ && ctx.input.JustPressed(Cqc);
+    command.cqcHeld = !perspectiveConsumed && !cqcBlocked_ && ctx.input.Held(Cqc);
+    command.push = !firstPerson_ && ctx.input.JustPressed(Shove); command.knock = !firstPerson_ && ctx.input.JustPressed(Knock);
+    command.tool = Pressed(Tool, true) && !firstPerson_;
     command.reloadWeapon = Pressed(Reload, true);
     command.weaponChoice = Pressed(SelectPistol, true) ? 0 : Pressed(SelectNonLethal, true) ? 1 : -1;
     const bool choosingWeapon = pendingWeaponChoice_ >= 0;
     if (pendingWeaponChoice_ >= 0) { command.weaponChoice = pendingWeaponChoice_; pendingWeaponChoice_ = -1; }
     const bool lethal = ctx.input.JustPressed(Lethal), nonLethal = ctx.input.JustPressed(NonLethal);
-    const bool decoyHeld = Pressed(Decoy);
+    const bool decoyHeld = Pressed(Decoy) && !firstPerson_;
     const bool wasPreparing = preparingDecoy_;
     if (!decoyHeld && cancelledDecoy_) cancelledDecoy_ = false;
     const bool canThrow = IsTactical(world) && agent->alive && !agent->incapacitated && !agent->hidden && !agent->extracted && agent->draggingGuard < 0 &&
@@ -228,7 +298,7 @@ namespace NoTrace {
       worldRenderer_.SetDecoyPreview(preparingDecoy_, throwDirection, command.decoyDistance);
     } else worldRenderer_.SetDecoyPreview(false, {}, 0.f);
     command.prepareDecoy = preparingDecoy_;
-    if (!choosingWeapon && !decoyContext && cursor.y > 116.f && cursor.y < (footer_->isVisible() ? 820.f : 900.f)) { command.fireSelected = lethal; }
+    if (!choosingWeapon && !decoyContext && (firstPerson_ || (cursor.y > 116.f && cursor.y < (footer_->isVisible() ? 820.f : 900.f)))) { command.fireSelected = lethal; }
     if (command.interact && world.phase == GamePhase::Base && !agent->hidden && agent->draggingGuard < 0 &&
         agent->cqcHoldingGuard == 0 && agent->cqcHoldingAgent == 0 && agent->cqcAttackTime <= 0.f && !Interaction::FindBody(world, *agent)) {
       if (const auto *object = Interaction::FindObject(world, *agent)) {
@@ -249,6 +319,8 @@ namespace NoTrace {
     const float networkDelta = std::max(0.f, networkTime - lastNetworkTime_);
     lastNetworkTime_ = networkTime;
     session_.Tick(ctx.time.GetDeltaTime(), paused_ || (page_ != Page::None && page_ != Page::Puzzle), networkDelta);
+    SyncFirstPersonInput();
+    if (firstPerson_) firstPersonRenderer_.Update(session_.GetWorld(), session_.GetLocalPlayerId(), ctx.time.GetDeltaTime());
     const auto phase = session_.GetWorld().phase;
     if (phase != previousPhase_) {
       if (phase == GamePhase::Mission) { ClosePanel(); lastSound_ = 0; }
@@ -266,7 +338,8 @@ namespace NoTrace {
       const auto listener = std::ranges::find(world.agents, ViewPlayer(), &Agent::id);
       audioPlayback_.UpdateAmbience(world, ViewPlayer());
       for (const auto &sound : world.sounds) if (sound.sequence > lastSound_) {
-        if (listener != world.agents.end()) audioPlayback_.PlayEvent(sound, world, *listener);
+        if (listener != world.agents.end()) audioPlayback_.PlayEvent(sound, world, *listener,
+          firstPerson_ ? std::optional<sf::Vector2f>{{-std::sin(firstPersonCamera_.yaw), std::cos(firstPersonCamera_.yaw)}} : std::nullopt);
         lastSound_ = sound.sequence;
       }
       if (agent && agent->puzzle.target && (page_ == Page::None || page_ == Page::Puzzle)) {
@@ -282,13 +355,20 @@ namespace NoTrace {
   }
 
   void Game::Render() const {
-    worldRenderer_.Render(session_.GetWorld(), ViewPlayer(), !paused_ && page_ == Page::None && IsTactical(session_.GetWorld()));
+    if (firstPerson_) firstPersonRenderer_.Render(session_.GetWorld(), session_.GetLocalPlayerId(), firstPersonCamera_, !paused_ && page_ == Page::None);
+    else worldRenderer_.Render(session_.GetWorld(), ViewPlayer(), !paused_ && page_ == Page::None && IsTactical(session_.GetWorld()));
   }
 
   void Game::OnEvent(const sf::Event &event) {
-    if (event.is<sf::Event::FocusLost>()) { if (page_ == Page::Weapons) ClosePanel(); pendingPuzzleHeld_ = false; session_.Submit({}); }
+    if (event.is<sf::Event::FocusLost>()) { focused_ = false; if (page_ == Page::Weapons) ClosePanel(); pendingPuzzleHeld_ = false; session_.Submit({}); SyncFirstPersonInput(); }
+    if (event.is<sf::Event::FocusGained>()) { focused_ = true; SyncFirstPersonInput(); }
+    if (const auto *key = event.getIf<sf::Event::KeyReleased>(); key && key->scancode == ControlsConfig::PerspectiveKey) perspectiveKeyDown_ = false;
     if (const auto *key = event.getIf<sf::Event::KeyReleased>(); key && key->scancode == sf::Keyboard::Scan::Q && page_ == Page::Weapons) ClosePanel();
     if (const auto *key = event.getIf<sf::Event::KeyPressed>()) {
+      if (key->scancode == ControlsConfig::PerspectiveKey) {
+        const bool edge = !perspectiveKeyDown_; perspectiveKeyDown_ = true;
+        if (key->shift) { cqcBlocked_ = true; perspectivePulseConsumed_ = true; if (edge) ToggleFirstPerson(); return; }
+      }
       if (key->scancode == sf::Keyboard::Scan::Escape) { NavigateBack(); return; }
       if (page_ == Page::Options) HandleOptionsKey(event, options_);
     }
@@ -313,6 +393,7 @@ namespace NoTrace {
   }
 
   void Game::Open(Page page) {
+    if (page == Page::Puzzle || page == Page::Connection || page == Page::Results) LeaveFirstPerson();
     pendingPuzzleHeld_ = false;
     cqcBlocked_ = true;
     if (preparingDecoy_) cancelledDecoy_ = true;
@@ -331,6 +412,7 @@ namespace NoTrace {
     lobby_->setEnabled(false);
     for (const auto &widget : panel_->getWidgets()) if (const auto button = std::dynamic_pointer_cast<tgui::Button>(widget); button && button->isEnabled()) { button->setFocused(true); break; }
     if (page == Page::Options) resolutionBox_->setFocused(true);
+    SyncFirstPersonInput();
   }
 
   void Game::ClosePanel() {
@@ -340,6 +422,7 @@ namespace NoTrace {
     // Consume las pulsaciones del panel y conserva las entradas que siguen mantenidas.
     ctx.input.BeginFrame();
     for (int action = 0; action < Count; ++action) held_[action] = ctx.input.Pressed(action);
+    SyncFirstPersonInput();
   }
 
   void Game::BuildConnection() {
@@ -565,9 +648,11 @@ namespace NoTrace {
     if (paused) { preparingDecoy_ = false; cancelledDecoy_ = true; worldRenderer_.SetDecoyPreview(false, {}, 0.f); }
     if (paused) cqcBlocked_ = true;
     for (int action = 0; action < Count; ++action) held_[action] = ctx.input.Pressed(action);
+    SyncFirstPersonInput();
   }
 
   void Game::OnCleanup() {
+    LeaveFirstPerson(); ctx.cursor.SetCaptured(false); ctx.cursor.SetVisible(true);
     preparingDecoy_ = false; worldRenderer_.SetDecoyPreview(false, {}, 0.f);
     session_.Stop(); audioPlayback_.StopAmbience(); ctx.audio.StopAll(); ctx.gui.Remove(root_); ctx.cursor.SetHovered(false);
     ctx.renderer.ResetView(); ctx.renderer.SetPostProcessingEnabled(true); ctx.renderer.SetTextureSmoothing(true);

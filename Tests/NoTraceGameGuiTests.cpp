@@ -22,6 +22,7 @@
 #include "NoTraceIconsGuiTests.h"
 #include "NoTraceCoordinationGuiTests.h"
 #include "NoTraceCleanHudGuiTests.h"
+#include "NoTraceFirstPersonGuiTests.h"
 #include "NoTraceInteraction.h"
 #include "NoTraceWorldGeometry.h"
 #include <SFML/Graphics/Image.hpp>
@@ -34,6 +35,7 @@
 #include <format>
 #include <iostream>
 #include <iterator>
+#include <numbers>
 #include <stdexcept>
 
 namespace EngineTests {
@@ -193,6 +195,209 @@ namespace EngineTests {
       sf::Event::KeyPressed pressed; pressed.scancode = scan; context.input.CaptureEvent(pressed);
       sf::Event::KeyReleased released; released.scancode = scan; context.input.CaptureEvent(released);
       game.Update(); Step(game); context.input.BeginFrame();
+    }
+    static void VerifyFirstPersonInput(Game &game, EngineContext &context, sf::RenderWindow &window, const std::filesystem::path &output) {
+      auto &world = const_cast<WorldState &>(game.session_.GetWorld());
+      const auto saved = world; const auto savedPhase = game.previousPhase_; const auto savedSound = game.lastSound_;
+      const auto savedDisplay = context.window.GetDisplaySettings(); const auto savedCursor = context.cursor.GetPosition();
+      const float savedZoom = game.worldRenderer_.GetZoom(); const float savedFov = context.save.Get(FirstPersonConfig::FovSaveKey, FirstPersonConfig::DefaultFov);
+      nlohmann::json checks = nlohmann::json::array();
+      const auto check = [&](bool condition, const char *message) { Require(condition, message); checks.push_back(message); };
+      TestFixture::LegacyPlane(world); world.phase = GamePhase::Mission; world.mode = SimulationMode::Operation; world.elapsed = 30.f;
+      world.obstacles.clear(); world.objects.clear(); world.guards.clear(); world.securityEntries.clear(); world.events.clear(); world.noises.clear(); world.sounds.clear(); world.shots.clear();
+      world.agents.resize(1); auto &agent = world.agents.front(); agent = Agent{}; agent.id = game.session_.GetLocalPlayerId();
+      agent.position = {300.f, 350.f}; agent.facing = {1.f, 0.f}; agent.weaponAim = agent.facing; agent.loadout = {8, 8, 2, 1};
+      game.previousPhase_ = world.phase; game.ClosePanel(); context.input.Clear(); game.BindInputs(); game.held_.fill(false);
+      context.cursor.SetPosition({610.f, 415.f}); const auto entryCursor = context.cursor.GetPosition();
+      const auto eventKey = [&](sf::Keyboard::Scan scan, bool down, bool shift = false) {
+        context.input.BeginFrame();
+        if (down) { sf::Event::KeyPressed event; event.scancode = scan; event.shift = shift; context.input.CaptureEvent(event); game.OnEvent(event); }
+        else { sf::Event::KeyReleased event; event.scancode = scan; event.shift = shift; context.input.CaptureEvent(event); game.OnEvent(event); }
+      };
+      const auto chord = [&] { eventKey(sf::Keyboard::Scan::LShift, true, true); eventKey(ControlsConfig::PerspectiveKey, true, true); };
+      const auto releaseChord = [&] { eventKey(ControlsConfig::PerspectiveKey, false); eventKey(sf::Keyboard::Scan::LShift, false); };
+      const auto inventory = [&] { return nlohmann::json{
+        {"position", {agent.position.x, agent.position.y, agent.elevation}}, {"facing", {agent.facing.x, agent.facing.y}},
+        {"health", agent.health}, {"stamina", agent.stamina}, {"ammo", {agent.lethalMagazine, agent.nonLethalMagazine, agent.loadout.lethalAmmo, agent.loadout.nonLethalAmmo}},
+        {"equipment", {agent.loadout.decoys, agent.loadout.tools}}, {"durability", {agent.pistolSuppressor, agent.nonLethalSuppressor}},
+        {"attached", {agent.pistolSuppressorEquipped, agent.nonLethalSuppressorEquipped}}, {"weapon", static_cast<int>(agent.selectedWeapon)},
+        {"reloading", static_cast<int>(agent.reloadingWeapon)}, {"reloadRemaining", agent.reloadRemaining}, {"tick", world.tick}, {"seed", world.seed},
+        {"zoom", game.worldRenderer_.GetZoom()}}; };
+      const auto beforeEntry = inventory(); chord();
+      check(game.firstPerson_ && context.cursor.IsCaptured() && !context.cursor.IsVisible() && !game.root_->isVisible(), "Shift+F real activa primera persona, captura el ratón y oculta toda la raíz táctica");
+      check(inventory() == beforeEntry, "Cambiar cámara conserva posición, vida, resistencia, armas, inventario, recarga, semilla, tick y zoom sin simular");
+      for (int repeat = 0; repeat < 12; ++repeat) eventKey(ControlsConfig::PerspectiveKey, true, true);
+      check(game.firstPerson_ && inventory() == beforeEntry, "El auto-repeat físico de F con Mayús no alterna ni modifica la partida");
+      game.Update(); Step(game);
+      check(!agent.cqcPressPending && !agent.cqcHoldingGuard && agent.cqcAttackTime == 0.f, "La combinación consumida no filtra el pulso ni el mantenimiento de CQC");
+      releaseChord();
+      context.cursor.SetPosition(context.window.GetLogicalSize() * .5f + sf::Vector2f{60.f, -20.f});
+      const auto initialCamera = game.firstPersonCamera_; game.Update(); Step(game);
+      check(game.firstPersonCamera_.yaw > initialCamera.yaw && game.firstPersonCamera_.pitch > initialCamera.pitch &&
+        context.cursor.GetPosition() == context.window.GetLogicalSize() * .5f, "El ratón orienta yaw y pitch y vuelve al centro lógico compartido");
+      const auto forward = sf::Vector2f{std::cos(game.firstPersonCamera_.yaw), std::sin(game.firstPersonCamera_.yaw)};
+      const auto origin = agent.position; eventKey(sf::Keyboard::Scan::W, true);
+      for (int frame = 0; frame < 6; ++frame) { game.Update(); Step(game); context.input.BeginFrame(); }
+      eventKey(sf::Keyboard::Scan::W, false);
+      const auto movement = agent.position - origin;
+      check(movement.length() > 1.f && movement.normalized().dot(forward) > .999f && agent.facing.dot(forward) > .999f,
+        "W avanza con la cámara y el anfitrión orienta el cuerpo usando una intención normal validada");
+      const auto strafeOrigin = agent.position; eventKey(sf::Keyboard::Scan::D, true);
+      for (int frame = 0; frame < 6; ++frame) { game.Update(); Step(game); context.input.BeginFrame(); }
+      eventKey(sf::Keyboard::Scan::D, false);
+      const auto strafe = agent.position - strafeOrigin;
+      check(strafe.length() > 1.f && std::abs(strafe.normalized().dot(forward)) < .001f && agent.facing.dot(forward) > .999f,
+        "D desplaza lateralmente sin girar el cuerpo hacia la dirección de desplazamiento");
+      sf::Event::MouseWheelScrolled wheel; wheel.wheel = sf::Mouse::Wheel::Vertical; wheel.delta = 4.f;
+      context.input.CaptureEvent(wheel); game.Update(); Step(game);
+      check(game.worldRenderer_.GetZoom() == savedZoom, "La rueda en primera persona conserva el zoom táctico anterior");
+      Capture(game, context, window, output / "fps-game-input.png");
+      chord(); releaseChord();
+      check(!game.firstPerson_ && !context.cursor.IsCaptured() && context.cursor.IsVisible() && game.root_->isVisible() && context.cursor.GetPosition() == entryCursor,
+        "La misma combinación restaura el render táctico, el cursor visible y su posición lógica");
+      const auto stableInventory = inventory();
+      for (int cycle = 0; cycle < 24; ++cycle) { chord(); releaseChord(); chord(); releaseChord(); }
+      check(!game.firstPerson_ && inventory() == stableInventory && !context.cursor.IsCaptured(), "Cuarenta y ocho alternancias rápidas conservan íntegra la partida y liberan la captura");
+      const auto fastChord = [&] {
+        context.input.BeginFrame();
+        const auto dispatch = [&](const sf::Event &event) { context.input.CaptureEvent(event); game.OnEvent(event); };
+        sf::Event::KeyPressed shift; shift.scancode = sf::Keyboard::Scan::LShift; shift.shift = true; dispatch(shift);
+        sf::Event::KeyPressed press; press.scancode = ControlsConfig::PerspectiveKey; press.shift = true; dispatch(press);
+        sf::Event::KeyReleased release; release.scancode = ControlsConfig::PerspectiveKey; release.shift = true; dispatch(release);
+        sf::Event::KeyReleased unshift; unshift.scancode = sf::Keyboard::Scan::LShift; dispatch(unshift);
+        game.Update(); Step(game);
+      };
+      fastChord(); check(game.firstPerson_, "Un pulso completo de Mayús+F en un único fotograma activa la vista");
+      fastChord(); check(!game.firstPerson_ && !agent.cqcPressPending && !agent.cqcInputDown && agent.cqcAttackTime == 0.f,
+        "Pulsar y soltar Mayús+F antes de Update no filtra CQC al volver a la vista táctica");
+      eventKey(sf::Keyboard::Scan::RShift, true, true); eventKey(ControlsConfig::PerspectiveKey, true, true);
+      check(game.firstPerson_, "Mayús derecha también forma la combinación de cambio de perspectiva");
+      eventKey(ControlsConfig::PerspectiveKey, false); eventKey(sf::Keyboard::Scan::RShift, false); chord(); releaseChord();
+      eventKey(ControlsConfig::PerspectiveKey, true); eventKey(sf::Keyboard::Scan::LShift, true, true); eventKey(ControlsConfig::PerspectiveKey, true, true);
+      check(!game.firstPerson_, "Mantener F antes de pulsar Mayús no convierte su auto-repeat en una combinación nueva"); releaseChord();
+      const auto validAgent = agent;
+      for (int incompatible = 0; incompatible < 8; ++incompatible) {
+        agent = validAgent;
+        if (incompatible == 0) agent.cqcHoldingGuard = 9;
+        if (incompatible == 1) agent.cqcHeldBy = 2;
+        if (incompatible == 2) agent.hidden = true;
+        if (incompatible == 3) agent.puzzle.target = 9;
+        if (incompatible == 4) agent.traversal.mode = TraversalMode::Hang;
+        if (incompatible == 5) agent.maneuver.kind = ManeuverKind::Roll;
+        if (incompatible == 6) agent.incapacitated = true;
+        if (incompatible == 7) agent.cover.active = true;
+        const auto incompatibleInventory = inventory(); chord(); releaseChord();
+        check(!game.firstPerson_ && inventory() == incompatibleInventory && !context.cursor.IsCaptured(), "Un estado táctico incompatible rechaza la transición sin modificar al agente");
+      }
+      agent = validAgent; chord(); releaseChord(); game.Update();
+      const float focusYaw = game.firstPersonCamera_.yaw;
+      game.OnPause(true); game.OnEvent(sf::Event::FocusLost{});
+      check(game.firstPerson_ && !context.cursor.IsCaptured() && context.cursor.IsVisible(), "Perder foco libera el ratón y conserva sólo la elección local de vista");
+      context.cursor.SetPosition({0.f, 0.f}); game.OnEvent(sf::Event::FocusGained{}); game.OnPause(false); game.Update();
+      check(context.cursor.IsCaptured() && !context.cursor.IsVisible() && game.firstPersonCamera_.yaw == focusYaw,
+        "Recuperar foco centra el ratón sin aplicar el desplazamiento acumulado fuera de la ventana");
+      Escape(game);
+      check(game.firstPerson_ && game.page_ == Game::Page::Pause && !context.cursor.IsCaptured() && context.cursor.IsVisible() && game.root_->isVisible(),
+        "Esc abre la pausa real y libera el cursor con la vista FPS conservada");
+      Escape(game); game.Update();
+      check(game.firstPerson_ && game.page_ == Game::Page::None && context.cursor.IsCaptured(), "Reanudar recupera la captura sin perder la cámara FPS");
+      const auto pickerPosition = agent.position; const int pickerAmmo = agent.loadout.lethalAmmo + agent.loadout.nonLethalAmmo;
+      eventKey(sf::Keyboard::Scan::Q, true); game.Update(); Step(game);
+      check(game.firstPerson_ && game.page_ == Game::Page::Weapons && !context.cursor.IsCaptured() && context.cursor.IsVisible(),
+        "Q mantenida abre el selector existente sobre FPS y libera el ratón para elegir equipo");
+      const auto slot = game.weaponSlots_[1]; const auto slotCenter = slot->getAbsolutePosition() + slot->getSize() * .5f;
+      const auto slotPixel = window.mapCoordsToPixel({slotCenter.x, slotCenter.y}, context.window.GetPresentationView());
+      context.input.BeginFrame(); context.cursor.SetPosition({slotCenter.x, slotCenter.y}); context.gui.ProcessEvent(sf::Event::MouseMoved{slotPixel});
+      const sf::Event slotPressed = sf::Event::MouseButtonPressed{sf::Mouse::Button::Left, slotPixel}, slotReleased = sf::Event::MouseButtonReleased{sf::Mouse::Button::Left, slotPixel};
+      context.input.CaptureEvent(slotPressed); context.gui.ProcessEvent(slotPressed); context.input.CaptureEvent(slotReleased); context.gui.ProcessEvent(slotReleased);
+      check(game.pendingWeaponChoice_ == 1, "El clic físico del selector Q alcanza el arma no letal mientras la captura está liberada");
+      Capture(game, context, window, output / "fps-held-weapons.png"); eventKey(sf::Keyboard::Scan::Q, false); game.Update(); Step(game);
+      check(game.firstPerson_ && game.page_ == Game::Page::None && context.cursor.IsCaptured() && agent.selectedWeapon == WeaponKind::NonLethal &&
+        agent.position == pickerPosition && agent.loadout.lethalAmmo + agent.loadout.nonLethalAmmo == pickerAmmo && world.shots.empty(),
+        "Soltar Q recupera FPS, aplica la elección y consume el clic de GUI sin movimiento ni disparo accidental");
+      Key(game, context, sf::Keyboard::Scan::Num1);
+      game.firstPersonCamera_.yaw = game.firstPersonCamera_.pitch = 0.f;
+      Guard target; target.id = 812; target.position = agent.position + sf::Vector2f{100.f, 0.f}; target.facing = {1.f, 0.f};
+      world.guards = {target};
+      const auto idle = [&](int frames) { for (int frame = 0; frame < frames; ++frame) { context.input.BeginFrame(); game.Update(); Step(game); } };
+      const auto fire = [&] {
+        context.input.BeginFrame(); context.input.CaptureEvent(sf::Event::MouseButtonPressed{sf::Mouse::Button::Left, {800, 450}});
+        context.input.CaptureEvent(sf::Event::MouseButtonReleased{sf::Mouse::Button::Left, {800, 450}}); game.Update(); Step(game);
+      };
+      Key(game, context, sf::Keyboard::Scan::Num2); idle(3);
+      check(agent.selectedWeapon == WeaponKind::NonLethal, "2 selecciona el arma no letal real dentro de FPS");
+      const int ammo = agent.loadout.nonLethalAmmo, magazine = agent.nonLethalMagazine; const float suppressor = agent.nonLethalSuppressor;
+      fire();
+      check(agent.loadout.nonLethalAmmo == ammo - 1 && agent.nonLethalMagazine == magazine - 1 && !world.shots.empty() && world.shots.back().hit &&
+        world.guards.front().state == GuardState::Incapacitated, "El clic central alcanza al enemigo real, consume un cartucho y aplica inconsciencia con el arma no letal");
+      check(agent.nonLethalSuppressor == suppressor - WeaponConfig::NonLethalSuppressorWear && std::ranges::any_of(world.noises,
+        [&](const NoiseEvent &noise) { return noise.actor == agent.id && noise.radius == WeaponConfig::NonLethalSuppressedNoise; }),
+        "El disparo FPS conserva desgaste y radio de ruido reales del silenciador");
+      Capture(game, context, window, output / "fps-real-nonlethal-impact.png");
+      idle(45);
+      check(agent.loadout.nonLethalAmmo == ammo - 1, "Un único clic FPS no vuelve a producir daño o consumo al avanzar fotogramas");
+      Key(game, context, sf::Keyboard::Scan::H); idle(2);
+      check(!agent.nonLethalSuppressorEquipped && agent.nonLethalSuppressor == suppressor - WeaponConfig::NonLethalSuppressorWear,
+        "H desmonta el mismo silenciador sin reparar su desgaste");
+      world.guards.front() = target;
+      world.obstacles.push_back({{{agent.position.x + 45.f, agent.position.y - 30.f}, {12.f, 60.f}}, CoverKind::High, true, "Bloqueo real FPS"});
+      idle(2); fire();
+      check(!world.shots.empty() && world.shots.back().blocked && !world.shots.back().hit && world.guards.front().health == target.health && world.guards.front().stun == 0.f,
+        "Una pared real bloquea el disparo FPS sin aplicar daño al enemigo situado detrás");
+      check(std::ranges::any_of(world.noises, [&](const NoiseEvent &noise) { return noise.actor == agent.id && noise.radius == WeaponConfig::NonLethalNoise; }),
+        "Disparar sin silenciador conserva el radio acústico no letal autorizado");
+      world.guards.clear();
+      idle(45); Key(game, context, sf::Keyboard::Scan::R);
+      check(agent.reloadRemaining > 0.f, "R inicia la recarga temporal del cargador real en FPS");
+      const auto duringReload = inventory(); chord(); releaseChord(); chord(); releaseChord();
+      check(game.firstPerson_ && inventory() == duringReload, "Salir y entrar durante una recarga conserva arma, temporizador y toda la munición");
+      idle(static_cast<int>(std::ceil(WeaponConfig::ReloadDuration * GameplayConfig::SimulationHz)) + 2);
+      check(agent.reloadRemaining == 0.f && agent.nonLethalMagazine == WeaponConfig::NonLethalCapacity && agent.loadout.nonLethalAmmo == ammo - 2,
+        "Completar la recarga FPS llena el cargador desde el total existente sin inventar cartuchos");
+      Key(game, context, sf::Keyboard::Scan::Num1);
+      check(agent.selectedWeapon == WeaponKind::Pistol, "1 restaura la pistola real sin abandonar FPS");
+      const int loadedPistol = agent.lethalMagazine, totalPistol = agent.loadout.lethalAmmo;
+      const auto weaponEvents = [&] { return std::ranges::count_if(world.events, [](const MissionEvent &event) {
+        return event.kind == EventKind::WeaponLethal || event.kind == EventKind::WeaponNonLethal;
+      }); };
+      const auto beforeDry = weaponEvents(); agent.lethalMagazine = 0; idle(45); fire();
+      check(agent.loadout.lethalAmmo == totalPistol && agent.lethalMagazine == 0 && weaponEvents() == beforeDry &&
+        std::ranges::any_of(world.sounds, [&](const SoundEvent &sound) { return sound.kind == SoundKind::DryFire && sound.actor == agent.id; }),
+        "El cargador vacío emite el gatillo real sin consumir cartuchos ni crear otro evento de disparo");
+      Capture(game, context, window, output / "fps-dry-trigger.png"); agent.lethalMagazine = loadedPistol;
+      const auto beforeDisplay = inventory();
+      for (const auto size : {sf::Vector2u{1280, 720}, sf::Vector2u{1600, 900}}) {
+        auto settings = context.window.GetDisplaySettings(); settings.resolution = size; settings.fullscreen = settings.borderless = false;
+        Require(context.window.RequestDisplaySettings(settings), "La prueba FPS no puede solicitar una resolución admitida");
+        context.window.Update(); Sync(context); game.SyncFirstPersonInput();
+        if (context.window.IsDisplayConfirmationPending()) {
+          check(!context.cursor.IsCaptured() && context.cursor.IsVisible(), "La confirmación real de resolución libera el ratón FPS");
+          context.window.ResolveDisplayChange(true); context.window.Update(); Sync(context);
+        }
+        game.SyncFirstPersonInput(); game.Update();
+        check(game.firstPerson_ && context.cursor.IsCaptured() && inventory() == beforeDisplay, "Cambiar resolución real conserva partida, cámara FPS y zoom y recupera la captura");
+        Capture(game, context, window, output / std::format("fps-resolution-{}x{}.png", size.x, size.y), true);
+      }
+      if (context.window.IsFullscreenAvailable()) {
+        sf::Event::KeyPressed f11; f11.scancode = sf::Keyboard::Scan::F11;
+        const auto shortcut = context.input.HandleGlobalEvent(f11, false);
+        check(shortcut == GlobalShortcut::ToggleFullscreen, "F11 se resuelve mediante el atajo global existente durante FPS");
+        context.window.ToggleFullscreen(); context.window.Update(); Sync(context); game.SyncFirstPersonInput();
+        context.window.ResolveDisplayChange(true); context.window.Update(); Sync(context); game.SyncFirstPersonInput();
+        check(context.window.GetDisplaySettings().fullscreen && game.firstPerson_ && context.cursor.IsCaptured() && inventory() == beforeDisplay,
+          "Pantalla completa real conserva el estado FPS y aplica de nuevo la captura tras cambiar de modo");
+        Capture(game, context, window, output / "fps-fullscreen.png", true);
+      }
+      Require(context.window.RequestDisplaySettings(savedDisplay), "No se pudo restaurar la pantalla tras probar FPS");
+      context.window.Update(); context.window.ResolveDisplayChange(true); context.window.Update(); Sync(context); game.SyncFirstPersonInput();
+      agent.incapacitated = true; agent.lifeState = LifeState::Incapacitated; game.SyncFirstPersonInput();
+      check(!game.firstPerson_ && !context.cursor.IsCaptured() && context.cursor.IsVisible() && game.root_->isVisible(), "La incapacitación abandona FPS con cursor y observación táctica coherentes");
+      world = saved; game.previousPhase_ = savedPhase; game.lastSound_ = savedSound; game.perspectiveKeyDown_ = false; game.perspectivePulseConsumed_ = false;
+      context.save.Set(FirstPersonConfig::FovSaveKey, savedFov); context.input.Clear(); game.BindInputs(); game.held_.fill(false); game.session_.Submit({});
+      game.ClosePanel(); context.cursor.SetPosition(savedCursor); game.RefreshHud();
+      std::ofstream(output / "fps-game-input-report.json") << nlohmann::json{{"result", "PASS"}, {"checks", checks}, {"count", checks.size()},
+        {"rapidToggles", 48}, {"state", "Operation: finite ammunition; real Game input and Session simulation"}}.dump(2);
+      std::cout << "FPS INPUT PASS " << checks.size() << " comprobaciones; Shift+F, ratón, movimiento, inventario, armas, foco y pantalla reales\n";
     }
     static void VerifyCleanHudInput(Game &game, EngineContext &context) {
       auto &world = const_cast<WorldState &>(game.session_.GetWorld());
@@ -946,6 +1151,14 @@ namespace EngineTests {
       Require(image.saveToFile(file), "No se pudo guardar la captura del mundo: " + file.string());
       return image;
     }
+    static sf::Image CaptureFirstPerson(FirstPersonRenderer &renderer, const WorldState &world, const FirstPersonCamera &camera,
+        EngineContext &context, sf::RenderWindow &window, const std::filesystem::path &file, bool hudVisible = true) {
+      Sync(context); window.setView(context.window.GetPresentationView());
+      window.clear(); context.renderer.BeginDrawing(); renderer.Render(world, 1, camera, hudVisible);
+      window.draw(sf::Sprite(context.renderer.FinishDrawing()));
+      sf::Texture pixels(window.getSize()); pixels.update(window); window.display(); const auto image = pixels.copyToImage();
+      Require(image.saveToFile(file), "No se pudo guardar la captura de primera persona: " + file.string()); return image;
+    }
     static void VerifyFinalVisuals(EngineContext &context, sf::RenderWindow &window, const std::filesystem::path &output) {
       WorldState demo; demo.phase=GamePhase::Mission; demo.size={1000.f,1000.f};
       Agent covered; covered.id=1; covered.name="Agente"; covered.position={562.01f,500.f}; covered.facing={1.f,0.f};
@@ -1126,6 +1339,17 @@ namespace {
     context.window.Initialize();
     Access::Sync(context);
     context.renderer.SetPostProcessingEnabled(false); context.renderer.SetTextureSmoothing(false);
+    if (visualSuite == "--first-person-only") {
+      EngineTests::VerifyOptionsPreferences(window, output);
+      Access::VerifyMainMenu(context, window, output);
+      Game game(context); game.Start(); Access::Click(game, context, window, "OPERACIÓN INDIVIDUAL");
+      Access::VerifyFirstPersonInput(game, context, window, output);
+      const auto captureFps = [&](FirstPersonRenderer &renderer, const WorldState &world, const FirstPersonCamera &camera, const std::filesystem::path &file, bool hud) {
+        return Access::CaptureFirstPerson(renderer, world, camera, context, window, file, hud);
+      };
+      EngineTests::RunFirstPersonRenderFixtures(context, window, output, captureFps);
+      game.OnCleanup(); Access::VerifyExampleGames(context, window, output); window.close(); return nlohmann::json::array();
+    }
     if (visualSuite == "--interaction-fixes-only") {
       EngineTests::VerifyOptionsPreferences(window, output);
       Game game(context); game.Start(); Access::Click(game, context, window, "OPERACIÓN INDIVIDUAL");
@@ -1170,6 +1394,11 @@ namespace {
     game.Start();
     Access::Require(!game.UsesGlobalOverlay(), "NO TRACE todavía permite el overlay genérico");
     Access::Click(game, context, window, "OPERACIÓN INDIVIDUAL");
+    Access::VerifyFirstPersonInput(game, context, window, output);
+    const auto captureFps = [&](FirstPersonRenderer &renderer, const WorldState &world, const FirstPersonCamera &camera, const std::filesystem::path &file, bool hud) {
+      return Access::CaptureFirstPerson(renderer, world, camera, context, window, file, hud);
+    };
+    EngineTests::RunFirstPersonRenderFixtures(context, window, output, captureFps);
     if (finalVisualsOnly) {
       Access::GetSession(game).SetReady(true); Access::GetSession(game).Deploy(); game.UpdateBackground();
       Access::Require(Access::GetSession(game).GetWorld().phase==GamePhase::Mission,"La comprobación visual no pudo desplegar su operación aislada");
@@ -1312,7 +1541,7 @@ namespace {
 int main(int argc, char **argv) {
   try {
     const std::string visualSuite = argc == 2 ? argv[1] : "";
-    const bool focused = visualSuite == "--coordination-visuals-only" || visualSuite == "--icons-visuals-only" || visualSuite == "--character-visuals-only" || visualSuite == "--level-visuals-only" || visualSuite == "--final-visuals-only" || visualSuite == "--alert-hud-visuals-only" || visualSuite == "--security-visuals-only" ||
+    const bool focused = visualSuite == "--first-person-only" || visualSuite == "--coordination-visuals-only" || visualSuite == "--icons-visuals-only" || visualSuite == "--character-visuals-only" || visualSuite == "--level-visuals-only" || visualSuite == "--final-visuals-only" || visualSuite == "--alert-hud-visuals-only" || visualSuite == "--security-visuals-only" ||
       visualSuite == "--orientation-visuals-only" || visualSuite == "--table-visuals-only" || visualSuite == "--world-visuals-only" || visualSuite == "--tactical-fixes-visuals-only" || visualSuite == "--clean-hud-visuals-only" || visualSuite == "--interaction-fixes-only";
     const auto project = std::filesystem::current_path();
     const auto userSave = ReadFile(project / "Content/Save.json");

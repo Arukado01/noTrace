@@ -3,6 +3,7 @@
 #include "Scene/Scene.h"
 #include "NoTraceSession.h"
 #include "NoTraceWorldRenderer.h"
+#include "NoTraceFirstPersonRenderer.h"
 #include "NoTraceOptionsUi.h"
 #include "NoTraceAudioPlayback.h"
 #include "Config/NoTraceControlsConfig.h"
@@ -33,6 +34,8 @@ namespace NoTrace {
     enum class Page { Connection, Operations, Armory, Intelligence, Deployment, Results, Pause, Options, Puzzle, Weapons, Controls, None };
     Session session_;
     WorldRenderer worldRenderer_;
+    FirstPersonRenderer firstPersonRenderer_;
+    FirstPersonCamera firstPersonCamera_;
     AudioPlayback audioPlayback_;
     tgui::Group::Ptr root_;
     tgui::Panel::Ptr panel_;
@@ -67,6 +70,14 @@ namespace NoTrace {
     bool preparingDecoy_ = false;
     bool cancelledDecoy_ = false;
     bool cqcBlocked_ = false;
+    bool firstPerson_ = false;
+    bool perspectiveKeyDown_ = false;
+    bool perspectivePulseConsumed_ = false;
+    bool focused_ = true;
+    bool firstPersonPointerReset_ = false;
+    DisplaySettings firstPersonDisplay_;
+    sf::Vector2f savedTacticalCursor_;
+    sf::FloatRect firstPersonViewport_;
     std::uint64_t lastSound_ = 0;
     float lastNetworkTime_ = 0.f;
     MissionEvent puzzleFailure_;
@@ -104,6 +115,11 @@ namespace NoTrace {
     const Agent *LocalAgent() const;
     PlayerId ViewPlayer() const;
     bool Pressed(Action action, bool edge = false);
+    bool CanUseFirstPerson() const;
+    bool ToggleFirstPerson();
+    void LeaveFirstPerson();
+    void SyncFirstPersonInput();
+    void UpdateFirstPersonLook();
     tgui::Button::Ptr Button(const std::string &text, float y, std::function<void()> callback);
     tgui::Label::Ptr Label(const std::string &text, sf::Vector2f position, sf::Vector2f size, unsigned int textSize = 20);
   };

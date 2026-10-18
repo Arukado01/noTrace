@@ -3,6 +3,7 @@
 #include "NoTrace.h"
 #include "Config/NoTraceConfig.h"
 #include "Config/NoTraceOptionsConfig.h"
+#include "Config/NoTraceFirstPersonConfig.h"
 #include "Core/EngineConfig.h"
 #include <TGUI/Text.hpp>
 #include <algorithm>
@@ -112,7 +113,7 @@ namespace EngineTests {
       if (const auto combo = std::dynamic_pointer_cast<tgui::ComboBox>(widget)) combos.push_back(combo);
       if (const auto slider = std::dynamic_pointer_cast<tgui::Slider>(widget)) sliders.push_back(slider);
     }
-    require(combos.size() == 4 && sliders.size() == 4, "El menú real ofrece cuatro selectores de vídeo y ajustes de volumen general, efectos, ambiente y mando");
+    require(combos.size() == 4 && sliders.size() == 5, "El menú real ofrece cuatro selectores de vídeo y ajustes de audio, mando y campo visual FPS");
     require(combos[1]->getItems().size() == 3 && combos[1]->getItems()[2] == "Ventana sin bordes", "El menú real ofrece ventana, pantalla completa y sin bordes");
     require(combos[3]->getItemById("0") == "Sin límite" && combos[3]->getItemById("360") == "360", "El menú real ofrece límites de FPS funcionales e ilimitado");
     combos[1]->setSelectedItemByIndex(1); require(!combos[0]->isEnabled(), "El menú real deshabilita resolución de ventana al elegir pantalla completa");
@@ -124,6 +125,8 @@ namespace EngineTests {
     require(context.audio.GetGlobalVolume() == 26.f && context.save.Get(NoTrace::VOLUME_SAVE_KEY, 0.f) == 26.f,
             "El teclado del menú aplica y guarda el volumen general inmediatamente");
     sliders[1]->setValue(44.f); sliders[2]->setValue(40.f); sliders[3]->setValue(1200.f);
+    sliders[4]->setValue(91.f);
+    require(context.save.Get(NoTrace::FirstPersonConfig::FovSaveKey, 0.f) == 91.f, "El menú real guarda inmediatamente el campo visual de primera persona");
     require(context.audio.GetEffectsVolume() == 44.f && context.audio.GetAmbienceVolume() == 40.f && context.cursor.GetSpeed() == 1200.f &&
             context.save.Get(NoTrace::OptionsConfig::EffectsVolumeSaveKey, 0.f) == 44.f && context.save.Get(NoTrace::OptionsConfig::AmbienceVolumeSaveKey, 0.f) == 40.f &&
             context.save.Get(NoTrace::CURSOR_SPEED_SAVE_KEY, 0.f) == 1200.f,

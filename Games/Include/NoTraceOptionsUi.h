@@ -17,6 +17,7 @@ namespace NoTrace {
     tgui::Slider::Ptr effectsVolume;
     tgui::Slider::Ptr ambienceVolume;
     tgui::Slider::Ptr cursorSpeed;
+    tgui::Slider::Ptr firstPersonFov;
     tgui::Label::Ptr status;
   };
 
