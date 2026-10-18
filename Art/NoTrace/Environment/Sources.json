@@ -26,7 +26,27 @@
       "status": "accepted-source",
       "prompt": "Production asset for original modern military infiltration pixel-art game. Generate ONE flat seamless MATERIAL TILE ATLAS, 1024x1024 pixels, strict FOUR columns FOUR rows of 256x256 tiles, no border/gaps/grid lines. Camera strictly TOP DOWN for all materials, uniform neutral light, no perspective, no objects, no characters, NO text or labels or numbers. Hard crisp pixel clusters, professional hand-painted pixel texture, low-frequency detail, restrained realistic colors. Each individual cell tiles seamlessly with itself, edges match. Row-major sixteen materials: 1 cool weathered reinforced CONCRETE floor with subtle aggregate and seams; 2 painted olive industrial STEEL floor panels with small corner fasteners; 3 dark steel GRATE with repeating fine square mesh; 4 muted dark gray INDUSTRIAL epoxy floor with understated scuffs; 5 compacted dark SOIL gravel exterior; 6 warm gray concrete WALL face with vertical subtle cast marks; 7 olive painted corrugated STEEL WALL face; 8 reinforced blue-green GLASS with very subtle angled reflection no cracks; 9 steel SECURITY DOOR panel with reinforced ribs, seamless; 10 yellow and black SAFETY strip repeating diagonals worn realistically; 11 reddish-brown industrial BRICK facade; 12 gray STAIR TREADS with subtle grip grooves; 13 server-room light-gray ANTISTATIC floor tiles; 14 workshop dirty gridded diamond STEEL checker plate; 15 insulated gray ceiling VENTILATION grill slots; 16 dark green reinforced FABRIC supplies/tarps. Cohesive low-saturation tactical base material language, light source upper-left only subtle surface microshading. Match material identities clearly while maintaining readability for actors over them. Not generic geometric placeholders; visibly authored material surfaces. No borders, no cast objects or shadows.",
       "review": "16 materiales diferenciados; resolución real1254x1254 particionada por proporciones y reducida nearest a128."
+    },
+    {
+      "file": "Sources/MilitaryDevicesC-v1.png",
+      "status": "superseded",
+      "reason": "Primera versión; se pidió limpieza explícita de halo externo y transparencia antes de integrar."
+    },
+    {
+      "file": "Sources/MilitaryDevicesC-v2.png",
+      "status": "integrated",
+      "prompt": "Ampliación original coherente con MilitaryFurniture: ocho recortes pixel art2:1 en cuatro columnas y dos filas, cámara sobre mástil, kit explosivo con alicates y cables, silla, banco, barriles, vidrio de seguridad, ventilador industrial y baliza. Edición posterior preserva exactamente identidad y layout y limpia fondo, halos y luz externa; alfa cero en huecos, vidrio translúcido interior conservado. No personajes, marcas ni textos.",
+      "review": "Ocho objetos completos; crops explícitos, sin fragmentos de vecinos. Alfa cero verificado en márgenes y huecos. Atlas final24objetos revisado visualmente.",
+      "sha256": "95c5227e73c94bea1cbdd8c08b1b338cd6746d97a22056ecf7edb717dfc4695e"
     }
   ],
-  "integration": "Pendiente; fuentes y atlas de revisión aislados en Art."
+  "integration": {
+    "atlas": "Content/Textures/NoTrace/Environment/MilitaryFurniture.png",
+    "materials": "Content/Textures/NoTrace/Environment/MilitaryMaterials.png",
+    "manifest": "Content/Textures/NoTrace/Environment/MilitaryEnvironment.manifest.json",
+    "consumer": "Games/Source/NoTraceEnvironmentArt.cpp",
+    "placement": "Volumen y huella físicos fijan extensión visual y centro de apoyo; mesa usa sprites separados sin rotación.",
+    "furnitureCount": 24,
+    "materialCount": 16
+  }
 }

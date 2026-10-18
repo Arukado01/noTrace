@@ -11,6 +11,10 @@
       {
         "path": "Art\\NoTrace\\Environment\\Sources\\MilitaryFurnitureB-v2.png",
         "sha256": "3eeb37421d646d783ac1a3adbf6a234cb95dfc4e904c8a583f5104a5b7d0c2a6"
+      },
+      {
+        "path": "Art\\NoTrace\\Environment\\Sources\\MilitaryDevicesC-v2.png",
+        "sha256": "95c5227e73c94bea1cbdd8c08b1b338cd6746d97a22056ecf7edb717dfc4695e"
       }
     ],
     "frames": [
@@ -557,6 +561,278 @@
           164
         ],
         "rgbaSha256": "443b9aaef0b42c01896b0706b2409afcca39414b2977f14cdd9a9e32c708898d"
+      },
+      {
+        "name": "CameraMast",
+        "index": 16,
+        "rect": [
+          0,
+          768,
+          192,
+          192
+        ],
+        "source": "MilitaryDevicesC-v2.png",
+        "sourceCell": [
+          50,
+          40,
+          300,
+          510
+        ],
+        "sourceCrop": [
+          21,
+          21,
+          233,
+          462
+        ],
+        "artBounds": [
+          57,
+          16,
+          77,
+          160
+        ],
+        "anchor": [
+          96,
+          163
+        ],
+        "rgbaSha256": "c2365208dec2299d809a808c5adee9055de55c9ace5c6060616979575ee51b9b"
+      },
+      {
+        "name": "ExplosiveKit",
+        "index": 17,
+        "rect": [
+          192,
+          768,
+          192,
+          192
+        ],
+        "source": "MilitaryDevicesC-v2.png",
+        "sourceCell": [
+          350,
+          90,
+          790,
+          505
+        ],
+        "sourceCrop": [
+          24,
+          23,
+          420,
+          408
+        ],
+        "artBounds": [
+          13,
+          16,
+          165,
+          160
+        ],
+        "anchor": [
+          96,
+          163
+        ],
+        "rgbaSha256": "ab5bf5fb542b8f8e934f1780e9da8f6f4635259b242f61e5f4431931d40879a4"
+      },
+      {
+        "name": "FieldChair",
+        "index": 18,
+        "rect": [
+          384,
+          768,
+          192,
+          192
+        ],
+        "source": "MilitaryDevicesC-v2.png",
+        "sourceCell": [
+          790,
+          90,
+          1120,
+          505
+        ],
+        "sourceCrop": [
+          19,
+          37,
+          319,
+          398
+        ],
+        "artBounds": [
+          29,
+          16,
+          133,
+          160
+        ],
+        "anchor": [
+          96,
+          163
+        ],
+        "rgbaSha256": "70702edbd262ff5570a614b5f64666a33096e03fb297d8b1287dfc4d41f8266b"
+      },
+      {
+        "name": "MilitaryBench",
+        "index": 19,
+        "rect": [
+          576,
+          768,
+          192,
+          192
+        ],
+        "source": "MilitaryDevicesC-v2.png",
+        "sourceCell": [
+          1125,
+          150,
+          1536,
+          510
+        ],
+        "sourceCrop": [
+          9,
+          66,
+          398,
+          336
+        ],
+        "artBounds": [
+          10,
+          57,
+          172,
+          119
+        ],
+        "anchor": [
+          96,
+          166
+        ],
+        "rgbaSha256": "6f20d90c3daaef8c72ad45eac73a08a69bcd6593b15c33ad2ef257483073e7df"
+      },
+      {
+        "name": "SupplyBarrels",
+        "index": 20,
+        "rect": [
+          0,
+          960,
+          192,
+          192
+        ],
+        "source": "MilitaryDevicesC-v2.png",
+        "sourceCell": [
+          15,
+          510,
+          360,
+          970
+        ],
+        "sourceCrop": [
+          23,
+          20,
+          333,
+          407
+        ],
+        "artBounds": [
+          32,
+          16,
+          128,
+          160
+        ],
+        "anchor": [
+          96,
+          163
+        ],
+        "rgbaSha256": "5d662cd3a54a8d1d7586756b400cdd54a54fbf46a8014d0a760a958760d6028f"
+      },
+      {
+        "name": "SecurityGlass",
+        "index": 21,
+        "rect": [
+          192,
+          960,
+          192,
+          192
+        ],
+        "source": "MilitaryDevicesC-v2.png",
+        "sourceCell": [
+          395,
+          510,
+          780,
+          970
+        ],
+        "sourceCrop": [
+          26,
+          1,
+          371,
+          426
+        ],
+        "artBounds": [
+          31,
+          16,
+          130,
+          160
+        ],
+        "anchor": [
+          96,
+          163
+        ],
+        "rgbaSha256": "8f63f34148ce9d7b336c2431ba75de3c3303bc66403aa26ada36a24460d6771b"
+      },
+      {
+        "name": "VentilationUnit",
+        "index": 22,
+        "rect": [
+          384,
+          960,
+          192,
+          192
+        ],
+        "source": "MilitaryDevicesC-v2.png",
+        "sourceCell": [
+          790,
+          550,
+          1205,
+          965
+        ],
+        "sourceCrop": [
+          14,
+          35,
+          385,
+          369
+        ],
+        "artBounds": [
+          10,
+          21,
+          172,
+          155
+        ],
+        "anchor": [
+          96,
+          164
+        ],
+        "rgbaSha256": "98a8c42f4b8b45980f0cc5336feab44ba2269611535c2771859b63c4bb0f27ec"
+      },
+      {
+        "name": "SafetyLamp",
+        "index": 23,
+        "rect": [
+          576,
+          960,
+          192,
+          192
+        ],
+        "source": "MilitaryDevicesC-v2.png",
+        "sourceCell": [
+          1210,
+          530,
+          1515,
+          970
+        ],
+        "sourceCrop": [
+          30,
+          34,
+          290,
+          404
+        ],
+        "artBounds": [
+          40,
+          16,
+          112,
+          160
+        ],
+        "anchor": [
+          96,
+          163
+        ],
+        "rgbaSha256": "0a73576a03750027700c921255fbb63cf63eb62f91039b99641cc210044c423f"
       }
     ]
   },
@@ -823,7 +1099,7 @@
     ]
   },
   "outputs": {
-    "MilitaryFurniture.png": "4c034de4b3e557f94b37c970eb4a0b77cb5ae6b411607b366d43acb18d739d8b",
+    "MilitaryFurniture.png": "8b6115eb6214286fff95cab7d0232137cd60e240fbd88b305a7a02a73f11bfe6",
     "MilitaryMaterials.png": "d0b561085194f90705ac73a1b7b17b79f1f2bac7585416541ad63483db157d73"
   }
 }

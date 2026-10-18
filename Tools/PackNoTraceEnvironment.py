@@ -17,6 +17,8 @@ FURNITURE = (
     "AmmunitionCrates", "LogisticsCrate", "WasteBin", "ServerRack",
     "SecurityConsole", "LeverOff", "LeverOn", "PushButtons",
     "SecurityDoorClosed", "SecurityDoorOpen", "MedicalCabinet", "FreightLift",
+    "CameraMast", "ExplosiveKit", "FieldChair", "MilitaryBench",
+    "SupplyBarrels", "SecurityGlass", "VentilationUnit", "SafetyLamp",
 )
 MATERIALS = (
     "Concrete", "Steel", "Grate", "Industrial", "Soil", "ConcreteWall",
@@ -28,6 +30,8 @@ FURNITURE_RECTS = (
     (25, 520, 415, 940), (420, 520, 800, 940), (810, 520, 1180, 940), (1200, 520, 1525, 940),
     (20, 100, 435, 480), (450, 180, 800, 480), (800, 100, 1140, 480), (1150, 100, 1520, 480),
     (20, 520, 415, 940), (415, 520, 785, 940), (785, 520, 1130, 940), (1130, 520, 1535, 940),
+    (50, 40, 300, 510), (350, 90, 790, 505), (790, 90, 1120, 505), (1125, 150, 1536, 510),
+    (15, 510, 360, 970), (395, 510, 780, 970), (790, 550, 1205, 965), (1210, 530, 1515, 970),
 )
 
 
@@ -46,9 +50,9 @@ def cells(image: Image.Image):
 
 
 def furniture(output: Path) -> dict:
-    sources = [SOURCES / "MilitaryFurnitureA-v2.png", SOURCES / "MilitaryFurnitureB-v2.png"]
+    sources = [SOURCES / "MilitaryFurnitureA-v2.png", SOURCES / "MilitaryFurnitureB-v2.png", SOURCES / "MilitaryDevicesC-v2.png"]
     images = [Image.open(source).convert("RGBA") for source in sources]
-    atlas = Image.new("RGBA", (768, 768))
+    atlas = Image.new("RGBA", (768, 1152))
     entries = []
     for index, source_bounds in enumerate(FURNITURE_RECTS):
         cell = images[index // 8].crop(source_bounds)
@@ -102,7 +106,7 @@ def main() -> None:
     for name in ("MilitaryFurniture.png", "MilitaryMaterials.png"):
         manifest.setdefault("outputs", {})[name] = digest(args.output / name)
     (args.output / "MilitaryEnvironment.manifest.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    print(f"16 objetos y 16 materiales: {args.output}")
+    print(f"{len(FURNITURE)} objetos y 16 materiales: {args.output}")
 
 
 if __name__ == "__main__":
