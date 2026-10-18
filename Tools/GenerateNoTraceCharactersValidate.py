@@ -7,8 +7,10 @@ from pathlib import Path
 
 from PIL import Image
 
+from ValidateNoTraceCharacterBaseline import validate_current
 
-def validate(root):
+
+def validate(root, baseline=None, references=None, exceptions=None, toe_witness=None, report_path=None):
     metadata = json.loads((root / "Atlas/CharacterAtlasMetadata.json").read_text(encoding="utf-8"))
     runtime = json.loads((root / "Atlas/CharacterAtlasRuntime.json").read_text(encoding="utf-8"))
     checks = 0
@@ -17,6 +19,8 @@ def validate(root):
         checks += 1
         if not condition:
             raise ValueError(message)
+    baseline_report = validate_current(root, baseline, references, exceptions, toe_witness)
+    require(not baseline_report["errors"], "El atlas cambia RGBA o semántica fuera de las excepciones exactas: " + "; ".join(baseline_report["errors"][:8]))
     require(metadata["schemaVersion"] == 3, "Contrato de atlas incorrecto")
     require(len(metadata["clips"]) == 53 and len(metadata["frames"]) == 4544, "La matriz de clips no está completa")
     require(len({frame["index"] for frame in metadata["frames"]}) == len(metadata["frames"]), "Hay índices de pose repetidos")
@@ -66,14 +70,7 @@ def validate(root):
         require(distinct >= 2, "Un clip completo conserva un cuerpo estático: " + str(key))
         phase_report.append({"clip": key[0], "stance": key[1], "direction": key[2], "distinctRasterPhases": distinct})
     previous = json.loads((root / "Manifests/pre-recovery-original-raster.json").read_text(encoding="utf-8"))
-    by_index = {entry["index"]: entry for entry in metadata["frames"]}
-    for entry in previous["pages"]:
-        require(hashlib.sha256((root / "Atlas/Packed" / entry["file"]).read_bytes()).hexdigest() == entry["sha256"], "Recovery modifica una página anterior")
-    for entry in previous["frames"]:
-        frame = by_index[entry["index"]]
-        require(frame["pixelSha256"] == entry["pixelSha256"], "Recovery modifica una pose anterior")
-        art_hash = hashlib.sha256(json.dumps(frame["art"], sort_keys=True, separators=(",", ":")).encode()).hexdigest()
-        require(art_hash == entry["artSha256"], "Recovery desplaza una región anterior")
+    # El manifiesto histórico se conserva; el baseline completo protege RGBA por índice aunque cambie el packing.
     recovery = []
     for stance in ["Standing", "Crouched", "Prone"]:
         for direction in metadata["directions"]:
@@ -92,13 +89,22 @@ def validate(root):
     require(len(runtime["weapons"]["frames"]) == 48, "Faltan variantes de armas")
     report = {"status": "PASS", "checks": checks, "clips": len(metadata["clips"]), "stanceVariants": 71, "frames": len(metadata["frames"]),
               "directions": 8, "phases": 8, "layers": 3, "pairedCqcLayers": 2, "packedPages": len(pages), "weapons": 48, "maximumBoneLengthError": maximum_error,
-              "phaseMatrix": phase_report, "recovery": recovery, "unchangedPreviousFrames": len(previous["frames"]), "unchangedPreviousPages": len(previous["pages"]),
+              "phaseMatrix": phase_report, "recovery": recovery, "historicalPreviousFrames": len(previous["frames"]), "historicalPreviousPages": len(previous["pages"]),
+              "protectedBaselineFrames": baseline_report["frames"] - len(baseline_report["exactExceptionIndices"]),
+              "baselineRgbaLayers": baseline_report["layers"], "exactExceptionIndices": baseline_report["exactExceptionIndices"],
+              "baselineCanonicalSha256": baseline_report["baselineCanonicalSha256"], "toeWitnessCanonicalSha256": baseline_report["toeWitnessCanonicalSha256"],
               "scope": "Offline raster, authored source hashes, atlas bounds, exact IK lengths and real phase coverage; runtime GUI pending"}
-    (root / "Atlas/CharacterAtlasValidation.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
+    (report_path or root / "Atlas/CharacterAtlasValidation.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
     print(json.dumps({key: value for key, value in report.items() if key != "phaseMatrix"}))
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Valida fuentes, anatomía y raster empaquetado sin ventana ni simulación")
     parser.add_argument("--root", type=Path, default=Path("Art/NoTrace/Characters"))
-    validate(parser.parse_args().root)
+    parser.add_argument("--baseline", type=Path)
+    parser.add_argument("--references", type=Path)
+    parser.add_argument("--exceptions", type=Path)
+    parser.add_argument("--toe-witness", type=Path)
+    parser.add_argument("--report", type=Path)
+    args = parser.parse_args()
+    validate(args.root, args.baseline, args.references, args.exceptions, args.toe_witness, args.report)

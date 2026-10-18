@@ -1,6 +1,8 @@
 import argparse
+import copy
 import hashlib
 import json
+import math
 from pathlib import Path
 
 from PIL import Image
@@ -10,11 +12,19 @@ REPOSITORY = Path(__file__).resolve().parents[1]
 DEFAULT_ROOT = REPOSITORY / "Art/NoTrace/Characters"
 BASELINE_NAME = "pre-urgent-character-raster-20261018.json"
 REFERENCES_NAME = "pre-urgent-character-canonical-references-20261018.json"
+TOE_WITNESS_NAME = "pre-urgent-posture-toes-witness-20261018.json"
 REGISTRATION_FILES = ("Manifests/rig-pieces.registration.json", "Manifests/weapons.registration.json", "Manifests/pre-recovery-original-raster.json")
 CANONICAL_JSON = "UTF-8; sort_keys=True; separators=(',', ':'); ensure_ascii=False; allow_nan=False"
 PACKING_FIELDS = {"art", "page", "rect", "pixelSha256"}
 ANCHOR_FIELDS = ("groundAnchor", "pelvis", "muzzle", "grip", "carryGrip", "supportWidth")
 IDENTITY_FIELDS = ("index", "clip", "stance", "direction", "phase")
+TOE_JOINTS = ("left_toe", "right_toe")
+TOE_IDENTITIES = {
+    512 + direction_index * 64 + first + phase: {"clip": clip, "stance": "Standing", "direction": direction, "phase": phase}
+    for direction_index, direction in enumerate(["S", "SE", "E", "NE", "N", "NW", "W", "SW"])
+    for clip, first, phases in [("LieDown", 0, range(3, 7)), ("StandUp", 24, range(1, 7)), ("Dive", 32, [1])]
+    for phase in phases
+}
 
 
 def require(condition, message):
@@ -28,6 +38,14 @@ def canonical_json(value):
 
 def canonical_sha(value):
     return hashlib.sha256(canonical_json(value).encode("utf-8")).hexdigest()
+
+
+def valid_sha(value):
+    return isinstance(value, str) and len(value) == 64 and all(character in "0123456789abcdef" for character in value)
+
+
+def semantic_record(entry):
+    return {key: value for key, value in entry.items() if key not in PACKING_FIELDS}
 
 
 def file_sha(path):
@@ -109,7 +127,7 @@ def reconstruct_layer(pages, region, size, index, layer):
 
 
 def frame_record(entry, pages, size):
-    semantic = {key: value for key, value in entry.items() if key not in PACKING_FIELDS}
+    semantic = semantic_record(entry)
     layers = {name: reconstruct_layer(pages, region, size, entry["index"], name) for name, region in sorted(entry["art"].items())}
     require(layers.get("full") == entry["pixelSha256"], "RGBA real y pixelSha256 difieren en índice " + str(entry["index"]))
     return {
@@ -121,7 +139,7 @@ def frame_record(entry, pages, size):
     }
 
 
-def snapshot(root, provenance):
+def snapshot(root, provenance, semantic_records=None):
     metadata_path = root / "Atlas/CharacterAtlasMetadata.json"
     runtime_path = root / "Atlas/CharacterAtlasRuntime.json"
     metadata, runtime = read_json(metadata_path), read_json(runtime_path)
@@ -151,6 +169,8 @@ def snapshot(root, provenance):
         projected = {key: entry[key] for key in runtime_frames[index]}
         require(projected == runtime_frames[index], "Metadata/runtime difieren en índice " + str(index))
         frames.append(frame_record(entry, pages, metadata["cellSize"]))
+        if semantic_records is not None and index in TOE_IDENTITIES:
+            semantic_records[index] = semantic_record(entry)
     require(seen == set(runtime_frames), "Los conjuntos de índices metadata/runtime difieren")
     sources = source_records(root)
     header = {key: value for key, value in metadata.items() if key not in {"frames", "pages", "authoringPages", "status"}}
@@ -170,8 +190,110 @@ def snapshot(root, provenance):
     }
 
 
-def compare(baseline, current, references=None, contracts=None):
+def create_toe_witness(baseline, original_metadata_path):
+    require(file_sha(original_metadata_path) == baseline["provenance"]["metadataSha256"], "El testigo exige bytes de metadata originales")
+    metadata = read_json(original_metadata_path)
+    before = {entry["index"]: entry for entry in baseline["frames"]}
+    original = {entry["index"]: entry for entry in metadata["frames"]}
+    require(len(before) == len(original) == len(metadata["frames"]) == 4544 and set(before) == set(original), "La metadata original no contiene la matriz exacta")
+    for index, entry in original.items():
+        require(canonical_sha(semantic_record(entry)) == before[index]["semanticSha256"], "Semántica original distinta: " + str(index))
+        require(canonical_sha(entry["joints"]) == before[index]["jointsSha256"], "Joints originales distintos: " + str(index))
+    witness = {
+        "schemaVersion": 1, "baselineCanonicalSha256": canonical_sha(baseline),
+        "originalMetadataSha256": baseline["provenance"]["metadataSha256"], "allowedJoints": list(TOE_JOINTS),
+        "frames": [{"index": index, "semantic": semantic_record(original[index]),
+                    "semanticSha256": before[index]["semanticSha256"], "jointsSha256": before[index]["jointsSha256"]}
+                   for index in sorted(TOE_IDENTITIES)],
+    }
+    validate_toe_witness(baseline, witness)
+    return witness
+
+
+def validate_toe_witness(baseline, witness):
+    require(isinstance(witness, dict) and set(witness) == {"schemaVersion", "baselineCanonicalSha256", "originalMetadataSha256", "allowedJoints", "frames"}, "Campos del testigo de pies incorrectos")
+    require(type(witness["schemaVersion"]) is int and witness["schemaVersion"] == 1, "Versión del testigo incorrecta")
+    require(witness["baselineCanonicalSha256"] == canonical_sha(baseline), "Testigo ligado a otro baseline")
+    require(witness["originalMetadataSha256"] == baseline["provenance"]["metadataSha256"], "SHA de metadata del testigo distinto")
+    require(witness["allowedJoints"] == list(TOE_JOINTS), "El testigo sólo admite las dos puntas")
+    require(isinstance(witness["frames"], list) and len(witness["frames"]) == 88, "El testigo debe contener 88 registros")
+    before = {entry["index"]: entry for entry in baseline["frames"]}
+    records = {}
+    for row in witness["frames"]:
+        require(isinstance(row, dict) and set(row) == {"index", "semantic", "semanticSha256", "jointsSha256"}, "Registro del testigo incorrecto")
+        index = row["index"]
+        require(type(index) is int and index in TOE_IDENTITIES and index in before and index not in records, "Índice del testigo inválido o duplicado")
+        semantic = row["semantic"]
+        require(isinstance(semantic, dict) and isinstance(semantic.get("joints"), dict), "Semántica del testigo inválida")
+        require(canonical_sha({key: semantic.get(key) for key in TOE_IDENTITIES[index]}) == canonical_sha(TOE_IDENTITIES[index]) and type(semantic.get("index")) is int and semantic["index"] == index, "Identidad del testigo distinta")
+        require(all(joint in semantic["joints"] for joint in TOE_JOINTS), "Faltan puntas originales")
+        require(row["semanticSha256"] == before[index]["semanticSha256"] == canonical_sha(semantic), "Semántica del testigo no coincide con baseline")
+        require(row["jointsSha256"] == before[index]["jointsSha256"] == canonical_sha(semantic["joints"]), "Joints del testigo no coinciden con baseline")
+        records[index] = semantic
+    require(set(records) == set(TOE_IDENTITIES), "El testigo cambia el conjunto de 88 índices")
+    return records
+
+
+def exception_contract(baseline, current, exceptions, toe_witness=None, semantic_records=None):
+    if exceptions is None:
+        return {}
+    require(isinstance(exceptions, dict) and set(exceptions) == {"schemaVersion", "baselineCanonicalSha256", "toeWitnessCanonicalSha256", "entries"}, "Campos de excepciones incorrectos")
+    require(type(exceptions["schemaVersion"]) is int and exceptions["schemaVersion"] == 1, "Versión de excepciones incorrecta")
+    require(exceptions["baselineCanonicalSha256"] == canonical_sha(baseline), "Excepciones ligadas a otro baseline")
+    entries = exceptions["entries"]
+    require(isinstance(entries, list) and entries, "La lista explícita de excepciones está vacía")
+    before = {entry["index"]: entry for entry in baseline["frames"]}
+    after = {entry["index"]: entry for entry in current["frames"]}
+    require(len(before) == len(baseline["frames"]) and len(after) == len(current["frames"]), "Índices duplicados antes de validar excepciones")
+    result, witnessed = {}, None
+    for row in entries:
+        require(isinstance(row, dict) and set(row) == {"index", "identity", "reason", "rgbaSha256", "semantic"}, "Entrada de excepción incorrecta")
+        require(isinstance(row["reason"], str) and bool(row["reason"].strip()), "El motivo de excepción debe ser texto no vacío")
+        index = row["index"]
+        require(type(index) is int and index in before and index in after and index not in result, "Índice de excepción inválido o duplicado")
+        original, candidate = before[index], after[index]
+        identity = {key: original[key] for key in IDENTITY_FIELDS if key != "index"}
+        require(isinstance(row["identity"], dict) and canonical_sha(row["identity"]) == canonical_sha(identity), "Identidad de excepción distinta: " + str(index))
+        layers = row["rgbaSha256"]
+        require(isinstance(layers, dict), "Las capas esperadas deben ser un objeto")
+        require(set(layers) <= set(original["rgbaSha256"]) and set(layers) <= set(candidate["rgbaSha256"]), "La excepción inventa una capa")
+        for layer, expected in layers.items():
+            require(valid_sha(expected), "SHA RGBA esperado inválido")
+            require(expected != original["rgbaSha256"][layer], "Excepción RGBA ociosa: " + str(index) + "/" + layer)
+            require(candidate["rgbaSha256"][layer] == expected, "RGBA no coincide con expected SHA: " + str(index) + "/" + layer)
+        semantic = row["semantic"]
+        require(layers or semantic is not None, "Entrada de excepción ociosa")
+        if semantic is not None:
+            require(isinstance(semantic, dict) and set(semantic) == {"kind", "expectedSemanticSha256", "expectedJointsSha256"}, "Excepción semántica incorrecta")
+            require(semantic["kind"] == "posture_toes_v1" and index in TOE_IDENTITIES, "Semántica permitida sólo en los 88 índices de pies")
+            require(identity == TOE_IDENTITIES[index], "Identidad semántica de pies distinta")
+            require(all(valid_sha(semantic[key]) for key in ["expectedSemanticSha256", "expectedJointsSha256"]), "SHA semántico esperado inválido")
+            require(semantic["expectedSemanticSha256"] != original["semanticSha256"] and semantic["expectedJointsSha256"] != original["jointsSha256"], "Excepción semántica ociosa")
+            require(toe_witness is not None and semantic_records is not None and index in semantic_records, "Falta testigo o semántica real para pies")
+            require(valid_sha(exceptions["toeWitnessCanonicalSha256"]) and exceptions["toeWitnessCanonicalSha256"] == canonical_sha(toe_witness), "SHA del testigo semántico distinto")
+            if witnessed is None:
+                witnessed = validate_toe_witness(baseline, toe_witness)
+            actual = semantic_records[index]
+            require(isinstance(actual, dict) and isinstance(actual.get("joints"), dict), "Semántica actual inválida")
+            expected = copy.deepcopy(witnessed[index])
+            for joint in TOE_JOINTS:
+                point = actual["joints"].get(joint)
+                require(isinstance(point, (list, tuple)) and len(point) == 3 and all(type(value) in [int, float] and math.isfinite(value) for value in point), "Punta no finita o inválida")
+                expected["joints"][joint] = point
+            require(canonical_sha(actual) == canonical_sha(expected), "La excepción cambia campos o joints ajenos a las puntas: " + str(index))
+            require(canonical_sha(actual) == candidate["semanticSha256"] == semantic["expectedSemanticSha256"], "Semántica no coincide con expected SHA: " + str(index))
+            require(canonical_sha(actual["joints"]) == candidate["jointsSha256"] == semantic["expectedJointsSha256"], "Joints no coinciden con expected SHA: " + str(index))
+        result[index] = row
+    require(witnessed is not None or exceptions["toeWitnessCanonicalSha256"] is None, "Testigo declarado sin excepciones semánticas")
+    return result
+
+
+def compare(baseline, current, references=None, contracts=None, exceptions=None, toe_witness=None, semantic_records=None):
     errors = []
+    for label, document in [("baseline", baseline), ("actual", current)]:
+        indices = [frame["index"] for frame in document["frames"]]
+        require(all(type(index) is int for index in indices) and len(indices) == len(set(indices)), "Índices inválidos o duplicados en " + label)
+    approved = exception_contract(baseline, current, exceptions, toe_witness, semantic_records)
     if references is not None:
         validate_references(baseline, references)
         require(contracts is not None, "Faltan los contratos actuales")
@@ -192,22 +314,48 @@ def compare(baseline, current, references=None, contracts=None):
         errors.append("El conjunto de índices cambió")
     for index in sorted(set(before) & set(after)):
         original, candidate = before[index], after[index]
+        exception = approved.get(index)
         for key in sorted(set(original) | set(candidate)):
             if key == "rgbaSha256":
                 for layer in sorted(set(original[key]) | set(candidate[key])):
                     if original[key].get(layer) != candidate[key].get(layer):
-                        errors.append("RGBA distinto: índice " + str(index) + ", capa " + layer)
-            elif original.get(key) != candidate.get(key):
-                errors.append("Semántica distinta: índice " + str(index) + ", campo " + key)
+                        if exception is None or exception["rgbaSha256"].get(layer) != candidate[key].get(layer):
+                            errors.append("RGBA distinto: índice " + str(index) + ", capa " + layer)
+            elif canonical_json(original.get(key)) != canonical_json(candidate.get(key)):
+                if exception is None or exception["semantic"] is None or key not in {"semanticSha256", "jointsSha256"}:
+                    errors.append("Semántica distinta: índice " + str(index) + ", campo " + key)
     return errors
+
+
+def validate_current(root, baseline_path=None, references_path=None, exceptions_path=None, toe_witness_path=None):
+    baseline_path = baseline_path or root / "Manifests" / BASELINE_NAME
+    references_path = references_path or root / "Manifests" / REFERENCES_NAME
+    baseline, references = read_json(baseline_path), read_json(references_path)
+    validate_references(baseline, references)
+    exceptions = read_json(exceptions_path) if exceptions_path is not None else None
+    require(exceptions is None or isinstance(exceptions, dict), "El contrato de excepciones debe ser un objeto")
+    needs_witness = exceptions is not None and isinstance(exceptions.get("entries"), list) and any(isinstance(row, dict) and row.get("semantic") is not None for row in exceptions["entries"])
+    toe_witness = read_json(toe_witness_path or root / "Manifests" / TOE_WITNESS_NAME) if needs_witness else None
+    semantics = {}
+    current = snapshot(root, baseline["provenance"]["commit"], semantics)
+    contracts = registration_contracts(root)
+    errors = compare(baseline, current, references, contracts, exceptions, toe_witness, semantics)
+    return {"status": "FAIL" if errors else "PASS", "frames": len(current["frames"]),
+            "layers": sum(len(frame["rgbaSha256"]) for frame in current["frames"]),
+            "canonicalSourceContracts": len(contracts), "baselineCanonicalSha256": canonical_sha(baseline),
+            "exactExceptionIndices": sorted(row["index"] for row in exceptions["entries"]) if exceptions is not None else [],
+            "toeWitnessCanonicalSha256": canonical_sha(toe_witness) if toe_witness is not None else None, "errors": errors}
 
 
 def main():
     parser = argparse.ArgumentParser(description="Congela o compara RGBA y semántica por índice sin depender del packing")
-    parser.add_argument("mode", choices=["freeze", "freeze-references", "check"])
+    parser.add_argument("mode", choices=["freeze", "freeze-references", "freeze-toe-witness", "check"])
     parser.add_argument("--root", type=Path, default=DEFAULT_ROOT)
     parser.add_argument("--baseline", type=Path)
     parser.add_argument("--references", type=Path)
+    parser.add_argument("--exceptions", type=Path)
+    parser.add_argument("--toe-witness", type=Path)
+    parser.add_argument("--original-metadata", type=Path)
     parser.add_argument("--provenance", default="1280d50")
     args = parser.parse_args()
     baseline_path = args.baseline or args.root / "Manifests" / BASELINE_NAME
@@ -221,6 +369,15 @@ def main():
         print(json.dumps({"status": "FROZEN", "baseline": str(baseline_path), "sha256": file_sha(baseline_path), "frames": len(current["frames"]), "layers": sum(len(frame["rgbaSha256"]) for frame in current["frames"]), "originalSources": len(current["originalSources"])}))
         return
     baseline = read_json(baseline_path)
+    if args.mode == "freeze-toe-witness":
+        require(args.original_metadata is not None, "Crear el testigo exige --original-metadata explícito")
+        witness_path = args.toe_witness or args.root / "Manifests" / TOE_WITNESS_NAME
+        require(not witness_path.exists(), "El testigo existente es inmutable: " + str(witness_path))
+        witness = create_toe_witness(baseline, args.original_metadata)
+        with witness_path.open("x", encoding="utf-8", newline="\n") as stream:
+            stream.write(canonical_json(witness) + "\n")
+        print(json.dumps({"status": "TOE_WITNESS_FROZEN", "witness": str(witness_path), "records": len(witness["frames"]), "canonicalSha256": canonical_sha(witness)}))
+        return
     if args.mode == "freeze-references":
         require(not references_path.exists(), "El sidecar existente es inmutable: " + str(references_path))
         references = create_references(args.root, baseline)
@@ -228,13 +385,9 @@ def main():
             stream.write(canonical_json(references) + "\n")
         print(json.dumps({"status": "REFERENCES_FROZEN", "references": str(references_path), "baselineCanonicalSha256": references["baselineCanonicalSha256"], "referencesCanonicalSha256": canonical_sha(references)}))
         return
-    references = read_json(references_path)
-    validate_references(baseline, references)
-    contracts = registration_contracts(args.root)
-    current = snapshot(args.root, baseline["provenance"]["commit"])
-    errors = compare(baseline, current, references, contracts)
-    print(json.dumps({"status": "FAIL" if errors else "PASS", "frames": len(current["frames"]), "canonicalSourceContracts": len(contracts), "baselineCanonicalSha256": canonical_sha(baseline), "errors": errors}, ensure_ascii=False))
-    require(not errors, "El atlas difiere del baseline inmutable")
+    report = validate_current(args.root, baseline_path, references_path, args.exceptions, args.toe_witness)
+    print(json.dumps(report, ensure_ascii=False))
+    require(not report["errors"], "El atlas difiere del baseline inmutable fuera de sus excepciones exactas")
 
 
 if __name__ == "__main__":
