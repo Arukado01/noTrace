@@ -53,12 +53,24 @@ namespace EngineTests {
       Require(!group->isEnabled() && !overlay.FetchSelection(), "El overlay oculto retiene entradas o selección");
       context.gui.Remove(group);
     }
+    static void VerifyProductionSave() {
+      struct RestoreEnvironment {
+        std::wstring previous;
+        RestoreEnvironment() { if (const auto *value=_wgetenv(L"AWESOME_ENGINE_SAVE_FILE")) previous=value; }
+        ~RestoreEnvironment() { _wputenv_s(L"AWESOME_ENGINE_SAVE_FILE",previous.c_str()); }
+      } restore;
+      const auto path=std::filesystem::absolute(L"production-save-test/Partida compartida ñ.json");
+      std::filesystem::create_directories(path.parent_path());
+      _wputenv_s(L"AWESOME_ENGINE_SAVE_FILE",path.c_str());
+      { SaveManager save; save.Set("ProductionPersistence",55); }
+      { SaveManager save; Require(save.Get("ProductionPersistence",0)==55,"El guardado común de producción no persiste al reabrir SaveManager"); }
+    }
     static void VerifyHud(Game &game) {
       auto &world = const_cast<WorldState &>(game.session_.GetWorld());
       auto &agent = world.agents.front();
       const float health = agent.health, stamina = agent.stamina;
       agent.health = 37.f; agent.stamina = 12.f; game.RefreshHud();
-      Require(game.health_->isVisible() && game.health_->getValue() == 37 && game.stamina_->getValue() == 12, "El HUD no refleja salud y resistencia de la simulación");
+      Require(game.health_->isVisible() && game.health_->getValue() == static_cast<unsigned int>(std::lround(37.f / GameplayConfig::MaxHealth * 100.f)) && game.stamina_->getValue() == 12, "El HUD no refleja salud y resistencia de la simulación");
       unsigned int bars = 0;
       for (const auto &widget : game.root_->getWidgets()) bars += std::dynamic_pointer_cast<tgui::ProgressBar>(widget) ? 1u : 0u;
       const float suppressor = agent.selectedWeapon == WeaponKind::Pistol ? agent.pistolSuppressor : agent.nonLethalSuppressor;
@@ -68,7 +80,7 @@ namespace EngineTests {
     static void VerifyGameOverAndRetry(Game &game) {
       auto &world = const_cast<WorldState &>(game.session_.GetWorld());
       const auto seed = world.seed;
-      world.agents[0].incapacitated = true; world.agents[0].health = 0.f; world.agents[0].incapacityRemaining = GameplayConfig::IncapacityDuration;
+      world.agents[0].lifeState = LifeState::Incapacitated; world.agents[0].incapacitated = true; world.agents[0].health = 0.f; world.agents[0].incapacityRemaining = GameplayConfig::IncapacityDuration;
       Step(game);
       Require(world.phase == GamePhase::Results && !world.results.at(1).success && game.page_ == Game::Page::Results, "El desmayo no abre la derrota separada de la pausa");
       Require(HasButton(game, "REINTENTAR") && HasButton(game, "REGRESAR A LA BASE"), "La derrota no conserva las acciones de recuperación");
@@ -193,7 +205,7 @@ namespace EngineTests {
       Require(agent.loadout.decoys == initialDecoys - 1, "Abrir la pausa y soltar G conservó un lanzamiento cancelado");
       world.noises.clear(); agent.actionCooldown = 0.f;
       press(sf::Keyboard::Scan::Q);
-      Require(game.page_ == Game::Page::Weapons && HasButton(game, "1 / PISTOLA LETAL") && HasButton(game, "2 / ARMA NO LETAL") && world.noises.empty(), "Q no abre el equipo táctico o produce una distracción involuntaria");
+      Require(game.page_ == Game::Page::Weapons && game.weaponSlots_[0] && game.weaponSlots_[1] && game.weaponSlots_[0]->getText().empty() && game.weaponSlots_[1]->getText().empty() && world.noises.empty(), "Q no abre el equipo táctico o produce una distracción involuntaria");
       Escape(game); release(sf::Keyboard::Scan::Q);
       Guard body; body.id = 77; body.position = agent.position + sf::Vector2f{20.f, 0.f}; body.state = GuardState::Incapacitated; body.incapacityRemaining = 60.f; world.guards.push_back(body);
       press(sf::Keyboard::Scan::E);
@@ -255,18 +267,20 @@ namespace EngineTests {
       };
       const auto mouse = [&](sf::Mouse::Button button, bool pressed) {
         context.input.BeginFrame();
+        context.cursor.SetPosition({1000.f, 480.f});
         if (pressed) context.input.CaptureEvent(sf::Event::MouseButtonPressed{button, {1000, 480}});
         else context.input.CaptureEvent(sf::Event::MouseButtonReleased{button, {1000, 480}});
         game.Update(); Step(game);
       };
       const auto fire = [&] {
         context.input.BeginFrame();
+        context.cursor.SetPosition({1000.f, 480.f});
         context.input.CaptureEvent(sf::Event::MouseButtonPressed{sf::Mouse::Button::Left, {1000, 480}});
         context.input.CaptureEvent(sf::Event::MouseButtonReleased{sf::Mouse::Button::Left, {1000, 480}});
         game.Update(); Step(game);
       };
-      const auto clickPanel = [&](const std::string &text) {
-        const auto button = FindButton(game, text);
+      const auto clickPanel = [&](int index) {
+        const auto button = game.weaponSlots_[index];
         const auto position = button->getAbsolutePosition() + button->getSize() / 2.f;
         const auto pixel = window.mapCoordsToPixel({position.x, position.y});
         context.input.BeginFrame(); context.cursor.SetPosition({position.x, position.y});
@@ -275,9 +289,13 @@ namespace EngineTests {
         const sf::Event released = sf::Event::MouseButtonReleased{sf::Mouse::Button::Left, pixel};
         context.input.CaptureEvent(pressed); context.gui.ProcessEvent(pressed);
         context.input.CaptureEvent(released); context.gui.ProcessEvent(released);
-        Require(game.page_ == Game::Page::None && (text != "2 / ARMA NO LETAL" || game.pendingWeaponChoice_ == 1),
-          std::format("El clic real no alcanza el botón {}: página {}, elección {}, píxel {},{}, raíz {}, panel {}", text,
-            static_cast<int>(game.page_), game.pendingWeaponChoice_, pixel.x, pixel.y, game.root_->isEnabled(), game.panel_->isVisible()));
+        Require(game.page_ == Game::Page::Weapons && game.pendingWeaponChoice_ == index, "El clic real no alcanza la silueta del arma");
+        game.Update(); Step(game);
+      };
+      const auto q = [&](bool held) {
+        context.input.BeginFrame();
+        if (held) { sf::Event::KeyPressed event; event.scancode=sf::Keyboard::Scan::Q; context.input.CaptureEvent(event); }
+        else { sf::Event::KeyReleased event; event.scancode=sf::Keyboard::Scan::Q; context.input.CaptureEvent(event); game.OnEvent(event); }
         game.Update(); Step(game);
       };
       mouse(sf::Mouse::Button::Right, true); idle(3);
@@ -292,7 +310,10 @@ namespace EngineTests {
       Key(game, context, sf::Keyboard::Scan::Num2); idle();
       Require(agent.selectedWeapon == WeaponKind::NonLethal && agent.loadout.nonLethalAmmo == 6 && agent.nonLethalMagazine == WeaponConfig::NonLethalCapacity, "2 no selecciona el arma no letal conservando su munición");
       mouse(sf::Mouse::Button::Right, true); fire();
-      Require(agent.aiming && agent.loadout.nonLethalAmmo == 5 && !world.shots.empty() && !world.shots.back().lethal && agent.loadout.lethalAmmo == 5, "Apuntar y pulsar clic izquierdo no dispara el arma no letal seleccionada");
+      Require(agent.aiming && agent.loadout.nonLethalAmmo == 5 && !world.shots.empty() && !world.shots.back().lethal && agent.loadout.lethalAmmo == 5,
+        std::format("Apuntar y pulsar clic izquierdo no dispara el arma no letal seleccionada: apunta {}, NL {}, L {}, trazos {}, letal {}, cooldown {}, recarga {}, página {}, fase {}, cursor ({}, {})",
+          agent.aiming, agent.loadout.nonLethalAmmo, agent.loadout.lethalAmmo, world.shots.size(), !world.shots.empty() && world.shots.back().lethal,
+          agent.actionCooldown, agent.reloadRemaining, static_cast<int>(game.page_), static_cast<int>(world.phase), context.cursor.GetPosition().x, context.cursor.GetPosition().y));
       mouse(sf::Mouse::Button::Right, false); idle(42);
       Key(game, context, sf::Keyboard::Scan::H); idle();
       Require(!agent.nonLethalSuppressorEquipped && agent.pistolSuppressorEquipped && agent.nonLethalSuppressor == WeaponConfig::MaximumSuppressor - WeaponConfig::NonLethalSuppressorWear, "H no desmonta solo el silenciador seleccionado o restaura su desgaste");
@@ -308,18 +329,36 @@ namespace EngineTests {
       idle(static_cast<int>(std::ceil(WeaponConfig::ReloadDuration * GameplayConfig::SimulationHz)) + 2);
       Require(agent.reloadRemaining == 0.f && agent.lethalMagazine == WeaponConfig::PistolCapacity && agent.loadout.lethalAmmo == 5 && agent.pistolSuppressor == durability, "Recargar no conserva el total de cartuchos o restablece el silenciador gastado");
       const float elapsed = world.elapsed;
-      Key(game, context, sf::Keyboard::Scan::Q);
-      Require(game.page_ == Game::Page::Weapons && HasButton(game, "1 / PISTOLA LETAL") && HasButton(game, "2 / ARMA NO LETAL") && world.elapsed == elapsed, "Q no abre ambos equipos o deja avanzar la operación individual mientras se selecciona");
+      q(true);
+      Require(game.page_ == Game::Page::Weapons && game.weaponSlots_[0] && game.weaponSlots_[1] && game.weaponSlots_[0]->getText().empty() && game.weaponSlots_[1]->getText().empty() && world.elapsed == elapsed, "Q no abre ambos equipos o deja avanzar la operación individual mientras se selecciona");
+      const auto picker=Capture(game,context,window,"captures/final-held-weapons.png");
+      const auto savedVisibility=world.visibility; world.visibility.authoritative=true; world.rescueSignals={{2,{-0.70710678f,-0.70710678f},42.f}};
+      const auto pickerRescue=Capture(game,context,window,"captures/final-held-weapons-rescue.png");
+      unsigned int countdownPixels=0;
+      for (int y=215;y<250;++y) for(int x=825;x<895;++x) {
+        const sf::Vector2u pixel{static_cast<unsigned int>(x*picker.getSize().x/1600),static_cast<unsigned int>(y*picker.getSize().y/900)};
+        countdownPixels+=picker.getPixel(pixel)!=pickerRescue.getPixel(pixel);
+      }
+      Require(countdownPixels>10,"El selector Q oculta la cuenta atrás del rescate hacia el borde superior");
+      world.visibility=savedVisibility; world.rescueSignals.clear();
       const auto beforeSelection = agent.position;
       sf::Event::KeyPressed move; move.scancode = sf::Keyboard::Scan::D; context.input.CaptureEvent(move);
-      clickPanel("2 / ARMA NO LETAL");
+      clickPanel(1);
+      Require(game.page_ == Game::Page::Weapons, "Elegir una silueta cierra Q antes de soltarla");
+      for (const auto &widget:game.panel_->getWidgets()) if (const auto label=std::dynamic_pointer_cast<tgui::Label>(widget)) Require(label->getText().toStdString().find(" / ")!=std::string::npos, "El selector contiene texto distinto a cargador/capacidad");
+      q(false);
       Require(game.page_ == Game::Page::None && agent.selectedWeapon == WeaponKind::NonLethal && agent.loadout.lethalAmmo == 5 && agent.loadout.nonLethalAmmo == 5 && !agent.nonLethalSuppressorEquipped,
         std::format("El menú no aplica la elección autoritativa o altera munición y silenciador: página {}, arma {}, L {}, NL {}, silenciador {}, pendiente {}, fase {}, pausado {}",
           static_cast<int>(game.page_), static_cast<int>(agent.selectedWeapon), agent.loadout.lethalAmmo, agent.loadout.nonLethalAmmo, agent.nonLethalSuppressorEquipped,
           game.pendingWeaponChoice_, static_cast<int>(world.phase), game.paused_));
       Require(agent.position != beforeSelection, "Cerrar el selector elimina el movimiento que permanece mantenido");
       sf::Event::KeyReleased stop; stop.scancode = sf::Keyboard::Scan::D; context.input.CaptureEvent(stop); idle();
-      Key(game, context, sf::Keyboard::Scan::Q); clickPanel("VOLVER AL JUEGO");
+      q(true);
+      const auto widgets=game.panel_->getWidgets().size();
+      q(true); Require(game.panel_->getWidgets().size()==widgets, "La repetición de Q reconstruye el selector");
+      agent.nonLethalMagazine=1; game.RefreshWeapons(); Require(game.weaponAmmo_[1]->getText().toStdString()=="1 / 4", "El contador del selector no se actualiza");
+      agent.nonLethalMagazine=WeaponConfig::NonLethalCapacity-1;
+      q(false);
       Require(game.page_ == Game::Page::None && agent.loadout.lethalAmmo == 5 && agent.loadout.nonLethalAmmo == 5 && agent.nonLethalMagazine == WeaponConfig::NonLethalCapacity - 1,
         "El clic real para cerrar el panel dispara el arma o consume munición al volver al mundo");
       context.input.Clear(); game.BindInputs(); game.held_.fill(false); game.pendingWeaponChoice_ = -1; game.session_.Submit({});
@@ -673,6 +712,41 @@ namespace EngineTests {
       Require(image.saveToFile(file), "No se pudo guardar la captura del mundo: " + file.string());
       return image;
     }
+    static void VerifyFinalVisuals(EngineContext &context, sf::RenderWindow &window, const std::filesystem::path &output) {
+      WorldState demo; demo.phase=GamePhase::Mission; demo.size={1000.f,1000.f};
+      Agent covered; covered.id=1; covered.name="Agente"; covered.position={562.01f,500.f}; covered.facing={1.f,0.f};
+      covered.cover.active=true; covered.cover.normal=covered.facing; covered.cover.anchor=covered.position; covered.cover.surface={{520.f,450.f},{30.f,200.f}}; covered.cover.obstacle=0;
+      demo.agents={covered}; demo.obstacles.push_back({covered.cover.surface,CoverKind::High,true,"Pared"});
+      WorldRenderer renderer(context);
+      const auto idle=CaptureWorld(renderer,demo,context,window,output/"final-cover-back.png");
+      demo.agents[0].actionPose=ActionPose::KnockWall;
+      for (int phase=0; phase<4; ++phase) {
+        demo.agents[0].actionPoseTime=GameplayConfig::AttackAnimationDuration*(1.f-phase*.25f);
+        const auto knocking=CaptureWorld(renderer,demo,context,window,output/std::format("final-wall-knock-{}.png",phase));
+        unsigned int armPixels=0;
+        for(unsigned int y=0;y<idle.getSize().y;++y) for(unsigned int x=0;x<idle.getSize().x;++x) if(idle.getPixel({x,y})!=knocking.getPixel({x,y})) ++armPixels;
+        Require(armPixels>5,"La animación de golpe queda totalmente ocluida en la cara visible de la pared");
+      }
+      demo.agents[0].actionPose=ActionPose::None; demo.agents[0].actionPoseTime=0.f;
+      demo.visibility.authoritative=true; demo.rescueSignals={{2,{1.f,0.f},42.f}};
+      const auto rescue=CaptureWorld(renderer,demo,context,window,output/"final-rescue-offscreen.png",false);
+      unsigned int changed=0;
+      for (unsigned int y=0;y<idle.getSize().y;++y) for (unsigned int x=0;x<idle.getSize().x;++x) if (idle.getPixel({x,y})!=rescue.getPixel({x,y})) ++changed;
+      Require(changed>100,"El selector/ocultación del HUD elimina la flecha de rescate fuera de visión");
+      demo.visibility={}; demo.rescueSignals.clear(); demo.obstacles.clear(); demo.agents[0].cover={};
+      const auto quiet=CaptureWorld(renderer,demo,context,window,output/"final-noise-silent.png",false);
+      demo.noises={{demo.agents[0].position,GameplayConfig::RunningNoiseRadius,GameplayConfig::NoiseDuration,1,0,SoundKind::StepRunHard}};
+      const auto loud=CaptureWorld(renderer,demo,context,window,output/"final-noise-running-radius.png",false);
+      const auto screen=WorldRenderer::ProjectGround(demo.agents[0].position+sf::Vector2f{GameplayConfig::RunningNoiseRadius,0.f},demo.agents[0].position,context.window.GetLogicalSize(),renderer.GetZoom());
+      const auto pixel=screen.componentWiseDiv(context.window.GetLogicalSize()).componentWiseMul(sf::Vector2f(loud.getSize()));
+      bool edge=false;
+      for(int y=-4;y<=4;++y) for(int x=-4;x<=4;++x) {
+        const sf::Vector2i sample{static_cast<int>(pixel.x)+x,static_cast<int>(pixel.y)+y};
+        if(sample.x>=0 && sample.y>=0 && sample.x<static_cast<int>(loud.getSize().x) && sample.y<static_cast<int>(loud.getSize().y))
+          edge|=loud.getPixel(sf::Vector2u(sample))!=quiet.getPixel(sf::Vector2u(sample));
+      }
+      Require(edge,"El anillo visible recorta el radio acústico utilizado por la IA");
+    }
     static void CaptureExample(const Scene &scene, EngineContext &context, sf::RenderWindow &window, const std::filesystem::path &file) {
       window.setView(context.window.GetPresentationView());
       window.clear(); context.renderer.BeginDrawing(); scene.Render();
@@ -801,7 +875,7 @@ namespace {
     return {std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()};
   }
 
-  nlohmann::json Run(const std::filesystem::path &output) {
+  nlohmann::json Run(const std::filesystem::path &output, bool finalVisualsOnly = false) {
     sf::RenderWindow window(sf::VideoMode(sf::Vector2u(gConfig.windowSize)), "NO TRACE GUI TEST", sf::Style::None);
     window.setVisible(false);
     window.setKeyRepeatEnabled(false);
@@ -809,6 +883,7 @@ namespace {
     Access::UseSyntheticInput(context);
     context.audio.SetGlobalVolume(0.f);
     Access::Sync(context);
+    Access::VerifyProductionSave();
     Access::VerifyOverlay(context);
     struct ExampleScene final : Scene {
       using Scene::Scene;
@@ -822,6 +897,12 @@ namespace {
     game.Start();
     Access::Require(!game.UsesGlobalOverlay(), "NO TRACE todavía permite el overlay genérico");
     Access::Click(game, context, window, "OPERACIÓN INDIVIDUAL");
+    if (finalVisualsOnly) {
+      Access::GetSession(game).SetReady(true); Access::GetSession(game).Deploy(); game.UpdateBackground();
+      Access::Require(Access::GetSession(game).GetWorld().phase==GamePhase::Mission,"La comprobación visual no pudo desplegar su operación aislada");
+      Access::VerifyFireInput(game,context,window); Access::VerifyFinalVisuals(context,window,output);
+      game.OnCleanup(); window.close(); return nlohmann::json::array();
+    }
     Access::Require(Access::GetSession(game).IsConnected(), "La conexión individual desde GUI falló");
     nlohmann::json metrics = nlohmann::json::array();
     const auto capture = [&](const std::string &name) {
@@ -901,6 +982,7 @@ namespace {
     Access::Require(Access::GetSession(game).IsConnected() && Access::GetSession(game).GetWorld().phase == GamePhase::Base, "Volver a base perdió la sesión o no cambió de fase");
     Access::GetSession(game).Deploy(); game.UpdateBackground();
     Access::Require(Access::GetSession(game).GetWorld().phase == GamePhase::Mission, "No se pudo desplegar después de volver a base");
+    Access::VerifyFinalVisuals(context,window,output);
     EngineTests::RunWorldRenderFixtures(context, output, [&](WorldRenderer &renderer, const WorldState &world, const std::filesystem::path &file, bool hudVisible = true) {
       return Access::CaptureWorld(renderer, world, context, window, file, hudVisible);
     });
@@ -933,8 +1015,9 @@ namespace {
   }
 }
 
-int main() {
+int main(int argc, char **argv) {
   try {
+    const bool finalVisualsOnly = argc == 2 && std::string(argv[1]) == "--final-visuals-only";
     const auto project = std::filesystem::current_path();
     const auto userSave = ReadFile(project / "Content/Save.json");
     const auto sandbox = project / "build/gui-test-sandbox";
@@ -942,10 +1025,11 @@ int main() {
     std::filesystem::create_directories(output);
     std::filesystem::copy(project / "Content", sandbox / "Content", std::filesystem::copy_options::recursive | std::filesystem::copy_options::overwrite_existing);
     std::filesystem::current_path(sandbox);
-    const auto metrics = Run(output);
-    std::ofstream(output / "text-metrics.json") << metrics.dump(2);
+    const auto metrics = Run(output,finalVisualsOnly);
+    std::ofstream(output / (finalVisualsOnly ? "final-visual-metrics.json" : "text-metrics.json")) << metrics.dump(2);
     std::filesystem::current_path(project);
     Access::Require(ReadFile(project / "Content/Save.json") == userSave, "La prueba alteró el guardado original");
+    if (finalVisualsOnly) { std::cout << "PASS ajustes visuales: cuerpo en cobertura, brazo al golpear, flecha fuera de visión y radio acústico real; Save original intacto\n"; return 0; }
     unsigned int overflow = 0;
     for (const auto &entry : metrics) if (!entry.at("fits").get<bool>()) {
       ++overflow;

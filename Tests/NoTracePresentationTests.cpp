@@ -127,7 +127,7 @@ namespace {
     Agent agent; agent.id = 1; agent.position = {100.f, 300.f}; agent.facing = {1.f, 0.f};
     world.obstacles.push_back({{{250.f, 250.f}, {20.f, 100.f}}, CoverKind::High, true, "Muro del láser"});
     Require(Near(WorldRenderer::LaserFor(world, agent).to, {250.f, 300.f}, 0.01f), "El láser atraviesa un muro alto");
-    world.obstacles[0].cover = CoverKind::Low; agent.aimSlope = 0.02f;
+    world.obstacles[0].cover = CoverKind::Low; agent.aimSlope = (SpatialConfig::LowCoverHeight + 1.f - CombatConfig::StandingWeaponHeight) / (250.f - agent.position.x);
     const auto standing = WorldRenderer::LaserFor(world, agent);
     agent.stance = Stance::Prone;
     const auto prone = WorldRenderer::LaserFor(world, agent);
@@ -539,6 +539,16 @@ int main() {
     Require(!NoTrace::IsTraining(training) && !WorldRenderer::DummyHealthVisible(guard, training, &training.agents[0]), "Las barras de entrenamiento se conservan al comenzar una operación real");
     viewer.detectionConfirmed = false; viewer.detectionProgress = std::numeric_limits<float>::quiet_NaN();
     Require(WorldRenderer::DetectionFor(viewer).segments == 0, "Una intensidad inválida llena el indicador de vigilancia");
+    NoTrace::Agent covered; covered.cover.active=true; covered.cover.normal={-1.f,0.f}; covered.facing=covered.cover.normal;
+    const auto coverFrame=WorldRenderer::SelectActorSprite(covered);
+    covered.actionPose=NoTrace::ActionPose::KnockWall;
+    for (float remaining : {.24f,.18f,.12f,.06f}) {
+      covered.actionPoseTime=remaining;
+      Require(WorldRenderer::SelectActorSprite(covered).index==coverFrame.index,"El golpe de pared sustituye el cuerpo de cobertura por un puñetazo");
+    }
+    NoTrace::Guard resting; resting.patrol={{400.f,300.f}}; resting.position={300.f,300.f}; resting.patrolPauseRemaining=15.f;
+    const auto idleGuard=WorldRenderer::ClipFrame(NoTrace::SpriteConfig::Clip::Idle,resting.facing,resting.id*.25f);
+    Require(WorldRenderer::SelectGuardSprite(resting,training).index==idleGuard.index,"La pausa de patrulla reproduce pasos sin desplazamiento");
     std::cout << "PASS presentación: " << checks << " comprobaciones de ejes, profundidad, zoom, cámara, cursor y cuantización sin ventana\n";
     return 0;
   } catch (const std::exception &error) {
