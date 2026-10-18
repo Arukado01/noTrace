@@ -27,7 +27,7 @@ namespace NoTrace::Traversal {
     return {state.to.x, state.to.y, peak + (state.to.z - peak) * (progress * 3.f - 2.f)};
   }
   inline bool Available(const Agent &agent) {
-    return agent.connected && agent.alive && !agent.incapacitated && !agent.extracted && !agent.hidden && agent.stance != Stance::Prone &&
+    return agent.connected && agent.alive && !agent.incapacitated && !agent.extracted && !agent.hidden && !agent.forcedFall.active && agent.stance != Stance::Prone &&
         agent.draggingGuard < 0 && agent.puzzle.target == 0 && agent.cqcHoldingAgent == 0 && agent.cqcHoldingGuard == 0 && agent.cqcHeldBy == 0 && agent.maneuver.kind == ManeuverKind::None;
   }
   inline Selection Find(const WorldState &world, const Agent &agent, bool drop = false) {

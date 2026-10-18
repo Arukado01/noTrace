@@ -23,6 +23,131 @@ namespace NoTrace {
     float Distance(sf::Vector2f first, sf::Vector2f second) { return Length(first - second); }
   }
   namespace Level {
+    // PLANOS AEREOS DEL MAPA MILITAR: esquema de referencia para editar BuildMilitary y BuildMission.
+    // Orientacion del mundo: norte arriba (-Y), sur abajo (+Y), oeste izquierda (-X), este derecha (+X).
+    // Escala aproximada: una columna = 20 unidades X; una fila = 40 unidades Y; los tres planos comparten ejes.
+    // Las cifras laterales son Y; los numeros interiores identifican superficies, salvo simbolos de la leyenda.
+    // El redondeo agrupa detalles menores que una celda; las coordenadas del codigo conservan la geometria exacta.
+    // Leyenda: . suelo transitable; espacio vacio = sin suelo en esa planta; # pared u obstaculo solido.
+    // Leyenda: + - | delimitan superficies, no paredes; = puente, pasarela o muelle; ^ < escaleras hacia arriba.
+    // Leyenda: A = hueco/cabina del ascensor 90 (altura movil); sus muelles de acceso estan al oeste.
+    // Leyenda: I inicio; X extraccion; B contenedor; R armario; M mesa; c caja; b bidones; s banco; m suministros.
+    // Leyenda: D puerta; ! alarma; P panel; C computador; E explosivo; F archivo principal; S secundario; O camara; r repetidor.
+    // Leyenda: g pared de agarre 41; h saliente 42; t tubo 43; v vidrio de seguridad; K servidor.
+    //
+    // PLANTA BAJA, Z=0: exterior y espacios bajo plataformas, almacen y enfermeria abierta por el oeste.
+    //          X: 0                   400                 800                1200               1600
+    //             +--------------------------------------------------------------------------------+
+    //    0        |................................................................................|
+    //             |................................................................................|
+    //   80        |.................!.......P......................................................|
+    //             |..............#.................................................................|
+    //  160        |................................................................................|
+    //             |................................................................................|
+    //  240        |................................#...............................................|
+    //             |....B............g#############.................................................|
+    //  320        |..........^^^^..................................................................|
+    //             |..........2^^^..................................................................|
+    //  400        |..........^^^^..................................................................|
+    //             |..........^^^^...................................................<<3<<<<<<<.....|
+    //  480        |.................................................................<<<<<<<<<<.....|
+    //             |...............E................................................................|
+    //  560        |......................................C.........................................|
+    //             |...................M........................B...................................|
+    //  640        |..I..X........................R.....................................AAAA........|
+    //             |..........########################..................................AAAA........|
+    //  720        |..........#..ALMACEN.............#.......................c......................|
+    //             |..........#......#####...........#.................B............................|
+    //  800        |..........#.................b.....D.............................................|
+    //             |..........#........c.............#..............................................|
+    //  880        |..........#...c..................#......####################....................|
+    //             |..........#...........M...#####..#........ENFERMERIA.......#....................|
+    //  960        |..........#......................#..............####.......#....................|
+    //             |..........#.......s..............#.....................m...#....................|
+    // 1040        |..........########################...............m.........#....................|
+    //             |........................................####################....................|
+    // 1120        |................................................................................|
+    //             |................................................................................|
+    // 1200        +--------------------------------------------------------------------------------+
+    // Referencias: !18=(350,110), P23=(510,110), B14=(95,295), E21=(300,550), C22=(770,590).
+    // Referencias: B15=(885,625), M20=(380,610), R19=(600,650), X17=(105,665), D10=(680,820).
+    // La puerta D ocupa la abertura este del almacen; M20 queda al norte, con espacio libre para volcar y salir.
+    // El hueco del ascensor abarca X=1360..1440, Y=650..730; la cabina puede estar en otra planta.
+    //
+    // PLANTA INTERMEDIA, Z=96: archivo 10, control 11, puente 12 y circuito sur 14 -> 13 -> 16.
+    //          X: 0                   400                 800                1200               1600
+    //             +--------------------------------------------------------------------------------+
+    //    0        |                                                                                |
+    //             |                                                                                |
+    //   80        |         #########################      #########################               |
+    //             |         #..ARCHIVO 10.........R.#      |...CONTROL 11..........#               |
+    //  160        |         #............c..........#      |..................K....# ^^^^          |
+    //             |         #......................O#      |..............S........# ^4^^          |
+    //  240        |         #..................F....|12====|.......................# ^^^^          |
+    //             |         #----###hhhhhhhhhhhhh####======|.......................# ^^^^          |
+    //  320        |          ^^^^                ttttttttttt...........v...........|=====          |
+    //             |          2^^^                          |.......................|=15==          |
+    //  400        |          ^^^^                          |........K.......r......#               |
+    //             |          ^^^^                          |.......................|<<3<<<<<<<     |
+    //  480        |                                        ################----#####<<<<<<<<<<     |
+    //             |                                                        ====    #               |
+    //  560        |                                                        =14=                    |
+    //             |                                                        ====                    |
+    //  640        |                                                        ====     16=AAAA        |
+    //             |                                        ============================AAAA        |
+    //  720        |                                        ======CARGA 13===========               |
+    //             |                                        =========================               |
+    //  800        |                                        =========================               |
+    //             |                                                                                |
+    //  880        |                                                                                |
+    //  920        +--------------------------------------------------------------------------------+
+    // Se omite Y=920..1200: no hay plataformas de esta planta en esa franja.
+    // Archivo 10: F11, O13, R35 y caja c39; control 11: S12, r16 y servidores K30/K41.
+    // Las escaleras 2 y 3 comunican con Z=0; descansillo 15 y escalera 4 comunican con Z=192.
+    // Entre descansillo 15 (Y=332..412) y muelle 16 (Y=650..730) hay vacio, sin conexion directa.
+    //
+    // PLANTA SUPERIOR, Z=192: observatorio 21, mantenimiento 20, puente 22, consola 23 y pasarela 25.
+    //          X: 0                   400                 800                1200               1600
+    //             +--------------------------------------------------------------------------------+
+    //    0        |                                                                                |
+    //             |                                                                                |
+    //   80        |         #########################      ##############################          |
+    //             |         |.OBSERVATORIO 21.......|      +-----------20---------------+          |
+    //  160        |         |.......................|22====+----------+            ==^^^^          |
+    //             |         +-----------------------+======|CONSOLA 23|            ==^4^^          |
+    //  240        |                                        |..........|            ==^^^^          |
+    //             |                                        +----------+            ==^^^^          |
+    //  320        |                                                                ==              |
+    //             |                                                                ==              |
+    //  400        |                                                                25              |
+    //             |                                                                ==              |
+    //  480        |                                                                ==              |
+    //             |                                                                ==              |
+    //  560        |                                                                ==              |
+    //             |                                                                ==              |
+    //  640        |                                                                =24=AAAA        |
+    //             |                                                                ====AAAA        |
+    //  720        |                                                                                |
+    //             |                                                                                |
+    //  800        +--------------------------------------------------------------------------------+
+    // Se omite Y=800..1200: no hay plataformas de esta planta en esa franja.
+    // La consola 23 conecta al norte con mantenimiento 20; entre consola y pasarela 25 hay vacio.
+    // La escalera 4 cambia de altura: su borde junto a pasarela 25 en XY no implica acceso lateral continuo.
+    //
+    // CONEXIONES ENTRE PLANTAS Y SUPERFICIES (los identificadores corresponden al codigo inferior):
+    // Z=0 --escalera 2--> Archivo 10 --puente 12--> Control 11 <--escalera 3-- Z=0
+    // Control 11 --pasarela 14--> Pasarela sur 13 --muelle 16--> Ascensor 90
+    // Control 11 --descansillo 15--escalera 4--> Mantenimiento 20
+    // Observatorio 21 --puente 22--> Consola 23 --al norte--> Mantenimiento 20
+    // Mantenimiento 20 --pasarela 25--> Muelle 24 --> Ascensor 90; paradas Z=0/96/192.
+    //
+    // AGARRES EN EL BORDE DEL ARCHIVO (g y h comparten XY, pero tienen distinta altura):
+    // Suelo --B en (340,326)--> Pared 41 --avanzar hasta X=500 y B--> Saliente 42
+    // Saliente 42 --B en X=500--> Archivo 10; o --avanzar hasta X=600 y B--> Tubo 43
+    // Tubo 43: desde (600,330) hasta (820,330); B al final permite subir a Control 11 en (840,330).
+    // Manos/cuerpo: pared 41 Z=64/18; saliente 42 y tubo 43 Z=142/96.
+    // Mayus+B sobre el tubo en (700,330) aterriza sobre puente 12 a Z=96.
+    // Al mover una superficie, actualizar tambien sus paredes, objetos, apoyos y extremos de conexion.
     void BuildMilitary(WorldState &world) {
       using namespace LevelConfig;
       world.size = {Width, Height}; world.walkSurfaces.clear(); world.verticalLinks.clear(); world.gripSurfaces.clear(); world.elevators.clear(); world.obstacles.clear();
@@ -132,7 +257,7 @@ namespace NoTrace {
       auto &waste = furniture(36, ObjectKind::Hideout, {1020.f, 790.f}, 0.f, 5, "Recogida de residuos"); waste.hideoutKind = HideoutKind::TrashBin; waste.propStyle = PropStyle::Waste;
       auto &logistics = furniture(37, ObjectKind::Armory, {1150.f, 750.f}, 0.f, 5, "Logística de carga"); logistics.propStyle = PropStyle::Logistics; logistics.decorative = true;
       auto &munitions = furniture(38, ObjectKind::Armory, {280.f, 900.f}, 0.f, 5, "Reserva de munición"); munitions.propStyle = PropStyle::Ammunition; munitions.decorative = true;
-      auto &desk = furniture(39, ObjectKind::Operations, {450.f, 190.f}, 96.f, 10, "Puesto de archivo"); desk.propStyle = PropStyle::Desk; desk.decorative = true;
+      auto &archiveCrate = furniture(39, ObjectKind::Operations, {450.f, 190.f}, 96.f, 10, "Caja de archivo"); archiveCrate.propStyle = PropStyle::Logistics; archiveCrate.decorative = true;
       auto &communications = furniture(41, ObjectKind::Armory, {990.f, 420.f}, 96.f, 11, "Servidores de comunicaciones"); communications.propStyle = PropStyle::Server; communications.decorative = true;
       auto &care = furniture(42, ObjectKind::Armory, {980.f, 1050.f}, 0.f, 5, "Puesto sanitario"); care.propStyle = PropStyle::Medical; care.decorative = true;
       const auto decoration = [&](std::uint32_t id, PropStyle style, sf::Vector2f position, sf::Vector2f size, float z, std::uint32_t support, std::string name) {
@@ -146,7 +271,7 @@ namespace NoTrace {
       decoration(67, PropStyle::Glass, {1050.f, 340.f}, {70.f, 10.f}, 96.f, 11, "Vidrio de seguridad");
       decoration(68, PropStyle::Ventilation, {1150.f, 850.f}, {42.f, 36.f}, 0.f, 5, "Ventilación técnica");
       decoration(69, PropStyle::SafetyLamp, {1270.f, 320.f}, {18.f, 18.f}, 96.f, 11, "Baliza de seguridad");
-      for (auto &agent : world.agents) { agent.elevation = 0.f; agent.supportId = agent.position.y >= 650.f ? 5u : 1u; agent.traversal = {}; }
+      for (auto &agent : world.agents) { agent.elevation = 0.f; agent.supportId = agent.position.y >= 650.f ? 5u : 1u; agent.traversal = {}; agent.forcedFall = {}; }
       for (auto &guard : world.guards) {
         if (guard.id == 1) { guard.patrol = {{330.f, 140.f}, {520.f, 140.f}, {520.f, 250.f}, {330.f, 250.f}}; guard.elevation = 96.f; guard.supportId = 10; }
         else if (guard.id == 2) { guard.patrol = {{900.f, 130.f}, {1240.f, 130.f}, {1240.f, 460.f}, {900.f, 460.f}}; guard.elevation = 96.f; guard.supportId = 11; }
@@ -193,7 +318,7 @@ namespace NoTrace {
     for (auto &object : world_.objects) if (object.kind == ObjectKind::Hideout) object.hideoutKind = HideoutKind::TrashBin;
     Interactable closet{19, ObjectKind::Hideout, {600.f, 650.f}, "Armario de mantenimiento"};
     closet.hideoutKind = HideoutKind::Closet; world_.objects.push_back(closet);
-    Interactable table{20, ObjectKind::Hideout, {360.f, 650.f}, "Mesa de servicio"};
+    Interactable table{20, ObjectKind::Hideout, {380.f, 610.f}, "Mesa de servicio"};
     table.hideoutKind = HideoutKind::UnderTable; world_.objects.push_back(table);
     for (std::uint32_t index = 0; index < 3 + seed % 2; ++index) {
       Guard guard;

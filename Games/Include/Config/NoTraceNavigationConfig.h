@@ -14,4 +14,5 @@ namespace NoTrace::NavigationConfig {
   inline constexpr float NearbySearchRadius = CellSize * 2.f;
   inline constexpr float RejectDuration = 5.f;
   inline constexpr int MaximumCells = 20000;
+  inline constexpr unsigned int SearchNodesPerTick = 64;
 }

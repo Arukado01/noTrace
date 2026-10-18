@@ -9,7 +9,7 @@
 namespace NoTrace::IconsConfig {
   inline constexpr std::size_t Size = 16;
   using Bitmap = std::array<std::string_view, Size>;
-  struct Definition { std::string_view name; Bitmap pixels; };
+  struct Definition { std::string_view name; Bitmap pixels; std::size_t width = Size; };
   inline constexpr std::array<Definition, static_cast<std::size_t>(Icons::Kind::Count)> Glyphs{{
     {"Dossier", {{
       "................", "...oooooooo.....", "..offfffffoo....", "..offfffffaoo...",
@@ -60,11 +60,11 @@ namespace NoTrace::IconsConfig {
       ".....oooooo.....", "................", "................", "................"
     }}},
     {"Unconscious", {{
-      "................", "...........aa...", "..........aaa...", ".........aaa....",
-      "...oooo...aa....", "..offffoo..aaa..", ".offfffffo..aa..", ".offfffffso.....",
-      ".offooofffso....", "..offffofffso...", "..offfffoffso...", "...offffssso....",
-      "....offssso.....", ".....ooooo......", "................", "................"
-    }}},
+      "........................", "................aaaaa...", "......aaaaa........a....", "....affffffa......a.....",
+      "...affffffffa....a......", "..affffffffffa..aaaaa...", "..afoofffffffa..........", "...affofffffffa....aaaa.",
+      "...affffffooofa......a..", "....afffffffffa.....a...", ".....afooffffa.....aaaa.", "......afffffa...........",
+      ".......aaaaa....aaa.....", ".................a......", "................aaa.....", "........................"
+    }}, 24},
     {"Dead", {{
       "................", ".....aaaaaa.....", "...aaffffffaa...", "..affffffffffa..",
       "..affffffffffa..", "..affooffooffa..", "..affooffooffa..", "..affffffffffa..",
@@ -74,10 +74,10 @@ namespace NoTrace::IconsConfig {
   }};
   consteval bool Valid() {
     for (const auto &glyph : Glyphs) for (const auto row : glyph.pixels) {
-      if (row.size() != Size) return false;
+      if (row.size() != glyph.width) return false;
       for (const char pixel : row) if (std::string_view(".osfap").find(pixel) == std::string_view::npos) return false;
     }
     return true;
   }
-  static_assert(Valid(), "Los iconos deben contener exactamente 16x16 píxeles tipados");
+  static_assert(Valid(), "Los iconos deben contener 16 filas de píxeles tipados con su ancho declarado");
 }

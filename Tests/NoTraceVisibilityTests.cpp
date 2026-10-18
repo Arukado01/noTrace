@@ -309,6 +309,16 @@ namespace {
     world.objects.push_back(table);
     Require(Visibility::IsGeometricallyVisible(world, observer, {400.f, 300.f}, Stance::Prone), "El cursor no permite observar delante bajo la mesa");
     Require(!Visibility::IsGeometricallyVisible(world, observer, {200.f, 300.f}, Stance::Prone), "La mesa conserva visión de 360 grados");
+    Require(!Visibility::IsGeometricallyVisible(world, observer, {290.f, 300.f}, Stance::Prone) &&
+      !Visibility::IsGeometricallyVisible(world, observer, {300.f, 310.f}, Stance::Prone) &&
+      !Visibility::IsGeometricallyVisible(world, observer, {330.f, 340.f}, Stance::Prone),
+      "La mesa revela un halo cercano o un lado fuera del cono frontal del ratón");
+    const auto tableView = Visibility::BuildGrid(world, observer);
+    Require(tableView.visualRadii[90] <= VisibilityConfig::SurfaceOffset && tableView.visualRadii[180] <= VisibilityConfig::SurfaceOffset,
+      "La frontera de niebla conserva visión lateral o trasera bajo mesa");
+    world.visibility = tableView;
+    Require(!Visibility::IsVisible(world, observer, {290.f, 300.f}, Stance::Prone), "La celda del propio agente revela la espalda bajo mesa");
+    world.visibility = {};
     Require(!Visibility::IsGeometricallyVisible(world, observer, {300.f + VisibilityConfig::ProneRange + 1.f, 300.f}, Stance::Prone), "La mesa amplía el alcance tumbado");
     observer.weaponAim = {-1.f, 0.f};
     Require(Visibility::IsGeometricallyVisible(world, observer, {200.f, 300.f}, Stance::Prone) && observer.facing == sf::Vector2f{0.f, 1.f}, "El cursor no cambia el cono conservando el cuerpo fijo");
@@ -318,6 +328,12 @@ namespace {
     world.obstacles.clear();
     const auto corner = WorldGeometry::ObjectFootprint(table).size * 0.5f;
     Require(!Visibility::IsGeometricallyVisible(world, observer, observer.position + corner.normalized() * 100.f, Stance::Prone), "Las patas de la mesa carecen de oclusión física");
+    world.phase = GamePhase::Base; world.mode = SimulationMode::Training;
+    Require(Visibility::UsesFieldOfView(world, observer) && !Visibility::IsVisible(world, observer, {290.f, 300.f}, Stance::Prone),
+      "La mesa de entrenamiento revela simultáneamente las direcciones ajenas al cursor");
+    const auto trainingView = Visibility::BuildGrid(world, observer);
+    Require(trainingView.visualRadii[180] <= VisibilityConfig::SurfaceOffset, "Entrenamiento no conserva el mismo cono frontal de mesa");
+    world.phase = GamePhase::Mission; world.mode = SimulationMode::Operation;
     observer.hidden = false; observer.hideoutId = 0; observer.stance = Stance::Standing; observer.facing = {1.f, 0.f}; world.objects.clear();
     Agent target; target.position = observer.position; target.elevation = 96.f;
     world.walkSurfaces.push_back({1, 1, WalkSurfaceKind::Floor, {{200.f, 200.f}, {200.f, 200.f}}, 96.f});
@@ -339,7 +355,7 @@ namespace {
     grid.cells.resize(static_cast<std::size_t>(grid.columns) * grid.rows);
     for (unsigned int row = 0; row < grid.rows; ++row) for (unsigned int column = 0; column < grid.columns; ++column) {
       const sf::Vector2f point{std::min(world.size.x - .01f, (column + .5f) * grid.cellSize), std::min(world.size.y - .01f, (row + .5f) * grid.cellSize)};
-      grid.cells[static_cast<std::size_t>(row) * grid.columns + column] = world.phase != GamePhase::Mission || Visibility::IsGeometricallyVisible(world, observer, point, Stance::Prone);
+      grid.cells[static_cast<std::size_t>(row) * grid.columns + column] = !Visibility::UsesFieldOfView(world, observer) || Visibility::IsGeometricallyVisible(world, observer, point, Stance::Prone);
     }
     const auto column = static_cast<unsigned int>(std::max(0.f, observer.position.x) / grid.cellSize);
     const auto row = static_cast<unsigned int>(std::max(0.f, observer.position.y) / grid.cellSize);

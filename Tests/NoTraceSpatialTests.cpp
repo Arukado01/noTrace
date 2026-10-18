@@ -2,7 +2,10 @@
 #include "NoTraceWorldGeometry.h"
 #include "NoTraceSpatialFixture.h"
 #include "NoTraceMultilevelTests.h"
+#include "NoTraceFurniture.h"
+#include "NoTraceInteraction.h"
 #include "Config/NoTraceNavigationConfig.h"
+#include <array>
 #include <cmath>
 #include <iostream>
 #include <stdexcept>
@@ -25,6 +28,7 @@ namespace {
   Json Empty(Simulation &simulation, sf::Vector2f position = {120.f, 200.f}) {
     simulation.ResetBase();
     auto snapshot = simulation.SnapshotFor(1);
+    TestFixture::LegacyPlane(snapshot);
     snapshot["mode"] = static_cast<int>(SimulationMode::Operation);
     snapshot["obstacles"] = Json::array(); snapshot["objects"] = Json::array(); snapshot["guards"] = Json::array();
     snapshot["agents"][0]["position"] = {position.x, position.y};
@@ -33,7 +37,8 @@ namespace {
 
   Json Object(ObjectKind kind, sf::Vector2f position, std::uint32_t id = 77) {
     Simulation donor; donor.ResetBase();
-    auto object = donor.SnapshotFor(1)["objects"][0];
+    auto snapshot = donor.SnapshotFor(1); TestFixture::LegacyPlane(snapshot);
+    auto object = snapshot["objects"][0];
     object["kind"] = static_cast<int>(kind); object["id"] = id;
     object["position"] = {position.x, position.y}; object["name"] = "Objeto de prueba";
     return object;
@@ -41,7 +46,8 @@ namespace {
 
   Json Wall(sf::FloatRect bounds, CoverKind cover = CoverKind::High) {
     Simulation donor; donor.ResetBase();
-    auto obstacle = donor.SnapshotFor(1)["obstacles"][0];
+    auto snapshot = donor.SnapshotFor(1); TestFixture::LegacyPlane(snapshot);
+    auto obstacle = snapshot["obstacles"][0];
     obstacle["position"] = {bounds.position.x, bounds.position.y}; obstacle["size"] = {bounds.size.x, bounds.size.y};
     obstacle["cover"] = static_cast<int>(cover); obstacle["name"] = "Pared de prueba";
     return obstacle;
@@ -99,6 +105,42 @@ namespace {
     Require(WorldGeometry::BlocksMovement(object) && WorldGeometry::BlocksVision(object), "La puerta cerrada no bloquea");
     object.open = true;
     Require(!WorldGeometry::BlocksMovement(object) && !WorldGeometry::BlocksVision(object), "La puerta abierta sigue bloqueando");
+  }
+
+  void MilitaryServiceTableHasFlipAndExitSpace() {
+    for (const auto seed : {0u, 1u, 2u, 3u}) {
+      Simulation simulation; simulation.ResetBase(); simulation.Deploy(seed);
+      const auto &world = simulation.GetState();
+      const auto table = std::ranges::find(world.objects, 20u, &Interactable::id);
+      Require(table != world.objects.end() && table->position == sf::Vector2f{380.f, 610.f} && table->supportId == 1 && table->elevation == 0.f,
+        "La mesa de servicio no queda íntegra sobre el suelo norte de la misión");
+      Require(!table->overturned && Furniture::TablePlacementClear(world, *table, false) && Furniture::TablePlacementClear(world, *table, true),
+        "La huella normal o volcada de la mesa militar invade otro apoyo, muro o patrulla inicial");
+    }
+    Simulation simulation; auto &world = MultilevelTests::QuietMission(simulation); auto &agent = world.agents.front();
+    auto &table = *std::ranges::find(world.objects, 20u, &Interactable::id);
+    agent.position = table.position + sf::Vector2f{61.f, 0.f}; agent.elevation = table.elevation; agent.supportId = table.supportId;
+    Require(Furniture::CanFlipTable(world, agent, table), "El acceso real a la mesa militar no permite usar T");
+    ActionCommand flip; flip.tool = true; simulation.Step(1.f / 60.f, {{agent.id, flip}});
+    Require(table.overturned && Furniture::TablePlacementClear(world, table, true), "T no vuelca la mesa militar en su espacio físico libre");
+    for (const auto direction : std::array<sf::Vector2f, 4>{{{1.f, 0.f}, {-1.f, 0.f}, {0.f, 1.f}, {0.f, -1.f}}}) {
+      auto departing = agent; departing.position = table.position; departing.stance = Stance::Prone; departing.weaponAim = direction;
+      sf::Vector2f exit;
+      Require(Interaction::HideoutExit(world, departing, table, exit), "La mesa militar volcada bloquea una salida física del ocupante");
+      const auto support = WorldGeometry::FindSupport(world, exit, table.elevation, table.supportId, GameplayConfig::AgentRadius);
+      Require(support && !WorldGeometry::PositionBlocked(world, exit, GameplayConfig::AgentRadius, support->elevation, CombatConfig::ProneHeight, support->id) &&
+          Furniture::TablePlacementClear(world, table, true, agent.id, exit), "La expulsión de la mesa militar termina sin apoyo o dentro de la mesa o el muro");
+    }
+    Advance(simulation, {}, 60, 1.f / 60.f); simulation.Step(1.f / 60.f, {{agent.id, flip}});
+    Require(!table.overturned, "T no restablece la mesa militar para volver a ocultarse");
+    Advance(simulation, {}, 60, 1.f / 60.f);
+    ActionCommand enter; enter.interact = true; enter.aimX = -1.f; simulation.Step(1.f / 60.f, {{agent.id, enter}});
+    Require(agent.hidden && agent.hideoutId == table.id && agent.supportId == 1, "E no entra bajo la mesa militar con el apoyo real");
+    ActionCommand leave; leave.interact = true; leave.aimY = -1.f; simulation.Step(1.f / 60.f, {{agent.id, leave}});
+    Require(!agent.hidden && agent.hideoutId == 0 && agent.position.y < table.position.y && agent.supportId == 1 &&
+        !WorldGeometry::PositionBlocked(world, agent.position, GameplayConfig::AgentRadius, agent.elevation, WorldGeometry::ActorHeight(agent), agent.supportId),
+      "E no devuelve al ocupante a un suelo libre por el lado del cursor de la mesa militar");
+    MultilevelTests::Replica(simulation);
   }
 
   void SolidMovement() {
@@ -189,6 +231,126 @@ namespace {
     snapshot["guards"][0]["position"] = {190.f, 190.f}; snapshot["guards"][0]["patrol"] = Json::array({{350.f, 160.f}}); Load(simulation, snapshot);
     for (unsigned int frame = 0; frame < 60; ++frame) { Advance(simulation); RequireClear(simulation, simulation.GetState().guards[0].position); }
     Require(simulation.GetState().guards[0].position.x > 320.f, "La huella circular válida junto a una esquina queda atrapada por una expansión rectangular ficticia");
+  }
+
+  void IncrementalGuardNavigation() {
+    Simulation simulation, donor;
+    auto snapshot = Empty(simulation, {100.f, 650.f}); snapshot["phase"] = static_cast<int>(GamePhase::Mission); snapshot["agents"][0]["hidden"] = true;
+    donor.ResetBase(); donor.Deploy(0); auto donorSnapshot = donor.SnapshotFor(1); TestFixture::LegacyPlane(donorSnapshot);
+    auto guard = donorSnapshot["guards"][0];
+    guard["facing"] = {1.f, 0.f}; guard["state"] = static_cast<int>(GuardState::Patrol); guard["waypoint"] = 0;
+    for (unsigned int index = 0; index < 3; ++index) {
+      guard["id"] = 901u + index; guard["position"] = {120.f, 200.f + index * 20.f};
+      guard["patrol"] = Json::array({{index == 0 ? 280.f : 500.f, 200.f + index * 20.f}});
+      snapshot["guards"].push_back(guard);
+    }
+    snapshot["obstacles"] = Json::array({Wall({{240.f, 140.f}, {80.f, 160.f}})}); Load(simulation, snapshot);
+    const std::array<sf::Vector2f, 3> origins{{{120.f, 200.f}, {120.f, 220.f}, {120.f, 240.f}}};
+    Advance(simulation, {}, 1, 1.f / 60.f);
+    for (std::size_t index = 0; index < origins.size(); ++index)
+      Require(simulation.GetState().guards[index].position == origins[index] && simulation.GetState().guards[index].navigation.empty(), "Una búsqueda incompleta mueve al guardia o consume toda la rejilla en el primer tick");
+    std::array<bool, 3> moved{};
+    bool sharedBeforeImpossibleFinished = false;
+    auto &world = const_cast<WorldState &>(simulation.GetState());
+    for (unsigned int frame = 0; frame < 30; ++frame) {
+      world.guards[1].patrol[0].x += 0.25f;
+      const std::array<sf::Vector2f, 3> before{{world.guards[0].position, world.guards[1].position, world.guards[2].position}};
+      Advance(simulation, {}, 1, 1.f / 60.f);
+      for (std::size_t index = 0; index < moved.size(); ++index) {
+        moved[index] = moved[index] || world.guards[index].position != origins[index];
+        RequireClear(simulation, world.guards[index].position);
+        Require((world.guards[index].position - before[index]).length() <= GameplayConfig::GuardSpeed / 60.f + SpatialConfig::CollisionSkin, "Una ruta incremental teletransporta al guardia");
+      }
+      sharedBeforeImpossibleFinished = sharedBeforeImpossibleFinished || (!moved[0] && moved[1] && moved[2]);
+    }
+    Require(sharedBeforeImpossibleFinished && moved[1] && moved[2], "El primer destino imposible acapara la cola o un objetivo móvil impide avanzar en medio segundo");
+
+    snapshot["guards"] = Json::array({snapshot["guards"][1]}); snapshot["guards"][0]["position"] = {120.f, 200.f}; snapshot["guards"][0]["patrol"] = Json::array({{700.f, 200.f}});
+    snapshot["obstacles"] = Json::array({Wall({{160.f, 80.f}, {20.f, 320.f}}), Wall({{240.f, 0.f}, {24.f, 168.f}}), Wall({{240.f, 232.f}, {24.f, 528.f}})});
+    auto door = Object(ObjectKind::Door, {252.f, 200.f}, 910); door["open"] = true; snapshot["objects"] = Json::array({door}); Load(simulation, snapshot);
+    Advance(simulation, {}, 1, 1.f / 60.f);
+    Require(world.guards.front().position == sf::Vector2f{120.f, 200.f} && world.guards.front().navigation.empty(), "La prueba de puerta no conserva una búsqueda pendiente");
+    const auto pending = simulation.SnapshotFor(1);
+    Simulation fresh; Load(fresh, pending); Load(simulation, pending);
+    for (unsigned int frame = 0; frame < 50; ++frame) {
+      Advance(simulation, {}, 1, 1.f / 60.f); Advance(fresh, {}, 1, 1.f / 60.f);
+      Require(world.guards.front().position == fresh.GetState().guards.front().position, "Una búsqueda privada sobrevive al reemplazo aceptado del snapshot");
+    }
+    const auto doorRouteLength = [&] {
+      const auto &moving = world.guards.front(); auto previous = moving.position;
+      float remaining = 0.f;
+      for (const auto point : moving.navigation) { remaining += (point - previous).length(); previous = point; }
+      return remaining;
+    };
+    const auto describeDoorRoute = [&](const char *stage, unsigned int ticks, float travelled) {
+      const auto &moving = world.guards.front(); const float remaining = doorRouteLength();
+      std::cout << "Ruta puerta etapa=" << stage << " ticks=" << ticks << " pos=" << moving.position.x << ',' << moving.position.y << " estado=" << static_cast<int>(moving.state)
+        << " nodos=" << moving.navigation.size() << " longitud=" << remaining << " recorrido=" << travelled << " minimoTicks=" << remaining / GameplayConfig::GuardSpeed * 60.f
+        << " objetivo=" << moving.navigationTarget.x << ',' << moving.navigationTarget.y << " fallos=" << moving.navigationFailures << " atasco=" << moving.navigationStuckTime
+        << " rechazo=" << moving.navigationRejectTime << " refresh=" << moving.navigationTimer << " abierta=" << world.objects.front().open;
+      if (!moving.navigation.empty()) std::cout << " siguiente=" << moving.navigation.front().x << ',' << moving.navigation.front().y;
+      std::cout << '\n';
+    };
+    Load(simulation, snapshot); Advance(simulation, {}, 1, 1.f / 60.f); world.objects.front().open = false;
+    float closedTravelled = 0.f;
+    for (unsigned int frame = 0; frame < 80; ++frame) {
+      const auto previous = world.guards.front().position;
+      Advance(simulation, {}, 1, 1.f / 60.f); RequireClear(simulation, world.guards.front().position);
+      closedTravelled += (world.guards.front().position - previous).length();
+      Require(world.guards.front().position.x <= 240.f - GameplayConfig::AgentRadius + SpatialConfig::CollisionSkin, "Una búsqueda pendiente conserva una ruta a través de una puerta que se cerró");
+    }
+    describeDoorRoute("cerrada", 80, closedTravelled);
+    // La ruta válida rodea el extremo del muro; el plazo incluye su distancia y la cuantización de cada waypoint.
+    const auto openedFrameLimit = static_cast<unsigned int>(std::ceil(doorRouteLength() / GameplayConfig::GuardSpeed * 60.f)) +
+        static_cast<unsigned int>(world.guards.front().navigation.size()) * 2u + 60u;
+    world.objects.front().open = true;
+    float openedTravelled = 0.f, previousProgress = 0.f;
+    unsigned int openedFrames = 0;
+    for (; openedFrames < openedFrameLimit && world.guards.front().position.x <= 300.f; ++openedFrames) {
+      const auto previous = world.guards.front().position;
+      Advance(simulation, {}, 1, 1.f / 60.f); RequireClear(simulation, world.guards.front().position);
+      const float progress = (world.guards.front().position - previous).length(); openedTravelled += progress;
+      Require(progress <= GameplayConfig::GuardSpeed / 60.f + SpatialConfig::CollisionSkin, "La reapertura teletransporta al guardia para cumplir el plazo");
+      if ((openedFrames + 1) % 60 == 0) {
+        Require(openedTravelled > previousProgress + 1.f, "Una ruta física válida deja de avanzar durante un segundo tras abrir la puerta");
+        previousProgress = openedTravelled;
+      }
+    }
+    describeDoorRoute("abierta", openedFrames, openedTravelled);
+    std::cout << "Ruta puerta plazo derivado=" << openedFrameLimit << " ticks\n";
+    Require(world.guards.front().position.x > 300.f, "La búsqueda no recupera una ruta física después de abrir la puerta");
+  }
+
+  void SixGuardNavigationRespondsWithinOneSecond() {
+    Simulation simulation, donor;
+    auto snapshot = Empty(simulation, {100.f, 650.f}); snapshot["phase"] = static_cast<int>(GamePhase::Mission); snapshot["agents"][0]["hidden"] = true;
+    donor.ResetBase(); donor.Deploy(0); auto donorSnapshot = donor.SnapshotFor(1); TestFixture::LegacyPlane(donorSnapshot);
+    auto guard = donorSnapshot["guards"][0];
+    guard["facing"] = {1.f, 0.f}; guard["state"] = static_cast<int>(GuardState::Patrol); guard["waypoint"] = 0;
+    std::array<sf::Vector2f, 6> origins;
+    for (std::size_t index = 0; index < origins.size(); ++index) {
+      origins[index] = {120.f, 180.f + static_cast<float>(index) * 12.f};
+      guard["id"] = 921u + index; guard["position"] = {origins[index].x, origins[index].y};
+      guard["patrol"] = Json::array({{index == 0 ? 280.f : 500.f, origins[index].y}}); snapshot["guards"].push_back(guard);
+    }
+    snapshot["obstacles"] = Json::array({Wall({{240.f, 140.f}, {80.f, 160.f}})}); Load(simulation, snapshot);
+    auto &world = const_cast<WorldState &>(simulation.GetState());
+    std::array<unsigned int, 6> firstMovement{};
+    for (unsigned int frame = 1; frame <= 60; ++frame) {
+      world.guards[1].patrol[0].x += 0.25f;
+      std::array<sf::Vector2f, 6> before;
+      for (std::size_t index = 0; index < before.size(); ++index) before[index] = world.guards[index].position;
+      Advance(simulation, {}, 1, 1.f / 60.f);
+      for (std::size_t index = 0; index < before.size(); ++index) {
+        if (firstMovement[index] == 0 && world.guards[index].position != origins[index]) firstMovement[index] = frame;
+        RequireClear(simulation, world.guards[index].position);
+        Require((world.guards[index].position - before[index]).length() <= GameplayConfig::GuardSpeed / 60.f + SpatialConfig::CollisionSkin, "Compartir la búsqueda entre seis guardias permite atravesar una esquina o teletransportarse");
+      }
+    }
+    for (std::size_t index = 1; index < firstMovement.size(); ++index) {
+      std::cout << "Navegación seis guardias id=" << world.guards[index].id << " primer movimiento=" << firstMovement[index] << "/60 ticks\n";
+      Require(firstMovement[index] > 0 && firstMovement[index] <= 60, "Un destino imposible o móvil impide que las otras cinco rutas comunes avancen en un segundo");
+    }
   }
 
   void WallCoverAndPeek() {
@@ -331,7 +493,7 @@ namespace {
 
 int main() {
   try {
-    MultilevelTests::Run(); PropertiesAndFootprints(); SolidMovement(); GuardNavigation(); GuardCornerRecovery(); WallCoverAndPeek(); AutomaticCoverEdgeAndBack(); CoverBackUsesEveryPhysicalWallFace(); AutomaticPeekUsesTheCurrentAnchor(); MalformedCoverSnapshots();
+    MultilevelTests::Run(); PropertiesAndFootprints(); MilitaryServiceTableHasFlipAndExitSpace(); SolidMovement(); GuardNavigation(); GuardCornerRecovery(); IncrementalGuardNavigation(); SixGuardNavigationRespondsWithinOneSecond(); WallCoverAndPeek(); AutomaticCoverEdgeAndBack(); CoverBackUsesEveryPhysicalWallFace(); AutomaticPeekUsesTheCurrentAnchor(); MalformedCoverSnapshots();
     std::cout << "PASS spatial: " << checks << " comprobaciones de huellas, colisiones, navegación, cobertura y asomado físico\n";
     return 0;
   } catch (const std::exception &error) {

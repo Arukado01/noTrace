@@ -2,22 +2,23 @@
 #include "Config/NoTraceCqcConfig.h"
 #include "NoTraceVisibility.h"
 #include "NoTraceSpatialGeometry.h"
+#include "NoTraceForcedFalls.h"
 #include <algorithm>
 #include <cmath>
-#include <numbers>
 
 namespace NoTrace {
   namespace {
     enum class CqcInputContext { Held, CoverWall, Combat };
     sf::Vector2f CqcUnit(sf::Vector2f value) { return value.lengthSquared() > 0.0001f ? value / value.length() : sf::Vector2f{1.f, 0.f}; }
-    bool CqcGuardAvailable(const Guard &guard) { return guard.state != GuardState::Dead && guard.state != GuardState::Incapacitated && !guard.bodyHidden && guard.heldBy == 0 && guard.cqcState == CqcState::None; }
-    bool CqcAgentAvailable(const Agent &agent) { return agent.connected && agent.alive && !agent.incapacitated && !agent.hidden && !agent.extracted && agent.cqcHeldBy == 0 && agent.cqcHoldingAgent == 0 && agent.cqcHoldingGuard == 0 && agent.stance != Stance::Prone && agent.maneuver.kind == ManeuverKind::None && agent.traversal.mode == TraversalMode::Grounded; }
-    bool CharacterPathClear(const WorldState &world, const Agent &agent, Simulation::CqcTarget target, sf::Vector2f from, sf::Vector2f to) {
+    bool CqcGuardAvailable(const Guard &guard) { return guard.state != GuardState::Dead && guard.state != GuardState::Incapacitated && !guard.bodyHidden && guard.heldBy == 0 && guard.cqcState == CqcState::None && !guard.forcedFall.active; }
+    bool CqcAgentAvailable(const Agent &agent) { return agent.connected && agent.alive && !agent.incapacitated && !agent.hidden && !agent.extracted && agent.cqcHeldBy == 0 && agent.cqcHoldingAgent == 0 && agent.cqcHoldingGuard == 0 && agent.stance != Stance::Prone && agent.maneuver.kind == ManeuverKind::None && agent.traversal.mode == TraversalMode::Grounded && !agent.forcedFall.active; }
+    bool CharacterPathClear(const WorldState &world, const Agent &agent, Simulation::CqcTarget target, sf::Vector2f from, sf::Vector2f to, bool requireSupport = true, std::optional<float> targetElevation = std::nullopt) {
       if (!WorldGeometry::ClearBodySegment(world, {from.x, from.y, agent.elevation}, {to.x, to.y, agent.elevation}, GameplayConfig::AgentRadius, WorldGeometry::ActorHeight(agent), agent.supportId)) return false;
-      if (!world.walkSurfaces.empty()) {
+      if (requireSupport && !world.walkSurfaces.empty()) {
         auto position = from; auto elevation = agent.elevation; auto support = agent.supportId;
         WorldGeometry::MoveOnSupports(world, position, elevation, support, to - from, GameplayConfig::AgentRadius, WorldGeometry::ActorHeight(agent));
-        if ((position - to).length() > SpatialConfig::CoverPositionTolerance || std::abs(elevation - agent.elevation) > LevelConfig::MaximumStepHeight) return false;
+        if ((position - to).length() > SpatialConfig::CoverPositionTolerance || std::abs(elevation - agent.elevation) > LevelConfig::MaximumStepHeight ||
+            (targetElevation && std::abs(elevation - *targetElevation) > LevelConfig::MaximumStepHeight)) return false;
       }
       const auto movement = to - from;
       const auto clear = [&](sf::Vector2f position) {
@@ -28,43 +29,46 @@ namespace NoTrace {
       for (const auto &other : world.guards) if (other.id != target.guard && !other.bodyHidden && other.storedIn == 0 && WorldGeometry::HeightOverlap(agent.elevation, agent.elevation + WorldGeometry::ActorHeight(agent), other.elevation, other.elevation + CombatConfig::StandingHeight) && !clear(other.position)) return false;
       return true;
     }
-    std::optional<int> RearApproachSide(const WorldState &world, const Agent &agent, Simulation::CqcTarget target, sf::Vector2f position, sf::Vector2f facing) {
-      using namespace CqcConfig;
-      const auto offset = position - agent.position;
-      if ((agent.position - (position - facing * GripSeparation)).length() <= ContactTolerance) return 0;
-      const auto radial = CqcUnit(agent.position - position);
-      const float radius = std::max(GripSeparation, offset.length());
-      const auto start = position + radial * radius;
-      if (!CharacterPathClear(world, agent, target, agent.position, start)) return std::nullopt;
-      const float first = std::atan2(radial.y, radial.x);
-      const auto rear = -facing;
-      const float shortest = std::remainder(std::atan2(rear.y, rear.x) - first, 2.f * std::numbers::pi_v<float>);
-      for (const int side : {shortest < 0.f ? -1 : 1, shortest < 0.f ? 1 : -1}) {
-        float angle = shortest;
-        if (side > 0 && angle < 0.f) angle += 2.f * std::numbers::pi_v<float>;
-        if (side < 0 && angle > 0.f) angle -= 2.f * std::numbers::pi_v<float>;
-        const int steps = std::max(1, static_cast<int>(std::ceil(std::abs(angle) * radius / (GameplayConfig::AgentRadius * 0.5f))));
-        auto previous = start;
-        bool clear = true;
-        for (int step = 1; step <= steps && clear; ++step) {
-          const float at = first + angle * static_cast<float>(step) / static_cast<float>(steps);
-          const auto next = position + sf::Vector2f{std::cos(at), std::sin(at)} * radius;
-          clear = CharacterPathClear(world, agent, target, previous, next); previous = next;
-        }
-        if (clear && CharacterPathClear(world, agent, target, previous, position + rear * GripSeparation)) return side;
-      }
-      return std::nullopt;
+    sf::Vector2f GrabContact(const Agent &agent, sf::Vector2f position) {
+      // La orientación previa del objetivo no obliga al captor a rodearlo antes de sujetarlo.
+      return position - CqcUnit(position - agent.position) * CqcConfig::GripSeparation;
     }
-    std::optional<sf::Vector2f> PushDestination(const WorldState &world, const Agent &agent, Simulation::CqcTarget target, sf::Vector2f position) {
+    bool GrabPathClear(const WorldState &world, const Agent &agent, Simulation::CqcTarget target, sf::Vector2f position, float elevation) {
+      return CharacterPathClear(world, agent, target, agent.position, GrabContact(agent, position), true, elevation) &&
+          WorldGeometry::ClearBodySegment(world, WorldGeometry::Feet(agent), {position.x, position.y, elevation}, GameplayConfig::AgentRadius, WorldGeometry::ActorHeight(agent), agent.supportId);
+    }
+    struct PushPlan { sf::Vector2f position; float elevation = 0.f; std::uint32_t support = 0; ForcedFallState fall; };
+    std::optional<PushPlan> PushDestination(const WorldState &world, const Agent &agent, Simulation::CqcTarget target, sf::Vector2f position) {
       const auto direction = CqcUnit(position - agent.position);
       const int steps = std::max(1, static_cast<int>(std::ceil(CqcConfig::PushDistance / (GameplayConfig::AgentRadius * 0.5f))));
-      auto destination = position;
+      auto probe = agent;
+      if (const auto guard = std::ranges::find(world.guards, target.guard, &Guard::id); target.guard != 0 && guard != world.guards.end()) {
+        probe.elevation = guard->elevation; probe.supportId = guard->supportId; probe.stance = Stance::Standing;
+      } else if (const auto other = std::ranges::find(world.agents, target.agent, &Agent::id); other != world.agents.end()) {
+        probe.elevation = other->elevation; probe.supportId = other->supportId; probe.stance = other->stance;
+      } else return std::nullopt;
+      auto current = position;
+      std::optional<PushPlan> destination;
       for (int step = 1; step <= steps; ++step) {
         const auto next = position + direction * (CqcConfig::PushDistance * static_cast<float>(step) / static_cast<float>(steps));
-        if (!CharacterPathClear(world, agent, target, destination, next)) break;
-        destination = next;
+        if (!CharacterPathClear(world, probe, target, current, next, false)) break;
+        const sf::Vector3f previous{current.x, current.y, probe.elevation};
+        current = next;
+        auto support = WorldGeometry::FindSupport(world, next, probe.elevation, probe.supportId, GameplayConfig::AgentRadius);
+        if (!support) support = WorldGeometry::FindSupport(world, next, probe.elevation, 0, GameplayConfig::AgentRadius);
+        if (support && !WorldGeometry::PositionBlocked(world, next, GameplayConfig::AgentRadius, support->elevation, WorldGeometry::ActorHeight(probe), support->id)) {
+          if (!WorldGeometry::ClearBodySegment(world, previous, {next.x, next.y, support->elevation}, GameplayConfig::AgentRadius, WorldGeometry::ActorHeight(probe), probe.supportId)) break;
+          probe.elevation = support->elevation; probe.supportId = support->id;
+          destination = PushPlan{next, support->elevation, support->id};
+          continue;
+        }
+        const auto landing = ForcedFalls::Landing(world, next, probe.elevation);
+        const sf::Vector3f from{next.x, next.y, probe.elevation}, to{next.x, next.y, landing.elevation};
+        if ((landing.id == 0 && IsTraining(world)) || from.z - to.z <= LevelConfig::SupportTolerance ||
+            !WorldGeometry::ClearBodySegment(world, from, to, GameplayConfig::AgentRadius, WorldGeometry::ActorHeight(probe))) continue;
+        destination = PushPlan{next, probe.elevation, 0, {true, from, to, 0.f, landing.id, agent.id}};
       }
-      return (destination - position).length() > CqcConfig::ApproachBlockedTolerance ? std::optional{destination} : std::nullopt;
+      return destination && (destination->position - position).length() > CqcConfig::ApproachBlockedTolerance ? destination : std::nullopt;
     }
   }
 
@@ -75,22 +79,22 @@ namespace NoTrace {
     std::optional<CqcTarget> result;
     float nearest = action == CqcAction::Push ? GameplayConfig::CqcDistance : CqcConfig::AcquireDistance;
     float bestFacing = -1.f;
-    const auto eligible = [&](CqcTarget target, sf::Vector2f position, sf::Vector2f facing, float elevation) {
+    const auto eligible = [&](CqcTarget target, sf::Vector2f position, float elevation) {
       if (std::abs(elevation - agent.elevation) > LevelConfig::MaximumStepHeight) return;
       const auto offset = position - agent.position;
       const float distance = offset.length();
       const float alignment = CqcUnit(agent.facing).dot(CqcUnit(offset));
-      if (distance < CqcConfig::MinimumGripDistance || distance > nearest || (distance == nearest && alignment <= bestFacing) || alignment < CqcConfig::FacingCosine ||
-          !CharacterPathClear(world, agent, target, agent.position, position)) return;
-      if (action == CqcAction::Push ? !PushDestination(world, agent, target, position).has_value() : !RearApproachSide(world, agent, target, position, CqcUnit(facing)).has_value()) return;
+      if (distance < CqcConfig::MinimumGripDistance || distance > nearest || (result && distance == nearest && alignment <= bestFacing) || (action == CqcAction::Push && alignment < CqcConfig::FacingCosine)) return;
+      if (action == CqcAction::Push ? (!CharacterPathClear(world, agent, target, agent.position, position) || !PushDestination(world, agent, target, position).has_value()) :
+          !GrabPathClear(world, agent, target, position, elevation)) return;
       if (action == CqcAction::Grab && std::ranges::any_of(world.agents, [&](const Agent &owner) {
         return owner.id != agent.id && owner.connected && owner.alive && !owner.incapacitated && owner.cqcPressPending &&
             ((target.guard != 0 && owner.cqcApproachGuard == target.guard) || (target.agent != 0 && owner.cqcApproachAgent == target.agent));
       })) return;
       result = target; nearest = distance; bestFacing = alignment;
     };
-    for (const auto &guard : world.guards) if (CqcGuardAvailable(guard) && (!IsTraining(world) || guard.trainingDummy)) eligible({guard.id, 0}, guard.position, guard.facing, guard.elevation);
-    for (const auto &other : world.agents) if (other.id != agent.id && CqcAgentAvailable(other) && !other.cqcPressPending && other.cqcAttackTime <= 0.f) eligible({0, other.id}, other.position, other.facing, other.elevation);
+    for (const auto &guard : world.guards) if (CqcGuardAvailable(guard) && (!IsTraining(world) || guard.trainingDummy)) eligible({guard.id, 0}, guard.position, guard.elevation);
+    for (const auto &other : world.agents) if (other.id != agent.id && CqcAgentAvailable(other) && !other.cqcPressPending && other.cqcAttackTime <= 0.f) eligible({0, other.id}, other.position, other.elevation);
     return result;
   }
 
@@ -139,6 +143,12 @@ namespace NoTrace {
       if (agent.cqcHoldingGuard != 0 || agent.cqcHoldingAgent != 0 || agent.cqcHeldBy != 0 || agent.cqcPressPending || agent.cqcAttackTime > 0.f) ReleaseCqc(agent);
       return false;
     }
+    const auto releaseExhausted = [&] {
+      ReleaseCqc(agent); agent.moving = false; agent.running = false;
+      world_.message = "Sin estamina: soltaste automáticamente al objetivo.";
+      return true;
+    };
+    if (agent.stamina <= 0.f && (holding || agent.cqcApproachGuard != 0 || agent.cqcApproachAgent != 0)) return releaseExhausted();
     const auto context = agent.cqcHoldingGuard != 0 || agent.cqcHoldingAgent != 0 ? CqcInputContext::Held : agent.cover.active && CoverSurfaceValid(agent.cover, agent.elevation) ? CqcInputContext::CoverWall : CqcInputContext::Combat;
     if (context == CqcInputContext::CoverWall) {
       agent.cqcPressPending = false; agent.cqcHoldTime = 0.f; agent.cqcApproachGuard = 0; agent.cqcApproachAgent = 0; agent.cqcApproachTime = 0.f; agent.cqcApproachSide = 0;
@@ -182,7 +192,8 @@ namespace NoTrace {
         if (agent.cqcReleaseTime >= MinimumRelease) { agent.cqcPulseReady = true; agent.cqcLongPressArmed = true; }
       } else if (!newPress) agent.cqcReleaseTime = 0.f;
       if (command.cqcHeld && agent.cqcLongPressArmed) agent.cqcHeldPressTime = std::min(LongPressEscape, agent.cqcHeldPressTime + dt);
-      if (newPress && agent.cqcPulseReady && agent.cqcPulseTime >= PulseInterval && agent.stamina >= GameplayConfig::CqcStaminaCost) {
+      if (newPress && agent.cqcPulseReady && agent.cqcPulseTime >= PulseInterval) {
+        if (agent.stamina < GameplayConfig::CqcStaminaCost) return releaseExhausted();
         agent.cqcPulseReady = false; agent.cqcReleaseTime = 0.f; agent.cqcPulseTime = 0.f;
         agent.stamina -= GameplayConfig::CqcStaminaCost; ++agent.cqcProgress;
         agent.actionPose = ActionPose::Choke; agent.actionPoseTime = GameplayConfig::AttackAnimationDuration;
@@ -202,6 +213,7 @@ namespace NoTrace {
           world_.message = IsTraining(world_) ? "Sometimiento de práctica completado; el objetivo continúa operativo." : guardId != 0 ? "Sometimiento completado: guardia inconsciente." : "Compañero inconsciente, sin eliminación ni puntuación enemiga; puede ser reanimado.";
           return true;
         }
+        if (agent.stamina <= 0.f) return releaseExhausted();
         if (guard) guard->cqcState = agent.cqcProgress == 1 ? CqcState::KnockedDown : CqcState::Restrained;
         world_.message = "Sujeción: suelta brevemente y vuelve a pulsar F para someter.";
       }
@@ -287,32 +299,20 @@ namespace NoTrace {
       if (!target && !partner) return false;
       agent.cqcApproachGuard = target ? target->id : 0; agent.cqcApproachAgent = partner ? partner->id : 0;
       agent.cqcApproachTime = 0.f;
-      agent.cqcApproachSide = *RearApproachSide(world_, agent, *selected, target ? target->position : partner->position, CqcUnit(target ? target->facing : partner->facing));
+      agent.cqcApproachSide = 0;
     }
     if (!target && !partner) { ReleaseCqc(agent); return false; }
     const auto targetPosition = target ? target->position : partner->position;
     const float targetElevation = target ? target->elevation : partner->elevation;
     if (std::abs(targetElevation - agent.elevation) > LevelConfig::MaximumStepHeight) { ReleaseCqc(agent); return false; }
-    const auto targetFacing = CqcUnit(target ? target->facing : partner->facing);
     const CqcTarget selected{target ? target->id : 0, partner ? partner->id : 0};
     const auto offset = targetPosition - agent.position;
     agent.cqcApproachTime = std::min(ApproachTimeout, agent.cqcApproachTime + dt);
     if (offset.length() > AcquireDistance || agent.cqcApproachTime >= ApproachTimeout ||
-        !CharacterPathClear(world_, agent, selected, agent.position, targetPosition) || (target && target->staggerRemaining > 0.f)) { ReleaseCqc(agent); return false; }
-    const auto contact = targetPosition - targetFacing * GripSeparation;
+        !GrabPathClear(world_, agent, selected, targetPosition, targetElevation) || (target && target->staggerRemaining > 0.f)) { ReleaseCqc(agent); return false; }
+    const auto contact = GrabContact(agent, targetPosition);
     if ((agent.position - contact).length() > ContactTolerance) {
-      const auto radial = CqcUnit(agent.position - targetPosition);
-      const auto rear = -targetFacing;
-      float angle = std::remainder(std::atan2(rear.y, rear.x) - std::atan2(radial.y, radial.x), 2.f * std::numbers::pi_v<float>);
-      if (agent.cqcApproachSide == 0) agent.cqcApproachSide = angle < 0.f ? -1 : 1;
-      if (agent.cqcApproachSide > 0 && angle < 0.f) angle += 2.f * std::numbers::pi_v<float>;
-      if (agent.cqcApproachSide < 0 && angle > 0.f) angle -= 2.f * std::numbers::pi_v<float>;
-      const float radialDistance = std::max(GripSeparation, offset.length());
-      const float turn = std::clamp(angle, -ApproachSpeed * dt / radialDistance, ApproachSpeed * dt / radialDistance);
-      const float nextAngle = std::atan2(radial.y, radial.x) + turn;
-      const float nextRadius = targetFacing.dot(CqcUnit(offset)) >= RearCosine ? std::max(GripSeparation, radialDistance - ApproachSpeed * dt) : radialDistance;
-      const auto destination = targetPosition + sf::Vector2f{std::cos(nextAngle), std::sin(nextAngle)} * nextRadius;
-      auto movement = destination - agent.position;
+      auto movement = contact - agent.position;
       if (movement.length() > ApproachSpeed * dt) movement = CqcUnit(movement) * ApproachSpeed * dt;
       const auto previous = agent.position;
       auto probe = agent;
@@ -321,13 +321,14 @@ namespace NoTrace {
       const auto reached = probe.position;
       const auto displacement = reached - previous;
       const float along = displacement.lengthSquared() > 0.f ? std::clamp((targetPosition - previous).dot(displacement) / displacement.lengthSquared(), 0.f, 1.f) : 0.f;
-      if ((previous + displacement * along - targetPosition).length() < MinimumGripDistance) { ReleaseCqc(agent); return false; }
+      if ((previous + displacement * along - targetPosition).length() < MinimumGripDistance ||
+          std::abs(probe.elevation - targetElevation) > LevelConfig::MaximumStepHeight) { ReleaseCqc(agent); return false; }
       agent.position = reached; agent.elevation = probe.elevation; agent.supportId = probe.supportId;
       if ((agent.position - previous).length() < ApproachBlockedTolerance) { ReleaseCqc(agent); return false; }
       agent.facing = CqcUnit(targetPosition - agent.position); agent.running = false; agent.moving = true; agent.decoyGuide = {}; agent.aiming = false;
       if ((agent.position - contact).length() > ContactTolerance) return true;
     }
-    if ((agent.position - contact).length() > ContactTolerance || !CharacterPathClear(world_, agent, selected, agent.position, targetPosition)) { ReleaseCqc(agent); return false; }
+    if ((agent.position - contact).length() > ContactTolerance || !GrabPathClear(world_, agent, selected, targetPosition, targetElevation)) { ReleaseCqc(agent); return false; }
     agent.cqcHoldingGuard = target ? target->id : 0; agent.cqcHoldingAgent = partner ? partner->id : 0;
     agent.cqcProgress = 0; agent.cqcReleaseTime = 0.f; agent.cqcPulseTime = 0.f; agent.cqcPulseReady = false;
     agent.cqcHeldPressTime = 0.f; agent.cqcLongPressArmed = false;
@@ -349,7 +350,8 @@ namespace NoTrace {
       partner->actionPose = ActionPose::Grab; partner->actionPoseTime = GameplayConfig::AttackAnimationDuration;
     }
     EmitSound(SoundKind::Grab, targetPosition, GripSoundRadius, agent.id, targetElevation);
-    world_.message = target ? "Guardia agarrado por detrás. Suelta brevemente y pulsa F tres veces para someter." : "Compañero sujetado por detrás; suelta F para liberarlo sin daño.";
+    if (agent.stamina <= 0.f) return releaseExhausted();
+    world_.message = target ? "Guardia agarrado por detrás. Suelta brevemente y pulsa F tres veces para someter." : "Compañero sujetado por detrás; alterna pulsaciones de F para someter o mantén una nueva presión para soltar.";
     return true;
   }
 
@@ -364,23 +366,29 @@ namespace NoTrace {
     const auto previous = position;
     const auto destination = PushDestination(world_, agent, *selected, position);
     if (!destination) return;
-    if (enemy) WorldGeometry::MoveOnSupports(world_, enemy->position, enemy->elevation, enemy->supportId, *destination - position, AgentRadius, CombatConfig::StandingHeight);
-    else MoveAgent(*partner, *destination - position);
+    position = destination->position;
+    if (enemy) { enemy->elevation = destination->elevation; enemy->supportId = destination->support; enemy->forcedFall = destination->fall; }
+    else { partner->elevation = destination->elevation; partner->supportId = destination->support; partner->forcedFall = destination->fall; }
     if ((position - previous).lengthSquared() < 0.0001f) { world_.message = "El obstáculo impide desplazar al objetivo."; return; }
     agent.stamina -= CqcStaminaCost; agent.actionCooldown = CqcConfig::PushCooldown;
     agent.actionPose = ActionPose::Push; agent.actionPoseTime = AttackAnimationDuration;
     if (enemy) {
       enemy->staggerRemaining = CqcConfig::PushStagger; enemy->state = GuardState::Search; enemy->stateTime = 0.f;
       enemy->lastKnown = agent.position; enemy->lastKnownElevation = agent.elevation; enemy->attackTime = 0.f; enemy->navigation.clear();
+      if (enemy->forcedFall.active) {
+        for (auto &object : world_.objects) if (object.id == enemy->knownHideout) object.inspectionProgress = 0.f;
+        enemy->knownHideout = 0; enemy->hideoutInspectionTime = 0.f; enemy->bodyTargetKind = BodyTargetKind::None; enemy->bodyTargetId = 0; enemy->bodyInspectionTime = 0.f;
+      }
     } else {
       CancelPuzzle(*partner); CancelReload(*partner); partner->aiming = false;
       partner->cover = {}; partner->staggerRemaining = CqcConfig::PushStagger;
       partner->moving = false; partner->running = false;
+      if (partner->forcedFall.active) { ReleaseCqc(*partner); CancelManeuver(*partner); partner->draggingGuard = -1; partner->decoyGuide = {}; }
     }
     if (!IsTraining(world_)) Record(EventKind::Cqc, agent.id, enemy ? enemy->id : partner->id);
     if (enemy) DamageTrainingDummy(*enemy, 0.f);
     EmitNoise(position, CqcConfig::PushNoise, agent.id, 0, SoundKind::Impact, {}, enemy ? enemy->elevation : partner->elevation);
     EmitSound(SoundKind::Push, position, CqcConfig::PushNoise, agent.id, enemy ? enemy->elevation : partner->elevation);
-    world_.message = "Empujón: desplazamiento bloqueado por la geometría sólida.";
+    world_.message = destination->fall.active ? "Empujón por el borde: la caída continúa hasta el piso inferior." : "Empujón: desplazamiento bloqueado por la geometría sólida.";
   }
 }

@@ -2,8 +2,11 @@
 #include "NoTraceSpatialFixture.h"
 #include "NoTraceWorldGeometry.h"
 #include "NoTraceVisibility.h"
+#include "NoTraceInteraction.h"
 #include "Config/NoTraceCqcConfig.h"
 #include <algorithm>
+#include <array>
+#include <cmath>
 #include <iostream>
 #include <stdexcept>
 
@@ -62,13 +65,13 @@ namespace {
     ShortPress(simulation); Advance(simulation, {}, 3);
     Require(CqcEvents(world) == 3 && world.guards[0].state == GuardState::Incapacitated && world.guards[0].health == CombatConfig::MaxGuardHealth, "Los golpes consecutivos no acumulan inconsciencia sin matar");
   }
-  void ImpactValidationAndRearApproach() {
+  void ImpactValidationAndRadialApproach() {
     Simulation simulation; auto &world = Fixture(simulation);
     world.guards[0].facing = {-1.f, 0.f};
     Advance(simulation, Held(), 5);
-    Require(world.agents[0].cqcHoldingGuard == 0 && world.guards[0].heldBy == 0 && CqcEvents(world) == 0, "Mantener F permite agarrar de frente o produce golpes automáticos");
+    Require(world.agents[0].cqcHoldingGuard == 9 && world.guards[0].heldBy == 1 && CqcEvents(world) == 1 && world.guards[0].facing == sf::Vector2f{1.f, 0.f}, "Mantener F frente al objetivo no confirma el agarre girándolo de espaldas al jugador");
     simulation.Step(0.1f, {}); Advance(simulation, {}, 3);
-    Require(world.agents[0].cqcAttackTime == 0.f && CqcEvents(world) == 0, "Soltar un intento largo de agarre ejecuta un golpe accidental");
+    Require(world.agents[0].cqcAttackTime == 0.f && world.guards[0].heldBy == 1 && CqcEvents(world) == 1, "Soltar F después de adquirir el agarre ejecuta un golpe accidental");
     Fixture(simulation); ShortPress(simulation);
     world.obstacles.push_back({{{212.f, 260.f}, {4.f, 80.f}}, CoverKind::High, true, "Pared aparecida antes del impacto"});
     Advance(simulation, {}, 3);
@@ -79,7 +82,7 @@ namespace {
     Require(CqcEvents(world) == 0 && world.guards[0].stun == 0.f, "El golpe alcanza un objetivo que salió de su distancia real");
     Fixture(simulation); auto command = Held(); Advance(simulation, command, 3);
     const auto playerPosition = world.agents[0].position, guardPosition = world.guards[0].position;
-    Require(world.agents[0].cqcHoldingGuard == 9 && world.guards[0].heldBy == 1 && world.guards[0].position == sf::Vector2f{228.f, 300.f}, "La aproximación trasera válida no conserva el lugar del enemigo");
+    Require(world.agents[0].cqcHoldingGuard == 9 && world.guards[0].heldBy == 1 && world.guards[0].position == sf::Vector2f{228.f, 300.f}, "La aproximación válida no conserva el lugar del enemigo");
     Require(world.agents[0].position == sf::Vector2f{200.f, 300.f} && (guardPosition - playerPosition).dot(world.agents[0].facing) > 0.f && world.guards[0].facing == world.agents[0].facing, "El agarre teletransporta al dueño o coloca al enemigo detrás del agente");
     command.push = true; simulation.Step(0.1f, {{1, command}});
     Require(world.agents[0].cqcHoldingGuard == 9 && world.guards[0].heldBy == 1 && world.agents[0].position == playerPosition && world.guards[0].position == guardPosition,
@@ -170,8 +173,10 @@ namespace {
   void RejectionAndCancellation() {
     Simulation simulation; auto &world = Fixture(simulation);
     world.agents[0].facing = {-1.f,0.f};
+    Require(Simulation::FindCqcTarget(world, world.agents[0], Simulation::CqcAction::Grab).has_value() && !Simulation::FindCqcTarget(world, world.agents[0], Simulation::CqcAction::Push), "El agarre depende de mirar al objetivo o el empujón pierde su requisito de orientación");
     auto held = Held(); held.aimX = 1.f; Advance(simulation, held, 5);
-    Require(world.agents[0].cqcHoldingGuard == 0, "Se agarra a un enemigo fuera de orientación");
+    Require(world.agents[0].cqcHoldingGuard == 9 && world.agents[0].facing == sf::Vector2f{1.f, 0.f} && world.guards[0].facing == world.agents[0].facing, "Mirar en sentido opuesto impide agarrar o no orienta ambos cuerpos al contacto");
+    Fixture(simulation);
     world.obstacles.push_back({{{212.f, 260.f}, {4.f, 80.f}}, CoverKind::High, true, "Pared"});
     world.agents[0].facing = {1.f,0.f}; held.aimX = 1.f; Advance(simulation, held, 5);
     Require(world.agents[0].cqcHoldingGuard == 0, "Se agarra atravesando paredes");
@@ -198,6 +203,139 @@ namespace {
       Require((partner ? world.agents[1].position : world.guards[0].position) == position, "El empujón no respeta su enfriamiento");
       Simulation replica; std::string error;
       Require(replica.LoadSnapshot(simulation.SnapshotFor(1, true), error), "El cliente rechaza el estado tras un empujón");
+    }
+  }
+  WorldState &RaisedPushFixture(Simulation &simulation, bool partner, float upper, float landing = 0.f) {
+    auto &world = Fixture(simulation, partner);
+    world.walkSurfaces = {
+      {1, 0, WalkSurfaceKind::Floor, {{0.f, 0.f}, world.size}, 0.f},
+      {10, upper >= LevelConfig::StoreyHeight * 2.f ? 2u : 1u, WalkSurfaceKind::Floor, {{100.f, 200.f}, {150.f, 200.f}}, upper}
+    };
+    if (landing > 0.f) world.walkSurfaces.push_back({11, 1, WalkSurfaceKind::Catwalk, {{250.f, 200.f}, {250.f, 200.f}}, landing});
+    for (auto &agent : world.agents) { agent.elevation = upper; agent.supportId = 10; }
+    for (auto &guard : world.guards) { guard.elevation = upper; guard.supportId = 10; guard.patrol.clear(); }
+    return world;
+  }
+  void ElevatedPushFallsAndKillsAtTheReceivingFloor() {
+    for (const bool partner : {false, true}) for (const auto heights : {sf::Vector2f{96.f, 0.f}, sf::Vector2f{192.f, 0.f}, sf::Vector2f{192.f, 96.f}}) {
+      Simulation simulation; auto &world = RaisedPushFixture(simulation, partner, heights.x, heights.y);
+      ActionCommand push; push.push = true; push.aimX = 1.f; simulation.Step(0.1f, {{1, push}});
+      const auto &initial = partner ? world.agents[1].forcedFall : world.guards[0].forcedFall;
+      Require(initial.active && initial.from.z == heights.x && initial.to.z == heights.y && initial.actor == 1,
+        "El empujón del borde no inicia una caída hacia el piso real inferior");
+      Require((partner ? world.agents[1].elevation : world.guards[0].elevation) == heights.x &&
+        (partner ? world.agents[1].alive : world.guards[0].state != GuardState::Dead), "El empujón teletransporta o mata al objetivo antes de caer");
+      Simulation replica; std::string error;
+      const auto initialSnapshot = simulation.SnapshotFor(1);
+      Require(replica.LoadSnapshot(initialSnapshot, error), "La instantánea rechaza el inicio físico de una caída por empujón");
+      const auto collection = partner ? "agents" : "guards"; const auto index = partner ? 1 : 0;
+      auto invalid = initialSnapshot; invalid[collection][index]["forcedFall"][2][2] = heights.x;
+      Require(!replica.LoadSnapshot(invalid, error), "La réplica acepta una caída cuyo destino no está debajo del origen");
+      invalid = initialSnapshot; invalid[collection][index]["forcedFall"][5] = 9999;
+      Require(!replica.LoadSnapshot(invalid, error), "La réplica acepta un autor inexistente para una caída forzada");
+      invalid = initialSnapshot; invalid[collection][index].erase("forcedFall");
+      Require(!replica.LoadSnapshot(invalid, error), "El protocolo nuevo acepta un estado sin la caída obligatoria");
+      bool intermediate = false; float previous = heights.x;
+      for (unsigned int frame = 0; frame < 30 && (partner ? world.agents[1].forcedFall.active : world.guards[0].forcedFall.active); ++frame) {
+        ActionCommand escape; escape.moveX = 1.f; escape.traverse = true;
+        simulation.Step(0.1f, {{partner ? 2u : 1u, partner ? escape : ActionCommand{}}});
+        const float z = partner ? world.agents[1].elevation : world.guards[0].elevation;
+        Require(z <= previous && previous - z <= TraversalConfig::DropSpeed * 0.1f + 0.01f, "La caída por empujón salta de altura o permite ascender con controles");
+        if (z > heights.y && z < heights.x) {
+          intermediate = true;
+          Require(partner ? world.agents[1].alive : world.guards[0].state != GuardState::Dead, "La caída confirma la muerte antes de aterrizar");
+          const auto filtered = simulation.SnapshotFor(partner ? 2u : 1u, true);
+          Require(replica.LoadSnapshot(filtered, error), "La instantánea filtrada rechaza una caída intermedia");
+          for (const auto &entity : filtered.at(collection)) if (entity.at("forcedFall")[0].get<bool>()) {
+            Require(entity.at("forcedFall")[5] == 0, "La caída filtrada revela la identidad privada del autor");
+          }
+        }
+        previous = z;
+      }
+      const auto support = partner ? world.agents[1].supportId : world.guards[0].supportId;
+      Require(intermediate && previous == heights.y && support == (heights.y > 0.f ? 11u : 1u), "La caída atraviesa el primer piso receptor o no alcanza un apoyo estable");
+      Require(partner ? (!world.agents[1].alive && !world.agents[1].incapacitated && world.agents[1].lifeState == LifeState::Dead) : world.guards[0].state == GuardState::Dead,
+        "Una caída desde la segunda o tercera planta no confirma la muerte al aterrizar");
+      Require(std::ranges::count_if(world.events, [partner](const MissionEvent &event) {
+        return event.kind == (partner ? EventKind::AgentKilled : EventKind::GuardKilled) && event.actor == 1 && event.target == (partner ? 2u : 9u);
+      }) == 1, "La muerte por caída pierde su autor o duplica el registro operacional");
+      Require(replica.LoadSnapshot(simulation.SnapshotFor(1), error), "La réplica rechaza el cuerpo sobre el piso de aterrizaje");
+    }
+  }
+  void ElevatedPushRespectsWallsAndTrainingProtection() {
+    for (const bool partner : {false, true}) for (const bool lowerObstacle : {false, true}) {
+      Simulation simulation; auto &world = RaisedPushFixture(simulation, partner, 96.f);
+      Obstacle obstacle{{{lowerObstacle ? 252.f : 246.f, 250.f}, {lowerObstacle ? 24.f : 8.f, 100.f}}, CoverKind::High, true, "Volumen que bloquea la caída"};
+      obstacle.elevation = lowerObstacle ? 0.f : 96.f; obstacle.height = lowerObstacle ? 40.f : 66.f; world.obstacles.push_back(obstacle);
+      ActionCommand push; push.push = true; push.aimX = 1.f; simulation.Step(0.1f, {{1, push}});
+      Require(!(partner ? world.agents[1].forcedFall.active : world.guards[0].forcedFall.active) &&
+        (partner ? world.agents[1].supportId : world.guards[0].supportId) == 10,
+        "El empujón precipita a través de una pared o de un sólido situado bajo el borde");
+      Require((partner ? world.agents[1].elevation : world.guards[0].elevation) == 96.f,
+        "Un volumen sólido desplaza al objetivo a otra planta sin una caída libre válida");
+    }
+    for (const bool partner : {false, true}) {
+      Simulation simulation; auto &world = RaisedPushFixture(simulation, partner, 96.f);
+      world.phase = GamePhase::Base; world.mode = SimulationMode::Training;
+      if (!partner) world.guards[0].trainingDummy = true;
+      ActionCommand push; push.push = true; push.aimX = 1.f; simulation.Step(0.1f, {{1, push}});
+      if (!partner) {
+        const auto airbornePosition = world.guards[0].position;
+        Require(world.guards[0].forcedFall.active && !Interaction::FindBody(world, world.agents[0]), "Una diana en caída anuncia arrastre antes de aterrizar");
+        ActionCommand drag; drag.dragBody = true; simulation.Step(1.f / 60.f, {{1, drag}});
+        Require(world.agents[0].draggingGuard < 0 && world.guards[0].position == airbornePosition && world.guards[0].forcedFall.active,
+          "Arrastrar una diana en el aire altera su trayectoria autoritativa");
+        Simulation replica; std::string error;
+        Require(replica.LoadSnapshot(simulation.SnapshotFor(1), error), "La interacción rechazada con una diana en caída invalida la instantánea");
+      }
+      Advance(simulation, {}, 20);
+      Require((partner ? world.agents[1].elevation : world.guards[0].elevation) == 0.f &&
+        (partner ? world.agents[1].alive && !world.agents[1].incapacitated : world.guards[0].state != GuardState::Dead && world.guards[0].state != GuardState::Incapacitated),
+        "La caída de prácticas mata o incapacita al objetivo protegido");
+      Require(CqcEvents(world) == 0, "El empujón de prácticas añade penalizaciones operacionales");
+    }
+  }
+  void PhaseChangesDiscardAnUnfinishedPushFall() {
+    Simulation simulation; auto &world = RaisedPushFixture(simulation, true, 192.f);
+    ActionCommand push; push.push = true; push.aimX = 1.f; simulation.Step(0.1f, {{1, push}});
+    Require(world.agents[1].forcedFall.active, "La fixture no inicia una caída antes de regresar a la base");
+    simulation.ReturnToBase();
+    Require(std::ranges::none_of(world.agents, [](const Agent &agent) { return agent.forcedFall.active; }), "Regresar a la base conserva una caída pendiente de la misión");
+    Simulation replica; std::string error;
+    Require(replica.LoadSnapshot(simulation.SnapshotFor(1), error), "Regresar durante una caída genera una instantánea de base inválida");
+    RaisedPushFixture(simulation, true, 96.f); world.phase = GamePhase::Base; world.mode = SimulationMode::Training;
+    simulation.Step(0.1f, {{1, push}});
+    Require(world.agents[1].forcedFall.active, "La fixture no inicia la caída de prácticas antes del despliegue");
+    simulation.Deploy(41);
+    Require(std::ranges::none_of(world.agents, [](const Agent &agent) { return agent.forcedFall.active; }), "El despliegue arrastra la caída pendiente a la posición inicial de misión");
+    Require(replica.LoadSnapshot(simulation.SnapshotFor(1), error), "Desplegar durante una caída genera una instantánea de misión inválida");
+    simulation.Step(0.1f, {});
+    Require(std::ranges::all_of(world.agents, [](const Agent &agent) { return agent.alive && !agent.forcedFall.active; }), "La caída anterior mata al agente después de reaparecer en la misión");
+  }
+  void PushIntoAVoidKeepsAValidTerminalState() {
+    for (const bool partner : {false, true}) {
+      Simulation simulation; auto &world = RaisedPushFixture(simulation, partner, 96.f); world.walkSurfaces[0].enabled = false;
+      ActionCommand push; push.push = true; push.aimX = 1.f; simulation.Step(0.1f, {{1, push}}); Advance(simulation, {}, 24);
+      Require((partner ? world.agents[1].elevation : world.guards[0].elevation) == LevelConfig::MinimumElevation &&
+        (partner ? !world.agents[1].alive : world.guards[0].state == GuardState::Dead), "La caída al vacío conserva un objetivo vivo o suspendido antes del límite inferior");
+      Simulation replica; std::string error;
+      Require(replica.LoadSnapshot(simulation.SnapshotFor(1), error), "La caída mortal al vacío genera un cuerpo sin estado espacial válido");
+    }
+  }
+  void RisingCabinCatchesThePushedCharacter() {
+    for (const bool partner : {false, true}) for (const float top : {48.1f, 48.3f}) {
+      Simulation simulation; auto &world = RaisedPushFixture(simulation, partner, 96.f);
+      world.walkSurfaces.push_back({90, 0, WalkSurfaceKind::ElevatorCabin, {{252.f, 280.f}, {40.f, 40.f}}, 43.5f});
+      ActionCommand push; push.push = true; push.aimX = 1.f; simulation.Step(0.1f, {{1, push}}); Advance(simulation, {}, 4);
+      Require((partner ? world.agents[1].elevation : world.guards[0].elevation) == 48.f,
+        "La fixture no alcanza el contacto intermedio con la cabina ascendente");
+      world.walkSurfaces.back().elevation = top; simulation.Step(0.1f, {});
+      Require(!(partner ? world.agents[1].forcedFall.active : world.guards[0].forcedFall.active) &&
+        (partner ? world.agents[1].supportId : world.guards[0].supportId) == 90 && (partner ? world.agents[1].elevation : world.guards[0].elevation) == top,
+        "La cabina que cruza los pies deja una caída activa congelada sin apoyo");
+      Require(partner ? world.agents[1].alive : world.guards[0].state != GuardState::Dead, "La cabina convierte el contacto de menos de una planta en una caída mortal");
+      Simulation replica; std::string error;
+      Require(replica.LoadSnapshot(simulation.SnapshotFor(1), error), "El contacto ascendente genera progreso o destino de caída incoherentes");
     }
   }
   void PushInterruptsPuzzle() {
@@ -250,9 +388,10 @@ namespace {
     Require(world.agents[0].cqcProgress == 1 && world.guards[0].heldBy == 1 && !world.agents[0].cover.active, "La pared recibe prioridad sobre un enemigo ya agarrado");
     Require(std::ranges::none_of(world.sounds, [](const SoundEvent &sound) { return sound.kind == SoundKind::Knock; }), "El sometimiento emite también un golpe de pared");
   }
-  void PhysicalRearAlignment() {
+  void PhysicalRadialAlignment() {
     Simulation simulation, replica; auto &world = Fixture(simulation);
     world.phase = GamePhase::Base; world.mode = SimulationMode::Training; world.guards[0].trainingDummy = true; world.guards[0].facing = {-1.f, 0.f};
+    world.guards[0].position = {270.f, 300.f};
     const auto targetPosition = world.guards[0].position;
     std::string error;
     bool approached = false;
@@ -263,18 +402,18 @@ namespace {
       Require((world.agents[0].position - targetPosition).length() >= CqcConfig::MinimumGripDistance - 0.1f, "La aproximación atraviesa el cuerpo del objetivo");
       if (world.agents[0].cqcApproachGuard != 0) { approached = true; Require(replica.LoadSnapshot(simulation.SnapshotFor(1, true), error), "La aproximación CQC no se sincroniza al cliente"); }
     }
-    Require(approached && world.guards[0].heldBy == 1 && world.agents[0].cqcHoldingGuard == 9, "Mantener F no alcanza físicamente la espalda de un objetivo con otra orientación");
-    const auto rearOffset = targetPosition - world.agents[0].position;
-    Require(sf::Vector2f{-1.f, 0.f}.dot(rearOffset / rearOffset.length()) >= CqcConfig::RearCosine, "El agarre se completa antes de llegar al lado trasero real");
+    Require(approached && world.guards[0].heldBy == 1 && world.agents[0].cqcHoldingGuard == 9, "Mantener F no alcanza físicamente el contacto radial de un objetivo con otra orientación");
+    Require((world.agents[0].position - sf::Vector2f{242.f, 300.f}).length() <= CqcConfig::ContactTolerance && world.agents[0].facing == sf::Vector2f{1.f, 0.f} && world.guards[0].facing == world.agents[0].facing, "El contacto radial no deja al objetivo delante y de espaldas al jugador");
     Fixture(simulation); world.guards[0].state = GuardState::Alert; world.guards[0].suspicion = 1.f;
     world.agents[0].cqcPressPending = true; world.agents[0].cqcInputDown = true; world.agents[0].cqcHoldTime = CqcConfig::AcquireHold;
     simulation.Step(0.1f, {{1, Held()}});
-    Require(world.guards[0].heldBy == 1, "Se rechaza un agarre trasero físicamente válido solo por el estado de alerta previo");
+    Require(world.guards[0].heldBy == 1, "Se rechaza un agarre físicamente válido solo por el estado de alerta previo");
     Fixture(simulation); world.phase = GamePhase::Base; world.mode = SimulationMode::Training; world.guards[0].trainingDummy = true; world.guards[0].facing = {-1.f, 0.f};
+    world.guards[0].position = {270.f, 300.f};
     world.obstacles.push_back({{{190.f, 315.f}, {80.f, 25.f}}, CoverKind::High, true, "Pared que cierra la aproximación"});
     world.obstacles.push_back({{{190.f, 260.f}, {80.f, 25.f}}, CoverKind::High, true, "Pared que cierra la ruta alternativa"});
     Advance(simulation, Held(), 12);
-    Require(world.agents[0].cqcHoldingGuard == 0 && !WorldGeometry::PositionBlocked(world, world.agents[0].position, GameplayConfig::AgentRadius) && (world.agents[0].position - world.guards[0].position).length() >= CqcConfig::MinimumGripDistance, "Una aproximación bloqueada atraviesa pared o cuerpo para imponer el agarre");
+    Require(world.agents[0].cqcHoldingGuard == 9 && world.guards[0].position == sf::Vector2f{270.f, 300.f} && std::abs(world.agents[0].position.y - 300.f) < 0.01f && !WorldGeometry::PositionBlocked(world, world.agents[0].position, GameplayConfig::AgentRadius), "El agarre intenta rodear al objetivo pese a tener libre el contacto radial entre las paredes");
   }
   void StableGripAndExtendedApproach() {
     Simulation simulation; auto &world = Fixture(simulation);
@@ -283,10 +422,11 @@ namespace {
     Require(world.agents[0].cqcHoldingGuard == 9 && world.guards[0].heldBy == 1 && world.agents[0].cqcProgress == 0,
       "La misma pulsación prolongada que inicia el agarre lo libera o se convierte en sometimiento automático");
     world.agents[0].stamina = 0.f;
-    Advance(simulation, {}, 500);
-    Require(world.agents[0].cqcHoldingGuard == 9 && world.guards[0].heldBy == 1 && world.guards[0].state != GuardState::Incapacitated,
-      "La sujeción válida termina por tiempo ordinario, animación, IA o resistencia agotada sin presión de F");
-    world.agents[0].stamina = GameplayConfig::MaxStamina;
+    simulation.Step(0.1f, {});
+    Require(world.agents[0].cqcHoldingGuard == 0 && world.guards[0].heldBy == 0 && world.guards[0].cqcState == CqcState::None && world.guards[0].state != GuardState::Incapacitated,
+      "Agotar la estamina no suelta recíprocamente al objetivo en el mismo turno");
+    Fixture(simulation); Advance(simulation, Held(), 3); Advance(simulation, {}, 50);
+    Require(world.agents[0].cqcHoldingGuard == 9 && world.guards[0].heldBy == 1, "Una sujeción con estamina termina por un temporizador ordinario sin presión de F");
     Advance(simulation, Held(), 20);
     Require(world.agents[0].cqcHoldingGuard == 9 && world.agents[0].cqcProgress == 1, "La presión continua escapa antes del umbral propio o suma pulsaciones automáticas");
     Advance(simulation, Held(), 4);
@@ -355,7 +495,7 @@ namespace {
       "V durante una sujeción amistosa libera, empuja o daña al compañero");
   }
 
-  void RearApproachReservesAiAndCommitsAtContact() {
+  void RadialApproachReservesAiAndCommitsAtContact() {
     const std::array<sf::Vector2f, 8> directions{{{1.f, 0.f}, {1.f, 1.f}, {0.f, 1.f}, {-1.f, 1.f}, {-1.f, 0.f}, {-1.f, -1.f}, {0.f, -1.f}, {1.f, -1.f}}};
     for (auto direction : directions) {
       Simulation simulation; auto &world = Fixture(simulation);
@@ -369,7 +509,8 @@ namespace {
         Require((actor.position - previous).length() <= CqcConfig::ApproachSpeed * 0.1f + 0.1f &&
           !WorldGeometry::PositionBlocked(world, actor.position, GameplayConfig::AgentRadius) &&
           (actor.position - guard.position).length() >= CqcConfig::MinimumGripDistance - 0.1f,
-          "La colocación trasera atraviesa cuerpo o geometría o salta más allá de su velocidad física");
+          "La colocación radial atraviesa cuerpo o geometría o salta más allá de su velocidad física");
+        Require(std::abs(actor.position.y - 300.f) < 0.01f, "El captor rodea al objetivo según su orientación anterior");
         if (reserved && actor.cqcHoldingGuard == 0) Require(guard.position == reservedPosition && guard.facing == reservedFacing && guard.attackTime == 0.f,
           "La IA mueve, gira o ataca con el objetivo reservado durante la aproximación CQC");
         if (actor.cqcApproachGuard != 0 && !reserved) { reserved = true; reservedPosition = guard.position; reservedFacing = guard.facing; }
@@ -379,8 +520,8 @@ namespace {
       const auto &actor = world.agents[0]; const auto &guard = world.guards[0];
       Require(actor.cqcHoldingGuard == guard.id && guard.heldBy == actor.id && guard.cqcState == CqcState::Grabbed && guard.health == CombatConfig::MaxGuardHealth,
         "Mantener F no completa una sujeción recíproca desde una orientación válida del objetivo");
-      if (reserved) Require(reservedFacing.dot((guard.position - actor.position).normalized()) >= CqcConfig::RearCosine,
-        "La reserva se confirma antes de alcanzar la espalda real del objetivo");
+      Require((actor.position - sf::Vector2f{222.f, 300.f}).length() <= CqcConfig::ContactTolerance && actor.facing == sf::Vector2f{1.f, 0.f} && guard.facing == actor.facing,
+        "La reserva no confirma el contacto radial girando ambos cuerpos sobre el mismo eje");
       const auto actorPosition = actor.position, guardPosition = guard.position;
       Advance(simulation, {}, 10);
       Require(world.agents[0].position == actorPosition && world.guards[0].position == guardPosition && world.guards[0].heldBy == 1,
@@ -388,15 +529,16 @@ namespace {
     }
   }
 
-  void RearPlacementRejectsCharactersAndInterruptedReservations() {
+  void RadialPlacementRejectsCharactersAndInterruptedReservations() {
     Simulation simulation; auto &world = Fixture(simulation, true);
-    Guard guard; guard.id = 9; guard.position = {250.f, 300.f}; guard.facing = {-1.f, 0.f}; guard.patrol = {guard.position}; guard.attackCooldown = 60.f; world.guards.push_back(guard);
-    world.agents[1].position = {278.f, 300.f};
-    Require(!Simulation::FindCqcTarget(world, world.agents[0], Simulation::CqcAction::Grab), "El hint ignora a un personaje que bloquea la posición trasera");
+    world.phase = GamePhase::Base; world.mode = SimulationMode::Training;
+    Guard guard; guard.id = 9; guard.position = {270.f, 300.f}; guard.facing = {-1.f, 0.f}; guard.patrol = {guard.position}; guard.attackCooldown = 60.f; guard.trainingDummy = true; world.guards.push_back(guard);
+    world.agents[1].position = {242.f, 300.f}; world.agents[1].stance = Stance::Prone;
+    Require(!Simulation::FindCqcTarget(world, world.agents[0], Simulation::CqcAction::Grab), "El hint ignora a un tercero que ocupa el contacto radial");
     const auto actorPosition = world.agents[0].position;
     Advance(simulation, Held(), 10);
     Require(world.agents[0].position == actorPosition && world.agents[0].cqcApproachGuard == 0 && world.agents[0].cqcHoldingGuard == 0 && world.guards[0].heldBy == 0,
-      "Una colocación trasera bloqueada inicia parcialmente el movimiento o la sujeción");
+      "Una colocación radial ocupada por un tercero inicia parcialmente el movimiento o la sujeción");
     Fixture(simulation); world.guards[0].position = {270.f, 300.f}; world.guards[0].facing = {-1.f, 0.f}; world.guards[0].patrol = {world.guards[0].position};
     Advance(simulation, Held(), 3);
     Require(world.agents[0].cqcApproachGuard == 9 && world.guards[0].heldBy == 0, "La prueba de interrupción necesita una aproximación reservada sin agarre final");
@@ -404,7 +546,7 @@ namespace {
     Require(world.agents[0].cqcApproachGuard == 0 && world.agents[0].cqcHoldingGuard == 0 && world.guards[0].heldBy == 0,
       "Recibir daño deja una reserva de aproximación indefinida o confirma un agarre interrumpido");
     Fixture(simulation, true); world.agents[1].hidden = true; world.agents[1].position = {50.f, 700.f};
-    guard.position = {270.f, 300.f}; guard.facing = {-1.f, 0.f}; guard.patrol = {guard.position}; world.guards.push_back(guard);
+    guard.position = {270.f, 300.f}; guard.facing = {-1.f, 0.f}; guard.patrol = {guard.position}; guard.trainingDummy = false; world.guards.push_back(guard);
     Advance(simulation, Held(), 3);
     Require(world.agents[0].cqcApproachGuard == 9 && world.guards[0].heldBy == 0, "La amenaza externa requiere una aproximación pendiente real");
     world.agents[1].position = world.guards[0].position + sf::Vector2f{-60.f, -60.f}; world.agents[1].hidden = false;
@@ -413,14 +555,16 @@ namespace {
     Require(world.agents[0].cqcApproachGuard == 0 && world.agents[0].cqcHoldingGuard == 0 && world.guards[0].heldBy == 0,
       "La reserva de aproximación impide reaccionar a una amenaza visual externa");
   }
-  void ContactRequiresPhysicalRearPlacement() {
+  void ContactRequiresPhysicalRadialPlacement() {
     const std::array<sf::Vector2f, 8> directions{{{1.f, 0.f}, {1.f, 1.f}, {0.f, 1.f}, {-1.f, 1.f}, {-1.f, 0.f}, {-1.f, -1.f}, {0.f, -1.f}, {1.f, -1.f}}};
     constexpr float dt = 1.f / 60.f;
-    for (const bool partner : {false, true}) for (const float separation : {22.f, 37.f, 74.f}) for (auto direction : directions) {
-      Simulation simulation, replica; auto &world = Fixture(simulation, partner); direction = direction.normalized();
-      const sf::Vector2f target{200.f + separation, 300.f};
-      if (partner) { world.agents[1].position = target; world.agents[1].facing = direction; }
-      else { world.guards[0].position = target; world.guards[0].facing = direction; world.guards[0].patrol = {target}; }
+    for (const bool partner : {false, true}) for (const float separation : {22.f, 37.f, 74.f}) for (std::size_t positionIndex = 0; positionIndex < directions.size(); ++positionIndex) for (std::size_t facingIndex = 0; facingIndex < directions.size(); ++facingIndex) {
+      Simulation simulation, replica; auto &world = Fixture(simulation, partner);
+      const auto direction = directions[positionIndex].normalized(), targetFacing = directions[facingIndex].normalized();
+      const sf::Vector2f target{500.f, 500.f}, start = target - direction * separation;
+      world.agents[0].position = start; world.agents[0].facing = directions[(positionIndex + facingIndex + 4) % directions.size()].normalized();
+      if (partner) { world.agents[1].position = target; world.agents[1].facing = targetFacing; }
+      else { world.guards[0].position = target; world.guards[0].facing = targetFacing; world.guards[0].patrol = {target}; }
       const auto contact = target - direction * CqcConfig::GripSeparation;
       bool held = false;
       for (unsigned int frame = 0; frame < 180 && !held; ++frame) {
@@ -428,17 +572,111 @@ namespace {
         simulation.Step(dt, {{1, Held()}});
         const auto &actor = world.agents[0]; held = actor.cqcHoldingGuard != 0 || actor.cqcHoldingAgent != 0;
         Require((actor.position - previous).length() <= CqcConfig::ApproachSpeed * dt + 0.01f, "Normalizar el contacto CQC teletransporta al captor");
+        const auto displacement = actor.position - start;
+        Require(std::abs(displacement.x * direction.y - displacement.y * direction.x) < 0.02f && (target - actor.position).dot(direction) >= CqcConfig::MinimumGripDistance - 0.1f,
+          "La aproximación abandona el eje radial o atraviesa al objetivo para alcanzar su espalda anterior");
         Require((partner ? world.agents[1].position : world.guards[0].position) == target, "Normalizar el contacto CQC desplaza al objetivo");
         if (!held) Require(actor.actionPose != ActionPose::Grab && (partner ? world.agents[1].cqcHeldBy == 0 : world.guards[0].heldBy == 0), "La sujeción se confirma antes del contacto corporal real");
       }
-      Require(held && (world.agents[0].position - contact).length() <= CqcConfig::ContactTolerance, "La adquisición CQC no termina a 28 unidades sobre la espalda del objetivo");
+      Require(held && (world.agents[0].position - contact).length() <= CqcConfig::ContactTolerance, "La adquisición CQC no termina en el contacto radial a 28 unidades");
       Require(std::abs((world.agents[0].position - target).length() - CqcConfig::GripSeparation) <= CqcConfig::ContactTolerance, "La sujeción conserva una separación arbitraria del rango de adquisición");
+      Require(world.agents[0].facing.dot(direction) > 0.999f && (partner ? world.agents[1].facing : world.guards[0].facing).dot(direction) > 0.999f,
+        "El agarre no termina con el objetivo delante del captor y ambos orientados sobre ese eje");
       std::string error;
-      Require(replica.LoadSnapshot(simulation.SnapshotFor(1, true), error), "El contacto CQC normalizado no llega íntegro a la réplica");
+      Require(replica.LoadSnapshot(simulation.SnapshotFor(1), error), "El contacto CQC normalizado no llega íntegro a la réplica");
+    }
+  }
+  void RadialAcquisitionRespectsItsRangeAndSupports() {
+    for (const bool partner : {false, true}) {
+      Simulation simulation, replica; auto &world = Fixture(simulation, partner);
+      world.agents[0].facing = {-1.f, 0.f};
+      const sf::Vector2f target{200.f + CqcConfig::AcquireDistance, 300.f};
+      if (partner) world.agents[1].position = target;
+      else { world.guards[0].position = target; world.guards[0].patrol = {target}; }
+      const auto selected = Simulation::FindCqcTarget(world, world.agents[0], Simulation::CqcAction::Grab);
+      Require(selected && (partner ? selected->agent == 2 : selected->guard == 9), "El límite exacto de alcance rechaza el agarre cuando el jugador mira en sentido opuesto");
+      Advance(simulation, Held(), 12);
+      Require(partner ? world.agents[0].cqcHoldingAgent == 2 : world.agents[0].cqcHoldingGuard == 9, "El agarre anunciado a 76 unidades no alcanza físicamente al objetivo");
+      for (const bool stair : {false, true}) {
+        Fixture(simulation, partner); world.phase = GamePhase::Base; world.mode = SimulationMode::Training; world.size = {1900.f, 1740.f};
+        if (!partner) { world.guards[0].trainingDummy = true; world.guards[0].patrol.clear(); }
+        if (stair) {
+          world.walkSurfaces = {{20, 0, WalkSurfaceKind::Stair, {{200.f, 1340.f}, {80.f, 192.f}}, 96.f, {0.f, -0.5f}}};
+          world.agents[0].position = {230.f, 1400.f}; world.agents[0].elevation = 66.f; world.agents[0].supportId = 20;
+        } else {
+          world.walkSurfaces = {{1, 0, WalkSurfaceKind::Floor, {{0.f, 0.f}, world.size}, 0.f},
+            {10, 1, WalkSurfaceKind::Floor, {{100.f, 200.f}, {116.f, 200.f}}, 96.f},
+            {11, 1, WalkSurfaceKind::Floor, {{254.f, 200.f}, {96.f, 200.f}}, 96.f}};
+          world.agents[0].elevation = 96.f; world.agents[0].supportId = 10;
+        }
+        const auto position = stair ? sf::Vector2f{242.f, 1416.f} : sf::Vector2f{270.f, 300.f};
+        const float elevation = stair ? 58.f : 96.f; const std::uint32_t support = stair ? 20u : 11u;
+        if (partner) { world.agents[1].position = position; world.agents[1].elevation = elevation; world.agents[1].supportId = support; }
+        else { world.guards[0].position = position; world.guards[0].elevation = elevation; world.guards[0].supportId = support; }
+        const auto original = WorldGeometry::Feet(world.agents[0]);
+        Require(!Simulation::FindCqcTarget(world, world.agents[0], Simulation::CqcAction::Grab), "El hint anuncia contacto sobre un hueco o con una diferencia final de altura inválida en la escalera");
+        Advance(simulation, Held(), 8);
+        Require(WorldGeometry::Feet(world.agents[0]) == original && world.agents[0].cqcHoldingAgent == 0 && world.agents[0].cqcHoldingGuard == 0 && world.agents[0].cqcApproachAgent == 0 && world.agents[0].cqcApproachGuard == 0,
+          "El agarre mueve al captor a un contacto sin apoyo o demasiado alto sobre el objetivo");
+        std::string error;
+        Require(replica.LoadSnapshot(simulation.SnapshotFor(1), error), "Rechazar el contacto radial sin apoyo válido rompe el snapshot espacial");
+      }
+    }
+  }
+  void RequireReleasedGripSnapshot(Simulation &simulation, bool partner) {
+    const auto &world = simulation.GetState(); const auto &actor = world.agents[0];
+    Require(actor.cqcHoldingGuard == 0 && actor.cqcHoldingAgent == 0 && actor.cqcApproachGuard == 0 && actor.cqcApproachAgent == 0 && actor.cqcProgress == 0 &&
+      (partner ? world.agents[1].cqcHeldBy == 0 : world.guards[0].heldBy == 0 && world.guards[0].cqcState == CqcState::None),
+      "Soltar por estamina deja progreso o referencias CQC en uno de los participantes");
+    Simulation replica; std::string error;
+    Require(replica.LoadSnapshot(simulation.SnapshotFor(1), error) && replica.GetState().agents[0].cqcHoldingAgent == 0 && replica.GetState().agents[0].cqcHoldingGuard == 0,
+      "La liberación por estamina no llega íntegra al snapshot completo");
+    Require(replica.LoadSnapshot(simulation.SnapshotFor(1, true), error), "La liberación por estamina produce referencias huérfanas en el snapshot privado");
+    if (partner) {
+      Require(replica.LoadSnapshot(simulation.SnapshotFor(2, true), error), "La liberación del compañero no llega a su snapshot privado");
+      const auto recipient = std::ranges::find(replica.GetState().agents, 2u, &Agent::id);
+      Require(recipient != replica.GetState().agents.end() && recipient->cqcHeldBy == 0, "El compañero liberado conserva un captor en su snapshot privado");
+    }
+  }
+  void ExhaustionReleasesAtThePulseBoundary() {
+    for (const bool partner : {false, true}) {
+      Simulation simulation; auto &world = Fixture(simulation, partner);
+      Advance(simulation, Held(), 3); world.agents[0].stamina = 0.f;
+      simulation.Step(0.1f, {{1, Held()}});
+      RequireReleasedGripSnapshot(simulation, partner);
+      Require(world.agents[0].stamina == 0.f && world.agents[0].lifeState == LifeState::Alive, "Soltar por estamina incapacita al captor o regenera resistencia dentro del mismo turno");
+      for (const float stamina : {1.f, GameplayConfig::CqcStaminaCost - 0.01f}) {
+        Fixture(simulation, partner); Advance(simulation, Held(), 3); Advance(simulation, {}, 3);
+        const int events = CqcEvents(world); world.agents[0].stamina = stamina;
+        auto pulse = Held(); pulse.cqc = true; simulation.Step(0.1f, {{1, pulse}});
+        RequireReleasedGripSnapshot(simulation, partner);
+        Require(world.agents[0].stamina == stamina && CqcEvents(world) == events && (partner ? !world.agents[1].incapacitated : world.guards[0].stun == 0.f && world.guards[0].state != GuardState::Incapacitated),
+          "Una pulsación sin el coste completo progresa, consume resistencia o incapacita antes de soltar");
+      }
+      Fixture(simulation, partner); Advance(simulation, Held(), 3); Advance(simulation, {}, 3);
+      const int events = CqcEvents(world); world.agents[0].stamina = GameplayConfig::CqcStaminaCost * 2.f;
+      auto pulse = Held(); pulse.cqc = true;
+      simulation.Step(0.1f, {{1, pulse}});
+      Require(world.agents[0].stamina == GameplayConfig::CqcStaminaCost && world.agents[0].cqcProgress == 1 && (partner ? world.agents[1].cqcHeldBy == 1 : world.guards[0].heldBy == 1),
+        "La primera pulsación con saldo para dos fases no conserva la sujeción y el coste real");
+      Advance(simulation, {}, 3); simulation.Step(0.1f, {{1, pulse}});
+      RequireReleasedGripSnapshot(simulation, partner);
+      Require(world.agents[0].stamina == 0.f && CqcEvents(world) == events + (partner ? 0 : 2) && (partner ? !world.agents[1].incapacitated : world.guards[0].state != GuardState::Incapacitated),
+        "Gastar las últimas 12 unidades en una fase intermedia deja el agarre activo o completa una fase extra");
+      Fixture(simulation, partner); Advance(simulation, Held(), 3);
+      for (unsigned int progress = 1; progress < CqcConfig::RequiredPulses; ++progress) {
+        Advance(simulation, {}, 3); simulation.Step(0.1f, {{1, pulse}});
+        Require(world.agents[0].cqcProgress == progress, "La regresión del último pulso no alcanza cada fase con entradas reales");
+      }
+      Advance(simulation, {}, 3); world.agents[0].stamina = GameplayConfig::CqcStaminaCost;
+      simulation.Step(0.1f, {{1, pulse}});
+      RequireReleasedGripSnapshot(simulation, partner);
+      Require(world.agents[0].stamina == 0.f && (partner ? world.agents[1].alive && world.agents[1].incapacitated && world.agents[1].friendlyIncapacitated && world.agents[1].health == GameplayConfig::MaxHealth : world.guards[0].state == GuardState::Incapacitated && world.guards[0].health == CombatConfig::MaxGuardHealth),
+        "El último pulso con coste exacto no completa el sometimiento no letal liberando la pareja ese mismo turno");
     }
   }
 }
 int main() {
-  try { AcquisitionAndSubdue(); RejectionAndCancellation(); PushAndCollisions(); PushInterruptsPuzzle(); PunchKickAndRecovery(); ImpactValidationAndRearApproach(); FriendlyGripAndCleanup(); TrainingCqcSafety(); ContextualWallAndHeldPriority(); PhysicalRearAlignment(); StableGripAndExtendedApproach(); CollapseCancelsGripWithoutRecovery(); SharedTargetQueryMatchesThePush(); RearApproachReservesAiAndCommitsAtContact(); RearPlacementRejectsCharactersAndInterruptedReservations(); ContactRequiresPhysicalRearPlacement(); std::cout << "PASS CQC y empujones: " << checks << " comprobaciones\n"; return 0; }
+  try { AcquisitionAndSubdue(); RejectionAndCancellation(); PushAndCollisions(); ElevatedPushFallsAndKillsAtTheReceivingFloor(); ElevatedPushRespectsWallsAndTrainingProtection(); PhaseChangesDiscardAnUnfinishedPushFall(); PushIntoAVoidKeepsAValidTerminalState(); RisingCabinCatchesThePushedCharacter(); PushInterruptsPuzzle(); PunchKickAndRecovery(); ImpactValidationAndRadialApproach(); FriendlyGripAndCleanup(); TrainingCqcSafety(); ContextualWallAndHeldPriority(); PhysicalRadialAlignment(); StableGripAndExtendedApproach(); CollapseCancelsGripWithoutRecovery(); SharedTargetQueryMatchesThePush(); RadialApproachReservesAiAndCommitsAtContact(); ContactRequiresPhysicalRadialPlacement(); RadialPlacementRejectsCharactersAndInterruptedReservations(); RadialAcquisitionRespectsItsRangeAndSupports(); ExhaustionReleasesAtThePulseBoundary(); std::cout << "PASS CQC y empujones: " << checks << " comprobaciones\n"; return 0; }
   catch (const std::exception &error) { std::cerr << "FAIL CQC tras " << checks << ": " << error.what() << '\n'; return 1; }
 }

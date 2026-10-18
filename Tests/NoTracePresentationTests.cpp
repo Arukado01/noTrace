@@ -1,5 +1,6 @@
 #include "NoTraceWorldRenderer.h"
 #include "NoTraceCharacterAtlasFixture.h"
+#include "Config/NoTraceTrainingConfig.h"
 #include <SFML/Graphics/Image.hpp>
 #include <array>
 #include <cmath>
@@ -9,6 +10,7 @@
 #include <set>
 #include <limits>
 #include <stdexcept>
+#include <vector>
 
 namespace {
   int checks = 0;
@@ -18,6 +20,33 @@ namespace {
   }
   bool Near(sf::Vector2f first, sf::Vector2f second, float tolerance) {
     return std::abs(first.x - second.x) <= tolerance && std::abs(first.y - second.y) <= tolerance;
+  }
+  void PreparedFogContoursMatchLegacy(const std::vector<NoTrace::VisibilityGrid> &grids) {
+    using namespace NoTrace;
+    bool transparent = false, opaque = false, transition = false;
+    for (const auto &grid : grids) {
+      const auto contour = WorldRenderer::PrepareFogContour(grid);
+      const auto compare = [&](sf::Vector2f point) {
+        const float reference = WorldRenderer::FogOpacity(grid, point);
+        const float prepared = WorldRenderer::FogOpacity(grid, point, &contour);
+        Require(reference == prepared, "El contorno preparado cambia la opacidad exacta de la fórmula anterior");
+        transparent = transparent || reference == 0.f; opaque = opaque || reference == 1.f;
+        transition = transition || (reference > 0.f && reference < 1.f);
+        for (const auto alpha : {20, 26, 34})
+          Require(std::lround(alpha * (1.f - reference)) == std::lround(alpha * (1.f - prepared)), "El contorno preparado cambia el alfa de un cono");
+      };
+      for (int sample = -30; sample < 90; ++sample) {
+        const float angle = sample * 2.f * std::numbers::pi_v<float> / 120.f + 0.0037f;
+        const sf::Vector2f direction{std::cos(angle), std::sin(angle)};
+        const float radius = WorldRenderer::FogBoundaryRadius(grid, angle);
+        for (const float distance : {0.f, 1.f, 32.f, 70.f, 190.f, 201.f, radius - PresentationConfig::FogFeatherWidth - 0.01f,
+            radius - PresentationConfig::FogFeatherWidth + 0.01f, radius - 10.f, radius - 0.001f, radius, radius + 0.001f})
+          compare(grid.visualOrigin + direction * std::max(0.f, distance));
+      }
+      for (int row = -5; row <= 5; ++row) for (int column = -5; column <= 5; ++column)
+        compare(grid.visualOrigin + sf::Vector2f{column * 37.25f, row * 31.75f});
+    }
+    Require(transparent && opaque && transition, "La equivalencia del contorno no cubre suelo visible, oculto y la transición");
   }
   void GroundSupportsAndDirectionBoundaries(const std::filesystem::path &project) {
     using namespace NoTrace;
@@ -249,11 +278,54 @@ namespace {
     Require(floor.toHeight == 0.f && std::abs((floor.to - agent.position).length() - WorldRenderer::WeaponHeight(agent.stance) / 0.2f) < 0.01f,
       "El láser continúa debajo del suelo al apuntar hacia abajo");
   }
+  void TraversalShadowsUseThePhysicalReceivingFloor() {
+    using namespace NoTrace;
+    WorldState world; world.size = TrainingConfig::WorldSize;
+    world.walkSurfaces.assign(TrainingConfig::TraversalCourse::Surfaces.begin(), TrainingConfig::TraversalCourse::Surfaces.end());
+    Agent agent; agent.id = 1; agent.position = {700.f, 1370.f}; agent.elevation = TrainingConfig::TraversalCourse::Storey; agent.traversal.surfaceId = 43;
+    for (const auto mode : {TraversalMode::Attach, TraversalMode::Hang, TraversalMode::Shimmy, TraversalMode::Transfer, TraversalMode::Climb, TraversalMode::Drop}) {
+      agent.traversal.mode = mode;
+      const auto receiver = WorldRenderer::TraversalShadowSupport(world, agent);
+      Require(receiver && receiver->id == 5 && receiver->elevation == 0.f,
+        "La sombra del tubo de prácticas flota a la altura del cuerpo en lugar de recibirla el suelo inferior");
+    }
+    world.walkSurfaces.push_back({99, 1, WalkSurfaceKind::Catwalk, {{640.f, 1340.f}, {120.f, 120.f}}, 128.f});
+    auto receiver = WorldRenderer::TraversalShadowSupport(world, agent);
+    Require(receiver && receiver->id == 5 && receiver->elevation == 0.f,
+      "La sombra selecciona una plataforma encima de los pies por usar la altura de las manos");
+    agent.position = {820.f, 1370.f};
+    receiver = WorldRenderer::TraversalShadowSupport(world, agent);
+    Require(receiver && receiver->id == 11 && receiver->elevation == 96.f,
+      "La sombra atraviesa la plataforma real situada inmediatamente debajo del extremo del tubo");
+    agent.position = {240.f, 1440.f};
+    receiver = WorldRenderer::TraversalShadowSupport(world, agent);
+    Require(receiver && receiver->id == 20 && receiver->elevation == 46.f,
+      "La sombra sobre una escalera usa una altura plana en lugar de la pendiente bajo el agente");
+    agent.position = TrainingConfig::TraversalCourse::ElevatorPosition;
+    auto cabin = std::ranges::find(world.walkSurfaces, TrainingConfig::TraversalCourse::CabinSupport, &WalkSurface::id);
+    cabin->elevation = 48.f;
+    receiver = WorldRenderer::TraversalShadowSupport(world, agent);
+    Require(receiver && receiver->id == TrainingConfig::TraversalCourse::CabinSupport && receiver->elevation == 48.f,
+      "La sombra ignora la altura dinámica de la cabina que recibe su proyección");
+    cabin->elevation = 112.f;
+    Require(!WorldRenderer::TraversalShadowSupport(world, agent), "La sombra se pega a una cabina por encima de los pies aunque debajo no exista piso");
+    agent.position = {700.f, 1370.f};
+    std::ranges::find(world.walkSurfaces, 5u, &WalkSurface::id)->enabled = false;
+    Require(!WorldRenderer::TraversalShadowSupport(world, agent), "Una superficie desactivada recibe una sombra sin suelo real");
+    std::ranges::find(world.walkSurfaces, 5u, &WalkSurface::id)->enabled = true;
+    agent.traversal.mode = TraversalMode::Grounded;
+    Require(!WorldRenderer::TraversalShadowSupport(world, agent), "La sombra separada del agarre se duplica al recuperar el suelo normal");
+    agent.traversal.mode = TraversalMode::Hang; agent.elevation = std::numeric_limits<float>::quiet_NaN();
+    Require(!WorldRenderer::TraversalShadowSupport(world, agent), "Una elevación inválida crea una sombra sobre otro piso");
+    agent.elevation = 96.f; world.walkSurfaces.clear();
+    Require(!WorldRenderer::TraversalShadowSupport(world, agent), "La ausencia de superficies inventa un plano receptor a la altura del personaje");
+  }
 }
 
 int main() {
   try {
     using NoTrace::WorldRenderer;
+    TraversalShadowsUseThePhysicalReceivingFloor();
     const sf::Vector2f size{1600.f, 900.f};
     const sf::Vector2f camera{330.f, 475.f};
     const auto center = WorldRenderer::ProjectGround(camera, camera, size);
@@ -628,6 +700,28 @@ int main() {
     const auto movedFog = NoTrace::Visibility::BuildGrid(softFog, viewer);
     Require(movedFog.visualOrigin == viewer.position && std::abs(WorldRenderer::FogBoundaryRadius(movedFog, 0.f) - openLimit) < 0.001f,
         "El movimiento desplaza el contorno por casillas en lugar de seguir al agente");
+    std::vector<NoTrace::VisibilityGrid> contourCases{openFog, alteredCells, wallFog, closedFog, openedFog, movedFog, {}};
+    auto uniformFog = openFog;
+    uniformFog.visualOrigin = {503.25f, 497.75f};
+    std::fill(uniformFog.visualRadii.begin(), uniformFog.visualRadii.end(), NoTrace::VisibilityConfig::StandingRange);
+    contourCases.push_back(uniformFog);
+    for (std::size_t index = 0; index < uniformFog.visualRadii.size(); ++index)
+      uniformFog.visualRadii[index] = index % 17 == 0 ? 0.f : 35.f + static_cast<float>((index * 47) % 166);
+    contourCases.push_back(uniformFog);
+    std::fill(uniformFog.visualRadii.begin(), uniformFog.visualRadii.end(), 0.f);
+    contourCases.push_back(uniformFog);
+    softFog.obstacles = {{{{590.f, 150.f}, {20.f, 318.f}}, NoTrace::CoverKind::High, true, "Marco norte"},
+        {{{590.f, 532.f}, {20.f, 318.f}}, NoTrace::CoverKind::High, true, "Marco sur"},
+        {{{330.f, 340.f}, {100.f, 20.f}}, NoTrace::CoverKind::High, true, "Pared lateral"}};
+    softFog.objects = {corridorDoor};
+    for (int rotation = 0; rotation < 8; ++rotation) {
+      auto rotated = viewer; rotated.position = {503.25f, 497.75f};
+      const float angle = rotation * std::numbers::pi_v<float> / 4.f + 0.013f;
+      rotated.facing = {std::cos(angle), std::sin(angle)};
+      softFog.agents[0] = rotated; softFog.objects[0].open = rotation % 2 != 0;
+      contourCases.push_back(NoTrace::Visibility::BuildGrid(softFog, rotated));
+    }
+    PreparedFogContoursMatchLegacy(contourCases);
     viewer.detectionProgress = 0.f;
     const auto quietEye = WorldRenderer::DetectionFor(viewer);
     viewer.detectionProgress = 0.5f;

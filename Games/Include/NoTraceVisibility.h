@@ -10,6 +10,7 @@
 namespace NoTrace::WorldGeometry { class PreparedOccluders; }
 
 namespace NoTrace::Visibility {
+  bool UsesFieldOfView(const WorldState &world, const Agent &observer);
   bool HasLineOfSight(const WorldState &world, sf::Vector2f from, sf::Vector2f to, Stance stance = Stance::Standing, std::uint32_t ignoredObject = 0);
   bool IsGeometricallyVisible(const WorldState &world, const Agent &observer, sf::Vector2f point, Stance targetStance = Stance::Standing, float targetElevation = std::numeric_limits<float>::quiet_NaN(), const WorldGeometry::PreparedOccluders *geometry = nullptr);
   bool IsVisible(const WorldState &world, const Agent &observer, sf::Vector2f point, Stance targetStance = Stance::Standing);

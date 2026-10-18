@@ -187,6 +187,7 @@ namespace NoTrace {
     float elevation = 0.f;
     std::uint32_t supportId = 0;
     TraversalState traversal;
+    ForcedFallState forcedFall;
     PlayerId spectatorTarget = 0;
   };
   struct Guard {
@@ -242,6 +243,7 @@ namespace NoTrace {
     float lastKnownElevation = 0.f;
     std::vector<float> patrolElevations;
     float wakeRemaining = 0.f;
+    ForcedFallState forcedFall;
   };
   struct Obstacle {
     sf::FloatRect bounds;

@@ -12,6 +12,7 @@ namespace NoTrace::VisibilityConfig {
   inline constexpr float ProneRange = ReferenceProneRange * PlayerRangeScale;
   inline constexpr float CloseRange = 32.f;
   inline constexpr float CosHalfAngle = -0.34202014f;
+  inline constexpr float UnderTableViewCosHalfAngle = 0.70710678f;
   inline constexpr float CellSize = 24.f;
   inline constexpr float SurfaceOffset = 0.5f;
   inline constexpr std::size_t MaximumCells = 20000;

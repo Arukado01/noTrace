@@ -41,7 +41,7 @@ namespace NoTrace::Visibility {
         if (kind == HideoutKind::UnderTable && !hideout->lifted) {
           if (distance > ProneRange) return false;
           const auto facing = WeaponFacing(observer);
-          if (planarDistance > CloseRange && facing.lengthSquared() > 0.f && facing.dot(delta) / (facing.length() * planarDistance) < CosHalfAngle) return false;
+          if (facing.lengthSquared() <= 0.f || (planarDistance > 0.f && facing.dot(delta) / (facing.length() * planarDistance) < UnderTableViewCosHalfAngle)) return false;
           return clear(SpatialConfig::UnderTableEyeHeight);
         }
         if (kind != HideoutKind::Closet || !hideout->open || hideout->hideoutAperture <= 0.f || distance > SpatialConfig::ClosetViewRange) return false;
@@ -89,6 +89,12 @@ namespace NoTrace::Visibility {
     }
   }
 
+  bool UsesFieldOfView(const WorldState &world, const Agent &observer) {
+    return world.phase == GamePhase::Mission || (observer.hidden && std::ranges::any_of(world.objects, [&](const Interactable &object) {
+      return object.id == observer.hideoutId && object.occupantAgent == observer.id && WorldGeometry::HideoutType(object) == HideoutKind::UnderTable && !object.lifted && !object.overturned;
+    }));
+  }
+
   bool IsGeometricallyVisible(const WorldState &world, const Agent &observer, sf::Vector2f point, Stance targetStance, float targetElevation, const WorldGeometry::PreparedOccluders *geometry) {
     return GeometricallyVisible(world, observer, point, targetStance, targetElevation,
         [&](sf::Vector3f from, sf::Vector3f to, std::uint32_t ignoredObject) { return geometry ? geometry->Occluded(from, to, ignoredObject) : WorldGeometry::RayOccluded(world, from, to, ignoredObject); });
@@ -133,14 +139,15 @@ namespace NoTrace::Visibility {
   }
 
   bool IsVisible(const WorldState &world, const Agent &observer, sf::Vector2f point, Stance targetStance) {
-    if (world.phase != GamePhase::Mission) return true;
-    if (world.visibility.observer == observer.id) return GridVisible(world.visibility, point);
+    if (!UsesFieldOfView(world, observer)) return true;
+    if (world.visibility.observer == observer.id) return GridVisible(world.visibility, point) &&
+      (observer.hideoutId == 0 || IsGeometricallyVisible(world, observer, point, targetStance));
     return IsGeometricallyVisible(world, observer, point, targetStance);
   }
 
   bool GuardVisible(const WorldState &world, const Agent &observer, const Guard &guard, const WorldGeometry::PreparedOccluders *geometry) {
     if (guard.bodyHidden) return false;
-    if (world.phase != GamePhase::Mission) return true;
+    if (!UsesFieldOfView(world, observer)) return true;
     if (world.visibility.authoritative && world.visibility.observer == observer.id) return true;
     return !guard.bodyHidden && IsGeometricallyVisible(world, observer, guard.position,
       guard.state == GuardState::Dead || guard.state == GuardState::Incapacitated || (!guard.trainingDummy && guard.heldBy == 0 && (guard.cqcState == CqcState::KnockedDown || guard.cqcState == CqcState::Restrained)) ? Stance::Prone : Stance::Standing, guard.elevation, geometry);
@@ -191,7 +198,10 @@ namespace NoTrace::Visibility {
 
   VisibilityGrid BuildGrid(const WorldState &world, const Agent &observer) {
     NO_TRACE_PROFILE_SCOPE(VisibilityGrid);
-    if (world.visibility.observer == observer.id) return world.visibility;
+    if (world.visibility.observer == observer.id) {
+      NO_TRACE_PROFILE_SCOPE(VisibilityGridCopy);
+      return world.visibility;
+    }
     VisibilityGrid grid;
     grid.observer = observer.id; grid.tick = world.tick; grid.cellSize = VisibilityConfig::CellSize;
     grid.columns = static_cast<unsigned int>(std::ceil(world.size.x / grid.cellSize));
@@ -200,10 +210,14 @@ namespace NoTrace::Visibility {
     if (count > VisibilityConfig::MaximumCells) return {};
     grid.cells.resize(count, 0);
     const WorldGeometry::PreparedOccluders geometry(world);
-    for (unsigned int row = 0; row < grid.rows; ++row) for (unsigned int column = 0; column < grid.columns; ++column) {
-      const sf::Vector2f point{std::min(world.size.x - 0.01f, (column + 0.5f) * grid.cellSize), std::min(world.size.y - 0.01f, (row + 0.5f) * grid.cellSize)};
-      grid.cells[static_cast<std::size_t>(row) * grid.columns + column] = world.phase != GamePhase::Mission || GeometricallyVisible(world, observer, point, Stance::Prone,
-          std::numeric_limits<float>::quiet_NaN(), [&](sf::Vector3f from, sf::Vector3f to, std::uint32_t ignoredObject) { return geometry.Occluded(from, to, ignoredObject); });
+    const bool restricted = UsesFieldOfView(world, observer);
+    {
+      NO_TRACE_PROFILE_SCOPE(VisibilityCells);
+      for (unsigned int row = 0; row < grid.rows; ++row) for (unsigned int column = 0; column < grid.columns; ++column) {
+        const sf::Vector2f point{std::min(world.size.x - 0.01f, (column + 0.5f) * grid.cellSize), std::min(world.size.y - 0.01f, (row + 0.5f) * grid.cellSize)};
+        grid.cells[static_cast<std::size_t>(row) * grid.columns + column] = !restricted || GeometricallyVisible(world, observer, point, Stance::Prone,
+            std::numeric_limits<float>::quiet_NaN(), [&](sf::Vector3f from, sf::Vector3f to, std::uint32_t ignoredObject) { return geometry.Occluded(from, to, ignoredObject); });
+      }
     }
     const auto column = static_cast<unsigned int>(std::max(0.f, observer.position.x) / grid.cellSize);
     const auto row = static_cast<unsigned int>(std::max(0.f, observer.position.y) / grid.cellSize);

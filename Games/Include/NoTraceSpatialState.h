@@ -3,6 +3,7 @@
 #include "NoTraceSpatialGeometry.h"
 #include "NoTraceTraversal.h"
 #include "NoTraceLevel.h"
+#include "NoTraceForcedFalls.h"
 #include <nlohmann/json.hpp>
 #include <unordered_set>
 #include <stdexcept>
@@ -24,13 +25,18 @@ namespace NoTrace::SpatialState {
     if (!value.is_array() || value.size() != 3) throw std::runtime_error("Punto espacial inválido");
     return {Number(value[0], 0.f, world.size.x), Number(value[1], 0.f, world.size.y), Number(value[2])};
   }
+  inline Json Fall(const ForcedFallState &fall, bool filtered) { return {fall.active, Vec(fall.from), Vec(fall.to), fall.progress, fall.targetSupport, filtered ? 0u : fall.actor}; }
+  inline ForcedFallState ReadFall(const Json &value, const WorldState &world) {
+    if (!value.is_array() || value.size() != 6 || !value[0].is_boolean()) throw std::runtime_error("Caída forzada incompleta");
+    return {value[0].get<bool>(), Point(value[1], world), Point(value[2], world), Number(value[3], 0.f, 1.f), Integer(value[4]), Integer(value[5])};
+  }
   inline const Json &Array(const Json &snapshot, const char *name, std::size_t maximum) {
     const auto &array = snapshot.at(name);
     if (!array.is_array() || array.size() > maximum) throw std::runtime_error("Colección espacial demasiado grande");
     return array;
   }
   inline void Write(Json &snapshot, const WorldState &world, bool filtered) {
-    snapshot["spatialVersion"] = 1;
+    snapshot["spatialVersion"] = 2;
     snapshot["geometryHash"] = Level::GeometryHash(world);
     snapshot["surfaces"] = Json::array();
     for (const auto &surface : world.walkSurfaces) snapshot["surfaces"].push_back({surface.id, surface.layer, static_cast<int>(surface.kind), surface.bounds.position.x, surface.bounds.position.y,
@@ -45,12 +51,14 @@ namespace NoTrace::SpatialState {
     for (auto &value : snapshot["agents"]) {
       const auto &agent = *std::ranges::find(world.agents, value["id"].get<PlayerId>(), &Agent::id); const auto &state = agent.traversal;
       value["elevation"] = agent.elevation; value["supportId"] = agent.supportId;
+      value["forcedFall"] = Fall(agent.forcedFall, filtered);
       value["traversal"] = {static_cast<int>(state.mode), state.surfaceId, state.linkId, state.targetSupport, state.reversed, state.parameter, state.progress,
         state.direction.x, state.direction.y, Vec(state.from), Vec(state.to)};
     }
     for (auto &value : snapshot["guards"]) {
       const auto &guard = *std::ranges::find(world.guards, value["id"].get<std::uint32_t>(), &Guard::id);
       value["elevation"] = guard.elevation; value["supportId"] = guard.supportId; value["lastKnownElevation"] = filtered ? guard.elevation : guard.lastKnownElevation;
+      value["forcedFall"] = Fall(guard.forcedFall, filtered);
       value["patrolElevations"] = filtered ? std::vector<float>{} : guard.patrolElevations;
     }
     for (auto &value : snapshot["objects"]) {
@@ -65,7 +73,7 @@ namespace NoTrace::SpatialState {
     for (std::size_t index = 0; index < world.obstacles.size(); ++index) { snapshot["obstacles"][index]["elevation"] = world.obstacles[index].elevation; snapshot["obstacles"][index]["height"] = world.obstacles[index].height; }
   }
   inline void ReadGeometry(const Json &snapshot, WorldState &world) {
-    if (Integer(snapshot.at("spatialVersion"), 1) != 1) throw std::runtime_error("Versión espacial incompatible");
+    if (Integer(snapshot.at("spatialVersion"), 2) != 2) throw std::runtime_error("Versión espacial incompatible");
     std::unordered_set<std::uint32_t> ids;
     for (const auto &value : Array(snapshot, "surfaces", LevelConfig::MaximumSurfaces)) {
       if (!value.is_array() || value.size() != 13 || !value[12].is_boolean()) throw std::runtime_error("Superficie incompleta");
@@ -129,6 +137,7 @@ namespace NoTrace::SpatialState {
     for (std::size_t index = 0; index < world.agents.size(); ++index) {
       auto &agent = world.agents[index]; const auto &value = snapshot.at("agents")[index];
       agent.elevation = Number(value.at("elevation")); agent.supportId = Integer(value.at("supportId"));
+      agent.forcedFall = ReadFall(value.at("forcedFall"), world);
       const auto &state = value.at("traversal");
       if (!state.is_array() || state.size() != 11 || !state[4].is_boolean()) throw std::runtime_error("Estado de desplazamiento incompleto");
       auto &traversal = agent.traversal; traversal.mode = static_cast<TraversalMode>(Integer(state[0], 6)); traversal.surfaceId = Integer(state[1]); traversal.linkId = Integer(state[2]); traversal.targetSupport = Integer(state[3]); traversal.reversed = state[4].get<bool>();
@@ -138,6 +147,7 @@ namespace NoTrace::SpatialState {
     for (std::size_t index = 0; index < world.guards.size(); ++index) {
       auto &guard = world.guards[index]; const auto &value = snapshot.at("guards")[index];
       guard.elevation = Number(value.at("elevation")); guard.supportId = Integer(value.at("supportId")); guard.lastKnownElevation = Number(value.at("lastKnownElevation"));
+      guard.forcedFall = ReadFall(value.at("forcedFall"), world);
       const auto &patrol = value.at("patrolElevations");
       if (!patrol.is_array() || (!patrol.empty() && patrol.size() != guard.patrol.size())) throw std::runtime_error("Alturas de patrulla incompatibles");
       for (const auto &height : patrol) guard.patrolElevations.push_back(Number(height));
@@ -158,11 +168,25 @@ namespace NoTrace::SpatialState {
       const auto *surface = WorldGeometry::FindSurface(world, id);
       return surface && WorldGeometry::ContainsSupport(*surface, position) && std::abs(WorldGeometry::SurfaceHeight(*surface, position) - z) <= LevelConfig::SupportTolerance;
     };
+    const auto validateFall = [&](const ForcedFallState &fall, sf::Vector2f position, float z, std::uint32_t support, bool alive) {
+      if (!fall.active) {
+        if (fall.from != sf::Vector3f{} || fall.to != sf::Vector3f{} || fall.progress != 0.f || fall.targetSupport != 0 || fall.actor != 0) throw std::runtime_error("Caída inactiva con trayectoria residual");
+        return;
+      }
+      if (world.walkSurfaces.empty() || support != 0 || WorldGeometry::Ground(fall.from) != position || WorldGeometry::Ground(fall.to) != position || fall.to.z >= fall.from.z ||
+          WorldGeometry::SpatialDistance(ForcedFalls::Position(fall), {position.x, position.y, z}) > LevelConfig::SupportTolerance ||
+          (fall.targetSupport ? !supported(position, fall.to.z, fall.targetSupport) : fall.to.z != LevelConfig::MinimumElevation) ||
+          (fall.progress >= 1.f && (alive || fall.targetSupport != 0))) throw std::runtime_error("Caída forzada sin trayectoria o aterrizaje físico");
+      if (snapshot.value("visibilityFiltered", false) ? fall.actor != 0 : std::ranges::none_of(world.agents, [&](const Agent &agent) { return agent.id == fall.actor; }))
+        throw std::runtime_error("Autor de caída forzada inexistente o privado");
+    };
     for (const auto &agent : world.agents) {
       const auto &state = agent.traversal;
+      validateFall(agent.forcedFall, agent.position, agent.elevation, agent.supportId, agent.alive);
+      if (agent.forcedFall.active && (state.mode != TraversalMode::Grounded || agent.hidden || agent.extracted || agent.cqcHeldBy || agent.cqcHoldingAgent || agent.cqcHoldingGuard || agent.puzzle.target || agent.draggingGuard >= 0)) throw std::runtime_error("Caída de agente con acción incompatible");
       if (state.direction.lengthSquared() > 1.001f) throw std::runtime_error("Dirección de desplazamiento inválida");
       if (state.mode == TraversalMode::Grounded) {
-        if (state.surfaceId || state.linkId || state.targetSupport || state.progress != 0.f || state.parameter != 0.f || !supported(agent.position, agent.elevation, agent.supportId)) throw std::runtime_error("Agente sin apoyo físico");
+        if (state.surfaceId || state.linkId || state.targetSupport || state.progress != 0.f || state.parameter != 0.f || (!agent.forcedFall.active && !supported(agent.position, agent.elevation, agent.supportId))) throw std::runtime_error("Agente sin apoyo físico");
       } else if (state.mode == TraversalMode::Hang || state.mode == TraversalMode::Shimmy) {
         const auto *surface = WorldGeometry::FindGrip(world, state.surfaceId);
         if (!surface || agent.supportId != 0 || state.linkId || WorldGeometry::SpatialDistance(Traversal::BodyAt(*surface, state.parameter), WorldGeometry::Feet(agent)) > LevelConfig::SupportTolerance) throw std::runtime_error("Cuerpo separado del agarre");
@@ -191,7 +215,11 @@ namespace NoTrace::SpatialState {
             (state.targetSupport && !supported(WorldGeometry::Ground(state.to), state.to.z, state.targetSupport)))) throw std::runtime_error("Caída sin suelo válido");
       }
     }
-    for (const auto &guard : world.guards) if (!supported(guard.position, guard.elevation, guard.supportId)) throw std::runtime_error("Guardia sin apoyo físico");
+    for (const auto &guard : world.guards) {
+      validateFall(guard.forcedFall, guard.position, guard.elevation, guard.supportId, guard.state != GuardState::Dead);
+      if ((!guard.forcedFall.active && !supported(guard.position, guard.elevation, guard.supportId)) ||
+          (guard.forcedFall.active && (guard.bodyHidden || guard.storedIn != 0 || guard.heldBy != 0 || guard.cqcState != CqcState::None))) throw std::runtime_error("Guardia sin apoyo físico o caída compatible");
+    }
     for (const auto &object : world.objects) {
       if (object.supportId != 0 && !WorldGeometry::FindSurface(world, object.supportId)) throw std::runtime_error("Objeto sin superficie de anclaje");
       if (object.elevatorId != 0 && (object.kind != ObjectKind::Elevator || std::ranges::none_of(world.elevators, [&](const ElevatorState &lift) { return lift.id == object.elevatorId; }))) throw std::runtime_error("Mando de ascensor sin cabina");

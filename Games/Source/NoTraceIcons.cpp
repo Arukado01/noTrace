@@ -45,9 +45,10 @@ namespace NoTrace::Icons {
     pixelSize = std::round(pixelSize);
     progress = std::isfinite(progress) ? std::clamp(progress, 0.f, 1.f) : 0.f;
     const auto palette = Colors(kind, tint);
-    const sf::Vector2f origin{std::round(center.x - IconsConfig::Size * pixelSize * .5f), std::round(center.y - IconsConfig::Size * pixelSize * .5f)};
-    for (std::size_t y = 0; y < IconsConfig::Size; ++y) for (std::size_t x = 0; x < IconsConfig::Size; ++x) {
-      const char value = IconsConfig::Glyphs[index].pixels[y][x];
+    const auto &glyph = IconsConfig::Glyphs[index];
+    const sf::Vector2f origin{std::round(center.x - glyph.width * pixelSize * .5f), std::round(center.y - IconsConfig::Size * pixelSize * .5f)};
+    for (std::size_t y = 0; y < IconsConfig::Size; ++y) for (std::size_t x = 0; x < glyph.width; ++x) {
+      const char value = glyph.pixels[y][x];
       if (value == '.') continue;
       auto color = value == 'o' ? palette.outline : value == 's' ? palette.shadow : value == 'f' ? palette.fill : palette.accent;
       if (kind == Kind::Detection && (value == 'a' || value == 'p')) {

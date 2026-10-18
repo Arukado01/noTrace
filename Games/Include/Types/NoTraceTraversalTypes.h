@@ -18,4 +18,12 @@ namespace NoTrace {
     sf::Vector3f from;
     sf::Vector3f to;
   };
+  struct ForcedFallState {
+    bool active = false;
+    sf::Vector3f from;
+    sf::Vector3f to;
+    float progress = 0.f;
+    std::uint32_t targetSupport = 0;
+    std::uint32_t actor = 0;
+  };
 }

@@ -559,7 +559,7 @@ namespace EngineTests {
     WorldState partialHideout;
     partialHideout.phase = GamePhase::Mission; partialHideout.size = {1200.f, 1000.f};
     fogAgent.position = {500.f, 500.f}; fogAgent.hidden = true; fogAgent.hideoutId = inspectionTable.id; fogAgent.stance = Stance::Prone; fogAgent.weaponAim = {1.f, 0.f};
-    partialHideout.agents = {fogAgent}; inspectionTable.position = fogAgent.position; inspectionTable.occupantAgent = fogAgent.id; inspectionTable.occupied = true;
+    partialHideout.agents = {fogAgent}; inspectionTable.position = fogAgent.position; inspectionTable.occupantAgent = fogAgent.id; inspectionTable.occupied = true; inspectionTable.overturned = false;
     partialHideout.objects = {inspectionTable};
     const auto tableForward = capture(renderer, partialHideout, output / "world-table-view-forward.png");
     partialHideout.agents[0].facing = {-1.f, 0.f};
@@ -568,7 +568,7 @@ namespace EngineTests {
     const auto &tableObserver = partialHideout.agents[0];
     const float tableRange = VisibilityConfig::ProneRange, probeDistance = tableRange * .75f;
     const auto tableVisible = [&](sf::Vector2f offset) { return Visibility::IsGeometricallyVisible(partialHideout, tableObserver, tableObserver.position + offset, Stance::Prone); };
-    const float insideCos = VisibilityConfig::CosHalfAngle + .05f, outsideCos = VisibilityConfig::CosHalfAngle - .05f;
+    const float insideCos = VisibilityConfig::UnderTableViewCosHalfAngle + .05f, outsideCos = VisibilityConfig::UnderTableViewCosHalfAngle - .05f;
     if (!tableVisible({probeDistance, 0.f}) || tableVisible({tableRange + 1.f, 0.f}) || tableVisible({-probeDistance, 0.f}) ||
         !tableVisible(sf::Vector2f{insideCos, std::sqrt(1.f - insideCos * insideCos)} * probeDistance) ||
         tableVisible(sf::Vector2f{outsideCos, std::sqrt(1.f - outsideCos * outsideCos)} * probeDistance))
@@ -583,7 +583,7 @@ namespace EngineTests {
     const auto closetOpen = capture(renderer, partialHideout, output / "world-closet-view-open.png");
     if (identical(closetClosed, closetOpen)) throw std::runtime_error("Abrir el armario no modifica su abertura ni su visión exterior limitada");
     metadata.push_back({{"file", "world-table-view-forward.png"}, {"allDirectionsVisible", false}, {"manualCone", true}, {"weaponAimIndependentOfBody", true},
-        {"range", tableRange}, {"cosHalfAngle", VisibilityConfig::CosHalfAngle}, {"hiddenSilhouetteOmitted", true}});
+        {"range", tableRange}, {"cosHalfAngle", VisibilityConfig::UnderTableViewCosHalfAngle}, {"hiddenSilhouetteOmitted", true}});
     metadata.push_back({{"file", "world-table-view-manual-turned.png"}, {"manualConeRotates", true}, {"rangeAndAperturePreserved", true}});
     metadata.push_back({{"file", "world-closet-view-open.png"}, {"closedAndOpenDiffer", true}, {"limitedAperture", partialHideout.objects[0].hideoutAperture}});
     renderer.ResetZoom();

@@ -20,13 +20,14 @@ namespace {
   Json Empty(Simulation &simulation, sf::Vector2f position = {150.f, 180.f}, bool second = false) {
     simulation.ResetBase(second ? std::vector<PlayerProfile>{{1, "Uno"}, {2, "Dos"}} : std::vector<PlayerProfile>{{1, "Uno"}});
     auto snapshot = simulation.SnapshotFor(1);
+    TestFixture::LegacyPlane(snapshot);
     snapshot["mode"] = static_cast<int>(SimulationMode::Operation);
     snapshot["objects"] = Json::array(); snapshot["obstacles"] = Json::array(); snapshot["guards"] = Json::array(); snapshot["events"] = Json::array();
     for (auto &agent : snapshot["agents"]) agent["position"] = {position.x, position.y};
     return snapshot;
   }
   Json Hideout(HideoutKind kind) {
-    Simulation donor; donor.ResetBase(); auto value = donor.SnapshotFor(1)["objects"][0];
+    Simulation donor; donor.ResetBase(); auto snapshot = donor.SnapshotFor(1); TestFixture::LegacyPlane(snapshot); auto value = snapshot["objects"][0];
     value["id"] = 77; value["kind"] = static_cast<int>(ObjectKind::Hideout); value["position"] = {210.f, 180.f};
     value["hideoutKind"] = static_cast<int>(kind); value["occupantAgent"] = 0; value["occupantGuard"] = 0; value["footprint"] = {0.f, 0.f};
     return value;
@@ -39,7 +40,7 @@ namespace {
     return value;
   }
   Json Wall(sf::FloatRect bounds) {
-    Simulation donor; donor.ResetBase(); auto value = donor.SnapshotFor(1)["obstacles"][0];
+    Simulation donor; donor.ResetBase(); auto snapshot = donor.SnapshotFor(1); TestFixture::LegacyPlane(snapshot); auto value = snapshot["obstacles"][0];
     value["position"] = {bounds.position.x, bounds.position.y}; value["size"] = {bounds.size.x, bounds.size.y}; return value;
   }
   void AgentHideouts() {
@@ -67,8 +68,9 @@ namespace {
       Require(!AgentAt(simulation).hidden && AgentAt(simulation).hideoutId == 0 && simulation.GetState().objects[0].occupantAgent == 0, "E no libera la ocupación del escondite");
       Require(!WorldGeometry::HideoutOccupied(simulation.GetState().objects[0]), "Recargar el estado completo deja ocupación residual tras salir");
       const auto exitOffset = AgentAt(simulation).position - hiddenPosition;
-      const bool expectedExit = kind == HideoutKind::UnderTable ? exitOffset.dot(AgentAt(simulation).facing) > 0.f &&
-          std::abs(exitOffset.x * AgentAt(simulation).facing.y - exitOffset.y * AgentAt(simulation).facing.x) < SpatialConfig::CollisionSkin : AgentAt(simulation).position == entry;
+      const auto view = WeaponFacing(AgentAt(simulation));
+      const bool expectedExit = kind == HideoutKind::UnderTable ? exitOffset.dot(view) > 0.f &&
+          std::abs(exitOffset.x * view.y - exitOffset.y * view.x) < SpatialConfig::CollisionSkin : AgentAt(simulation).position == entry;
       Require(expectedExit && !WorldGeometry::PositionBlocked(simulation.GetState(), AgentAt(simulation).position, GameplayConfig::AgentRadius), "La salida no respeta la orientación actual de la mesa o deja una huella exterior bloqueada");
       simulation.Step(0.1f, {{2, use}});
       Require(AgentAt(simulation, 1).hidden && simulation.GetState().objects[0].occupantAgent == 2, "Otro agente no puede reutilizar el escondite liberado tras recargar");

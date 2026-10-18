@@ -9,6 +9,7 @@
 #include "NoTraceCombatGeometry.h"
 #include "NoTraceVisibility.h"
 #include "NoTraceWorldGeometry.h"
+#include "NoTraceSpatialGeometry.h"
 #include "NoTraceEnvironmentArt.h"
 #include "NoTraceCharacterArt.h"
 #include <SFML/Graphics/Color.hpp>
@@ -16,6 +17,7 @@
 #include <SFML/Graphics/Text.hpp>
 #include <SFML/Graphics/View.hpp>
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <initializer_list>
 #include <list>
@@ -39,6 +41,11 @@ namespace NoTrace {
       sf::Vector2f Map(sf::Vector2f point) const { return position + (point - origin).componentWiseMul(scale); }
     };
     struct GroundSupport { sf::Vector2f anchor{SpriteConfig::FeetX, SpriteConfig::FeetY}; float width = 0.f; };
+    struct ShadowSupport { std::uint32_t id = 0; float elevation = 0.f; };
+    struct FogContour {
+      struct Edge { sf::Vector2f first, delta; float lengthSquared = 0.f; };
+      std::array<Edge, VisibilityConfig::VisualRayCount> edges;
+    };
   private:
     struct RenderVisibility { std::vector<std::uint8_t> objects, guards; };
     struct CachedLabel { std::string text; unsigned int size; sf::Text drawable; };
@@ -82,7 +89,10 @@ namespace NoTrace {
     SpriteFrame GuardFrame(const Guard &guard, const WorldState &world) const;
     std::optional<SpriteFrame> AgentWeaponFrame(const Agent &agent, const WorldState &world) const;
     std::optional<sf::Vector2f> SourceMuzzle(const WorldState &world, const ShotTrace &shot, sf::Vector2f camera, const Agent *observer) const;
-    void Humanoid(sf::Vector2f feet, sf::Vector2f facing, Stance stance, sf::Color uniform, SpriteFrame frame, bool down, bool guard = false, sf::Vector2f bodyOffset = {}, const Agent *articulated = nullptr, std::optional<SpriteFrame> upperFrame = std::nullopt, bool separateCqc = false) const;
+    void Humanoid(sf::Vector2f feet, sf::Vector2f facing, Stance stance, sf::Color uniform, SpriteFrame frame, bool down, bool guard = false, sf::Vector2f bodyOffset = {}, const Agent *articulated = nullptr, std::optional<SpriteFrame> upperFrame = std::nullopt, bool separateCqc = false, bool drawShadow = true) const;
+    void HumanoidShadow(sf::Vector2f feet, Stance stance, SpriteFrame frame, bool down) const;
+    void AgentShadowArt(const Agent &agent, const WorldState &world, sf::Vector2f camera, bool local) const;
+    void GuardShadowArt(const Guard &guard, const WorldState &world, sf::Vector2f camera) const;
     void AgentArt(const Agent &agent, const WorldState &world, sf::Vector2f camera, bool local, bool deferCqc = false) const;
     void GuardArt(const Guard &guard, const WorldState &world, sf::Vector2f camera) const;
     void DummyArt(const Guard &dummy, const WorldState &world, sf::Vector2f camera) const;
@@ -90,8 +100,8 @@ namespace NoTrace {
     void CqcArt(const Agent &agent, const WorldState &world, sf::Vector2f camera, sf::Vector2f feet, sf::Color uniform) const;
     bool CqcContactVisible(const Agent &agent, const WorldState &world, sf::Vector2f camera) const;
     void ExplosionArt(const Interactable &object, const WorldState &world, sf::Vector2f camera) const;
-    void Vision(const Guard &guard, const WorldState &world, sf::Vector2f camera) const;
-    void FieldOfView(sf::Vector2f position, sf::Vector2f facing, float range, sf::Color color, const WorldState &world, sf::Vector2f camera, float cosHalfAngle = GameplayConfig::VisionCosHalfAngle, float elevation = 0.f) const;
+    void Vision(const Guard &guard, const WorldState &world, sf::Vector2f camera, const VisibilityGrid *viewer = nullptr, const FogContour *contour = nullptr) const;
+    void FieldOfView(sf::Vector2f position, sf::Vector2f facing, float range, sf::Color color, const WorldState &world, sf::Vector2f camera, float cosHalfAngle = GameplayConfig::VisionCosHalfAngle, float elevation = 0.f, const VisibilityGrid *viewer = nullptr, const FogContour *contour = nullptr) const;
     void Noise(const NoiseEvent &noise, sf::Vector2f camera) const;
     void Combat(const WorldState &world, sf::Vector2f camera, const Agent *observer) const;
     void GuardIcon(const Guard &guard, sf::Vector2f camera) const;
@@ -123,8 +133,30 @@ namespace NoTrace {
     sf::Vector2f ScreenToGround(sf::Vector2f logical, const WorldState &world, PlayerId localPlayer) const;
     sf::Vector2f AimToGround(sf::Vector2f logical, const WorldState &world, PlayerId localPlayer) const;
     AimSolution AimAt(sf::Vector2f logical, const WorldState &world, PlayerId localPlayer) const;
+    static std::optional<ShadowSupport> ShadowSupportBelow(const WorldState &world, sf::Vector2f position, float elevation) {
+      if (!std::isfinite(position.x) || !std::isfinite(position.y) || !std::isfinite(elevation) || elevation < LevelConfig::MinimumElevation || elevation > LevelConfig::MaximumElevation) return std::nullopt;
+      std::optional<ShadowSupport> receiver;
+      for (const auto &surface : world.walkSurfaces) {
+        if (!WorldGeometry::ContainsSupport(surface, position)) continue;
+        const float height = WorldGeometry::SurfaceHeight(surface, position);
+        if (!std::isfinite(height) || height < LevelConfig::MinimumElevation || height > LevelConfig::MaximumElevation || height > elevation + LevelConfig::SupportTolerance) continue;
+        if (!receiver || height > receiver->elevation || (height == receiver->elevation && surface.id < receiver->id)) receiver = ShadowSupport{surface.id, height};
+      }
+      return receiver;
+    }
+    static std::optional<ShadowSupport> TraversalShadowSupport(const WorldState &world, const Agent &agent) {
+      if ((agent.traversal.mode == TraversalMode::Grounded && !agent.forcedFall.active) || agent.hidden || agent.extracted) return std::nullopt;
+      return ShadowSupportBelow(world, agent.position, agent.elevation);
+    }
     static float ClampZoom(float zoom) {
       return std::isfinite(zoom) ? std::clamp(zoom, PresentationConfig::MinimumZoom, PresentationConfig::MaximumZoom) : PresentationConfig::DefaultZoom;
+    }
+    static float LowerFloorFogOpacity(float observerElevation, float surfaceElevation) {
+      if (!std::isfinite(observerElevation) || !std::isfinite(surfaceElevation)) return 0.f;
+      const float difference = observerElevation - surfaceElevation - LevelConfig::SupportTolerance;
+      if (difference <= 0.f) return 0.f;
+      return std::clamp(1.f - std::exp(-PresentationConfig::LowerFloorFogDensity * difference / LevelConfig::StoreyHeight),
+          0.f, PresentationConfig::LowerFloorFogMaximumOpacity);
     }
     static float ZoomAfterSteps(float zoom, float steps) {
       zoom = ClampZoom(zoom);
@@ -207,6 +239,7 @@ namespace NoTrace {
           frame.index = (agent.stance == Stance::Crouched ? 5 : 6) * SpriteConfig::FamilyFrames + frame.index % SpriteConfig::FamilyFrames;
         return frame;
       };
+      if (agent.forcedFall.active) return select(Clip::TraversalDrop, agent.forcedFall.progress);
       if ((!agent.alive || agent.incapacitated) && agent.actionPose == ActionPose::Fall && agent.actionPoseTime > 0.f)
         return select(agent.alive ? Clip::Fall : Clip::Death, 1.f - agent.actionPoseTime / GameplayConfig::AttackAnimationDuration);
       if (!agent.alive || agent.incapacitated) return select(agent.alive ? Clip::Unconscious : Clip::Death, agent.alive ? std::nullopt : std::optional{1.f});
@@ -285,7 +318,7 @@ namespace NoTrace {
       return select(agent.moving ? agent.running ? Clip::Run : Clip::Walk : Clip::Idle);
     }
     static bool HasWeaponLayer(const Agent &agent) {
-      return agent.alive && !agent.incapacitated && !agent.hidden && agent.maneuver.kind == ManeuverKind::None && agent.cqcHeldBy == 0 &&
+      return agent.alive && !agent.incapacitated && !agent.hidden && !agent.forcedFall.active && agent.maneuver.kind == ManeuverKind::None && agent.cqcHeldBy == 0 &&
           agent.cqcHoldingGuard == 0 && agent.cqcHoldingAgent == 0 && agent.cqcAttackTime <= 0.f && agent.actionPose != ActionPose::KnockWall && agent.actionPose != ActionPose::Revive && agent.traversal.mode == TraversalMode::Grounded && agent.draggingGuard < 0 &&
           (agent.aiming || agent.reloadRemaining > 0.f || (agent.actionPose == ActionPose::Shoot && agent.actionPoseTime > 0.f));
     }
@@ -320,6 +353,7 @@ namespace NoTrace {
     static SpriteFrame SelectGuardSprite(const Guard &guard, const WorldState &world) {
       using SpriteConfig::Clip;
       const auto select = [&](Clip clip, std::optional<float> phase = std::nullopt) { return ClipFrame(clip, guard.facing, world.elapsed + guard.id * 0.25f, phase); };
+      if (guard.forcedFall.active) return select(Clip::TraversalDrop, guard.forcedFall.progress);
       const bool falling = guard.state == GuardState::Incapacitated && guard.incapacityRemaining > GameplayConfig::GuardIncapacityDuration - PresentationConfig::CqcFallDuration;
       if (falling) return select(Clip::Fall, (GameplayConfig::GuardIncapacityDuration - guard.incapacityRemaining) / PresentationConfig::CqcFallDuration);
       if (guard.state == GuardState::Dead && guard.attackTime > 0.f) return select(Clip::Fall, 1.f - guard.attackTime / GameplayConfig::AttackAnimationDuration);
@@ -439,11 +473,9 @@ namespace NoTrace {
       const float fraction = sample - std::floor(sample);
       return radius(first) * (1.f - fraction) + radius((first + 1) % grid.visualRadii.size()) * fraction;
     }
-    static float FogOpacity(const VisibilityGrid &grid, sf::Vector2f point) {
-      const auto delta = point - grid.visualOrigin;
-      const float limit = FogBoundaryRadius(grid, std::atan2(delta.y, delta.x));
-      if (limit <= 0.f || delta.length() >= limit) return 1.f;
-      float distance = PresentationConfig::FogFeatherWidth;
+    static FogContour PrepareFogContour(const VisibilityGrid &grid) {
+      FogContour contour{};
+      if (grid.visualRadii.size() != VisibilityConfig::VisualRayCount) return contour;
       const auto vertex = [&](std::size_t index) {
         const float angle = index * 2.f * std::numbers::pi_v<float> / grid.visualRadii.size();
         return grid.visualOrigin + sf::Vector2f{std::cos(angle), std::sin(angle)} * FogBoundaryRadius(grid, angle);
@@ -452,9 +484,34 @@ namespace NoTrace {
       for (std::size_t index = 1; index <= grid.visualRadii.size(); ++index) {
         const auto last = vertex(index % grid.visualRadii.size());
         const auto edge = last - first;
-        const float along = edge.lengthSquared() > 0.f ? std::clamp((point - first).dot(edge) / edge.lengthSquared(), 0.f, 1.f) : 0.f;
-        distance = std::min(distance, (point - first - edge * along).length());
+        contour.edges[index - 1] = {first, edge, edge.lengthSquared()};
         first = last;
+      }
+      return contour;
+    }
+    static float FogOpacity(const VisibilityGrid &grid, sf::Vector2f point, const FogContour *contour = nullptr) {
+      const auto delta = point - grid.visualOrigin;
+      const float limit = FogBoundaryRadius(grid, std::atan2(delta.y, delta.x));
+      if (limit <= 0.f || delta.length() >= limit) return 1.f;
+      float distance = PresentationConfig::FogFeatherWidth;
+      if (contour) {
+        for (const auto &edge : contour->edges) {
+          const float along = edge.lengthSquared > 0.f ? std::clamp((point - edge.first).dot(edge.delta) / edge.lengthSquared, 0.f, 1.f) : 0.f;
+          distance = std::min(distance, (point - edge.first - edge.delta * along).length());
+        }
+      } else {
+        const auto vertex = [&](std::size_t index) {
+          const float angle = index * 2.f * std::numbers::pi_v<float> / grid.visualRadii.size();
+          return grid.visualOrigin + sf::Vector2f{std::cos(angle), std::sin(angle)} * FogBoundaryRadius(grid, angle);
+        };
+        auto first = vertex(0);
+        for (std::size_t index = 1; index <= grid.visualRadii.size(); ++index) {
+          const auto last = vertex(index % grid.visualRadii.size());
+          const auto edge = last - first;
+          const float along = edge.lengthSquared() > 0.f ? std::clamp((point - first).dot(edge) / edge.lengthSquared(), 0.f, 1.f) : 0.f;
+          distance = std::min(distance, (point - first - edge * along).length());
+          first = last;
+        }
       }
       const float blend = std::clamp(1.f - distance / PresentationConfig::FogFeatherWidth, 0.f, 1.f);
       return blend * blend * (3.f - 2.f * blend);

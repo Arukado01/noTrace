@@ -652,10 +652,12 @@ namespace {
     Require(std::ranges::all_of(snapshot.agents, [](const Agent &agent) { return agent.id == 2 || agent.privateOrder == PrivateOrder::None; }),
       "La orientación remota filtra una orden privada ajena");
     Simulation restored; std::string error; restored.ResetBase(); const auto full = restored.SnapshotFor(1);
-    Require(full.at("version") == 12 && !full.contains("cameraMode") && !full.contains("firstPerson"),
+    Require(full.at("version") == 13 && !full.contains("cameraMode") && !full.contains("firstPerson"),
       "El protocolo nuevo serializa una cámara local o conserva la versión anterior");
-    auto previous = full; previous["version"] = 11;
-    Require(!restored.LoadSnapshot(previous, error), "El cliente acepta una instantánea de protocolo11 tras ampliar los mandos");
+    for (const int version : {11, 12}) {
+      auto previous = full; previous["version"] = version;
+      Require(!restored.LoadSnapshot(previous, error), "El cliente acepta una instantánea anterior sin el estado de caída forzada");
+    }
   }
 
   void OrientedShotsUseTheExistingWeaponAuthority() {
@@ -708,9 +710,11 @@ namespace {
     }
   }
 
-  void BodyAimIntentRejectsUnknownBitsAndProtocolEleven() {
-    Require(GameplayConfig::ProtocolVersion == 12, "La ampliación de mandos no incrementa la revisión de protocolo");
-    RawPeer previous(false, 11); Require(previous.rejected || previous.disconnected, "Se admite un cliente de protocolo11 como si entendiera el nuevo mando");
+  void BodyAimIntentRejectsUnknownBitsAndPreviousProtocols() {
+    Require(GameplayConfig::ProtocolVersion == 13, "El estado de caída forzada no incrementa la revisión de protocolo");
+    for (const int version : {11, 12}) {
+      RawPeer previous(false, version); Require(previous.rejected || previous.disconnected, "Se admite un cliente anterior sin el estado de caída forzada");
+    }
     RawPeer supported; supported.Command(1, 0.f, 0.f, 1u << 29); supported.Advance(8);
     Require(!supported.rejected && !supported.disconnected && FindAgent(supported.host.GetWorld(), 2).facing.lengthSquared() > .99f,
       "El bit29 conocido o un eje nulo de orientación rompen la sesión o la dirección del cuerpo");
@@ -1205,7 +1209,8 @@ namespace {
     Require(IsTraining(world) && IsTraining(pair.client.GetWorld()), "El cliente no recibe el modo seguro de entrenamiento de su anfitrión");
     world.objects.clear(); world.obstacles.clear(); world.securityEntries.clear();
     world.agents[0].position = {200.f, 300.f}; world.agents[1].position = {250.f, 300.f}; world.agents[1].facing = {1.f, 0.f};
-    for (std::size_t index = 0; index < world.guards.size(); ++index) world.guards[index].position = {350.f + 500.f * index, 300.f};
+    for (std::size_t index = 0; index < world.guards.size(); ++index) if (world.guards[index].elevation == 0.f)
+      world.guards[index].position = {350.f + 500.f * index, 300.f};
     ActionCommand fire; fire.fireLethal = true; fire.aimX = -1.f;
     fire.aimSlope = (CombatConfig::StandingHeight - CombatConfig::HeadHeight * 0.5f - CombatConfig::StandingWeaponHeight) / 50.f;
     pair.client.Submit(fire); pair.client.Submit({});
@@ -1265,6 +1270,7 @@ namespace {
     const auto hostPosition = host.position;
     const int ammo = remote.loadout.lethalAmmo, magazine = remote.lethalMagazine, decoys = remote.loadout.decoys;
     const auto tick = [&] { pair.Tick(true); Require(pair.client.IsConnected(), pair.client.GetStatus().c_str()); };
+    currentCase = "MultilevelLAN/sincronizar-posicion";
     Until([&] { return Distance(FindAgent(pair.client.GetWorld(), 2).position, remote.position) < .01f; }, tick);
     const auto &replica = pair.client.GetWorld();
     Require(replica.walkSurfaces.size() == world.walkSurfaces.size() && replica.verticalLinks.size() == world.verticalLinks.size() &&
@@ -1275,6 +1281,7 @@ namespace {
     ActionCommand climb; climb.moveY = -1.f; pair.client.Submit(climb);
     bool sawStair = false;
     float previousElevation = 0.f;
+    currentCase = "MultilevelLAN/subir-escalera";
     Until([&] { return FindAgent(pair.client.GetWorld(), 2).supportId == 10; }, [&] {
       tick();
       const auto &agent = FindAgent(pair.client.GetWorld(), 2);
@@ -1283,35 +1290,41 @@ namespace {
       previousElevation = agent.elevation;
     });
     pair.client.Submit({});
+    currentCase = "MultilevelLAN/detener-movimiento";
     Until([&] { return !remote.moving && !FindAgent(pair.client.GetWorld(), 2).moving; }, tick);
     Require(sawStair && remote.supportId == 10 && remote.elevation == 96.f && FindAgent(replica, 2).elevation == 96.f && host.position == hostPosition,
       "El mando remoto no recorre la pendiente hasta su apoyo real mientras el anfitrión está pausado");
     ActionCommand launch; launch.throwDecoy = true; launch.aimX = 1.f; launch.decoyDistance = 100.f;
     pair.client.Submit(launch); pair.client.Submit({});
+    currentCase = "MultilevelLAN/proyectil-acustico";
     Until([&] { return std::ranges::any_of(replica.decoys, [](const DecoyProjectile &disc) { return disc.actor == 2; }); }, tick);
     Require(std::ranges::all_of(replica.decoys, [](const DecoyProjectile &disc) { return disc.actor != 2 || disc.elevation == 96.f; }),
       "El proyectil remoto pierde la cota de lanzamiento durante su réplica");
+    currentCase = "MultilevelLAN/impacto-acustico";
     Until([&] { return std::ranges::any_of(replica.noises, [](const NoiseEvent &noise) { return noise.kind == SoundKind::Decoy; }); }, tick);
     Require(std::ranges::any_of(replica.noises, [](const NoiseEvent &noise) { return noise.kind == SoundKind::Decoy && noise.elevation == 96.f; }) &&
       std::ranges::any_of(replica.sounds, [](const SoundEvent &sound) { return sound.kind == SoundKind::Decoy && sound.elevation == 96.f; }) &&
       remote.loadout.decoys == decoys - 1 && remote.loadout.lethalAmmo == ammo && remote.lethalMagazine == magazine,
       "El impacto acústico no cruza la sesión con su altura e inventario autoritativos");
     remote.position = {340.f, 326.f}; remote.elevation = 0.f; remote.supportId = 1; remote.traversal = {};
+    currentCase = "MultilevelLAN/sincronizar-agarre";
     Until([&] { return Distance(FindAgent(replica, 2).position, remote.position) < .01f && FindAgent(replica, 2).elevation == 0.f; }, tick);
     ActionCommand attach; attach.traverse = true; pair.client.Submit(attach); pair.client.Submit({});
+    currentCase = "MultilevelLAN/guindarse";
     Until([&] { return FindAgent(replica, 2).traversal.mode == TraversalMode::Hang; }, tick);
     Require(remote.traversal.surfaceId == 41 && remote.supportId == 0 && remote.elevation == 18.f &&
       FindAgent(replica, 2).traversal.surfaceId == 41 && FindAgent(replica, 2).supportId == 0 && FindAgent(replica, 2).elevation == 18.f,
       "El agarre enviado por el cliente no conserva superficie, modo y altura físicos");
     remote.traversal = {}; remote.position = {340.f, 326.f}; remote.elevation = 0.f; remote.supportId = 1;
     remote.lifeState = LifeState::Dead; remote.alive = false; remote.health = 0.f;
+    currentCase = "MultilevelLAN/espectador";
     Until([&] { return FindAgent(replica, 2).spectatorTarget == 1 && replica.visibility.observer == 1 && HasAgent(replica, 1); }, tick);
     Require(FindAgent(replica, 1).privateOrder == PrivateOrder::None && !FindAgent(replica, 1).privateComplete &&
       FindAgent(replica, 2).privateOrder == remote.privateOrder && FindAgent(replica, 2).loadout.lethalAmmo == ammo,
       "El espectador hereda los secretos del superviviente o pierde su equipo privado");
     Simulation encoding; const_cast<WorldState &>(encoding.GetState()) = world;
     const auto snapshot = encoding.SnapshotFor(2, true);
-    Require(snapshot.at("version") == 12 && snapshot.at("spectatorTarget") == 1 && snapshot.dump().size() < GameplayConfig::MaximumSnapshotBytes,
+    Require(snapshot.at("version") == 13 && snapshot.at("spectatorTarget") == 1 && snapshot.dump().size() < GameplayConfig::MaximumSnapshotBytes,
       "La réplica multinivel y su vista autorizada exceden el presupuesto o cambian el protocolo");
     for (const auto &agent : snapshot.at("agents")) if (agent.at("id") != 2)
       Require(!agent.contains("privateOrder") && !agent.contains("privateComplete") && !agent.contains("operationLoadout"), "El paquete del espectador contiene secretos ajenos");
@@ -1392,19 +1405,25 @@ namespace {
         "El cono tumbado LAN pierde una de sus ocho orientaciones, cambia rango130 o mueve el cuerpo con el ratón");
     }
     const auto weaponAim = WeaponFacing(remote);
+    const auto bodyFacing = remote.facing;
+    const auto previousTurnTick = world.tick;
     ActionCommand bodyTurn; bodyTurn.moveY = 1.f; bodyTurn.aimX = weaponAim.x; bodyTurn.aimY = weaponAim.y;
     pair.client.Submit(bodyTurn);
-    Until([&] { return remote.facing == sf::Vector2f{0.f, 1.f} && FindAgent(pair.client.GetWorld(), 2).facing == remote.facing; }, [&] { pair.Tick(true); });
-    Require(remote.position == table.position && WeaponFacing(remote).dot(weaponAim) > .999f, "WASD bajo mesa altera el arma o desplaza el cuerpo oculto");
+    Until([&] { return world.tick > previousTurnTick + 2 && pair.client.GetWorld().tick > previousTurnTick; }, [&] { pair.Tick(true); });
+    Require(remote.position == table.position && WeaponFacing(remote).dot(weaponAim) > .999f && remote.facing == bodyFacing &&
+      FindAgent(pair.client.GetWorld(), 2).facing == bodyFacing, "WASD bajo mesa altera el arma, gira o desplaza el cuerpo oculto");
+    use.aimX = weaponAim.x; use.aimY = weaponAim.y;
     pair.client.Submit({}); pair.Advance(3, true); pair.client.Submit(use);
     Until([&] { return remote.hideoutId == 0 && FindAgent(pair.client.GetWorld(), 2).hideoutId == 0; }, [&] { pair.Tick(true); });
-    Require(!remote.hidden && remote.position.y > table.position.y && !WorldGeometry::PositionBlocked(world, remote.position, GameplayConfig::AgentRadius) &&
+    const auto departure = remote.position - table.position;
+    Require(!remote.hidden && departure.dot(weaponAim) > 0.f && std::abs(departure.x * weaponAim.y - departure.y * weaponAim.x) < SpatialConfig::CollisionSkin &&
+      !WorldGeometry::PositionBlocked(world, remote.position, GameplayConfig::AgentRadius) &&
       remote.actionPose == ActionPose::None && remote.actionPoseTime == 0.f && remote.transitionTime == 0.f &&
       FindAgent(pair.client.GetWorld(), 2).actionPose == ActionPose::None,
-      "Salir de la mesa LAN debe aparecer fuera de geometría y sin animación de salida");
+      "Salir de la mesa LAN debe seguir la mira, quedar fuera de geometría y no introducir animación de salida");
     const int tools = remote.loadout.tools;
-    ActionCommand clearance; clearance.moveY = 1.f; pair.client.Submit(clearance);
-    Until([&] { return remote.position.y >= table.position.y + 46.f; }, [&] { pair.Tick(true); });
+    ActionCommand clearance; clearance.moveX = weaponAim.x; clearance.moveY = weaponAim.y; pair.client.Submit(clearance);
+    Until([&] { return (remote.position - table.position).dot(weaponAim) >= 65.f; }, [&] { pair.Tick(true); });
     pair.client.Submit({}); pair.Advance(4, true);
     ActionCommand flip; flip.tool = true; pair.client.Submit(flip); pair.client.Submit({});
     Until([&] { return world.objects[0].overturned && std::ranges::any_of(pair.client.GetWorld().objects, [](const Interactable &object) { return object.id == 77 && object.overturned; }); }, [&] { pair.Tick(true); });
@@ -1478,7 +1497,7 @@ int main(int argc, char **argv) {
     run("AimDirectionAndRestartAuthority", AimDirectionAndRestartAuthority);
     run("BodyAimIntentRemainsAuthoritativeAndCameraLocal", BodyAimIntentRemainsAuthoritativeAndCameraLocal);
     run("OrientedShotsUseTheExistingWeaponAuthority", OrientedShotsUseTheExistingWeaponAuthority);
-    run("BodyAimIntentRejectsUnknownBitsAndProtocolEleven", BodyAimIntentRejectsUnknownBitsAndProtocolEleven);
+    run("BodyAimIntentRejectsUnknownBitsAndPreviousProtocols", BodyAimIntentRejectsUnknownBitsAndPreviousProtocols);
     run("OrientationAlertAndRecoveryStateRemainAuthoritative", OrientationAlertAndRecoveryStateRemainAuthoritative);
     run("DisconnectAndRejoin", DisconnectAndRejoin);
     run("RejectMidMissionAndVersion", RejectMidMissionAndVersion);

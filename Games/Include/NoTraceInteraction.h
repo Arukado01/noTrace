@@ -15,7 +15,7 @@ namespace NoTrace::Interaction {
     const Interactable *nearest = nullptr;
     float distance = GameplayConfig::InteractionDistance;
     for (const auto &object : world.objects) {
-      if (agent.traversal.mode != TraversalMode::Grounded || std::abs(agent.elevation - object.elevation) > LevelConfig::MaximumStepHeight || !WorldGeometry::Properties(object).interactive || (agent.draggingGuard >= 0 && WorldGeometry::HideoutType(object) == HideoutKind::None)) continue;
+      if (agent.forcedFall.active || agent.traversal.mode != TraversalMode::Grounded || std::abs(agent.elevation - object.elevation) > LevelConfig::MaximumStepHeight || !WorldGeometry::Properties(object).interactive || (agent.draggingGuard >= 0 && WorldGeometry::HideoutType(object) == HideoutKind::None)) continue;
       const auto bounds = WorldGeometry::ObjectFootprint(object);
       const float candidate = WorldGeometry::DistanceToBounds(agent.position, bounds);
       if (candidate < distance && !WorldGeometry::RayOccluded(world, {agent.position.x, agent.position.y, agent.elevation + CombatConfig::StandingWeaponHeight}, {WorldGeometry::ClosestPoint(agent.position, bounds).x, WorldGeometry::ClosestPoint(agent.position, bounds).y, object.elevation + CombatConfig::StandingWeaponHeight}, object.id)) {
@@ -29,7 +29,7 @@ namespace NoTrace::Interaction {
     const Guard *nearest = nullptr;
     float distance = GameplayConfig::InteractionDistance;
     for (const auto &guard : world.guards) {
-      if ((guard.state != GuardState::Dead && guard.state != GuardState::Incapacitated && !(IsTraining(world) && guard.trainingDummy && guard.heldBy == 0)) || guard.bodyHidden || guard.storedIn != 0) continue;
+      if (agent.forcedFall.active || guard.forcedFall.active || (guard.state != GuardState::Dead && guard.state != GuardState::Incapacitated && !(IsTraining(world) && guard.trainingDummy && guard.heldBy == 0)) || guard.bodyHidden || guard.storedIn != 0) continue;
       const float candidate = WorldGeometry::SpatialDistance(WorldGeometry::Feet(agent), WorldGeometry::Feet(guard));
       if (std::abs(agent.elevation - guard.elevation) > LevelConfig::MaximumStepHeight || agent.traversal.mode != TraversalMode::Grounded) continue;
       if (candidate >= distance || std::ranges::any_of(world.agents, [&](const Agent &other) { return other.id != agent.id && other.draggingGuard == static_cast<int>(guard.id); })) continue;
@@ -55,8 +55,9 @@ namespace NoTrace::Interaction {
       return false;
     }
     if (WorldGeometry::HideoutType(object) == HideoutKind::UnderTable) {
-      if (agent.facing.lengthSquared() <= 0.0001f) return false;
-      const auto direction = agent.facing.normalized();
+      const auto view = WeaponFacing(agent);
+      if (view.lengthSquared() <= 0.0001f) return false;
+      const auto direction = view.normalized();
       const auto bounds = WorldGeometry::Expanded(WorldGeometry::ObjectFootprint(object), GameplayConfig::AgentRadius + SpatialConfig::CollisionSkin);
       const auto maximum = bounds.position + bounds.size;
       const float horizontal = direction.x > 0.f ? (maximum.x - agent.position.x) / direction.x : direction.x < 0.f ? (bounds.position.x - agent.position.x) / direction.x : std::numeric_limits<float>::infinity();
@@ -78,26 +79,29 @@ namespace NoTrace::Interaction {
   }
 
   inline bool CanEnterHideout(const WorldState &world, const Agent &agent, const Interactable &object) {
-    if (WorldGeometry::HideoutType(object) == HideoutKind::None || !WorldGeometry::Properties(object).interactive || object.lifted || object.overturned || std::abs(agent.elevation - object.elevation) > LevelConfig::MaximumStepHeight || agent.traversal.mode != TraversalMode::Grounded ||
+    if (agent.forcedFall.active || WorldGeometry::HideoutType(object) == HideoutKind::None || !WorldGeometry::Properties(object).interactive || object.lifted || object.overturned || std::abs(agent.elevation - object.elevation) > LevelConfig::MaximumStepHeight || agent.traversal.mode != TraversalMode::Grounded ||
         WorldGeometry::HideoutOccupied(object) || !WorldGeometry::AtHideoutEntrance(object, agent.position, GameplayConfig::AgentRadius) ||
         !HideoutPathClear(world, object, agent.position, object.position)) return false;
     if (agent.draggingGuard < 0) return true;
     const auto body = std::ranges::find_if(world.guards, [&](const Guard &guard) { return static_cast<int>(guard.id) == agent.draggingGuard; });
-    return WorldGeometry::HideoutAllowsBody(object) && body != world.guards.end() && !body->trainingDummy &&
+    return WorldGeometry::HideoutAllowsBody(object) && body != world.guards.end() && !body->trainingDummy && !body->forcedFall.active &&
         (body->state == GuardState::Dead || body->state == GuardState::Incapacitated) && !body->bodyHidden && body->storedIn == 0 &&
         WorldGeometry::DistanceToBounds(body->position, WorldGeometry::ObjectFootprint(object)) <= GameplayConfig::InteractionDistance &&
         WorldGeometry::AtHideoutEntrance(object, body->position, GameplayConfig::AgentRadius) && HideoutPathClear(world, object, body->position, object.position);
   }
 
   inline std::string Prompt(const WorldState &world, const Agent &agent) {
-    if (!agent.connected || !agent.alive || agent.incapacitated || agent.extracted || agent.maneuver.kind != ManeuverKind::None || agent.cqcHeldBy != 0 || agent.traversal.mode != TraversalMode::Grounded) return {};
+    if (!agent.connected || !agent.alive || agent.incapacitated || agent.extracted || agent.forcedFall.active || agent.maneuver.kind != ManeuverKind::None || agent.cqcHeldBy != 0 || agent.traversal.mode != TraversalMode::Grounded) return {};
     if (agent.staggerRemaining > 0.f && agent.hideoutId == 0) return {};
     if (agent.cqcHoldingGuard || agent.cqcHoldingAgent) return "F · Someter";
     if (agent.cqcPressPending || agent.cqcAttackTime > 0.f || agent.puzzle.target != 0 || agent.reloadRemaining > 0.f) return {};
     if (agent.hidden) {
       const auto hideout = std::ranges::find_if(world.objects, [&](const Interactable &object) { return object.id == agent.hideoutId && object.occupantAgent == agent.id; });
       sf::Vector2f exit;
-      return hideout != world.objects.end() && HideoutExit(world, agent, *hideout, exit) ? "E · Salir" : "";
+      if (hideout == world.objects.end()) return {};
+      const bool table = WorldGeometry::HideoutType(*hideout) == HideoutKind::UnderTable;
+      if (!HideoutExit(world, agent, *hideout, exit)) return table ? "Salida bloqueada · Orienta el ratón hacia otro lado" : "";
+      return table ? "Ratón · Observar  |  E · Salir hacia la mirada" : "E · Salir";
     }
     if (world.phase == GamePhase::Mission) for (const auto &other : world.agents) {
       if (other.id == agent.id || !other.alive || !other.incapacitated || !other.connected || other.incapacityRemaining <= 0.f ||

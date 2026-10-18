@@ -291,8 +291,14 @@ namespace NoTrace::MultilevelTests {
     Require(!table.overturned && table.occupantAgent == agent.id, "Una mesa ocupada se vuelca encima de su ocupante");
     auto invalid = simulation.SnapshotFor(1); for (auto &value : invalid["objects"]) if (value["id"] == 34) value["overturned"] = true;
     Simulation replica; std::string error; Require(!replica.LoadSnapshot(invalid, error), "El parser acepta una mesa volcada y ocupada");
-    use.moveX = -1.f; simulation.Step(1.f / 60.f, {{1, use}});
-    Require(!agent.hidden && agent.actionPose == ActionPose::None && agent.transitionTime == 0.f, "Salir de mesa no conserva el cambio instantáneo y válido"); Replica(simulation);
+    const auto hiddenPosition = agent.position, bodyFacing = agent.facing;
+    // La salida sigue el ratón aunque WASD solicite el lado opuesto.
+    use.aimX = -1.f; use.moveX = 1.f; simulation.Step(1.f / 60.f, {{1, use}});
+    Require(!agent.hidden && agent.actionPose == ActionPose::None && agent.transitionTime == 0.f, "Salir de mesa no conserva el cambio instantáneo y válido");
+    Require(agent.hideoutId == 0 && !WorldGeometry::HideoutOccupied(table) && WeaponFacing(agent) == sf::Vector2f{-1.f, 0.f} && agent.facing == bodyFacing &&
+      agent.position.x < hiddenPosition.x && std::abs(agent.position.y - hiddenPosition.y) < SpatialConfig::CollisionSkin, "La salida de mesa no sigue el arma o WASD gira el cuerpo oculto");
+    Require(!WorldGeometry::PositionBlocked(world, agent.position, GameplayConfig::AgentRadius, agent.elevation, WorldGeometry::ActorHeight(agent), agent.supportId) &&
+      Interaction::HideoutPathClear(world, table, hiddenPosition, agent.position), "La salida de mesa atraviesa geometría o termina sin una huella libre"); Replica(simulation);
   }
   inline void CombatCannotCrossFloors() {
     WorldState world; world.phase = GamePhase::Mission;

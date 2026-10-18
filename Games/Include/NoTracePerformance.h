@@ -13,7 +13,9 @@ namespace NoTrace::Profiling {
     VisibilityGrid, VisibilityBoundary, RenderTactical, FloorMesh, GuardCones,
     GeometryBuild, FirstPerson, FirstPersonColumns, FirstPersonRaster,
     FirstPersonActors, FirstPersonViewmodel, Aim, Audio,
-    FogMesh, WallMesh, DrawOrder, WorldIndicators, WorldVisibility, LabelText, Count
+    FogMesh, WallMesh, DrawOrder, WorldIndicators, WorldVisibility, LabelText,
+    FogOpacity, DummyArt, SessionSnapshot, SnapshotBuild, SnapshotSerialize, SnapshotSend, VisibilityGridCopy, VisibilityCells,
+    AudioAmbience, AudioEvent, AudioClipLoad, AudioVoiceStart, AudioOcclusion, Count
   };
 
   struct Counter {
@@ -28,7 +30,9 @@ namespace NoTrace::Profiling {
       "VisibilityGrid", "VisibilityBoundary", "RenderTactical", "FloorMesh", "GuardCones",
       "GeometryBuild", "FirstPerson", "FirstPersonColumns", "FirstPersonRaster",
       "FirstPersonActors", "FirstPersonViewmodel", "Aim", "Audio",
-      "FogMesh", "WallMesh", "DrawOrder", "WorldIndicators", "WorldVisibility", "LabelText"}};
+      "FogMesh", "WallMesh", "DrawOrder", "WorldIndicators", "WorldVisibility", "LabelText",
+      "FogOpacity", "DummyArt", "SessionSnapshot", "SnapshotBuild", "SnapshotSerialize", "SnapshotSend", "VisibilityGridCopy", "VisibilityCells",
+      "AudioAmbience", "AudioEvent", "AudioClipLoad", "AudioVoiceStart", "AudioOcclusion"}};
   inline thread_local bool enabled = false;
   inline thread_local std::array<Counter, StageCount> counters{};
 

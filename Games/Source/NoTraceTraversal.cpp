@@ -1,9 +1,67 @@
 #include "NoTraceSimulation.h"
 #include "NoTraceTraversal.h"
 #include "Config/NoTraceAudioConfig.h"
+#include "Config/NoTraceCqcConfig.h"
+#include "NoTraceForcedFalls.h"
 #include <cmath>
 
 namespace NoTrace {
+  void Simulation::UpdateForcedFalls(float dt) {
+    const auto advance = [&](auto &body, float height) {
+      auto &fall = body.forcedFall;
+      if (!fall.active || fall.progress >= 1.f) return false;
+      auto landing = ForcedFalls::Landing(world_, body.position, body.elevation);
+      if (const auto *cabin = WorldGeometry::FindSurface(world_, fall.targetSupport); cabin && cabin->kind == WalkSurfaceKind::ElevatorCabin && WorldGeometry::ContainsSupport(*cabin, body.position)) {
+        const float top = WorldGeometry::SurfaceHeight(*cabin, body.position), rise = top - fall.to.z;
+        if (rise > 0.f && rise <= LevelConfig::ElevatorSpeed * dt + LevelConfig::SupportTolerance && fall.to.z <= body.elevation + LevelConfig::SupportTolerance && top >= body.elevation)
+          landing = {cabin->id, top};
+      }
+      auto candidate = fall;
+      candidate.to = {body.position.x, body.position.y, landing.elevation}; candidate.targetSupport = landing.id;
+      const sf::Vector3f next{body.position.x, body.position.y, std::max(candidate.to.z, body.elevation - TraversalConfig::DropSpeed * dt)};
+      // La cabina puede cruzar los pies entre ticks; su contacto admite el pequeño ajuste ascendente.
+      if (!WorldGeometry::ClearBodySegment(world_, WorldGeometry::Feet(body), next, GameplayConfig::AgentRadius, height, landing.id)) {
+        if (landing.elevation >= body.elevation) landing = ForcedFalls::Landing(world_, body.position, body.elevation - SpatialConfig::CollisionSkin, 0.f);
+        candidate.to = {body.position.x, body.position.y, landing.elevation}; candidate.targetSupport = landing.id;
+        const float distance = candidate.from.z - candidate.to.z;
+        if (distance > 0.f && body.elevation > candidate.to.z) {
+          candidate.progress = std::clamp((candidate.from.z - body.elevation) / distance, 0.f, 1.f);
+          fall = candidate;
+        }
+        return false;
+      }
+      body.elevation = next.z;
+      const float distance = candidate.from.z - candidate.to.z;
+      candidate.progress = distance > 0.f ? std::clamp((candidate.from.z - next.z) / distance, 0.f, 1.f) : 1.f;
+      fall = candidate;
+      if (fall.progress < 1.f) return false;
+      body.supportId = fall.targetSupport;
+      return true;
+    };
+    // El extremo del vacío conserva la trayectoria final para validar un cuerpo sin apoyo.
+    for (auto &agent : world_.agents) {
+      if (!advance(agent, WorldGeometry::ActorHeight(agent))) continue;
+      const auto fall = agent.forcedFall;
+      const bool fatal = fall.targetSupport == 0 || fall.from.z - fall.to.z >= CqcConfig::FatalPushFallHeight - LevelConfig::SupportTolerance;
+      if (fall.targetSupport != 0) agent.forcedFall = {};
+      EmitSound(SoundKind::Land, agent.position, AudioConfig::FallRadius, agent.id, agent.elevation);
+      if (fatal && !IsTraining(world_)) ConfirmDeath(agent, fall.actor, false);
+      else { agent.staggerRemaining = CqcConfig::PushStagger; agent.moving = false; agent.running = false; }
+    }
+    for (auto &guard : world_.guards) {
+      if (!advance(guard, guard.state == GuardState::Dead || guard.state == GuardState::Incapacitated ? CombatConfig::ProneHeight : CombatConfig::StandingHeight)) continue;
+      const auto fall = guard.forcedFall;
+      const bool fatal = fall.targetSupport == 0 || fall.from.z - fall.to.z >= CqcConfig::FatalPushFallHeight - LevelConfig::SupportTolerance;
+      if (fall.targetSupport != 0) guard.forcedFall = {};
+      EmitSound(SoundKind::Land, guard.position, AudioConfig::FallRadius, 0, guard.elevation);
+      if (fatal && !IsTraining(world_) && guard.state != GuardState::Dead) {
+        guard.state = GuardState::Dead; guard.health = 0.f; guard.stun = 0.f; guard.incapacityRemaining = 0.f;
+        guard.attackTime = GameplayConfig::AttackAnimationDuration; guard.meleeAttack = false; guard.heldBy = 0; guard.cqcState = CqcState::None;
+        Record(EventKind::GuardKilled, fall.actor, guard.id);
+      } else if (IsTraining(world_)) DamageTrainingDummy(guard, 0.f);
+    }
+  }
+
   bool Simulation::UpdateTraversal(Agent &agent, const ActionCommand &command, float dt) {
     auto &state = agent.traversal;
     if ((command.traverse || command.drop) && Traversal::Available(agent)) {

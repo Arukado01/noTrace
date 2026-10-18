@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Config/NoTraceLevelConfig.h"
+
 namespace NoTrace::CqcConfig {
   inline constexpr float AcquireHold = 0.22f;
   inline constexpr float LongPressEscape = 2.25f;
@@ -38,4 +40,5 @@ namespace NoTrace::CqcConfig {
   inline constexpr float PushCooldown = 0.8f;
   inline constexpr float PushStagger = 0.35f;
   inline constexpr float PushNoise = 70.f;
+  inline constexpr float FatalPushFallHeight = LevelConfig::StoreyHeight;
 }

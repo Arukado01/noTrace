@@ -9,10 +9,18 @@ namespace NoTrace {
   void Simulation::BuildTraining() {
     world_.mode = SimulationMode::Training;
     world_.size = TrainingConfig::WorldSize;
+    using namespace TrainingConfig::TraversalCourse;
+    world_.walkSurfaces.assign(Surfaces.begin(), Surfaces.end());
+    world_.gripSurfaces.assign(Grips.begin(), Grips.end());
+    world_.verticalLinks.assign(Links.begin(), Links.end());
+    world_.elevators = {{ElevatorId, ElevatorObject, CabinSupport, {0.f, Storey}, {5, 15}}};
     for (unsigned int index = 0; index < TrainingConfig::DummyCount; ++index) {
+      const auto &spawn = TrainingConfig::DummySpawns[index];
       Guard dummy;
-      dummy.id = TrainingConfig::FirstDummyId + index; dummy.position = {1210.f + 90.f * index, 210.f};
-      dummy.facing = {1.f, 0.f}; dummy.trainingDummy = true; dummy.health = TrainingConfig::DummyMaximumHealth;
+      dummy.id = TrainingConfig::FirstDummyId + index; dummy.position = spawn.position;
+      dummy.facing = spawn.facing; dummy.elevation = spawn.elevation; dummy.supportId = spawn.supportId;
+      dummy.lastKnown = spawn.position; dummy.lastKnownElevation = spawn.elevation;
+      dummy.trainingDummy = true; dummy.health = TrainingConfig::DummyMaximumHealth;
       world_.guards.push_back(dummy);
     }
     Interactable camera{100, ObjectKind::Camera, {1690.f, 260.f}, "Cámara de prácticas"};
@@ -43,8 +51,23 @@ namespace NoTrace {
     world_.obstacles.push_back({{{1488.f, 520.f}, {24.f, 48.f}}, CoverKind::High, true, "Marco de prácticas"});
     world_.obstacles.push_back({{{1488.f, 632.f}, {24.f, 68.f}}, CoverKind::High, true, "Marco de prácticas"});
     world_.obstacles.push_back({{{1170.f, 420.f}, {120.f, 28.f}}, CoverKind::Low, true, "Cobertura de prácticas"});
+    Obstacle wall{WallBounds, CoverKind::High, true, "Muro de agarre de prácticas"}; wall.height = Storey;
+    world_.obstacles.push_back(wall);
+    Obstacle ledge{LedgeBounds, CoverKind::Low, true, "Saliente de prácticas"}; ledge.elevation = Storey; ledge.height = TraversalConfig::HandHeight;
+    world_.obstacles.push_back(ledge);
+    Interactable cabin{ElevatorObject, ObjectKind::Elevator, ElevatorPosition, "Ascensor de prácticas"};
+    cabin.propStyle = PropStyle::Elevator; cabin.footprint = {80.f, 80.f}; cabin.solid = cabin.blocksVision = SpatialOverride::Disabled;
+    cabin.supportId = CabinSupport; cabin.elevatorId = ElevatorId; world_.objects.push_back(cabin);
+    for (unsigned int index = 0; index < 2; ++index) {
+      Interactable liftPanel{ElevatorObject + 1 + index, ObjectKind::Elevator, ElevatorPanelPosition, "Mando del ascensor de prácticas"};
+      liftPanel.elevation = static_cast<float>(index) * Storey; liftPanel.supportId = index == 0 ? 5u : 15u; liftPanel.elevatorId = ElevatorId;
+      liftPanel.propStyle = PropStyle::Buttons; liftPanel.footprint = {12.f, 18.f}; liftPanel.solid = liftPanel.blocksVision = SpatialOverride::Disabled;
+      world_.objects.push_back(liftPanel);
+    }
+    for (auto &agent : world_.agents) agent.supportId = GroundSupport;
     BuildPuzzleNodes();
-    world_.message = "CIO: estaciones de preparación al oeste; campo de prácticas al este. Sin enemigos, con protección y suministros ilimitados.";
+    for (auto &object : world_.objects) if (object.supportId == 0) object.supportId = GroundSupport;
+    world_.message = "CIO: tiro y dispositivos al este; circuito vertical al sur. Dos muñecos en los bordes del segundo piso permiten probar empujones con V y caídas protegidas.";
   }
 
   bool Simulation::DamageTrainingDummy(Guard &guard, float damage) {
@@ -90,7 +113,11 @@ namespace NoTrace {
     if (!IsTraining(world_) || !agent.connected || !agent.alive || agent.incapacitated || agent.hidden || agent.extracted) return;
     const auto console = std::ranges::find_if(world_.objects, [](const Interactable &object) { return object.kind == ObjectKind::TrainingReset; });
     if (console == world_.objects.end() || WorldGeometry::DistanceToBounds(agent.position, WorldGeometry::ObjectFootprint(*console)) >= GameplayConfig::InteractionDistance) return;
-    for (auto &user : world_.agents) { CancelPuzzle(user); ReleaseCqc(user); user.pistolSuppressor = user.nonLethalSuppressor = 100.f; user.pistolSuppressorEquipped = user.nonLethalSuppressorEquipped = true; }
+    for (auto &user : world_.agents) {
+      CancelPuzzle(user); ReleaseCqc(user);
+      if (std::ranges::any_of(world_.guards, [&](const Guard &dummy) { return dummy.trainingDummy && user.draggingGuard == static_cast<int>(dummy.id); })) user.draggingGuard = -1;
+      user.pistolSuppressor = user.nonLethalSuppressor = 100.f; user.pistolSuppressorEquipped = user.nonLethalSuppressorEquipped = true;
+    }
     for (auto &object : world_.objects) {
       if (object.kind == ObjectKind::PuzzleNode) object.open = false;
       if (object.kind == ObjectKind::CoopSwitch) object.progress = 0.f;
@@ -111,8 +138,15 @@ namespace NoTrace {
         object.locked = !occupied; object.open = occupied;
       }
     }
-    for (auto &dummy : world_.guards) if (dummy.trainingDummy) { dummy.health = TrainingConfig::DummyMaximumHealth; dummy.trainingHits = 0; dummy.trainingFeedback = 0.f; }
+    for (auto &dummy : world_.guards) if (dummy.trainingDummy) {
+      dummy.health = TrainingConfig::DummyMaximumHealth; dummy.trainingHits = 0; dummy.trainingFeedback = 0.f;
+      if (dummy.id < TrainingConfig::FirstDummyId || dummy.id - TrainingConfig::FirstDummyId >= TrainingConfig::DummySpawns.size()) continue;
+      const auto &spawn = TrainingConfig::DummySpawns[dummy.id - TrainingConfig::FirstDummyId];
+      dummy.position = spawn.position; dummy.facing = spawn.facing; dummy.elevation = spawn.elevation; dummy.supportId = spawn.supportId;
+      dummy.lastKnown = spawn.position; dummy.lastKnownElevation = spawn.elevation;
+      dummy.forcedFall = {}; dummy.staggerRemaining = 0.f;
+    }
     EmitSound(SoundKind::Button, console->position, GameplayConfig::InteractionDistance * 2.f, agent.id, console->elevation);
-    world_.message = "Campo rearmado: dispositivos, cámaras y muñecos listos para repetir. Las puertas ocupadas permanecen abiertas por seguridad.";
+    world_.message = "Campo rearmado: dispositivos y cámaras listos; muñecos devueltos a sus puestos, incluidos los bordes del segundo piso.";
   }
 }

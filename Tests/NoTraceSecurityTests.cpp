@@ -277,9 +277,9 @@ namespace {
         "El hallazgo visual reserva un único investigador y comienza un acercamiento sin alarma roja");
       Require(std::ranges::count_if(world.guards, [](const Guard &guard) { return guard.bodyTargetKind != BodyTargetKind::None; }) == 1,
         "Dos patrullas no reservan simultáneamente el mismo cuerpo");
-      Require(world.guards[0].position != sf::Vector2f{100.f, 300.f} && (world.guards[0].position - sf::Vector2f{100.f, 300.f}).length() <= GameplayConfig::GuardSpeed * 0.1f + 0.01f,
-        "El investigador avanza físicamente sin teletransportarse");
-      bool detour = false, inspected = false;
+      Require(!WorldGeometry::PositionBlocked(world, world.guards[0].position, GameplayConfig::AgentRadius) && (world.guards[0].position - sf::Vector2f{100.f, 300.f}).length() <= GameplayConfig::GuardSpeed * 0.1f + 0.01f,
+        "El primer tick de investigación conserva colisión y velocidad mientras calcula la ruta");
+      bool advanced = world.guards[0].position != sf::Vector2f{100.f, 300.f}, detour = false, inspected = false;
       float inspectionStart = 0.f;
       for (unsigned int step = 0; step < 120; ++step) {
         const auto before = world.guards[0].position;
@@ -287,6 +287,9 @@ namespace {
         const auto &guard = world.guards[0];
         Require(!WorldGeometry::PositionBlocked(world, guard.position, GameplayConfig::AgentRadius) && (guard.position - before).length() <= GameplayConfig::GuardSpeed * 0.1f + 0.01f,
           "La navegación hacia el cuerpo atraviesa un sólido o produce un salto");
+        advanced = advanced || guard.position != sf::Vector2f{100.f, 300.f};
+        // El tick de reserva más cuatro ticks adicionales limitan la espera total a medio segundo.
+        if (step == 3) Require(advanced, "El investigador no inicia un avance físico en cinco ticks de 0,1 segundos");
         detour |= std::abs(guard.position.y - 300.f) > 10.f;
         if (guard.state == GuardState::InspectBody) {
           if (!inspected) inspectionStart = world.elapsed - 0.1f;

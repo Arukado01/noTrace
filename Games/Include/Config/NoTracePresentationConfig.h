@@ -65,6 +65,10 @@ namespace NoTrace::PresentationConfig {
   inline constexpr float BodyIconPixelSize = 2.f;
   inline constexpr float FogEffectStep = 12.f;
   inline constexpr float FogFeatherWidth = 34.f;
+  inline constexpr float LowerFloorFogDensity = 0.8f;
+  inline constexpr float LowerFloorFogMaximumOpacity = 0.82f;
+  inline constexpr float LowerFloorFogHeightStep = 8.f;
+  inline const sf::Color LowerFloorFogTint{29, 43, 58};
   inline constexpr unsigned int FogFeatherBands = 6;
   inline constexpr unsigned int DetectionEyeSegments = 16;
   inline constexpr float DetectionWarningThreshold = 0.8f;

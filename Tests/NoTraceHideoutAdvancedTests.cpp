@@ -44,10 +44,14 @@ namespace {
     agent.weaponAim = {1.f, 0.f};
     Require(!Visibility::IsGeometricallyVisible(world, agent, {300.f + VisibilityConfig::ProneRange + 1.f, 300.f}), "La mesa amplía el alcance normal tumbado");
     Require(!Visibility::IsGeometricallyVisible(world, agent, {200.f, 300.f}), "La mesa revela la espalda del cono actual");
+    Require(!Visibility::IsGeometricallyVisible(world, agent, {280.f, 300.f}, Stance::Prone) && !Visibility::IsGeometricallyVisible(world, agent, {300.f, 320.f}, Stance::Prone),
+      "La mesa conserva un halo de visión detrás o al lado del cursor");
+    Require(Visibility::IsGeometricallyVisible(world, agent, {330.f, 320.f}, Stance::Prone) && !Visibility::IsGeometricallyVisible(world, agent, {320.f, 330.f}, Stance::Prone),
+      "El cono bajo la mesa no limita la visión a noventa grados alrededor del cursor");
     Require(!Visibility::IsGeometricallyVisible(world, agent, {340.f, 300.f}), "El agente ve una cabeza a través del tablero");
     Require(Visibility::IsGeometricallyVisible(world, agent, {340.f, 300.f}, Stance::Prone), "El tablero bloquea incorrectamente un rayo bajo su altura");
     agent.facing = {0.f, -1.f};
-    Require(Visibility::IsGeometricallyVisible(world, agent, {300.f, 200.f}) && Visibility::IsGeometricallyVisible(world, agent, {400.f, 300.f}), "La orientación corporal sustituye el cono controlado por cursor");
+    Require(!Visibility::IsGeometricallyVisible(world, agent, {300.f, 200.f}) && Visibility::IsGeometricallyVisible(world, agent, {400.f, 300.f}), "La orientación corporal añade una segunda dirección al cono controlado por cursor");
     world.obstacles.push_back({{{270.f, 230.f}, {60.f, 12.f}}, CoverKind::High, true, "Pared"});
     Require(!Visibility::IsGeometricallyVisible(world, agent, {300.f, 200.f}), "La visión bajo la mesa atraviesa una pared");
     world.obstacles.clear(); agent.facing = {1.f, 0.f};
@@ -62,7 +66,8 @@ namespace {
     const auto grid = Visibility::BuildGrid(world, agent);
     Require(grid.visualRadii.size() == VisibilityConfig::VisualRayCount, "El escondite no produce frontera continua para la niebla");
     Require(grid.visualRadii[0] > VisibilityConfig::ProneRange - 0.5f && grid.visualRadii[0] <= VisibilityConfig::ProneRange &&
-      grid.visualRadii[180] <= VisibilityConfig::CloseRange + 0.5f && std::ranges::all_of(grid.visualRadii, [](float radius) { return radius <= VisibilityConfig::ProneRange; }), "La niebla no comparte cono y alcance con la postura tumbada");
+      grid.visualRadii[180] <= VisibilityConfig::SurfaceOffset + 0.5f && grid.visualRadii[90] <= VisibilityConfig::SurfaceOffset + 0.5f &&
+      std::ranges::all_of(grid.visualRadii, [](float radius) { return radius <= VisibilityConfig::ProneRange; }), "La niebla no comparte el único cono del cursor bajo la mesa");
     Require(agent.hidden && agent.hideoutId == table.id, "Calcular la visión expone al agente oculto");
   }
   void ClosetSight() {
@@ -123,13 +128,14 @@ namespace {
     Simulation simulation; auto snapshot = Scenario(simulation, HideoutKind::UnderTable); Load(simulation, snapshot);
     ActionCommand use; use.interact = true; Step(simulation, use);
     ActionCommand mouse; mouse.aimY = -1.f; Step(simulation, mouse);
-    Require(simulation.GetState().agents[0].facing == sf::Vector2f{1.f, 0.f}, "El ratón gira el cuerpo oculto bajo la mesa sin una orden WASD");
+    Require(simulation.GetState().agents[0].facing == sf::Vector2f{1.f, 0.f}, "El ratón gira el cuerpo oculto bajo la mesa");
     Require(simulation.GetState().agents[0].weaponAim == sf::Vector2f{0.f, -1.f} && !simulation.GetState().agents[0].aiming, "El arma oculta no sigue el cursor o activa el disparo dentro de la mesa");
     ActionCommand look; look.aimX = 1.f; look.moveY = -1.f; Step(simulation, look);
     const auto &agent = simulation.GetState().agents[0];
-    Require(agent.hidden && agent.hideoutId == 77 && agent.position == sf::Vector2f{300.f, 300.f} && agent.facing == sf::Vector2f{0.f, -1.f}, "WASD no orienta al agente oculto sin moverlo o el ratón conserva prioridad corporal");
+    Require(agent.hidden && agent.hideoutId == 77 && agent.position == sf::Vector2f{300.f, 300.f} && agent.facing == sf::Vector2f{1.f, 0.f} && agent.weaponAim == sf::Vector2f{1.f, 0.f},
+      "WASD cambia la posición o la orientación independiente del cuerpo bajo la mesa");
     mouse.aimY = 1.f; Step(simulation, mouse);
-    Require(agent.facing == sf::Vector2f{0.f, -1.f} && agent.position == sf::Vector2f{300.f, 300.f}, "Mover sólo el ratón cambia la última orientación WASD bajo la mesa");
+    Require(agent.facing == sf::Vector2f{1.f, 0.f} && agent.position == sf::Vector2f{300.f, 300.f}, "Mover el ratón cambia el cuerpo fijo bajo la mesa");
     Require(agent.weaponAim == sf::Vector2f{0.f, 1.f}, "Girar el cursor bajo la mesa pierde la orientación independiente del arma");
     snapshot = Scenario(simulation, HideoutKind::Closet); snapshot["phase"] = static_cast<int>(GamePhase::Base); Load(simulation, snapshot); Step(simulation, use);
     ActionCommand opening; opening.tool = true; Step(simulation, opening);
@@ -201,36 +207,38 @@ namespace {
     Simulation replica; std::string error;
     Require(replica.LoadSnapshot(filtered, error) && replica.GetState().agents[0].hidden && replica.GetState().agents[0].hideoutId == 77 && replica.GetState().guards.size() == 1,
       "La réplica rechaza la mesa y las entidades visibles dentro del cono actual");
-    Require(replica.GetState().visibility.visualRadii[0] > VisibilityConfig::ProneRange - 0.5f && replica.GetState().visibility.visualRadii[180] <= VisibilityConfig::CloseRange + 0.5f && replica.GetState().visibility.visualRadii[270] < 71.f,
-      "La frontera transmitida amplía el cono tumbado o permite ver por detrás de la pared");
+    Require(replica.GetState().visibility.visualRadii[0] > VisibilityConfig::ProneRange - 0.5f && replica.GetState().visibility.visualRadii[180] <= VisibilityConfig::SurfaceOffset + 0.5f &&
+      replica.GetState().visibility.visualRadii[270] <= VisibilityConfig::SurfaceOffset + 0.5f,
+      "La frontera transmitida añade visión lateral o trasera fuera del cono del cursor");
     const auto facing = world.agents[0].facing;
     ActionCommand cursor; cursor.aimX = -1.f; Step(simulation, cursor);
     const auto opposite = simulation.SnapshotFor(1, true);
     Require(opposite["guards"].size() == 1 && opposite["guards"][0]["id"] == 92 && world.agents[0].facing == facing, "El comando de cursor no cambia el cono privado conservando el cuerpo fijo");
     Require(replica.LoadSnapshot(opposite, error), "El cliente rechaza el giro de visión bajo la mesa");
   }
-  void UnderTableExitFollowsFacing() {
+  void UnderTableExitFollowsCursor() {
     for (const auto direction : std::array<sf::Vector2f, 8>{{{1.f, 0.f}, {-1.f, 0.f}, {0.f, 1.f}, {0.f, -1.f}, {1.f, 1.f}, {-1.f, 1.f}, {1.f, -1.f}, {-1.f, -1.f}}}) {
       Simulation simulation; auto snapshot = Scenario(simulation, HideoutKind::UnderTable);
       snapshot["phase"] = static_cast<int>(GamePhase::Base); Load(simulation, snapshot);
       ActionCommand use; use.interact = true; Step(simulation, use);
       Require(simulation.GetState().agents[0].hideoutId == 77, "La fixture no entra bajo la mesa");
-      ActionCommand look; look.moveX = direction.x; look.moveY = direction.y; look.aimX = -direction.x; look.aimY = -direction.y; Step(simulation, look); Step(simulation, use);
+      ActionCommand look; look.moveX = -direction.x; look.moveY = -direction.y; look.aimX = direction.x; look.aimY = direction.y; Step(simulation, look); Step(simulation, use);
       const auto &world = simulation.GetState(); const auto &agent = world.agents[0]; const auto offset = agent.position - sf::Vector2f{300.f, 300.f};
       Require(!agent.hidden && agent.hideoutId == 0 && world.objects[0].occupantAgent == 0, "La salida orientada conserva una ocupación o un estado oculto obsoleto");
-      Require(offset.dot(direction) > 0.f && std::abs(offset.x * direction.y - offset.y * direction.x) < SpatialConfig::CollisionSkin, "Salir bajo la mesa usa el acceso anterior o el cursor en lugar de la orientación WASD");
+      Require(offset.dot(direction) > 0.f && std::abs(offset.x * direction.y - offset.y * direction.x) < SpatialConfig::CollisionSkin,
+        "Salir bajo la mesa usa WASD o el acceso anterior en lugar del lado señalado por el cursor");
       Require(!WorldGeometry::PositionBlocked(world, agent.position, GameplayConfig::AgentRadius), "La salida orientada queda dentro del tablero o de otra huella sólida");
     }
     for (const auto direction : {sf::Vector2f{1.f, 0.f}, sf::Vector2f{0.f, -1.f}}) {
       Simulation simulation; auto snapshot = Scenario(simulation, HideoutKind::UnderTable); snapshot["phase"] = static_cast<int>(GamePhase::Base); Load(simulation, snapshot);
-      ActionCommand use; use.interact = true; Step(simulation, use); ActionCommand look; look.moveX = direction.x; look.moveY = direction.y; Step(simulation, look);
+      ActionCommand use; use.interact = true; Step(simulation, use); ActionCommand look; look.aimX = direction.x; look.aimY = direction.y; Step(simulation, look);
       snapshot = simulation.SnapshotFor(1);
       const auto wall = direction.x > 0.f ? Json{{"position", {340.f, 250.f}}, {"size", {16.f, 100.f}}} : Json{{"position", {250.f, 260.f}}, {"size", {100.f, 16.f}}};
       auto obstacle = wall; obstacle["cover"] = 2; obstacle["solid"] = true; obstacle["name"] = "Salida orientada bloqueada"; snapshot["obstacles"].push_back(obstacle); Load(simulation, snapshot); Step(simulation, use);
       const auto &agent = simulation.GetState().agents[0];
       Require(agent.hidden && agent.hideoutId == 77 && agent.position == sf::Vector2f{300.f, 300.f}, "Una salida frontal bloqueada fuerza la salida por el acceso anterior o atraviesa la pared");
       Require(simulation.GetState().objects[0].occupantAgent == 1 && !simulation.GetState().message.empty(), "Rechazar la salida pierde la ocupación o no informa al jugador");
-      look.moveX = -direction.x; look.moveY = -direction.y; Step(simulation, look); Step(simulation, use);
+      look.aimX = -direction.x; look.aimY = -direction.y; Step(simulation, look); Step(simulation, use);
       Require(!simulation.GetState().agents[0].hidden, "Girar hacia un lado libre no permite salir después de un rechazo válido");
     }
   }
@@ -255,6 +263,8 @@ namespace {
         continue;
       }
       Require(simulation.GetState().guards[0].knownHideout == 77, "El guardia pierde la entrada que observó tras confirmar al agente");
+      Require(simulation.GetState().guards[0].state == GuardState::Search && simulation.GetState().guards[0].lastKnown != simulation.GetState().agents[0].position,
+        "Ver todavía el cuerpo bajo el tablero interrumpe el acercamiento a la mesa observada");
       bool intermediate = false, approachFootstep = false;
       for (unsigned int frame = 0; frame < 60 && !simulation.GetState().objects[0].overturned; ++frame) {
         Step(simulation);
@@ -273,6 +283,70 @@ namespace {
       Require(!WorldGeometry::PositionBlocked(world, world.agents[0].position, GameplayConfig::AgentRadius), "La mesa levantada deja al agente dentro de una colisión sólida");
       Require(world.guards[0].knownHideout == 0, "Completar la inspección deja una pista de escondite obsoleta");
     }
+  }
+  void PrepareKnownTableInspection(Simulation &simulation, sf::Vector2f inspector) {
+    const auto snapshot = Scenario(simulation, HideoutKind::UnderTable); Load(simulation, snapshot);
+    auto &world = const_cast<WorldState &>(simulation.GetState()); auto &agent = world.agents[0]; auto &table = world.objects[0];
+    agent.position = table.position; agent.stance = Stance::Prone; agent.hidden = true; agent.hideoutId = table.id; agent.hideoutExit = {230.f, 300.f};
+    agent.weaponAim = (inspector - table.position).normalized(); table.occupied = true; table.occupantAgent = agent.id;
+    Guard guard; guard.id = 10; guard.position = inspector; guard.facing = (table.position - inspector).normalized(); guard.state = GuardState::Search;
+    guard.knownHideout = table.id; guard.observedAgent = agent.id; guard.suspicion = 1.f; guard.hideoutInspectionTime = SpatialConfig::HideoutInspectionDuration - 0.1f; guard.attackCooldown = 60.f;
+    world.guards = {guard};
+  }
+  void InspectorClearsTheFutureTableFootprint() {
+    for (const auto position : std::array<sf::Vector2f, 8>{{{249.f, 300.f}, {351.f, 300.f}, {300.f, 264.f}, {300.f, 336.f},
+        {246.05f, 300.f}, {353.95f, 300.f}, {300.f, 261.05f}, {300.f, 338.95f}}}) {
+      Simulation simulation; PrepareKnownTableInspection(simulation, position);
+      auto &world = const_cast<WorldState &>(simulation.GetState());
+      auto flipped = world.objects[0]; flipped.overturned = true; flipped.footprint = {};
+      Require(WorldGeometry::CircleOverlaps(world.guards[0].position, GameplayConfig::AgentRadius, WorldGeometry::ObjectFootprint(flipped)),
+        "La fixture no reproduce al inspector demasiado cerca de la huella ampliada");
+      Step(simulation);
+      Require(!WorldGeometry::CircleOverlaps(world.guards[0].position, GameplayConfig::AgentRadius, WorldGeometry::ObjectFootprint(flipped)) &&
+        world.guards[0].hideoutInspectionTime == 0.f && !world.objects[0].overturned,
+        "El inspector no se aparta físicamente antes de volcar la mesa");
+      Step(simulation, {}, 14);
+      Require(world.agents[0].hidden && !world.objects[0].overturned, "Apartarse del tablero omite la duración real de inspección");
+      Step(simulation, {}, 2);
+      Require(world.objects[0].overturned && !world.agents[0].hidden && world.agents[0].hideoutId == 0,
+        "El inspector queda bloqueado por su propia colisión o por el cursor del ocupante");
+      Require((world.agents[0].position - world.guards[0].position).length() >= GameplayConfig::AgentRadius * 2.f &&
+        !WorldGeometry::PositionBlocked(world, world.agents[0].position, GameplayConfig::AgentRadius),
+        "La expulsión forzada deja al ocupante dentro del inspector o del tablero volcado");
+    }
+  }
+  void InspectionExpelsThroughAFreeSideAndPausesDuringCqc() {
+    Simulation simulation; PrepareKnownTableInspection(simulation, {245.f, 300.f});
+    auto &world = const_cast<WorldState &>(simulation.GetState());
+    Agent other; other.id = 2; other.name = "Paso ocupado"; other.position = {354.02f, 300.f}; other.stance = Stance::Prone; world.agents.push_back(other);
+    Step(simulation);
+    Require(world.objects[0].overturned && !world.agents[0].hidden && std::abs(world.agents[0].position.y - 300.f) > GameplayConfig::AgentRadius && world.agents[0].position.x == 300.f,
+      "El guardia no busca otro lado libre cuando la expulsión opuesta está ocupada");
+    Require((world.agents[0].position - world.agents[1].position).length() >= GameplayConfig::AgentRadius * 2.f,
+      "La expulsión forzada atraviesa a otro agente");
+    PrepareKnownTableInspection(simulation, {245.f, 300.f});
+    auto &paused = const_cast<WorldState &>(simulation.GetState()); paused.guards[0].cqcState = CqcState::KnockedDown;
+    Step(simulation, {}, 20);
+    Require(paused.agents[0].hidden && !paused.objects[0].overturned && paused.guards[0].hideoutInspectionTime == 0.f,
+      "Un guardia derribado por CQC continúa levantando la mesa");
+    paused.guards[0].cqcState = CqcState::None; Step(simulation, {}, 16);
+    Require(paused.objects[0].overturned && !paused.agents[0].hidden, "El guardia no reanuda la inspección legítima después de recuperar movilidad");
+  }
+  void InspectionPreservesTheLandingSupport() {
+    Simulation simulation; PrepareKnownTableInspection(simulation, {245.f, 300.f});
+    auto &world = const_cast<WorldState &>(simulation.GetState());
+    world.walkSurfaces = {
+      {10, 1, WalkSurfaceKind::Floor, {{250.f, 200.f}, {155.f, 200.f}}, 96.f},
+      {11, 1, WalkSurfaceKind::Floor, {{405.f, 200.f}, {100.f, 200.f}}, 96.f}
+    };
+    world.objects[0].position = world.agents[0].position = {360.f, 300.f}; world.guards[0].position = {305.f, 300.f};
+    world.objects[0].elevation = world.agents[0].elevation = world.guards[0].elevation = 96.f;
+    world.objects[0].supportId = world.agents[0].supportId = world.guards[0].supportId = 10;
+    Step(simulation);
+    Require(world.objects[0].overturned && !world.agents[0].hidden && world.agents[0].supportId == 11 && world.agents[0].elevation == 96.f,
+      "Expulsar hacia un apoyo vecino conserva la planta de la mesa en lugar del suelo de llegada");
+    Simulation replica; std::string error;
+    Require(replica.LoadSnapshot(simulation.SnapshotFor(1), error), "La expulsión de una mesa elevada genera una instantánea con apoyo incoherente");
   }
   void DifferentOccupantIsDetected() {
     Simulation simulation; auto snapshot = Scenario(simulation, HideoutKind::UnderTable, {700.f, 650.f});
@@ -311,7 +385,7 @@ namespace {
 
 int main() {
   try {
-    UnderTableSight(); ClosetSight(); ClosetEntranceAndExit(); HiddenOrientationAndNetworkPrivacy(); InstantTableTransitions(); UnderTableExposureAndCamera(); UnderTablePrivateDirectionalSnapshots(); UnderTableExitFollowsFacing(); WitnessedInspection(); DifferentOccupantIsDetected(); InspectionWaitsForFreeTableAndExit();
+    UnderTableSight(); ClosetSight(); ClosetEntranceAndExit(); HiddenOrientationAndNetworkPrivacy(); InstantTableTransitions(); UnderTableExposureAndCamera(); UnderTablePrivateDirectionalSnapshots(); UnderTableExitFollowsCursor(); WitnessedInspection(); InspectorClearsTheFutureTableFootprint(); InspectionExpelsThroughAFreeSideAndPausesDuringCqc(); InspectionPreservesTheLandingSupport(); DifferentOccupantIsDetected(); InspectionWaitsForFreeTableAndExit();
     std::cout << "PASS escondites avanzados: " << checks << " comprobaciones de visión, aberturas, accesos e inspección observada\n";
     return 0;
   } catch (const std::exception &error) { std::cerr << "FAIL escondites avanzados tras " << checks << ": " << error.what() << '\n'; return 1; }

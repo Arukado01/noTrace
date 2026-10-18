@@ -50,7 +50,9 @@ namespace EngineTests {
       require(direction == 0 ? identical(inside, view) : !identical(inside, view), "girar el arma no reorienta la niebla del cono tumbado");
       require(Visibility::IsGeometricallyVisible(world, agent, agent.position + aim * 120.f, Stance::Prone) &&
         !Visibility::IsGeometricallyVisible(world, agent, agent.position + aim * (VisibilityConfig::ProneRange + 1.f), Stance::Prone) &&
-        !Visibility::IsGeometricallyVisible(world, agent, agent.position - aim * 120.f, Stance::Prone), "el cono pierde una dirección, revela la espalda o supera el rango tumbado");
+        !Visibility::IsGeometricallyVisible(world, agent, agent.position - aim * 10.f, Stance::Prone) &&
+        !Visibility::IsGeometricallyVisible(world, agent, agent.position + sf::Vector2f{-aim.y, aim.x} * 10.f, Stance::Prone),
+        "el cono pierde una dirección, revela un halo cercano o supera el rango tumbado");
       views.push_back({{"file", file}, {"direction", direction}, {"identicalFog", direction == 0}, {"range", VisibilityConfig::ProneRange}});
     }
     agent.weaponAim = {1.f, 0.f};
@@ -79,6 +81,7 @@ namespace EngineTests {
     capture(renderer, world, output / "table-hidden-aim.png", false);
     agent.facing = {1.f, 0.f}; simulation.Step(0.1f, {{1, use}});
     require(!agent.hidden && agent.hideoutId == 0 && agent.position != table.position && agent.actionPose == ActionPose::None &&
+      agent.position.y > table.position.y && std::abs(agent.position.x - table.position.x) < SpatialConfig::CollisionSkin &&
       agent.actionPoseTime == 0.f && agent.transitionTime == 0.f && !WorldGeometry::PositionBlocked(world, agent.position, GameplayConfig::AgentRadius),
       "la salida no aparece inmediatamente en una posición física válida");
     const auto logical = context.window.GetLogicalSize().componentWiseMul(PresentationConfig::CameraFocusRatio);
@@ -86,7 +89,7 @@ namespace EngineTests {
       std::round(logical.y / PresentationConfig::PixelSize) * PresentationConfig::PixelSize};
     require((renderer.ScreenToGround(focus, world, agent.id) - agent.position).length() < 0.001f, "la cámara conserva una posición interpolada tras la salida instantánea");
     capture(renderer, world, output / "table-instant-outside.png", false);
-    ActionCommand step; step.moveX = 1.f;
+    ActionCommand step; step.moveY = 1.f;
     for (int frame = 0; frame < 3; ++frame) simulation.Step(.1f, {{1, step}});
     const int tools = agent.loadout.tools;
     ActionCommand flip; flip.tool = true; simulation.Step(.1f, {{1, flip}});

@@ -4,6 +4,7 @@
 #include <SFML/Graphics/Color.hpp>
 #include <array>
 #include <functional>
+#include <optional>
 
 struct EngineContext;
 namespace sf { class Texture; }
@@ -14,7 +15,7 @@ namespace NoTrace {
     using Project = std::function<sf::Vector2f(sf::Vector2f, float)>;
     using Shade = std::function<float(sf::Vector2f)>;
     explicit EnvironmentArt(EngineContext &context);
-    void Surface(const WalkSurface &surface, const Project &project, const Shade &shade = {}) const;
+    void Surface(const WalkSurface &surface, const Project &project, const Shade &shade = {}, std::optional<sf::FloatRect> clip = std::nullopt) const;
     void Wall(const Obstacle &wall, const Project &project) const;
     bool Object(const Interactable &object, sf::Vector2f feet) const;
     sf::Vector2f ObjectPoint(const Interactable &object, sf::Vector2f feet, sf::Vector2f sourcePoint) const;

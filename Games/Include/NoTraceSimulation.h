@@ -5,6 +5,7 @@
 #include <optional>
 #include <limits>
 #include <unordered_map>
+#include <deque>
 
 namespace NoTrace {
   class Simulation {
@@ -26,6 +27,27 @@ namespace NoTrace {
     bool CanSee(sf::Vector2f from, sf::Vector2f facing, const Agent &agent, float range = 260.f, float fromElevation = 0.f) const;
 
   private:
+    struct NavigationSearch {
+      sf::Vector2f origin, target;
+      float elevation = 0.f, closestDistance = 0.f;
+      std::uint32_t support = 0, nextSupport = 0;
+      GuardState intent = GuardState::Patrol;
+      int columns = 0, rows = 0, closest = -1, finish = -1;
+      std::vector<int> seeds, previous, pending;
+      std::vector<std::uint32_t> geometry;
+      std::size_t seed = 0, head = 0;
+      std::uint64_t requestedTick = 0;
+      bool complete = false, reachesTarget = false, goalBlocked = false;
+    };
+    std::unordered_map<std::uint32_t, NavigationSearch> navigationSearches_;
+    std::deque<std::uint32_t> navigationQueue_;
+    std::uint64_t navigationWorkTick_ = std::numeric_limits<std::uint64_t>::max();
+    unsigned int navigationWorkRemaining_ = 0;
+    void ResetNavigation();
+    void CancelNavigationSearch(std::uint32_t guard);
+    void PrepareNavigationTick();
+    void AdvanceNavigationSearches();
+    bool NavigationPathClear(sf::Vector2f from, sf::Vector2f to, std::uint32_t support, std::uint32_t nextSupport) const;
     WorldState world_;
     float alarmRemaining_ = 0.f;
     std::uint64_t nextEvent_ = 1;
@@ -64,6 +86,7 @@ namespace NoTrace {
     void BuildMission(std::uint32_t seed);
     bool UpdateTraversal(Agent &agent, const ActionCommand &command, float dt);
     void CancelTraversal(Agent &agent);
+    void UpdateForcedFalls(float dt);
     void UpdateElevators(float dt);
     bool UseElevator(Agent &agent, Interactable &object);
     void MoveAgent(Agent &agent, sf::Vector2f displacement) const;

@@ -109,17 +109,26 @@ namespace NoTrace {
     context_.renderer.Draw(TexturedQuad(*materials_, points, {uv, fraction * 128.f}, colors));
   }
 
-  void EnvironmentArt::Surface(const WalkSurface &surface, const Project &project, const Shade &shade) const {
+  void EnvironmentArt::Surface(const WalkSurface &surface, const Project &project, const Shade &shade, std::optional<sf::FloatRect> clip) const {
     if (!surface.enabled) return;
     const float tile = PresentationConfig::FloorTileSize;
     const float step = shade ? PresentationConfig::FogEffectStep : tile;
     const auto end = surface.bounds.position + surface.bounds.size;
+    const auto intersection = clip ? surface.bounds.findIntersection(*clip) : std::optional{surface.bounds};
+    if (!intersection) return;
+    const auto minimum = intersection->position;
+    const auto maximum = clip ? sf::Vector2f{std::min(end.x, clip->position.x + clip->size.x), std::min(end.y, clip->position.y + clip->size.y)} : end;
+    if (minimum.x >= maximum.x || minimum.y >= maximum.y) return;
+    // El recorte conserva la rejilla y las coordenadas de textura de la superficie completa.
+    const auto first = surface.bounds.position + sf::Vector2f{std::floor((minimum.x - surface.bounds.position.x) / step),
+      std::floor((minimum.y - surface.bounds.position.y) / step)} * step;
     const auto material = surface.kind == WalkSurfaceKind::Stair ? 11 : Material(surface.material);
     const sf::Vector2f uv{static_cast<float>(material % 4) * 128.f, static_cast<float>(material / 4) * 128.f};
     sf::VertexArray mesh(sf::PrimitiveType::Triangles);
-    for (float x = surface.bounds.position.x; x < end.x; x += step) for (float y = surface.bounds.position.y; y < end.y; y += step) {
-      const auto right = std::min(x + step, end.x), bottom = std::min(y + step, end.y);
-      const std::array<sf::Vector2f, 4> ground{{{x, y}, {right, y}, {right, bottom}, {x, bottom}}};
+    for (float x = first.x; x < maximum.x; x += step) for (float y = first.y; y < maximum.y; y += step) {
+      const auto left = std::max(x, minimum.x), top = std::max(y, minimum.y);
+      const auto right = std::min(x + step, maximum.x), bottom = std::min(y + step, maximum.y);
+      const std::array<sf::Vector2f, 4> ground{{{left, top}, {right, top}, {right, bottom}, {left, bottom}}};
       std::array<sf::Vector2f, 4> points;
       std::array<sf::Color, 4> colors;
       for (std::size_t index = 0; index < points.size(); ++index) points[index] = project(ground[index], WorldGeometry::SurfaceHeight(surface, ground[index]));
@@ -127,20 +136,26 @@ namespace NoTrace {
         const auto brightness = static_cast<std::uint8_t>(std::clamp(shade ? shade(ground[index]) : 1.f, 0.f, 1.f) * 255.f);
         colors[index] = {brightness, brightness, brightness};
       }
-      const auto origin = uv + sf::Vector2f{std::fmod(x - surface.bounds.position.x, tile), std::fmod(y - surface.bounds.position.y, tile)} * (128.f / tile);
-      const auto size = sf::Vector2f{right - x, bottom - y} * (128.f / tile);
+      const auto origin = uv + sf::Vector2f{std::fmod(left - surface.bounds.position.x, tile), std::fmod(top - surface.bounds.position.y, tile)} * (128.f / tile);
+      const auto size = sf::Vector2f{right - left, bottom - top} * (128.f / tile);
       const std::array<sf::Vector2f, 4> coordinates{origin, origin + sf::Vector2f{size.x, 0.f}, origin + size, origin + sf::Vector2f{0.f, size.y}};
       for (const auto index : {0u, 1u, 2u, 0u, 2u, 3u}) mesh.append({points[index], colors[index], coordinates[index]});
     }
     context_.renderer.Draw(TexturedQuad(*materials_, std::move(mesh)));
     if (surface.elevation <= 0.f) return;
-    const auto a = surface.bounds.position, b = sf::Vector2f{end.x, a.y}, c = end, d = sf::Vector2f{a.x, end.y};
-    for (const auto edge : {std::pair{d, c}, std::pair{c, b}}) {
-      const auto first = project(edge.first, WorldGeometry::SurfaceHeight(surface, edge.first));
-      const auto second = project(edge.second, WorldGeometry::SurfaceHeight(surface, edge.second));
+    const auto side = [&](sf::Vector2f from, sf::Vector2f to, float offset, float fraction) {
+      const auto first = project(from, WorldGeometry::SurfaceHeight(surface, from));
+      const auto second = project(to, WorldGeometry::SurfaceHeight(surface, to));
       const sf::Vector2f down{0.f, surface.thickness};
-      Quad({first, second, second + down, first + down}, 6, {100, 110, 120});
-    }
+      const sf::Vector2f origin{256.f + offset * 128.f, 128.f};
+      const sf::Color tint{100, 110, 120};
+      context_.renderer.Draw(TexturedQuad(*materials_, {first, second, second + down, first + down}, {origin, {fraction * 128.f, 128.f}}, {tint, tint, tint, tint}));
+    };
+    // Sólo se recortan las caras exteriores originales, sin crear tabiques entre tiras contiguas.
+    if (maximum.y == end.y) side({minimum.x, end.y}, {maximum.x, end.y},
+      (minimum.x - surface.bounds.position.x) / surface.bounds.size.x, (maximum.x - minimum.x) / surface.bounds.size.x);
+    if (maximum.x == end.x) side({end.x, maximum.y}, {end.x, minimum.y},
+      (end.y - maximum.y) / surface.bounds.size.y, (maximum.y - minimum.y) / surface.bounds.size.y);
   }
 
   void EnvironmentArt::Wall(const Obstacle &wall, const Project &project) const {

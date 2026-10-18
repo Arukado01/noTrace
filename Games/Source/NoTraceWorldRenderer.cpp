@@ -2,6 +2,7 @@
 #include "NoTraceCoordination.h"
 #include "NoTracePerformance.h"
 #include "NoTraceOcclusionGeometry.h"
+#include "NoTraceInteraction.h"
 
 #include "Config/NoTraceGameplayConfig.h"
 #include "Config/NoTraceAudioConfig.h"
@@ -27,12 +28,13 @@ namespace NoTrace {
     using namespace PresentationConfig;
 
     template <typename Id>
-    WorldRenderer::SpriteFrame StableFrame(WorldRenderer::SpriteFrame frame, sf::Vector2f facing, Id id, std::unordered_map<Id, std::size_t> &directions) {
+    WorldRenderer::SpriteFrame StableFrame(WorldRenderer::SpriteFrame frame, sf::Vector2f facing, Id id, std::unordered_map<Id, std::size_t> &directions, bool coupled = false) {
       if (!frame.operative) return frame;
       const auto original = frame.index / SpriteConfig::Columns % SpriteConfig::Directions;
       if (WorldRenderer::SpriteDirection(facing) != original) { directions[id] = original; return frame; }
       const auto previous = directions.find(id);
-      const auto direction = WorldRenderer::StableSpriteDirection(facing, previous == directions.end() ? std::nullopt : std::optional{previous->second});
+      // La pareja CQC comparte dirección visual aunque llegara al contacto con orientaciones distintas.
+      const auto direction = WorldRenderer::StableSpriteDirection(facing, coupled || previous == directions.end() ? std::nullopt : std::optional{previous->second});
       frame.index = frame.index - original * SpriteConfig::Columns + direction * SpriteConfig::Columns;
       directions[id] = direction;
       return frame;
@@ -42,6 +44,24 @@ namespace NoTrace {
       return {static_cast<std::uint8_t>(std::clamp(color.r * factor, 0.f, 255.f)),
               static_cast<std::uint8_t>(std::clamp(color.g * factor, 0.f, 255.f)),
               static_cast<std::uint8_t>(std::clamp(color.b * factor, 0.f, 255.f)), color.a};
+    }
+
+    std::vector<GripSurface> VisibleGripParts(const WorldState &world, const Agent &observer, const GripSurface &grip, const WorldGeometry::PreparedOccluders *geometry) {
+      std::vector<GripSurface> parts;
+      const auto delta = grip.end - grip.start;
+      const int count = std::max(1, static_cast<int>(std::ceil(delta.length() / SpatialConfig::MaximumMovementStep)));
+      bool started = false;
+      sf::Vector3f first;
+      for (int index = 0; index <= count; ++index) {
+        const auto point = grip.start + delta * (static_cast<float>(index) / count);
+        const auto center = point + delta * (.5f / count);
+        const bool visible = index < count && Visibility::IsGeometricallyVisible(world, observer, {center.x, center.y}, Stance::Prone, center.z, geometry);
+        if (visible && !started) { first = point; started = true; }
+        if (!visible && started) {
+          auto part = grip; part.start = first; part.end = point; parts.push_back(part); started = false;
+        }
+      }
+      return parts;
     }
 
     sf::Vector2f RayEnd(sf::Vector2f origin, sf::Vector2f delta, const WorldState &world, bool solid = false, std::uint32_t ignoredObject = 0) {
@@ -253,13 +273,25 @@ namespace NoTrace {
       WalkSurface base; base.bounds = {{}, world.size}; base.material = SurfaceMaterial::Industrial;
       environmentArt_.Surface(base, project);
     } else for (const auto &surface : world.walkSurfaces) {
-      if (surface.kind != WalkSurfaceKind::Stair && surface.elevation > 0.f) continue;
+      if (surface.kind == WalkSurfaceKind::Stair) continue;
+      if (surface.elevation > 0.f) {
+        // El contorno permite reconocer el circuito elevado sin tapar a quienes caminan por debajo.
+        if (IsTraining(world) && surface.elevation > cameraElevation_ + CombatConfig::StandingHeight) {
+          const auto a = project(surface.bounds.position, surface.elevation);
+          const auto b = project(surface.bounds.position + sf::Vector2f{surface.bounds.size.x, 0.f}, surface.elevation);
+          const auto c = project(surface.bounds.position + surface.bounds.size, surface.elevation);
+          const auto d = project(surface.bounds.position + sf::Vector2f{0.f, surface.bounds.size.y}, surface.elevation);
+          for (const auto &edge : {std::pair{a, b}, std::pair{b, c}, std::pair{c, d}, std::pair{d, a}})
+            PixelLine(edge.first, edge.second, PresentationConfig::Cyan, 1.f);
+        }
+        continue;
+      }
       environmentArt_.Surface(surface, project);
     }
   }
 
-  void WorldRenderer::Fog(const WorldState &world, const sf::VertexArray &mask) const {
-    if (world.phase != GamePhase::Mission) return;
+  void WorldRenderer::Fog(const WorldState &, const sf::VertexArray &mask) const {
+    if (mask.getVertexCount() == 0) return;
     ctx_.renderer.Draw(mask);
   }
 
@@ -511,17 +543,17 @@ namespace NoTrace {
     auto facing = agent.facing;
     if (agent.maneuver.kind != ManeuverKind::None) facing = agent.maneuver.direction;
     else if (agent.cover.active) facing = agent.cover.normal;
-    return StableFrame(frame, facing, agent.id, agentSpriteDirections_);
+    return StableFrame(frame, facing, agent.id, agentSpriteDirections_, agent.cqcHoldingGuard != 0 || agent.cqcHoldingAgent != 0 || agent.cqcHeldBy != 0);
   }
 
   WorldRenderer::SpriteFrame WorldRenderer::GuardFrame(const Guard &guard, const WorldState &world) const {
     const auto frame = world.phase == GamePhase::Results && (guard.state == GuardState::Dead || guard.state == GuardState::Incapacitated) ?
         ClipFrame(guard.state == GuardState::Dead ? SpriteConfig::Clip::Death : SpriteConfig::Clip::Unconscious, guard.facing, 0.f, 1.f) : SelectGuardSprite(guard, world);
-    return StableFrame(frame, guard.facing, guard.id, guardSpriteDirections_);
+    return StableFrame(frame, guard.facing, guard.id, guardSpriteDirections_, guard.heldBy != 0);
   }
 
   std::optional<WorldRenderer::SpriteFrame> WorldRenderer::AgentWeaponFrame(const Agent &agent, const WorldState &) const {
-    if (!agent.alive || agent.incapacitated || agent.hidden || agent.maneuver.kind != ManeuverKind::None || agent.cqcHeldBy || agent.cqcHoldingAgent ||
+    if (!agent.alive || agent.incapacitated || agent.hidden || agent.forcedFall.active || agent.maneuver.kind != ManeuverKind::None || agent.cqcHeldBy || agent.cqcHoldingAgent ||
         agent.cqcHoldingGuard || agent.cqcAttackTime > 0.f || agent.cqcApproachGuard || agent.cqcApproachAgent || agent.cqcPressPending ||
         agent.traversal.mode != TraversalMode::Grounded || agent.draggingGuard >= 0 || (agent.actionPose == ActionPose::Revive && agent.actionPoseTime > 0.f)) return std::nullopt;
     if (agent.actionPose == ActionPose::KnockWall && agent.actionPoseTime > 0.f)
@@ -568,7 +600,7 @@ namespace NoTrace {
         frame.index / SpriteConfig::Columns % SpriteConfig::Directions);
   }
 
-  void WorldRenderer::Humanoid(sf::Vector2f feet, sf::Vector2f, Stance stance, sf::Color uniform, SpriteFrame frame, bool down, bool guard, sf::Vector2f bodyOffset, const Agent *articulated, std::optional<SpriteFrame> upperFrame, bool separateCqc) const {
+  void WorldRenderer::HumanoidShadow(sf::Vector2f feet, Stance stance, SpriteFrame frame, bool down) const {
     feet = SnapToPixels(feet);
     const auto &metadata = characterArt_.Metadata(frame.index);
     const float footprintWidth = std::max(stance == Stance::Prone || down ? 34.f : 24.f, metadata.supportWidth * CharacterArt::Scale());
@@ -576,6 +608,22 @@ namespace NoTrace {
       const float width = footprintWidth * (1.f - y * y / 36.f);
       PixelRect(feet + sf::Vector2f{-width * 0.5f, y}, {width, PresentationConfig::PixelSize}, {0, 0, 0, 80});
     }
+  }
+
+  void WorldRenderer::AgentShadowArt(const Agent &agent, const WorldState &world, sf::Vector2f camera, bool local) const {
+    if (const auto receiver = TraversalShadowSupport(world, agent))
+      HumanoidShadow(GroundToScreen(agent.position, camera, receiver->elevation), agent.stance, AgentFrame(agent, world, local), !agent.alive || agent.incapacitated);
+  }
+
+  void WorldRenderer::GuardShadowArt(const Guard &guard, const WorldState &world, sf::Vector2f camera) const {
+    if (const auto receiver = ShadowSupportBelow(world, guard.position, guard.elevation))
+      HumanoidShadow(GroundToScreen(guard.position, camera, receiver->elevation), Stance::Standing, GuardFrame(guard, world),
+          guard.state == GuardState::Dead || guard.state == GuardState::Incapacitated);
+  }
+
+  void WorldRenderer::Humanoid(sf::Vector2f feet, sf::Vector2f, Stance stance, sf::Color uniform, SpriteFrame frame, bool down, bool guard, sf::Vector2f bodyOffset, const Agent *articulated, std::optional<SpriteFrame> upperFrame, bool separateCqc, bool drawShadow) const {
+    feet = SnapToPixels(feet);
+    if (drawShadow) HumanoidShadow(feet, stance, frame, down);
     const auto largest = std::max({uniform.r, uniform.g, uniform.b});
     const auto channel = [largest](std::uint8_t value) { return static_cast<std::uint8_t>(160 + value * 95 / std::max(1, static_cast<int>(largest))); };
     const auto color = down ? sf::Color{180, 180, 180} : guard ? sf::Color{245, 200, 175} : sf::Color{channel(uniform.r), channel(uniform.g), channel(uniform.b)};
@@ -610,7 +658,8 @@ namespace NoTrace {
     auto uniform = AgentUniforms[(agent.id - 1) % AgentUniforms.size()];
     if (!agent.connected || agent.hidden) uniform = Shade(uniform, 0.55f);
     Humanoid(groundFeet, agent.facing, agent.stance, uniform, AgentFrame(agent, world, local), !agent.alive || agent.incapacitated, false, feet - groundFeet, &agent, AgentWeaponFrame(agent, world),
-        (agent.cqcHoldingGuard || agent.cqcHoldingAgent) && CqcContactVisible(agent, world, camera));
+        (agent.cqcHoldingGuard || agent.cqcHoldingAgent) && CqcContactVisible(agent, world, camera),
+        agent.traversal.mode == TraversalMode::Grounded && !agent.forcedFall.active);
     if (!deferCqc && agent.alive && !agent.incapacitated) CqcArt(agent, world, camera, feet, uniform);
     BodyStatus(agent,camera);
     if (agent.draggingGuard >= 0) PixelLine(feet, feet - sf::Vector2f{18.f, 8.f}, Amber, 2.f);
@@ -624,7 +673,7 @@ namespace NoTrace {
     auto feet = groundFeet;
     const bool body = guard.state == GuardState::Dead || guard.state == GuardState::Incapacitated;
     const bool down = body || (guard.heldBy == 0 && (guard.cqcState == CqcState::KnockedDown || guard.cqcState == CqcState::Restrained));
-    Humanoid(groundFeet, guard.facing, Stance::Standing, {126, 99, 77}, GuardFrame(guard, world), down, true, feet - groundFeet);
+    Humanoid(groundFeet, guard.facing, Stance::Standing, {126, 99, 77}, GuardFrame(guard, world), down, true, feet - groundFeet, nullptr, std::nullopt, false, !guard.forcedFall.active);
     if (guard.meleeAttack && guard.attackTime > 0.f && !down) {
       const auto target = GroundToScreen(guard.position + guard.facing * GameplayConfig::GuardAttackDistance, camera, guard.elevation) - sf::Vector2f{0.f, ShotHeight};
       PixelLine(feet - sf::Vector2f{0.f, ShotHeight}, target, Amber, 4.f);
@@ -634,6 +683,7 @@ namespace NoTrace {
   }
 
   void WorldRenderer::DummyArt(const Guard &dummy, const WorldState &world, sf::Vector2f camera) const {
+    NO_TRACE_PROFILE_SCOPE(DummyArt);
     using namespace PresentationConfig;
     const auto forward = CombatGeometry::Unit(dummy.facing);
     const sf::Vector2f side{forward.y, -forward.x};
@@ -848,14 +898,14 @@ namespace NoTrace {
     if (object.camera.perception == CameraPerception::Searching) Label("?", center + sf::Vector2f{21.f, -12.f}, PresentationConfig::Amber, 16);
   }
 
-  void WorldRenderer::Vision(const Guard &guard, const WorldState &world, sf::Vector2f camera) const {
-    if (guard.trainingDummy || guard.bodyHidden || guard.storedIn != 0 || guard.state == GuardState::Dead || guard.state == GuardState::Incapacitated || guard.cqcState != CqcState::None) return;
+  void WorldRenderer::Vision(const Guard &guard, const WorldState &world, sf::Vector2f camera, const VisibilityGrid *viewer, const FogContour *contour) const {
+    if (guard.trainingDummy || guard.bodyHidden || guard.storedIn != 0 || guard.forcedFall.active || guard.state == GuardState::Dead || guard.state == GuardState::Incapacitated || guard.cqcState != CqcState::None) return;
     auto color = guard.state == GuardState::Alert ? PresentationConfig::Red : PresentationConfig::Amber;
     color.a = guard.state == GuardState::Alert ? 34 : 20;
-    FieldOfView(guard.position, guard.facing, GameplayConfig::VisionDistance * (world.alarm ? GameplayConfig::AlarmVisionMultiplier : 1.f), color, world, camera, GameplayConfig::VisionCosHalfAngle, guard.elevation);
+    FieldOfView(guard.position, guard.facing, GameplayConfig::VisionDistance * (world.alarm ? GameplayConfig::AlarmVisionMultiplier : 1.f), color, world, camera, GameplayConfig::VisionCosHalfAngle, guard.elevation, viewer, contour);
   }
 
-  void WorldRenderer::FieldOfView(sf::Vector2f position, sf::Vector2f facing, float range, sf::Color color, const WorldState &world, sf::Vector2f camera, float cosHalfAngle, float elevation) const {
+  void WorldRenderer::FieldOfView(sf::Vector2f position, sf::Vector2f facing, float range, sf::Color color, const WorldState &world, sf::Vector2f camera, float cosHalfAngle, float elevation, const VisibilityGrid *viewer, const FogContour *contour) const {
     NO_TRACE_PROFILE_SCOPE(GuardCones);
     const WorldGeometry::PreparedOccluders geometry(world);
     WorldGeometry::PreparedOccluders::Query query(geometry);
@@ -863,7 +913,20 @@ namespace NoTrace {
     const float halfAngle = std::acos(std::clamp(cosHalfAngle, -1.f, 1.f));
     const auto origin = GroundToScreen(position, camera, elevation);
     sf::VertexArray cone(sf::PrimitiveType::Triangles);
-    sf::Vector2f previous;
+    const auto shaded = [&](sf::Vector2f point) {
+      auto tint = color;
+      if (viewer) {
+        NO_TRACE_PROFILE_SCOPE(FogOpacity);
+        tint.a = static_cast<std::uint8_t>(std::lround(color.a * (1.f - FogOpacity(*viewer, point, contour))));
+      }
+      return sf::Vertex{GroundToScreen(point, camera, elevation), tint};
+    };
+    const auto originVertex = viewer ? shaded(position) : sf::Vertex{origin, color};
+    const auto triangle = [&](const sf::Vertex &a, const sf::Vertex &b, const sf::Vertex &c) {
+      if (a.color.a == 0 && b.color.a == 0 && c.color.a == 0) return;
+      cone.append(a); cone.append(b); cone.append(c);
+    };
+    sf::Vector2f previous, previousGround;
     for (int step = 0; step <= PresentationConfig::VisionSegments; ++step) {
       const float rayAngle = angle - halfAngle + halfAngle * 2.f * step / PresentationConfig::VisionSegments;
       const sf::Vector2f delta{std::cos(rayAngle) * range, std::sin(rayAngle) * range};
@@ -875,11 +938,31 @@ namespace NoTrace {
         if (query.Occluded({position.x, position.y, elevation + CombatConfig::StandingWeaponHeight}, {point.x, point.y, elevation + CombatConfig::StandingWeaponHeight})) blocked = fraction;
         else clear = fraction;
       }
-      const auto end = GroundToScreen(position + delta * clear, camera, elevation);
+      const auto groundEnd = position + delta * clear;
+      const auto end = GroundToScreen(groundEnd, camera, elevation);
       if (step > 0) {
-        cone.append({origin, color}); cone.append({previous, color}); cone.append({end, color});
+        if (!viewer) {
+          cone.append({origin, color}); cone.append({previous, color}); cone.append({end, color});
+        } else {
+          const auto leftRay = previousGround - position, rightRay = groundEnd - position;
+          const auto radial = std::max(1, static_cast<int>(std::ceil(std::max(leftRay.length(), rightRay.length()) / PresentationConfig::FogEffectStep)));
+          const auto across = std::max(1, static_cast<int>(std::ceil((groundEnd - previousGround).length() / PresentationConfig::FogEffectStep)));
+          std::vector<sf::Vertex> left(radial + 1), right(radial + 1);
+          left[0] = right[0] = originVertex;
+          for (int ring = 1; ring <= radial; ++ring) left[ring] = shaded(position + leftRay * (static_cast<float>(ring) / radial));
+          // Las celdas pequeñas recortan la niebla sin interpolar visibilidad a través de un sector completo.
+          for (int strip = 1; strip <= across; ++strip) {
+            const auto ray = leftRay + (rightRay - leftRay) * (static_cast<float>(strip) / across);
+            for (int ring = 1; ring <= radial; ++ring) right[ring] = shaded(position + ray * (static_cast<float>(ring) / radial));
+            for (int ring = 0; ring < radial; ++ring) {
+              triangle(left[ring], right[ring], right[ring + 1]);
+              triangle(left[ring], right[ring + 1], left[ring + 1]);
+            }
+            left.swap(right);
+          }
+        }
       }
-      previous = end;
+      previous = end; previousGround = groundEnd;
     }
     ctx_.renderer.Draw(cone);
   }
@@ -1020,7 +1103,7 @@ namespace NoTrace {
     PixelRect(MinimapPosition, MinimapSize, {7, 14, 23, 240});
     Label(IsTraining(world) ? "PLANO / ENTRENAMIENTO" : world.phase == GamePhase::Base ? "PLANO / BASE CIO" : "PLANO / OPERACIÓN", MinimapPosition + sf::Vector2f{120.f, 4.f}, Light, MinimapTextSize);
     const auto player = std::find_if(world.agents.begin(), world.agents.end(), [localPlayer](const Agent &agent) { return agent.id == localPlayer; });
-    const bool fog = world.phase == GamePhase::Mission;
+    const bool fog = world.phase == GamePhase::Mission || (player != world.agents.end() && Visibility::UsesFieldOfView(world, *player));
     const auto visible = [&](sf::Vector2f point) { return !fog || (player != world.agents.end() && Visibility::IsVisible(world, *player, point)); };
     PixelRect(origin, MinimapGroundSize, {22, 33, 42});
     if (fog) ctx_.renderer.Draw(fogMask);
@@ -1028,6 +1111,13 @@ namespace NoTrace {
       if (fog && (player == world.agents.end() || !FootprintVisible(world, *player, obstacle.bounds, geometry))) continue;
       PixelRect(map(obstacle.bounds.position), obstacle.bounds.size.componentWiseMul(scale),
                 obstacle.cover == CoverKind::Low ? CrateTop : obstacle.cover == CoverKind::Hide ? sf::Color{38, 76, 62} : WallTop);
+    }
+    if (IsTraining(world) && !world.gripSurfaces.empty()) {
+      for (const auto &grip : world.gripSurfaces) {
+        const auto parts = fog && player != world.agents.end() ? VisibleGripParts(world, *player, grip, geometry) : std::vector<GripSurface>{grip};
+        for (const auto &part : parts) PixelLine(map({part.start.x, part.start.y}), map({part.end.x, part.end.y}), grip.kind == GripKind::Pipe ? Amber : Cyan, 2.f);
+      }
+      Label("CIRCUITO VERTICAL / SUR", origin + sf::Vector2f{MinimapGroundSize.x * .5f, MinimapGroundSize.y - 13.f}, Cyan, 10);
     }
     const auto markerColor = [](ObjectKind kind) {
       switch (kind) {
@@ -1173,7 +1263,7 @@ namespace NoTrace {
     const auto player = std::find_if(world.agents.begin(), world.agents.end(), [localPlayer](const Agent &agent) { return agent.id == localPlayer; });
     const Agent *observer = player == world.agents.end() ? nullptr : &*player;
     cameraElevation_ = observer ? observer->elevation : 0.f;
-    const bool fog = world.phase == GamePhase::Mission;
+    const bool fog = world.phase == GamePhase::Mission || (observer && Visibility::UsesFieldOfView(world, *observer));
     const WorldGeometry::PreparedOccluders geometry(world);
     const auto visibilityCache = [&] {
       NO_TRACE_PROFILE_SCOPE(WorldVisibility);
@@ -1189,7 +1279,8 @@ namespace NoTrace {
     const auto obstacleVisible = [&](const Obstacle &obstacle) { return obstacle.elevation <= cameraElevation_ + CombatConfig::StandingHeight &&
         (!fog || (observer && (Visibility::IsGeometricallyVisible(world, *observer, WorldGeometry::ClosestPoint(observer->position, obstacle.bounds), Stance::Standing, obstacle.elevation, &geometry) ||
           (std::abs(obstacle.elevation - observer->elevation) < LevelConfig::MaximumStepHeight && FootprintVisible(world, *observer, obstacle.bounds, &geometry))))); };
-    const auto visibility = observer ? Visibility::BuildGrid(world, *observer) : VisibilityGrid{};
+    const auto visibility = fog && observer ? Visibility::BuildGrid(world, *observer) : VisibilityGrid{};
+    const auto fogContour = fog ? std::optional{PrepareFogContour(visibility)} : std::nullopt;
     sf::VertexArray worldFog(sf::PrimitiveType::Triangles), minimapFog(sf::PrimitiveType::Triangles);
     if (fog) {
       const auto fogGeometry = BuildFogGeometry(world, visibility);
@@ -1203,6 +1294,19 @@ namespace NoTrace {
       minimapFog = ProjectFog(fogGeometry, [&](sf::Vector2f position) { return origin + position.componentWiseMul(scale); });
     }
     Floor(world, camera);
+    if (IsTraining(world)) for (const auto &link : world.verticalLinks) {
+      if (link.kind != VerticalLinkKind::Attach || link.fromSupport == 0) continue;
+      const auto entry = WorldGeometry::Ground(link.from), delta = WorldGeometry::Ground(link.to) - entry;
+      if (delta.lengthSquared() == 0.f) continue;
+      const auto direction = delta.normalized();
+      const sf::Vector2f side{-direction.y, direction.x};
+      const auto tip = entry - direction * 20.f;
+      const auto project = [&](sf::Vector2f point) { return GroundToScreen(point, camera, link.from.z + 1.f); };
+      PixelLine(project(entry - direction * 100.f), project(tip), PresentationConfig::Cyan, 3.f);
+      PixelLine(project(tip), project(tip - direction * 14.f + side * 10.f), PresentationConfig::Cyan, 3.f);
+      PixelLine(project(tip), project(tip - direction * 14.f - side * 10.f), PresentationConfig::Cyan, 3.f);
+      Label("CIRCUITO VERTICAL · B", project(entry - direction * 130.f), PresentationConfig::Cyan, 14);
+    }
     for (const auto &node : world.objects) {
       if (!node.puzzle.parentDevice || !node.open || !objectVisible(node)) continue;
       const auto parent = std::ranges::find(world.objects, node.puzzle.parentDevice, &Interactable::id);
@@ -1218,32 +1322,34 @@ namespace NoTrace {
       PixelRect(pulse - sf::Vector2f{2.f, 2.f}, {4.f, 4.f}, PresentationConfig::Light);
     }
     for (const auto &obstacle : world.obstacles) if (obstacle.cover == CoverKind::Hide && obstacleVisible(obstacle)) ObstacleArt(obstacle, camera);
-    for (const auto &guard : world.guards) if (guardVisible(guard)) Vision(guard, world, camera);
     for (const auto &object : world.objects) {
-      if (object.kind == ObjectKind::Camera && object.active && object.camera.state == CameraState::Operating && !WorldGeometry::Properties(object).decorative && objectVisible(object)) {
-        FieldOfView(object.position, object.facing, object.camera.range, {221, 67, 77, 26}, world, camera, object.camera.cosHalfAngle, object.elevation);
-      }
       if (objectVisible(object)) ExplosionArt(object, world, camera);
     }
     Fog(world, worldFog);
-    Footsteps(world, camera, observer);
-    DecoyPreview(world, camera, observer);
-    AimLaser(world, camera, observer);
-    struct Item { int kind; std::size_t index; float elevation; };
+    struct Item { int kind; std::size_t index; float elevation; std::optional<sf::FloatRect> clip; };
     std::vector<Item> items;
     std::vector<sf::FloatRect> footprints;
-    const auto add = [&](int kind, std::size_t index, sf::FloatRect footprint, float elevation = 0.f) {
-      items.push_back({kind, index, elevation});
+    const auto add = [&](int kind, std::size_t index, sf::FloatRect footprint, float elevation = 0.f, std::optional<sf::FloatRect> clip = std::nullopt) {
+      items.push_back({kind, index, elevation, clip});
       footprints.push_back(footprint);
     };
     for (std::size_t index = 0; index < world.obstacles.size(); ++index) {
       if (world.obstacles[index].cover != CoverKind::Hide && obstacleVisible(world.obstacles[index])) add(0, index, world.obstacles[index].bounds, world.obstacles[index].elevation);
     }
     for (std::size_t index = 0; index < world.objects.size(); ++index) {
-      if (objectVisible(world.objects[index])) add(1, index, ObjectFootprint(world.objects[index]), world.objects[index].elevation);
+      const auto &object = world.objects[index];
+      if (!objectVisible(object)) continue;
+      if (object.kind == ObjectKind::Camera && object.active && object.camera.state == CameraState::Operating && !WorldGeometry::Properties(object).decorative)
+        add(10, index, ObjectFootprint(object), object.elevation - .005f);
+      add(1, index, ObjectFootprint(object), object.elevation);
     }
     for (std::size_t index = 0; index < world.guards.size(); ++index) {
-      if (guardVisible(world.guards[index])) add(2, index, {world.guards[index].position, {0.f, 0.f}}, world.guards[index].elevation);
+      const auto &guard = world.guards[index];
+      if (!guardVisible(guard)) continue;
+      if (guard.forcedFall.active && !guard.trainingDummy) if (const auto receiver = ShadowSupportBelow(world, guard.position, guard.elevation))
+        add(8, index, {guard.position, {0.f, 0.f}}, receiver->elevation);
+      add(9, index, {guard.position, {0.f, 0.f}}, guard.elevation - .005f);
+      add(2, index, {guard.position, {0.f, 0.f}}, guard.elevation);
     }
     for (std::size_t index = 0; index < world.decoys.size(); ++index) {
       const auto point = DistractionGeometry::DecoyPosition(world.decoys[index]);
@@ -1258,15 +1364,42 @@ namespace NoTrace {
           (agent.position - observer->position).length() <= GameplayConfig::CqcDistance * GameplayConfig::CqcMaximumStretch;
       const float phase = entering ? std::clamp(1.f - agent.actionPoseTime / GameplayConfig::StanceTransitionDuration, 0.f, 1.f) : 1.f;
       const auto point = entering ? agent.hideoutExit + (agent.position - agent.hideoutExit) * phase : agent.position;
-      if (agent.id == localPlayer || partner || (!fog || (observer && (world.visibility.authoritative || Visibility::IsGeometricallyVisible(world, *observer, agent.position, agent.stance, agent.elevation, &geometry))))) add(3, index, {point, {0.f, 0.f}}, agent.elevation);
+      if (agent.id == localPlayer || partner || (!fog || (observer && (world.visibility.authoritative || Visibility::IsGeometricallyVisible(world, *observer, agent.position, agent.stance, agent.elevation, &geometry))))) {
+        if (const auto receiver = TraversalShadowSupport(world, agent)) add(7, index, {point, {0.f, 0.f}}, receiver->elevation);
+        add(3, index, {point, {0.f, 0.f}}, agent.elevation);
+      }
     }
     for (std::size_t index = 0; index < world.walkSurfaces.size(); ++index) {
       const auto &surface = world.walkSurfaces[index];
-      if (surface.kind != WalkSurfaceKind::Stair && surface.elevation > 0.f && surface.elevation <= cameraElevation_ + CombatConfig::StandingHeight) add(5, index, surface.bounds, surface.elevation - .01f);
+      if (!surface.enabled) continue;
+      if (surface.kind == WalkSurfaceKind::Stair) {
+        const bool horizontal = std::abs(surface.slope.x) > std::abs(surface.slope.y);
+        const float slope = std::abs(horizontal ? surface.slope.x : surface.slope.y);
+        const float length = horizontal ? surface.bounds.size.x : surface.bounds.size.y;
+        const float step = slope > 0.f ? PresentationConfig::LowerFloorFogHeightStep / slope : length;
+        const auto addBand = [&](float offset, float endOffset) {
+          auto bounds = surface.bounds;
+          if (horizontal) { bounds.position.x += offset; bounds.size.x = endOffset - offset; }
+          else { bounds.position.y += offset; bounds.size.y = endOffset - offset; }
+          const auto end = bounds.position + bounds.size;
+          const float elevation = std::min({WorldGeometry::SurfaceHeight(surface, bounds.position), WorldGeometry::SurfaceHeight(surface, end),
+            WorldGeometry::SurfaceHeight(surface, {end.x, bounds.position.y}), WorldGeometry::SurfaceHeight(surface, {bounds.position.x, end.y})});
+          add(5, index, bounds, elevation - .01f, bounds);
+        };
+        const float signedSlope = horizontal ? surface.slope.x : surface.slope.y;
+        const float observerOffset = signedSlope != 0.f ? (cameraElevation_ - WorldGeometry::SurfaceHeight(surface, surface.bounds.position)) / signedSlope : -1.f;
+        // El corte a la altura del observador mantiene nítido su peldaño sin alterar las UV originales.
+        for (float offset = 0.f; offset < length; offset += step) {
+          const float end = std::min(offset + step, length);
+          if (observerOffset > offset && observerOffset < end) {
+            addBand(offset, observerOffset); addBand(observerOffset, end);
+          } else addBand(offset, end);
+        }
+      } else if (surface.elevation > 0.f && surface.elevation <= cameraElevation_ + CombatConfig::StandingHeight) add(5, index, surface.bounds, surface.elevation - .01f);
     }
     for (std::size_t index = 0; index < world.gripSurfaces.size(); ++index) {
       const auto &grip = world.gripSurfaces[index];
-      if (std::min(grip.start.z, grip.end.z) <= cameraElevation_ + TraversalConfig::HandHeight) add(6, index, {{grip.start.x, grip.start.y}, {}}, grip.start.z);
+      if (IsTraining(world) || std::min(grip.start.z, grip.end.z) <= cameraElevation_ + TraversalConfig::HandHeight) add(6, index, {{grip.start.x, grip.start.y}, {}}, grip.start.z);
     }
     const auto deferCqc = [&](const Agent &agent) {
       if (!agent.alive || agent.incapacitated || agent.hidden || agent.extracted) return false;
@@ -1291,8 +1424,32 @@ namespace NoTrace {
       return result;
     }();
     const EnvironmentArt::Project project = [&](sf::Vector2f point, float height) { return GroundToScreen(point, camera, height); };
+    const auto flushCqc = [&] {
+      for (const auto index : cqcOverlays) {
+        const auto &agent = world.agents[index];
+        CqcArt(agent, world, camera, GroundToScreen(agent.position, camera, agent.elevation), PresentationConfig::AgentUniforms[(agent.id - 1) % PresentationConfig::AgentUniforms.size()]);
+      }
+      cqcOverlays.clear();
+    };
+    float renderedElevation = 0.f;
+    const auto separationFog = [&](float elevation) {
+      if (elevation <= renderedElevation) return;
+      flushCqc();
+      const float lower = LowerFloorFogOpacity(cameraElevation_, renderedElevation);
+      const float upper = LowerFloorFogOpacity(cameraElevation_, elevation);
+      const float opacity = std::clamp((lower - upper) / (1.f - upper), 0.f, 1.f);
+      renderedElevation = elevation;
+      if (opacity <= 0.f) return;
+      auto color = PresentationConfig::LowerFloorFogTint;
+      color.a = static_cast<std::uint8_t>(std::lround(opacity * 255.f));
+      const auto view = WorldView(ctx_.window.GetLogicalSize(), zoom_);
+      sf::RectangleShape veil(view.getSize());
+      veil.setPosition(view.getCenter() - view.getSize() * .5f);
+      veil.setFillColor(color); ctx_.renderer.Draw(veil);
+    };
     for (const auto index : order) {
       const auto &item = items[index];
+      separationFog(item.elevation);
       switch (item.kind) {
       case 0: ObstacleArt(world.obstacles[item.index], camera); break;
       case 1: {
@@ -1321,15 +1478,48 @@ namespace NoTrace {
           const auto offset = point - visibility.visualOrigin;
           const float boundary = FogBoundaryRadius(visibility, std::atan2(offset.y, offset.x));
           return std::clamp((boundary - offset.length()) / PresentationConfig::FogFeatherWidth, 0.f, 1.f);
-        }} : EnvironmentArt::Shade{});
+        }} : EnvironmentArt::Shade{}, item.clip);
         break;
       }
-      case 6: environmentArt_.Grip(world.gripSurfaces[item.index], project); break;
+      case 6: {
+        const auto &grip = world.gripSurfaces[item.index];
+        if (!fog || !observer) environmentArt_.Grip(grip, project);
+        else for (const auto &part : VisibleGripParts(world, *observer, grip, &geometry)) environmentArt_.Grip(part, project);
+        break;
+      }
+      case 7: AgentShadowArt(world.agents[item.index], world, camera, world.agents[item.index].id == localPlayer); break;
+      case 8: GuardShadowArt(world.guards[item.index], world, camera); break;
+      case 9: Vision(world.guards[item.index], world, camera, fog ? &visibility : nullptr, fogContour ? &*fogContour : nullptr); break;
+      case 10: {
+        const auto &object = world.objects[item.index];
+        FieldOfView(object.position, object.facing, object.camera.range, {221, 67, 77, 26}, world, camera, object.camera.cosHalfAngle, object.elevation, fog ? &visibility : nullptr, fogContour ? &*fogContour : nullptr);
+        break;
+      }
       }
     }
-    for (const auto index : cqcOverlays) {
-      const auto &agent = world.agents[index];
-      CqcArt(agent, world, camera, GroundToScreen(agent.position, camera, agent.elevation), PresentationConfig::AgentUniforms[(agent.id - 1) % PresentationConfig::AgentUniforms.size()]);
+    flushCqc();
+    separationFog(std::max(renderedElevation, cameraElevation_));
+    Footsteps(world, camera, observer);
+    DecoyPreview(world, camera, observer);
+    AimLaser(world, camera, observer);
+    if (hudVisible && observer && observer->hidden) {
+      const auto table = std::ranges::find_if(world.objects, [&](const Interactable &object) {
+        return object.id == observer->hideoutId && object.occupantAgent == observer->id && WorldGeometry::HideoutType(object) == HideoutKind::UnderTable;
+      });
+      if (table != world.objects.end()) {
+        const auto view = WeaponFacing(*observer);
+        const sf::Vector2f side{-view.y, view.x};
+        const float height = table->elevation + WorldGeometry::ObjectHeight(*table) + 8.f;
+        const auto start = GroundToScreen(observer->position, camera, height);
+        const auto tip = GroundToScreen(observer->position + view * 32.f, camera, height);
+        sf::Vector2f exit;
+        const bool clearExit = Interaction::HideoutExit(world, *observer, *table, exit);
+        const auto color = clearExit ? PresentationConfig::Cyan : PresentationConfig::Amber;
+        PixelLine(start, tip, color, 3.f);
+        PixelLine(tip, GroundToScreen(observer->position + view * 22.f + side * 7.f, camera, height), color, 3.f);
+        PixelLine(tip, GroundToScreen(observer->position + view * 22.f - side * 7.f, camera, height), color, 3.f);
+        Label(clearExit ? "MIRADA / SALIDA" : "SALIDA BLOQUEADA", start - sf::Vector2f{0.f, 28.f}, color, 12);
+      }
     }
     Combat(world, camera, observer);
     for (const auto &noise : world.noises) if (observer && Visibility::NoiseAudible(world, *observer, noise)) {
@@ -1349,6 +1539,12 @@ namespace NoTrace {
       for (const auto &guard : world.guards) if (guardVisible(guard)) GuardIcon(guard, camera);
       for (const auto &guard : world.guards) if (guardVisible(guard)) DummyStatus(guard, world, camera, observer);
       Minimap(world, localPlayer, minimapFog, visibilityCache, &geometry);
+      if (hudVisible && IsTraining(world) && !world.gripSurfaces.empty()) {
+        Label("CIRCUITO SUR · PARED / SALIENTE / TUBO", {300.f, 145.f}, PresentationConfig::Cyan, 16);
+        Label("B · Agarrarse, cambiar de agarre y subir", {300.f, 172.f}, PresentationConfig::Light, 14);
+        Label("WASD / flechas · Desplazarse  |  Mayús+B · Soltarse", {300.f, 195.f}, PresentationConfig::Light, 14);
+        Label("Escalera · Caminar  |  Ascensor · E", {300.f, 218.f}, PresentationConfig::Light, 14);
+      }
       if (hudVisible) DetectionEye(world, observer);
       RescueIndicators(world, observer);
       NameIndicators(world, observer, camera);

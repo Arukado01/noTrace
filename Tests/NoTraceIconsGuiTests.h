@@ -23,9 +23,10 @@ namespace EngineTests {
     };
     std::filesystem::create_directories(output);
     const auto render = [](Icons::Kind kind, unsigned int scale, sf::Color tint, float progress = 1.f) {
-      sf::RenderTexture target({16u * scale, 16u * scale});
+      const auto width = static_cast<unsigned int>(IconsConfig::Glyphs[static_cast<std::size_t>(kind)].width);
+      sf::RenderTexture target({width * scale, 16u * scale});
       target.setSmooth(false); target.clear(sf::Color::Transparent);
-      target.draw(Icons::Geometry(kind, {8.f * scale, 8.f * scale}, static_cast<float>(scale), tint, progress));
+      target.draw(Icons::Geometry(kind, {width * .5f * scale, 8.f * scale}, static_cast<float>(scale), tint, progress));
       target.display(); return target.getTexture().copyToImage();
     };
     const auto colored = [](const sf::Image &image, sf::Color color) {
@@ -35,14 +36,15 @@ namespace EngineTests {
     };
     std::set<std::uint64_t> fingerprints;
     nlohmann::json entries = nlohmann::json::array();
-    std::string gallery = "<!doctype html><meta charset=utf-8><title>NO TRACE · iconos nativos</title><style>body{background:#07131c;color:#c6dada;font:16px system-ui;margin:24px}main{display:grid;grid-template-columns:repeat(5,180px);gap:16px}article{padding:16px;background:#18212a}img{image-rendering:pixelated;display:block;margin:12px 0}small{color:#91a3ae}</style><h1>Iconos de 16×16</h1><p>Mapas de píxeles C++ dibujados con SFML. Sin letras, fuentes de símbolos ni texturas externas.</p><main>";
+    std::string gallery = "<!doctype html><meta charset=utf-8><title>NO TRACE · iconos nativos</title><style>body{background:#07131c;color:#c6dada;font:16px system-ui;margin:24px}main{display:grid;grid-template-columns:repeat(5,180px);gap:16px}article{padding:16px;background:#18212a}img{image-rendering:pixelated;display:block;margin:12px 0}small{color:#91a3ae}</style><h1>Iconos nativos</h1><p>Mapas de píxeles C++ de 16 píxeles de alto dibujados con SFML. Sin fuentes de símbolos ni texturas externas.</p><main>";
     for (std::size_t index = 0; index < IconsConfig::Glyphs.size(); ++index) {
       const auto kind = static_cast<Icons::Kind>(index);
       const auto tint = Icons::Tint(kind);
       const auto palette = Icons::Colors(kind, tint);
       const auto native = render(kind, 1, tint);
+      const auto size = native.getSize();
       std::uint64_t fingerprint = 1469598103934665603ull;
-      for (std::size_t value = 0; value < 16 * 16 * 4; ++value) fingerprint = (fingerprint ^ native.getPixelsPtr()[value]) * 1099511628211ull;
+      for (std::size_t value = 0; value < size.x * size.y * 4; ++value) fingerprint = (fingerprint ^ native.getPixelsPtr()[value]) * 1099511628211ull;
       require(fingerprints.insert(fingerprint).second, "dos acciones diferentes comparten la misma silueta y colores");
       require(colored(native, sf::Color::Transparent) >= 25 && colored(native, palette.fill) >= 8 && colored(native, palette.accent) >= 4,
         "un glifo pierde su silueta, relleno o detalle semántico a escala nativa");
@@ -51,17 +53,17 @@ namespace EngineTests {
       gallery += "<article><strong>" + name + "</strong>";
       for (const unsigned int scale : {1u, 2u, 3u}) {
         const auto image = render(kind, scale, tint);
-        for (unsigned int y = 0; y < 16 * scale; ++y) for (unsigned int x = 0; x < 16 * scale; ++x)
+        for (unsigned int y = 0; y < size.y * scale; ++y) for (unsigned int x = 0; x < size.x * scale; ++x)
           require(image.getPixel({x, y}) == native.getPixel({x / scale, y / scale}), "el escalado entero interpola o desplaza un píxel: " + name);
         const auto file = "icon-" + name + "-" + std::to_string(scale) + "x.png";
         require(image.saveToFile(output / file), "no se conserva la captura SFML: " + name);
-        gallery += "<img src='" + file + "' width='" + std::to_string(16 * scale) + "' height='" + std::to_string(16 * scale) + "'><small>" + std::to_string(scale) + "×</small>";
+        gallery += "<img src='" + file + "' width='" + std::to_string(size.x * scale) + "' height='" + std::to_string(size.y * scale) + "'><small>" + std::to_string(scale) + "×</small>";
         scales.push_back(scale);
       }
       gallery += "</article>";
       const auto hidden = render(kind, 1, sf::Color::Transparent);
-      require(colored(hidden, sf::Color::Transparent) == 256, "la opacidad cero conserva píxeles del icono");
-      entries.push_back({{"kind", name}, {"pixels", {16, 16}}, {"integerScales", scales}, {"rgbaFingerprint", fingerprint}});
+      require(colored(hidden, sf::Color::Transparent) == size.x * size.y, "la opacidad cero conserva píxeles del icono");
+      entries.push_back({{"kind", name}, {"pixels", {size.x, size.y}}, {"integerScales", scales}, {"rgbaFingerprint", fingerprint}});
     }
     const auto dossier = render(Icons::Kind::Dossier, 1, Icons::Tint(Icons::Kind::Dossier));
     require(dossier.getPixel({10, 3}) == Icons::Tint(Icons::Kind::Dossier), "el dossier pierde la esquina de papel doblada");
@@ -73,8 +75,10 @@ namespace EngineTests {
     require(ammunition.getPixel({5, 7}).a == 0 && ammunition.getPixel({9, 7}).a == 0, "los cartuchos se funden en un bloque genérico");
     const auto unconscious = render(Icons::Kind::Unconscious, 1, Icons::Tint(Icons::Kind::Unconscious));
     const auto dead = render(Icons::Kind::Dead, 1, Icons::Tint(Icons::Kind::Dead));
-    require(unconscious.getPixel({4, 8}) == PresentationConfig::Outline && colored(unconscious, PresentationConfig::Skin) > 20 && colored(unconscious, PresentationConfig::Violet) > 8,
-      "la inconsciencia pierde el ojo cerrado, cabeza inclinada o luna violeta");
+    require(unconscious.getSize() == sf::Vector2u{24u, 16u} && unconscious.getPixel({4, 6}) == PresentationConfig::Outline &&
+      unconscious.getPixel({16, 1}) == PresentationConfig::Violet && unconscious.getPixel({19, 7}) == PresentationConfig::Violet &&
+      unconscious.getPixel({16, 12}) == PresentationConfig::Violet && colored(unconscious, PresentationConfig::Skin) > 20,
+      "la inconsciencia pierde el ojo cerrado, cabeza inclinada o sus tres zetas violetas originales");
     require(dead.getPixel({5, 5}) == PresentationConfig::Outline && dead.getPixel({9, 5}) == PresentationConfig::Outline && dead.getPixel({7, 8}) == PresentationConfig::Outline,
       "la calavera pierde las dos órbitas y la nariz diferenciadas");
     std::size_t previous = 0;

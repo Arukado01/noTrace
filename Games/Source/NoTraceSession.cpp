@@ -1,4 +1,5 @@
 #include "NoTraceSession.h"
+#include "NoTracePerformance.h"
 #include "Config/NoTraceGameplayConfig.h"
 #include "Config/NoTraceCombatConfig.h"
 #include "Config/NoTraceDistractionConfig.h"
@@ -656,6 +657,7 @@ namespace NoTrace {
     if (!IsHost() || !active_) {
       return;
     }
+    NO_TRACE_PROFILE_SCOPE(SessionSnapshot);
     Json lobby = Json::array();
     for (const auto &player : lobby_) {
       lobby.push_back({{"id", player.id}, {"name", player.name}, {"ready", player.ready}});
@@ -665,9 +667,20 @@ namespace NoTrace {
       // Un mando nuevo confirma actividad del cliente y limita la acumulación de estados periódicos.
       if (participant.accepted && !participant.rejected && (force || participant.sequence > participant.lastSnapshotCommandSequence)) {
         // Cada destinatario recibe únicamente su propia orden privada.
-        const Json message{{"type", "snapshot"}, {"seq", sequence}, {"epoch", epoch_},
-                           {"lobby", lobby}, {"world", simulation_.SnapshotFor(id, true)}};
-        if (!network_.Send(id, message.dump())) {
+        const Json message = [&] {
+          NO_TRACE_PROFILE_SCOPE(SnapshotBuild);
+          return Json{{"type", "snapshot"}, {"seq", sequence}, {"epoch", epoch_},
+                      {"lobby", lobby}, {"world", simulation_.SnapshotFor(id, true)}};
+        }();
+        const auto payload = [&] {
+          NO_TRACE_PROFILE_SCOPE(SnapshotSerialize);
+          return message.dump();
+        }();
+        const bool sent = [&] {
+          NO_TRACE_PROFILE_SCOPE(SnapshotSend);
+          return network_.Send(id, payload);
+        }();
+        if (!sent) {
           status_ = "No se pudo enviar una instantánea LAN";
         } else {
           participant.lastSnapshotCommandSequence = participant.sequence;

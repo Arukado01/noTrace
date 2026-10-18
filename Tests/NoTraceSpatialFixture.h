@@ -7,8 +7,8 @@
 namespace NoTrace::TestFixture {
   inline void LegacyPlane(WorldState &world) {
     world.walkSurfaces.clear(); world.verticalLinks.clear(); world.gripSurfaces.clear(); world.elevators.clear();
-    for (auto &agent : world.agents) { agent.elevation = 0.f; agent.supportId = 0; agent.traversal = {}; }
-    for (auto &guard : world.guards) { guard.elevation = 0.f; guard.supportId = 0; guard.lastKnownElevation = 0.f; guard.patrolElevations.clear(); }
+    for (auto &agent : world.agents) { agent.elevation = 0.f; agent.supportId = 0; agent.traversal = {}; agent.forcedFall = {}; }
+    for (auto &guard : world.guards) { guard.elevation = 0.f; guard.supportId = 0; guard.lastKnownElevation = 0.f; guard.patrolElevations.clear(); guard.forcedFall = {}; }
     for (auto &object : world.objects) { object.elevation = 0.f; object.supportId = 0; object.elevatorId = 0; }
     for (auto &obstacle : world.obstacles) { obstacle.elevation = 0.f; obstacle.height = 0.f; }
   }
@@ -19,10 +19,11 @@ namespace NoTrace::TestFixture {
     snapshot["geometryHash"] = Level::GeometryHash(plane);
     for (auto &agent : snapshot["agents"]) {
       agent["elevation"] = 0.f; agent["supportId"] = 0;
+      agent["forcedFall"] = {false, {0.f, 0.f, 0.f}, {0.f, 0.f, 0.f}, 0.f, 0, 0};
       agent["traversal"] = {0, 0, 0, 0, false, 0.f, 0.f, 0.f, 0.f, {0.f, 0.f, 0.f}, {0.f, 0.f, 0.f}};
     }
-    for (auto &guard : snapshot["guards"]) { guard["elevation"] = guard["lastKnownElevation"] = 0.f; guard["supportId"] = 0; guard["patrolElevations"] = nlohmann::json::array(); }
-    Simulation defaults; defaults.ResetBase();
+    for (auto &guard : snapshot["guards"]) { guard["elevation"] = guard["lastKnownElevation"] = 0.f; guard["supportId"] = 0; guard["patrolElevations"] = nlohmann::json::array(); guard["forcedFall"] = {false, {0.f, 0.f, 0.f}, {0.f, 0.f, 0.f}, 0.f, 0, 0}; }
+    Simulation defaults; defaults.ResetBase(); LegacyPlane(const_cast<WorldState &>(defaults.GetState()));
     const auto templateObject = defaults.SnapshotFor(1).at("objects").front();
     for (auto &object : snapshot["objects"]) {
       object["elevation"] = 0.f; object["supportId"] = object["elevatorId"] = 0;
