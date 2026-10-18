@@ -1,4 +1,5 @@
 #include "NoTraceSimulation.h"
+#include "NoTracePerformance.h"
 #include "NoTraceNavigation.h"
 #include "NoTraceWorldGeometry.h"
 #include "NoTraceDistractionGeometry.h"
@@ -17,6 +18,7 @@ namespace NoTrace {
     float Distance(sf::Vector2f first, sf::Vector2f second) { return Length(first - second); }
   }
   void Simulation::Navigate(Guard &guard, sf::Vector2f target, float speed, float dt, float targetElevation) {
+    NO_TRACE_PROFILE_SCOPE(Navigation);
     using GameplayConfig::AgentRadius;
     using namespace NavigationConfig;
     if (dt <= 0.f || speed <= 0.f) return;
@@ -73,6 +75,7 @@ namespace NoTrace {
     if (guard.position != previousPosition) { guard.navigation.clear(); guard.navigationTimer = 0.f; }
     guard.navigationTimer = std::max(0.f, guard.navigationTimer - dt);
     const auto pathClear = [this, spatial, currentSurface, nextSurface](sf::Vector2f from, sf::Vector2f to) {
+      NO_TRACE_PROFILE_SCOPE(NavigationPathClear);
       if (spatial) {
         const auto surfaceAt = [&](sf::Vector2f point) -> const WalkSurface * {
           if (currentSurface && WorldGeometry::ContainsSupport(*currentSurface, point)) return currentSurface;
@@ -124,6 +127,7 @@ namespace NoTrace {
     }
     guard.navigationTarget = target;
     const auto buildPath = [&] {
+        NO_TRACE_PROFILE_SCOPE(NavigationBfs);
         guard.navigation.clear(); guard.navigationTimer = RefreshInterval;
         const int columns = static_cast<int>(std::ceil(world_.size.x / CellSize));
         const int rows = static_cast<int>(std::ceil(world_.size.y / CellSize));

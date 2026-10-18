@@ -130,6 +130,11 @@ if(BUILD_TESTING)
   target_link_libraries(NoTraceLanQa PRIVATE SFML::Graphics SFML::Audio SFML::Network nlohmann_json::nlohmann_json spdlog::spdlog TGUI::TGUI magic_enum::magic_enum)
 endif()
 
+option(NO_TRACE_BUILD_PERFORMANCE "Habilitar mediciones aisladas de NO TRACE en Windows" OFF)
+if(NO_TRACE_BUILD_PERFORMANCE AND WIN32)
+  include(Tests/NoTracePerformance.cmake)
+endif()
+
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang" AND WIN32)
   set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--start-group")
   set(CMAKE_CXX_STANDARD_LIBRARIES "${CMAKE_CXX_STANDARD_LIBRARIES} -Wl,--end-group")

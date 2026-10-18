@@ -1,4 +1,5 @@
 #include "NoTraceSimulation.h"
+#include "NoTracePerformance.h"
 #include "Config/NoTraceSecurityConfig.h"
 #include "Config/NoTraceNavigationConfig.h"
 #include "NoTraceVisibility.h"
@@ -271,6 +272,7 @@ namespace NoTrace {
   }
 
   void Simulation::UpdateSecurity(float dt) {
+    NO_TRACE_PROFILE_SCOPE(Security);
     using namespace SecurityConfig;
     if (!securityHasClue_) return;
     securityContactAge_ += dt;

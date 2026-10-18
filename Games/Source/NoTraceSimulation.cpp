@@ -1,4 +1,5 @@
 #include "NoTraceSimulation.h"
+#include "NoTracePerformance.h"
 #include "NoTraceLevel.h"
 #include "NoTraceSpatialGeometry.h"
 #include "NoTraceSpatialState.h"
@@ -231,6 +232,7 @@ namespace NoTrace {
   }
 
   bool Simulation::CanSee(sf::Vector2f from, sf::Vector2f facing, const Agent &agent, float range, float fromElevation) const {
+    NO_TRACE_PROFILE_SCOPE(Perception);
     if (!agent.alive || agent.incapacitated || !agent.connected || agent.extracted) return false;
     const auto delta = agent.position - from;
     const float distance = std::hypot(Length(delta), agent.elevation - fromElevation);
@@ -324,6 +326,7 @@ namespace NoTrace {
   }
 
   void Simulation::Step(float deltaTime, const std::unordered_map<PlayerId, ActionCommand> &commands) {
+    NO_TRACE_PROFILE_SCOPE(Simulation);
     if (world_.phase == GamePhase::Results || !std::isfinite(deltaTime) || deltaTime <= 0.f) return;
     if (world_.phase == GamePhase::Mission) { CheckResults(); if (world_.phase == GamePhase::Results) return; }
     const float dt = std::min(deltaTime, GameplayConfig::MaximumStep);
@@ -576,6 +579,7 @@ namespace NoTrace {
   }
 
   void Simulation::UpdateAgent(Agent &agent, const ActionCommand &command, float dt) {
+    NO_TRACE_PROFILE_SCOPE(Agents);
     if (UpdateTraversal(agent, command, dt)) return;
     if (UpdatePuzzle(agent, command)) { CancelReload(agent); agent.aiming = false; agent.actionPose = ActionPose::Interact; agent.actionPoseTime = GameplayConfig::StanceTransitionDuration; return; }
     using namespace GameplayConfig;
@@ -1001,6 +1005,7 @@ namespace NoTrace {
   }
 
   void Simulation::UpdateGuards(float dt) {
+    NO_TRACE_PROFILE_SCOPE(Guards);
     using namespace GameplayConfig;
     for (auto &cue : world_.footsteps) cue.remaining -= dt;
     std::erase_if(world_.footsteps, [](const FootstepCue &cue) { return cue.remaining <= 0.f; });
@@ -1196,7 +1201,7 @@ namespace NoTrace {
     }
   }
 
-  void Simulation::UpdateObjects(float dt) { UpdateDevices(dt); }
+  void Simulation::UpdateObjects(float dt) { NO_TRACE_PROFILE_SCOPE(Devices); UpdateDevices(dt); }
 
   void Simulation::CheckResults() {
     const auto result = Outcomes::Resolve(world_);

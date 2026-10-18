@@ -1,6 +1,7 @@
 #pragma once
 
 #include "NoTraceSpatialGeometry.h"
+#include "NoTracePerformance.h"
 #include <queue>
 #include <unordered_map>
 
@@ -14,6 +15,7 @@ namespace NoTrace::Navigation {
     std::uint32_t elevator = 0;
   };
   inline std::vector<RouteStep> Route(const WorldState &world, std::uint32_t from, std::uint32_t to) {
+    NO_TRACE_PROFILE_SCOPE(NavigationRoute);
     if (from == 0 || to == 0 || from == to) return {};
     std::queue<std::uint32_t> pending; pending.push(from);
     std::unordered_map<std::uint32_t, RouteStep> previous; previous[from] = {};
