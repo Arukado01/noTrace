@@ -2,7 +2,7 @@
 
 Estado: integración técnica en curso; escucha humana y aceptación artística pendientes.
 
-178 recursos, 90 grabaciones fuente verificadas CC0; 28,532,160 bytes PCM. Ningún hash PCM duplicado ni muestras con clipping en los recursos exportados.
+184 recursos, 91 grabaciones fuente verificadas CC0; 28,851,144 bytes PCM. Ningún hash PCM duplicado ni muestras con clipping en los recursos exportados.
 
 Las variantes son contactos o tomas diferentes; no son copias transpuestas. Algunas fuentes de Freesound sólo ofrecen una vista previa HQ pública: el manifiesto identifica expresamente esos MP3, cuya conversión no recupera calidad del original. Los archivos de armas, puertas, teclado y Foley obtenidos de OpenGameArt son descargas originales de sus páginas primarias.
 
@@ -186,6 +186,12 @@ Las variantes son contactos o tomas diferentes; no son copias transpuestas. Algu
 | ElevatorMove | Traversal/ElevatorMove-01.wav | [Elevator Approaching Motor.wav — maxmaxmaxmaxmaxmaxmax](https://freesound.org/people/maxmaxmaxmaxmaxmaxmax/sounds/439419/) · CC0 | 216000–1104000 a 48000 Hz | e634261dfda213eddae6d060ba866f42d18e05050e625da9a71512aac6631fa4 | Pendiente |
 | DryFire | Weapons/DryFire-01.wav | [Dry_Fire.wav — TampaJoey](https://freesound.org/people/TampaJoey/sounds/588733/) · CC0 | 0–17379 a 44100 Hz | 128efc0ebfda5dd0fbfecc769784ea893322d557aee9296ef9a2cf90aeb2868a | Pendiente |
 | DryFire | Weapons/DryFire-02.wav | [Dry Fire — brianhanson2nd](https://freesound.org/people/brianhanson2nd/sounds/171211/) · CC0 | 53802–72765 a 44100 Hz | c3ab96250594fe2f6aff648ed3f4f9475e7558dfd8079ddef0e56a4683496501 | Pendiente |
+| DecoyPrepare | Devices/DecoyPrepare-01.wav | [212180__owlstorm__bag-zipper.wav — OwlishMedia](https://opengameart.org/content/sound-effects-pack) · CC0 | 26460–44100 a 44100 Hz | fb903e965dd86061d1529eb0efdbc8742bed7c8f25e381133764352de3d66f02 | Pendiente |
+| DecoyPrepare | Devices/DecoyPrepare-02.wav | [212180__owlstorm__bag-zipper.wav — OwlishMedia](https://opengameart.org/content/sound-effects-pack) · CC0 | 132300–154350 a 44100 Hz | 4a931323e6f759a8e0fa83bc6204615c4babb668648b688e1dc6e6e2e65a7557 | Pendiente |
+| DecoyThrow | Devices/DecoyThrow-01.wav | [Fabric flaps — PelicanPolice](https://freesound.org/people/PelicanPolice/sounds/580967/) · CC0 | 79200–106560 a 48000 Hz | 1b8cd66c4f6369f21b9cfdc3750f78e23160b0b905100e93e2192fa73c17b6a1 | Pendiente |
+| DecoyThrow | Devices/DecoyThrow-02.wav | [Fabric flaps — PelicanPolice](https://freesound.org/people/PelicanPolice/sounds/580967/) · CC0 | 264000–295200 a 48000 Hz | 480af591384396232ea6f71fcb75ea523edc964ec98cd4745d7091f99eba861b | Pendiente |
+| CameraDisable | Devices/CameraDisable-01.wav | [plugpull2.wav — OwlishMedia](https://opengameart.org/content/sound-effects-pack) · CC0 | 6615–33075 a 44100 Hz | 6af4d14199b8810db21b039c5f84a3007cf436296908ff9784b6a069e673ed42 | Pendiente |
+| CameraDisable | Devices/CameraDisable-02.wav | [plugpull2.wav — OwlishMedia](https://opengameart.org/content/sound-effects-pack) · CC0 | 57330–83790 a 44100 Hz | 0dcf389927e3c9bc8403918ed24b63079b5f52c47796ac6caf0bd94e23782fd5 | Pendiente |
 
 La comprobación de PCM, picos, duración, carga y hashes no acredita escucha, realismo ni coherencia perceptiva de mezcla. La galería permite revisar cada recurso y un grupo; la validación definitiva requiere también la reproducción real dentro del juego y LAN.
 

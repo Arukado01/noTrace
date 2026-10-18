@@ -1366,6 +1366,21 @@
       "notes": "Disparo en seco real de Smith & Wesson 9 mm; Samson M10 y MobilePre USB M-Audio.",
       "sourceFileBytes": 75339,
       "sourceFileSha256": "07175dbab19864e9caeb48d9744227fe64c8bda5261c372c166bc4e5d37b40e8"
+    },
+    {
+      "id": "source-5d31fd5b2bee",
+      "file": "extracted/owlish/Technology/plugpull2.wav",
+      "title": "plugpull2.wav",
+      "author": "OwlishMedia",
+      "sourceUrl": "https://opengameart.org/content/sound-effects-pack",
+      "downloadUrl": "https://opengameart.org/sites/default/files/Owlish%20Media%20Sound%20Effects.zip",
+      "downloadSha256": "57d7059fe2c0ea5f47c7554ace22a538ea22ab40bfc0906b71aa259afffd3d18",
+      "archiveMember": "Technology/plugpull2.wav",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "downloadIsOriginal": true,
+      "sourceFileBytes": 686074,
+      "sourceFileSha256": "a1f7f77b1ce4b36ff6fb7fae36f8fa6fe277a0fc047efd51fbc3ec3db78edd89"
     }
   ]
 }

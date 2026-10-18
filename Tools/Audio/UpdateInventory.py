@@ -13,7 +13,9 @@ assert len(set(audio)) == len(audio)
 assert all((ROOT / path).is_file() for path in audio), "Falta un recurso preparado antes de inventariar"
 current = [path for path in current if not path.startswith(("Content/Sounds/NoTrace/", "Content/Audio/NoTrace/"))]
 environment = ["Content/Textures/NoTrace/Environment/" + name for name in ("MilitaryFurniture.png", "MilitaryMaterials.png", "MilitaryEnvironment.manifest.json")]
-characters = [f"Content/Textures/NoTrace/Characters/V2/Characters-{page:02}.png" for page in range(11)]
+runtime = json.loads((ROOT / "Content/Textures/NoTrace/Characters/V2/CharacterAtlasRuntime.json").read_text(encoding="utf-8"))
+assert all(Path(page["file"]).name == page["file"] and Path(page["file"]).suffix == ".png" for page in runtime["pages"]), "Página runtime de personaje fuera de su directorio"
+characters = ["Content/Textures/NoTrace/Characters/V2/" + page["file"] for page in runtime["pages"]]
 characters += ["Content/Textures/NoTrace/Characters/V2/" + name for name in ("WeaponProps.png", "WeaponSelection.png", "CharacterAtlasMetadata.json", "CharacterAtlasRuntime.json")]
 assert all((ROOT / path).is_file() for path in environment + characters), "Falta un recurso visual obligatorio antes de inventariar"
 inventory.write_text("\n".join(sorted(set(current + audio + environment + characters))) + "\n", encoding="utf-8")

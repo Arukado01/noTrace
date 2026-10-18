@@ -18,7 +18,7 @@ python Tools/Audio/VerifyLibrary.py
 python Tools/Audio/UpdateInventory.py
 ```
 
-Para actualizar únicamente manifiesto, créditos y galerías después de retirar una receta, usa `python Tools/Audio/BuildLibrary.py --metadata-only`: verifica los hashes y PCM existentes sin reescribir los WAV. El slot de red `Cabinet` permanece inactivo con count0; su receta y procedencia histórica están en `Retired.json`, y la fuente original sigue en `Sources.json`. El paquete activo contiene178 WAV de88familias, con90grabaciones utilizadas de91conservadas.
+Para actualizar únicamente manifiesto, créditos y galerías después de retirar una receta, usa `python Tools/Audio/BuildLibrary.py --metadata-only`: verifica los hashes y PCM existentes sin reescribir los WAV. Para incorporar nuevas recetas conservando todos los WAV previos, usa `--append-only`: rechaza cambios en su receta, procedencia, archivo o PCM y exporta sólo las nuevas. El slot de red `Cabinet` permanece inactivo con count0; su receta y procedencia histórica están en `Retired.json`, y la fuente original sigue en `Sources.json`. El paquete activo contiene184 WAV de91familias, con91grabaciones utilizadas de92conservadas.
 
 El procesamiento recorta grabaciones, elimina DC, filtra infrasonidos, convierte la frecuencia de muestreo y aplica fundidos y ajustes de nivel. Los ambientes emplean una transición entre los extremos para permitir un bucle largo. No genera tonos ni ruido, no cambia el tono de una muestra para aparentar variantes y no incorpora recursos rechazados como capas.
 

@@ -12,7 +12,9 @@ parser.add_argument("--python-deps", type=Path, default=Path("build/qa-cierre-ev
 parser.add_argument("--output", type=Path, default=Path("Content/Audio/NoTrace"))
 parser.add_argument("--report", type=Path, default=Path("docs/audio-redesign-2026-10-18"))
 parser.add_argument("--metadata-only", action="store_true", help="Verifica WAV existentes y regenera manifiesto, créditos y galería sin reescribir audio.")
+parser.add_argument("--append-only", action="store_true", help="Conserva y verifica los WAV existentes; exporta sólo recetas nuevas.")
 args = parser.parse_args()
+if args.metadata_only and args.append_only: parser.error("Elige regeneración de metadatos o incorporación de recetas nuevas.")
 sys.path.insert(0, str(args.python_deps.resolve()))
 import numpy as np
 import soundfile as sf
@@ -31,12 +33,12 @@ verified = set()
 fingerprints = set()
 results = []
 existing = {}
-if args.metadata_only:
+if args.metadata_only or args.append_only:
     existing = {asset["file"]: asset for asset in json.loads((output / "manifest.json").read_text(encoding="utf-8"))["assets"]}
 
 for asset in spec["assets"]:
     source = sources[asset["source"]]
-    if args.metadata_only:
+    if args.metadata_only or (args.append_only and asset["file"] in existing):
         previous = existing[asset["file"]]
         destination = (output / asset["file"]).resolve()
         if not destination.is_relative_to(output) or any(previous.get(key) != value for key, value in asset.items()) or previous["sourceInfo"] != source or source["license"] != "CC0-1.0":
@@ -144,6 +146,7 @@ function show(){stop();main.replaceChildren();for(const clip of clips.filter(c=>
 group.onchange=show;volume.oninput=()=>{for(const audio of document.querySelectorAll('audio'))audio.volume=volume.value/100};document.querySelector('#stop').onclick=stop;
 function next(){if(!queue.length){stop();return}current=queue.shift();document.querySelector('#now').textContent=current.parentNode.querySelector('strong').textContent;current.currentTime=0;current.onended=next;current.play().catch(error=>document.querySelector('#now').textContent=error.message)}
 const flows={'Sigilo':['StepHard','StepHard','StepCrouchHard','CoverEnter','Knock','CoverExit','ProneCrawl','GetUp','DoorOpen','DoorClose'],'Combate':['WeaponSwitch','WeaponReady','Pistol','ImpactBody','Reload','ReloadFinish','NonLethal','SuppressedNonLethal','Punch','Kick','Push','Grab','Choke','Fall'],'Verticalidad':['StepStair','StepStair','GripAttach','GripMove','GripMove','GripRelease','Land','Button','ElevatorClose','ElevatorStart','ElevatorStop','ElevatorOpen'],'Seguridad y dispositivos':['DetectionConfirmed','SearchStart','VigilanceStart','AlertEnd','ComputerKey','Lever','WireConnect','PuzzleFailed','PuzzleSolved','TrapArm','TrapTick','TrapDisarm']};
+flows['Señuelo y cámara']=['DecoyPrepare','DecoyThrow','Decoy','Camera','CameraDisable'];
 for(const [title,sequence] of Object.entries(flows)){const button=document.createElement('button');button.textContent=title;button.onclick=()=>{group.value='';show();const used={};queue=sequence.map(kind=>{const bank=[...main.querySelectorAll('audio')].filter(audio=>audio.dataset.kind===kind);const index=used[kind]||0;used[kind]=index+1;return bank[index%bank.length]}).filter(Boolean);next()};document.querySelector('#flows').append(button)}
 document.querySelector('#sequence').onclick=()=>{stop();queue=[...document.querySelectorAll('audio')];next()};show();</script>""".replace("PAYLOAD", payload)
 (report / "gallery.html").write_text(gallery, encoding="utf-8")
