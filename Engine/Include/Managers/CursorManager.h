@@ -16,6 +16,7 @@ private:
   bool visible_;
   bool hovered_;
   bool modalVisible_ = false;
+  bool captured_ = false;
 
 public:
   CursorManager(sf::RenderWindow &window, ResourceManager &resources);
@@ -27,6 +28,8 @@ public:
   bool IsVisible() const;
   void SetHovered(bool hovered);
   void SetModalVisible(bool visible);
+  void SetCaptured(bool captured);
+  bool IsCaptured() const;
 
   void SetPosition(sf::Vector2f position);
   sf::Vector2f GetPosition() const;

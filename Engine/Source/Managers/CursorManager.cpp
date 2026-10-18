@@ -85,6 +85,13 @@ void CursorManager::SetVisible(bool visible) {
 
 bool CursorManager::IsVisible() const { return visible_; }
 
+void CursorManager::SetCaptured(bool captured) {
+  captured_ = captured;
+  window_.setMouseCursorGrabbed(captured);
+}
+
+bool CursorManager::IsCaptured() const { return captured_; }
+
 void CursorManager::SetHovered(bool hovered) { hovered_ = hovered; }
 
 void CursorManager::SetModalVisible(bool visible) {
