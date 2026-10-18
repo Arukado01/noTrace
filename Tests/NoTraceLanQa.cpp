@@ -1,22 +1,42 @@
+#ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#undef near
+#undef far
+#endif
 #include "NoTraceGame.h"
 #include "NoTraceLanQaPilot.h"
+#include "NoTraceLanQaMechanics.h"
 #include "NoTraceInteraction.h"
+#include "NoTracePerformance.h"
 #include "Config/NoTraceWeaponConfig.h"
 #include "Core/EngineConfig.h"
+#include <SFML/GpuPreference.hpp>
+#include <SFML/OpenGL.hpp>
 #include <SFML/Graphics/Image.hpp>
 #include <SFML/Graphics/Sprite.hpp>
 #include <SFML/Graphics/Texture.hpp>
 #include <SFML/System/Sleep.hpp>
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cctype>
 #include <cmath>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
+#include <map>
+#include <numeric>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <thread>
+
+SFML_DEFINE_DISCRETE_GPU_PREFERENCE
 
 namespace EngineTests {
   struct GuiAccess {
@@ -70,7 +90,9 @@ namespace EngineTests {
     }
     static void Lobby(NoTrace::Game &game, EngineContext &context, sf::RenderWindow &window) { Click(context, window, game.lobby_); }
     static void Time(EngineContext &context) { context.time.Update(); }
-    static void Render(NoTrace::Game &game, EngineContext &context, sf::RenderWindow &window, const std::filesystem::path &capture = {}) {
+    struct RenderTimes { double render = 0., present = 0.; };
+    static RenderTimes Render(NoTrace::Game &game, EngineContext &context, sf::RenderWindow &window, const std::filesystem::path &capture = {}) {
+      const auto started = std::chrono::steady_clock::now();
       window.setView(context.window.GetPresentationView()); window.clear();
       context.renderer.BeginDrawing(); game.Render();
       window.draw(sf::Sprite(context.renderer.FinishDrawing())); context.gui.Render();
@@ -78,7 +100,10 @@ namespace EngineTests {
         sf::Texture pixels(window.getSize()); pixels.update(window);
         if (!pixels.copyToImage().saveToFile(capture)) throw std::runtime_error("No se pudo guardar la captura gráfica");
       }
+      const auto submitted = std::chrono::steady_clock::now();
       window.display();
+      return {std::chrono::duration<double, std::milli>(submitted - started).count(),
+          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - submitted).count()};
     }
   };
 }
@@ -89,6 +114,11 @@ namespace {
   using namespace NoTrace;
   using Path = std::filesystem::path;
   using Clock = std::chrono::steady_clock;
+#ifdef NO_TRACE_PROFILE
+  constexpr bool ProfilingCompiled = true;
+#else
+  constexpr bool ProfilingCompiled = false;
+#endif
 
   struct Cancelled final : std::runtime_error { using std::runtime_error::runtime_error; };
   struct Options {
@@ -96,6 +126,9 @@ namespace {
     Path coord, output;
     unsigned int port = 55041;
     unsigned int timeout = 360;
+    unsigned int frameLimit = 30, width = 1280, height = 720, warmup = 0;
+    int windowX = -1, windowY = 0;
+    bool profile = false;
   };
 
   Options Parse(int argc, char **argv) {
@@ -111,14 +144,51 @@ namespace {
       else if (key == "--coord") options.coord = std::filesystem::absolute(value);
       else if (key == "--output") options.output = std::filesystem::absolute(value);
       else if (key == "--timeout") options.timeout = static_cast<unsigned int>(std::stoul(value));
+      else if (key == "--frame-limit") options.frameLimit = static_cast<unsigned int>(std::stoul(value));
+      else if (key == "--width") options.width = static_cast<unsigned int>(std::stoul(value));
+      else if (key == "--height") options.height = static_cast<unsigned int>(std::stoul(value));
+      else if (key == "--warmup") options.warmup = static_cast<unsigned int>(std::stoul(value));
+      else if (key == "--window-x") options.windowX = std::stoi(value);
+      else if (key == "--window-y") options.windowY = std::stoi(value);
+      else if (key == "--profile" && (value == "true" || value == "false" || value == "1" || value == "0")) options.profile = value == "true" || value == "1";
       else throw std::runtime_error("Opción QA desconocida: " + key);
     }
     if ((options.role != "host" && options.role != "client") ||
-        (options.scenario != "mission" && options.scenario != "client-drop" && options.scenario != "host-drop" && options.scenario != "fps") ||
-        options.host.empty() || options.port == 0 || options.port > 65535 || options.timeout == 0 || options.timeout > 360 ||
+        (options.scenario != "mission" && options.scenario != "tour" && options.scenario != "table-tour" && options.scenario != "mechanics" && options.scenario != "training" && options.scenario != "pipe" &&
+         options.scenario != "client-drop" && options.scenario != "host-drop" && options.scenario != "fps") ||
+        options.host.empty() || options.port == 0 || options.port > 65535 || options.timeout == 0 || options.timeout > 3600 ||
+        options.frameLimit > 1000 || options.width < 640 || options.width > 7680 || options.height < 360 || options.height > 4320 || options.warmup > 10000 ||
         options.runId.size() != 32 || !std::ranges::all_of(options.runId, [](unsigned char value) { return std::isxdigit(value) != 0; }) ||
         options.coord.empty() || options.output.empty()) throw std::runtime_error("Contrato CLI QA inválido");
+    if (options.profile && !ProfilingCompiled) throw std::runtime_error("Este binario no incluye NO_TRACE_PROFILE; usa NoTraceLanPerformanceTests para --profile true");
     return options;
+  }
+
+  double Milliseconds(Clock::time_point started) { return std::chrono::duration<double, std::milli>(Clock::now() - started).count(); }
+  double CpuMilliseconds() {
+#ifdef _WIN32
+    FILETIME creation{}, exit{}, kernel{}, user{};
+    if (!GetProcessTimes(GetCurrentProcess(), &creation, &exit, &kernel, &user)) throw std::runtime_error("No se pudo medir CPU del proceso QA");
+    const auto ticks = [](FILETIME value) { ULARGE_INTEGER time{}; time.LowPart = value.dwLowDateTime; time.HighPart = value.dwHighDateTime; return time.QuadPart; };
+    return static_cast<double>(ticks(kernel) + ticks(user)) / 10000.;
+#else
+    return 0.;
+#endif
+  }
+  unsigned long ProcessId() {
+#ifdef _WIN32
+    return GetCurrentProcessId();
+#else
+    return 0;
+#endif
+  }
+  Json Distribution(std::vector<double> values) {
+    if (values.empty()) return {{"samples", 0}};
+    std::sort(values.begin(), values.end());
+    const double mean = std::accumulate(values.begin(), values.end(), 0.) / values.size();
+    const auto percentile = [&](double fraction) { return values[static_cast<std::size_t>(fraction * (values.size() - 1))]; };
+    return {{"samples", values.size()}, {"meanMs", mean}, {"p50Ms", percentile(.5)}, {"p95Ms", percentile(.95)}, {"p99Ms", percentile(.99)},
+        {"maxMs", values.back()}, {"averageFps", mean > 0. ? 1000. / mean : 0.}, {"minimumFps", values.back() > 0. ? 1000. / values.back() : 0.}};
   }
 
   void WriteJson(const Path &file, const Json &value) {
@@ -157,20 +227,32 @@ namespace {
   class Runner {
   public:
     explicit Runner(Options options)
-        : options_(std::move(options)), window_(sf::VideoMode({1280, 720}), "NO TRACE / QA LAN / " + options_.role + " / " + options_.scenario),
+        : options_(std::move(options)), window_(sf::VideoMode({options_.width, options_.height}), "NO TRACE / QA LAN / " + options_.role + " / " + options_.scenario),
           context_(window_), game_(context_), started_(Clock::now()), entered_(started_) {
       std::filesystem::create_directories(options_.coord);
       std::filesystem::create_directories(options_.output / "captures");
-      window_.setKeyRepeatEnabled(false); window_.setFramerateLimit(30); window_.setVisible(true);
+      window_.setKeyRepeatEnabled(false); window_.setVisible(true);
       Access::Initialize(context_); context_.audio.SetGlobalVolume(gConfig.globalVolume);
       game_.Start(); recovery_ = Marker(options_.role + "-forced-drop.json").is_object();
+      window_.setVerticalSyncEnabled(false); window_.setFramerateLimit(options_.frameLimit);
+      if (options_.windowX >= 0) window_.setPosition({options_.windowX, options_.windowY});
       stage_ = recovery_ ? "recovery_start" : "start";
+      if (options_.scenario == "tour") pilot_.EnableTour();
+      frames_.reserve(12000); measuredStarted_ = Clock::now(); cpuStarted_ = CpuMilliseconds();
+      if (options_.profile) profileFrames_.reserve(12000);
+      Profiling::Reset(); Profiling::enabled = options_.profile;
     }
 
     int Run() {
       std::string result = "PASS", reason;
       try {
         while (!complete_) {
+          std::optional<std::array<Profiling::Counter, Profiling::StageCount>> profileBefore;
+          if (options_.profile) profileBefore = Profiling::counters;
+          const auto frameStarted = Clock::now();
+          const auto frameStage = MechanicsScenario() && stage_.starts_with("mechanics_") ? stage_ + "/" + (Host() ? mechanics_.Stage() : mechanicsObservedStage_) : stage_;
+          capturedThisFrame_ = false;
+          double updateMs = 0., pilotMs = 0., reportMs = 0.;
           if (Elapsed() > options_.timeout) throw std::runtime_error("Plazo QA agotado en " + stage_);
           CheckCancellation();
           context_.input.BeginFrame();
@@ -180,13 +262,39 @@ namespace {
             if (const auto *resize = event->getIf<sf::Event::Resized>()) { context_.window.HandleResize(resize->size); Access::Initialize(context_); }
           }
           Access::Time(context_);
-          if (options_.scenario == "fps") { Drive(); game_.Update(); }
-          else {
-            game_.Update(); ActionCommand idle; idle.aimX = 1.f; SessionState().Submit(idle); Drive();
+          if (options_.scenario == "fps") {
+            auto measured = Clock::now(); Drive(); pilotMs += Milliseconds(measured);
+            measured = Clock::now(); game_.Update(); updateMs += Milliseconds(measured);
           }
-          game_.UpdateBackground();
-          Access::Render(game_, context_, window_);
-          if (Elapsed() - progressAt_ >= 1.f) { progressAt_ = Elapsed(); WriteJson(options_.output / "qa-progress.json", Report("RUNNING", "")); }
+          else {
+            auto measured = Clock::now(); game_.Update(); updateMs += Milliseconds(measured);
+            measured = Clock::now(); ActionCommand idle; idle.aimX = 1.f; SessionState().Submit(idle); Drive(); pilotMs += Milliseconds(measured);
+          }
+          auto measured = Clock::now(); game_.UpdateBackground(); updateMs += Milliseconds(measured);
+          measured = Clock::now(); context_.audio.Update(context_.time.GetDeltaTime());
+          const double audioManagerMs = Milliseconds(measured); updateMs += audioManagerMs;
+          const auto rendered = Access::Render(game_, context_, window_);
+          if (Elapsed() - progressAt_ >= 1.f) {
+            measured = Clock::now(); progressAt_ = Elapsed(); WriteJson(options_.output / "qa-progress.json", Report("RUNNING", "")); reportMs = Milliseconds(measured);
+          }
+          FrameSample sample;
+          sample.stage = frameStage; sample.seconds = Elapsed(); sample.phase = static_cast<int>(World().phase); sample.tick = World().tick;
+          sample.update = updateMs; sample.pilot = pilotMs; sample.render = rendered.render; sample.present = rendered.present;
+          sample.audioManager = audioManagerMs;
+          sample.report = reportMs; sample.capture = capturedThisFrame_;
+          if (const auto *actor = Local()) {
+            sample.x = actor->position.x; sample.y = actor->position.y; sample.elevation = actor->elevation; sample.support = actor->supportId;
+            sample.traversal = static_cast<int>(actor->traversal.mode); sample.hidden = actor->hidden; sample.incapacitated = actor->incapacitated;
+          }
+          sample.raw = Milliseconds(frameStarted); frames_.push_back(std::move(sample));
+          if (profileBefore) {
+            ProfileFrameSample profile;
+            for (std::size_t index = 0; index < Profiling::StageCount; ++index) {
+              profile.milliseconds[index] = Profiling::counters[index].milliseconds - (*profileBefore)[index].milliseconds;
+              profile.calls[index] = Profiling::counters[index].calls - (*profileBefore)[index].calls;
+            }
+            profileFrames_.push_back(std::move(profile));
+          }
         }
       } catch (const Cancelled &error) { result = "CANCELLED"; reason = error.what(); }
       catch (const std::exception &error) { result = "FAIL"; reason = error.what(); }
@@ -194,6 +302,8 @@ namespace {
         cases_.push_back({{"name", stage_}, {"status", result}, {"detail", reason}, {"seconds", Elapsed()}});
         try { Capture("failure"); } catch (...) {}
       }
+      Profiling::enabled = false;
+      WritePerformance();
       WriteJson(options_.output / "qa-report.json", Report(result, reason));
       std::cout << result << " QA " << options_.role << ' ' << options_.scenario << ": " << reason << '\n';
       game_.OnCleanup(); window_.close();
@@ -206,6 +316,7 @@ namespace {
     EngineContext context_;
     Game game_;
     NoTrace::Qa::MissionPilot pilot_;
+    NoTrace::Qa::MechanicsPilot mechanics_;
     Clock::time_point started_, entered_;
     std::string stage_;
     Json cases_ = Json::array(), evidence_ = Json::array(), personalResult_;
@@ -222,10 +333,99 @@ namespace {
     float fpsWear_ = 0.f;
     std::size_t fpsShots_ = 0;
     FirstPersonCamera fpsCamera_;
+    struct FrameSample {
+      std::string stage;
+      double seconds = 0., update = 0., pilot = 0., render = 0., present = 0., raw = 0., report = 0., audioManager = 0.;
+      float x = 0.f, y = 0.f, elevation = 0.f;
+      std::uint64_t tick = 0;
+      std::uint32_t support = 0;
+      int phase = 0, traversal = 0;
+      bool capture = false, hidden = false, incapacitated = false;
+    };
+    std::vector<FrameSample> frames_;
+    struct ProfileFrameSample {
+      std::array<double, Profiling::StageCount> milliseconds{};
+      std::array<std::uint64_t, Profiling::StageCount> calls{};
+    };
+    std::vector<ProfileFrameSample> profileFrames_;
+    Json performance_;
+    double cpuStarted_ = 0.;
+    Clock::time_point measuredStarted_;
+    bool capturedThisFrame_ = false;
+    std::string mechanicsPublishedStage_, mechanicsObservedStage_;
+    Json mechanicsObservations_ = Json::array(), mechanicsRemoteCoverage_;
+
+    void WritePerformance() {
+      const double wallSeconds = Milliseconds(measuredStarted_) / 1000.;
+      const double cpuMs = CpuMilliseconds() - cpuStarted_;
+      std::ofstream csv(options_.output / "qa-frames.csv", std::ios::binary | std::ios::trunc);
+      if (!csv) throw std::runtime_error("No se pudo guardar la telemetría QA");
+      csv << "frame,role,pid,stage,phase,tick,seconds,updateMs,renderMs,presentMs,pilotMs,reportMs,rawTotalMs,capture,x,y,elevation,support,traversal,hidden,incapacitated,audioManagerMs\n" << std::fixed << std::setprecision(6);
+      std::ofstream profileCsv;
+      if (options_.profile) {
+        if (profileFrames_.size() != frames_.size()) throw std::runtime_error("Las muestras de perfil no corresponden a los cuadros QA");
+        profileCsv.open(options_.output / "qa-profile-frames.csv", std::ios::binary | std::ios::trunc);
+        if (!profileCsv) throw std::runtime_error("No se pudo guardar el perfil por cuadro QA");
+        profileCsv << "frame,role,pid,stage,phase,tick,seconds,updateMs,renderMs,presentMs,pilotMs,reportMs,rawTotalMs,capture";
+        for (const auto name : Profiling::StageNames) profileCsv << ',' << name << "Ms," << name << "Calls";
+        profileCsv << '\n' << std::fixed << std::setprecision(6);
+      }
+      std::map<std::string, std::vector<const FrameSample *>> groups;
+      for (std::size_t index = 0; index < frames_.size(); ++index) {
+        const auto &frame = frames_[index];
+        csv << index << ',' << options_.role << ',' << ProcessId() << ',' << frame.stage << ',' << frame.phase << ',' << frame.tick << ',' << frame.seconds << ','
+            << frame.update << ',' << frame.render << ',' << frame.present << ',' << frame.pilot << ',' << frame.report << ',' << frame.raw << ',' << frame.capture << ','
+            << frame.x << ',' << frame.y << ',' << frame.elevation << ',' << frame.support << ',' << frame.traversal << ',' << frame.hidden << ',' << frame.incapacitated << ',' << frame.audioManager << '\n';
+        if (options_.profile) {
+          profileCsv << index << ',' << options_.role << ',' << ProcessId() << ',' << frame.stage << ',' << frame.phase << ',' << frame.tick << ',' << frame.seconds << ','
+              << frame.update << ',' << frame.render << ',' << frame.present << ',' << frame.pilot << ',' << frame.report << ',' << frame.raw << ',' << frame.capture;
+          const auto &profile = profileFrames_[index];
+          for (std::size_t stage = 0; stage < Profiling::StageCount; ++stage) profileCsv << ',' << profile.milliseconds[stage] << ',' << profile.calls[stage];
+          profileCsv << '\n';
+        }
+        if (index < options_.warmup) continue;
+        groups["all"].push_back(&frame);
+        if (!frame.capture && frame.report == 0.) {
+          groups["without_capture_or_report"].push_back(&frame);
+          groups["stage/" + frame.stage].push_back(&frame);
+        }
+      }
+      if (!csv) throw std::runtime_error("Falló la escritura de la telemetría QA");
+      if (options_.profile && !profileCsv) throw std::runtime_error("Falló la escritura del perfil por cuadro QA");
+      performance_ = {{"schema", 1}, {"runId", options_.runId}, {"role", options_.role}, {"pid", ProcessId()}, {"protocol", GameplayConfig::ProtocolVersion},
+          {"scenario", options_.scenario}, {"frameLimit", options_.frameLimit}, {"verticalSync", false}, {"warmupFrames", options_.warmup}, {"totalFrames", frames_.size()},
+          {"nativeSize", {window_.getSize().x, window_.getSize().y}}, {"logicalSize", {context_.window.GetLogicalSize().x, context_.window.GetLogicalSize().y}},
+          {"instrumentation", options_.profile}, {"profilingCompiled", ProfilingCompiled}, {"audioManagerTick", true}, {"wallSeconds", wallSeconds}, {"cpuMilliseconds", cpuMs},
+          {"cpuCoreEquivalent", wallSeconds > 0. ? cpuMs / (wallSeconds * 1000.) : 0.}, {"framesFile", "qa-frames.csv"},
+          {"measurement", "steady_clock real; raw incluye piloto, capturas y reportes; render incluye FinishDrawing/GUI; present incluye límite si se solicita; tiempos de ámbitos inclusivos"}};
+      if (options_.profile) {
+        performance_["profileFramesFile"] = "qa-profile-frames.csv";
+        performance_["profileFramesMeasurement"] = "Deltas por cuadro de ámbitos inclusivos en el hilo principal; incluyen trabajo del piloto y capturas señaladas; no sumar ámbitos anidados";
+      }
+      const auto glText = [](unsigned int field) { const auto *text = glGetString(field); return text ? std::string(reinterpret_cast<const char *>(text)) : std::string("desconocido"); };
+      performance_["glVendor"] = glText(GL_VENDOR); performance_["glRenderer"] = glText(GL_RENDERER); performance_["glVersion"] = glText(GL_VERSION);
+#ifdef NDEBUG
+      performance_["configuration"] = "Release";
+#else
+      performance_["configuration"] = "Debug";
+#endif
+      for (const auto &[name, samples] : groups) {
+        const auto metric = [&](double FrameSample::*member) { std::vector<double> values; values.reserve(samples.size()); for (const auto *frame : samples) values.push_back(frame->*member); return Distribution(std::move(values)); };
+        performance_["groups"][name] = {{"rawTotal", metric(&FrameSample::raw)}, {"update", metric(&FrameSample::update)}, {"render", metric(&FrameSample::render)},
+            {"present", metric(&FrameSample::present)}, {"pilot", metric(&FrameSample::pilot)}, {"report", metric(&FrameSample::report)}, {"audioManager", metric(&FrameSample::audioManager)}};
+      }
+      if (options_.profile) for (std::size_t index = 0; index < Profiling::StageCount; ++index) {
+        const auto stage = static_cast<Profiling::Stage>(index); const auto &counter = Profiling::counters[index];
+        performance_["profile"][std::string(Profiling::Name(stage))] = {{"milliseconds", counter.milliseconds}, {"calls", counter.calls}};
+      }
+      WriteJson(options_.output / "qa-performance.json", performance_);
+    }
 
     Session &SessionState() { return Access::Session(game_); }
     const WorldState &World() { return SessionState().GetWorld(); }
     bool Host() const { return options_.role == "host"; }
+    bool TrainingMechanicsScenario() const { return options_.scenario == "mechanics" || options_.scenario == "training" || options_.scenario == "pipe"; }
+    bool MechanicsScenario() const { return TrainingMechanicsScenario() || options_.scenario == "table-tour"; }
     float Elapsed() const { return std::chrono::duration<float>(Clock::now() - started_).count(); }
     float StageSeconds() const { return std::chrono::duration<float>(Clock::now() - entered_).count(); }
     void Stage(const std::string &stage) { stage_ = stage; entered_ = Clock::now(); std::cout << "QA_STAGE " << stage << '\n' << std::flush; }
@@ -256,6 +456,17 @@ namespace {
     Json Report(const std::string &status, const std::string &reason) {
       Json result{{"schema", 1}, {"runId", options_.runId}, {"role", options_.role}, {"scenario", options_.scenario}, {"protocol", GameplayConfig::ProtocolVersion}, {"status", status}, {"reason", reason}, {"stage", stage_}, {"seconds", Elapsed()}, {"recoveryAttempt", recovery_}, {"missionSeed", missionSeed_}, {"cases", cases_}, {"evidence", evidence_}, {"state", State()}, {"inputMode", "game_actions_and_tgui_events"}, {"saveIsolation", "output/runtime/Content"}};
       if (personalResult_.is_object()) result["personalResult"] = personalResult_;
+      result["routeCoverage"] = {{"visitedSupports", pilot_.VisitedSupports()}, {"completedCheckpoints", pilot_.CompletedCheckpoints()}, {"tourComplete", pilot_.TourDone()},
+          {"method", "comandos ActionCommand sobre geometría de misión; sin posicionar al agente en puntos del recorrido"}};
+      if (options_.scenario == "table-tour") result["routeCoverage"]["initialPlacement"] = "único fixture explícito de inspección de mesa antes del recorrido; no se repiten estaciones de entrenamiento";
+      if (options_.scenario == "tour" || options_.scenario == "table-tour" || options_.scenario == "mechanics")
+        result["routeCoverage"]["cameraPolicy"] = "recorrido permite contacto con vigilancia real; cámaras y guardias siguen activos, trampas y colisiones se evitan";
+      if (MechanicsScenario()) {
+        result["mechanicsCoverage"] = Host() ? mechanics_.Coverage() : mechanicsRemoteCoverage_;
+        result["mechanicsObservations"] = mechanicsObservations_;
+        result["mechanicsCoverageSource"] = Host() ? "estados autoritativos del anfitrión tras comandos" : "informe autoritativo recibido; observaciones locales y capturas separadas";
+      }
+      if (performance_.is_object()) result["performance"] = {{"file", "qa-performance.json"}, {"frames", frames_.size()}, {"pid", ProcessId()}};
       return result;
     }
     Json Marker(const std::string &name) {
@@ -272,6 +483,7 @@ namespace {
       for (const auto *file : {"cancel.json", "CANCEL.json"}) if (const auto marker = Marker(file); marker.is_object()) throw Cancelled(marker.value("reason", "Cancelación solicitada"));
     }
     void Capture(const std::string &name) {
+      capturedThisFrame_ = true;
       const auto file = options_.output / "captures" / (name + ".png");
       Access::Render(game_, context_, window_, file);
       evidence_.push_back({{"name", name}, {"file", "captures/" + name + ".png"}, {"tick", World().tick}, {"seed", World().seed}, {"seconds", Elapsed()}});
@@ -285,7 +497,7 @@ namespace {
     void CheckPilotProgress() {
       const auto *local = Local();
       const auto &stage = pilot_.Stage();
-      const bool expectsProgress = stage == "esperando_ruta_transitable" || stage == "recuperando_archivo" || stage == "regresando_extraccion";
+      const bool expectsProgress = stage == "esperando_ruta_transitable" || stage == "recuperando_archivo" || stage == "regresando_extraccion" || stage == "recorriendo_nivel" || stage == "abriendo_puerta_del_recorrido";
       if (!local || !expectsProgress) { pilotProgressAt_ = -1.f; pilotStallCaptured_ = false; return; }
       if (pilotProgressAt_ < 0.f || (local->position - pilotProgressPosition_).length() > Qa::MissionPilotConfig::ProgressDistance ||
           std::abs(local->elevation - pilotProgressElevation_) > Qa::MissionPilotConfig::ProgressDistance) {
@@ -412,8 +624,78 @@ namespace {
       return true;
     }
 
+    void MechanicsEvidence(const std::string &phase) {
+      if (Host()) {
+        const auto current = phase + "/" + mechanics_.Stage();
+        if (current == mechanicsPublishedStage_) return;
+        mechanicsPublishedStage_ = current;
+        auto file = "mechanics-" + current; std::replace(file.begin(), file.end(), '/', '-');
+        Capture(file);
+        mechanicsObservations_.push_back({{"phase", phase}, {"stage", mechanics_.Stage()}, {"tick", World().tick}, {"source", "authoritative"}});
+        Mark("host-mechanics-stage.json", {{"phase", phase}, {"stage", mechanics_.Stage()}, {"tick", World().tick}});
+      } else {
+        const auto current = Marker("host-mechanics-stage.json");
+        if (!current.is_object() || current.value("phase", "") != phase || World().tick <= current.value("tick", std::uint64_t{0})) return;
+        const auto observed = phase + "/" + current.value("stage", "");
+        if (observed == mechanicsObservedStage_) return;
+        mechanicsObservedStage_ = observed;
+        auto file = "mechanics-client-" + observed; std::replace(file.begin(), file.end(), '/', '-');
+        Capture(file);
+        mechanicsObservations_.push_back({{"phase", phase}, {"stage", current.value("stage", "")}, {"authoritativeTick", current.at("tick")}, {"localTick", World().tick}, {"state", State()}});
+      }
+    }
+
+    bool DriveMechanics() {
+      if (!stage_.starts_with("mechanics_")) return false;
+      Require(SessionState().IsConnected() && Local(), "La prueba mecánica perdió su sesión LAN");
+      if (stage_ == "mechanics_base_barrier") {
+        if (!Marker("host-mechanics-base.json").is_object() || !Marker("client-mechanics-base.json").is_object()) return true;
+        if (Host()) {
+          if (options_.scenario == "pipe") mechanics_.BeginPipe(const_cast<WorldState &>(World()));
+          else mechanics_.Begin(const_cast<WorldState &>(World()));
+        }
+        Stage("mechanics_training");
+      } else if (stage_ == "mechanics_training" || stage_ == "mechanics_mission") {
+        const std::string phase = stage_ == "mechanics_training" ? "training" : "mission";
+        if (Host()) {
+          SessionState().Submit(mechanics_.Update(const_cast<WorldState &>(World()), SessionState().GetLocalPlayerId(), context_.time.GetDeltaTime()));
+          Require(!mechanics_.Failed(), mechanics_.Failure());
+          MechanicsEvidence(phase);
+          if (mechanics_.Done()) {
+            const auto coverage = mechanics_.Coverage();
+            if (options_.scenario == "table-tour") Require(std::ranges::any_of(coverage.at("cases"), [](const Json &entry) {
+              return entry.value("case", std::string{}) == "mission_mesa_inspeccion" && entry.value("status", std::string{}) == "PASS";
+            }), "La inspección de mesa quedó sin verificar: " + coverage.dump());
+            if (options_.scenario == "pipe") Require(std::ranges::any_of(coverage.at("cases"), [](const Json &entry) {
+              return entry.value("case", std::string{}) == "training_tubo_primera_entrada" && entry.value("status", std::string{}) == "PASS";
+            }), "El primer agarre del tubo quedó sin verificar: " + coverage.dump());
+            Case("authoritative_" + phase + "_mechanics_finished", coverage);
+            Mark("host-mechanics-" + phase + "-done.json", {{"coverage", coverage}});
+            Stage("mechanics_" + phase + "_finish");
+          }
+        } else {
+          SessionState().Submit(mechanics_.ClientUpdate(World(), SessionState().GetLocalPlayerId())); MechanicsEvidence(phase);
+          if (const auto completed = Marker("host-mechanics-" + phase + "-done.json"); completed.is_object()) {
+            mechanicsRemoteCoverage_ = completed.at("coverage");
+            Capture("mechanics-client-" + phase + "-finished");
+            Case("client_received_" + phase + "_mechanics_completion", {{"localTick", World().tick}, {"source", "host_report_with_local_observations"}});
+            Mark("client-mechanics-" + phase + "-ack.json"); Stage("mechanics_" + phase + "_finish");
+          }
+        }
+      } else if (stage_ == "mechanics_training_finish") {
+        if (!Marker("host-mechanics-training-done.json").is_object() || !Marker("client-mechanics-training-ack.json").is_object()) return true;
+        if (options_.scenario == "training" || options_.scenario == "pipe") { Mark(options_.role + "-done.json"); Stage("done_barrier"); }
+        else { Access::Lobby(game_, context_, window_); Stage("prepare"); }
+      } else if (stage_ == "mechanics_mission_finish") {
+        if (!Marker("host-mechanics-mission-done.json").is_object() || !Marker("client-mechanics-mission-ack.json").is_object()) return true;
+        pilot_.EnableTour(); Stage("role_pilot");
+      } else throw std::runtime_error("Etapa mecánica desconocida: " + stage_);
+      return true;
+    }
+
     void Drive() {
       if (DriveFirstPerson()) return;
+      if (DriveMechanics()) return;
       if (stage_ == "start") {
         Capture("01-connection");
         if (Host()) { Connect(true); Require(SessionState().IsConnected(), "No se pudo crear la sala"); Mark("host-room-ready.json"); Stage("room_wait"); }
@@ -434,7 +716,9 @@ namespace {
         if (Marker("host-room-seen.json").is_object() && Marker("client-room-seen.json").is_object() && StageSeconds() >= 2.f) {
           if (options_.scenario == "fps") {
             Click("RECORRER LA BASE"); Capture("02-base-tactical"); Mark(options_.role + "-fps-base.json"); Stage("fps_base_barrier");
-          } else if (options_.scenario == "mission") {
+          } else if (TrainingMechanicsScenario()) {
+            Click("RECORRER LA BASE"); Capture("02-base-mechanics"); Mark(options_.role + "-mechanics-base.json"); Stage("mechanics_base_barrier");
+          } else if (options_.scenario == "mission" || options_.scenario == "tour") {
             if (Host()) Stage("base_client_leave_wait");
             else { Click("DESCONECTAR"); Require(!SessionState().IsConnected() && Access::Connection(game_), "La desconexión GUI no limpió al cliente"); Capture("03-base-disconnected"); Mark("client-base-left.json"); Stage("base_leave_ack_wait"); }
           } else Stage("prepare");
@@ -502,7 +786,13 @@ namespace {
         if (peer.is_object()) {
           Require(peer.at("state").at("seed").get<std::uint32_t>() == missionSeed_, "La semilla de misión difiere entre equipos");
           Case("shared_mission_seed", {{"seed", missionSeed_}});
-          if (options_.scenario != "mission") {
+          if (MechanicsScenario()) {
+            if (Host()) {
+              if (options_.scenario == "table-tour") mechanics_.BeginInspection(const_cast<WorldState &>(World()));
+              else mechanics_.BeginMission(const_cast<WorldState &>(World()));
+            }
+            Stage("mechanics_mission");
+          } else if (options_.scenario != "mission" && options_.scenario != "tour") {
             const bool dropTarget = (options_.scenario == "host-drop") == Host();
             if (dropTarget && !Host()) { baselinePosition_ = Local()->position; Stage("client_drop_command"); }
             else if (dropTarget) { Mark(options_.role + "-drop-ready.json", {{"cases", cases_}, {"evidence", evidence_}}); Stage("await_forced_drop"); }
@@ -555,6 +845,10 @@ namespace {
           }
         }
       } else if (stage_ == "results") {
+        if (options_.scenario == "table-tour") {
+          Require(pilot_.TourDone() && pilot_.CompletedCheckpoints().size() == 17, "La misión terminó antes de recorrer los 17 apoyos del caso mesa y nivel");
+          Case("physical_tour_17_supports_finished", {{"checkpoints", pilot_.CompletedCheckpoints()}, {"visitedSupports", pilot_.VisitedSupports()}});
+        }
         const auto found = World().results.find(SessionState().GetLocalPlayerId());
         Require(Local() && found != World().results.end(), "Falta el informe personal de la operación");
         const bool traitor = Local()->privateOrder == PrivateOrder::Traitor;
@@ -659,6 +953,12 @@ int main(int argc, char **argv) {
     auto options = Parse(argc, argv);
     std::filesystem::create_directories(options.output);
     CreateSandbox(options);
+    const auto isolatedSave = options.output / "runtime" / "Content" / "Save.json";
+#ifdef _WIN32
+    if (_wputenv_s(L"AWESOME_ENGINE_SAVE_FILE", isolatedSave.c_str()) != 0) throw std::runtime_error("No se pudo aislar el guardado QA");
+#else
+    if (setenv("AWESOME_ENGINE_SAVE_FILE", isolatedSave.string().c_str(), 1) != 0) throw std::runtime_error("No se pudo aislar el guardado QA");
+#endif
     return Runner(std::move(options)).Run();
   } catch (const std::exception &error) {
     std::cerr << "FAIL QA bootstrap: " << error.what() << '\n';
