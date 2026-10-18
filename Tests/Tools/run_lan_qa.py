@@ -1,4 +1,4 @@
-"""Coordina los tres casos QA graficos sin inyectar entrada del sistema operativo."""
+"""Coordina los casos QA graficos y el alcance FPS local sin inyectar entrada del sistema operativo."""
 
 import argparse
 import csv
@@ -15,6 +15,7 @@ from generate_lan_qa_vm import BUILD, EVIDENCE, LABEL, PROTOCOL, TRANSFER, asser
 
 
 SCENARIOS = ("mission", "client-drop", "host-drop")
+LOCAL_SCENARIOS = (*SCENARIOS, "fps")
 TIMEOUT = 360
 PORT = 55041
 
@@ -368,10 +369,11 @@ def main():
     parser.add_argument("--development-root")
     parser.add_argument("--mode", choices=("both-local", "host-vm"), required=True)
     parser.add_argument("--session-id")
-    parser.add_argument("--scenario", choices=SCENARIOS, action="append")
+    parser.add_argument("--scenario", choices=LOCAL_SCENARIOS, action="append")
     parser.add_argument("--validate-only", action="store_true")
     parser.add_argument("--stop-runner", action="store_true")
     args = parser.parse_args()
+    require("fps" not in (args.scenario or ()) or args.mode == "both-local", "FPS sólo admite dos procesos locales")
     if args.session_id is not None:
         require(re.fullmatch("[a-f0-9]{32}", args.session_id), "Sesion no valida")
     require(bool(args.summary) != bool(args.development_root), "Selecciona resumen final o development-root")

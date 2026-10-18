@@ -1,6 +1,7 @@
 #include "NoTraceGame.h"
 #include "NoTraceLanQaPilot.h"
 #include "NoTraceInteraction.h"
+#include "Config/NoTraceWeaponConfig.h"
 #include "Core/EngineConfig.h"
 #include <SFML/Graphics/Image.hpp>
 #include <SFML/Graphics/Sprite.hpp>
@@ -28,6 +29,22 @@ namespace EngineTests {
     static bool Connection(const NoTrace::Game &game) { return game.page_ == NoTrace::Game::Page::Connection; }
     static bool Deployment(const NoTrace::Game &game) { return game.page_ == NoTrace::Game::Page::Deployment; }
     static bool Pause(const NoTrace::Game &game) { return game.page_ == NoTrace::Game::Page::Pause; }
+    static bool FirstPerson(const NoTrace::Game &game) { return game.firstPerson_; }
+    static NoTrace::FirstPersonCamera Camera(const NoTrace::Game &game) { return game.firstPersonCamera_; }
+    static void Key(NoTrace::Game &game, EngineContext &context, sf::Keyboard::Scan scan, bool down, bool shift = false) {
+      if (down) { sf::Event::KeyPressed event; event.scancode = scan; event.shift = shift; context.input.CaptureEvent(event); game.OnEvent(event); }
+      else { sf::Event::KeyReleased event; event.scancode = scan; event.shift = shift; context.input.CaptureEvent(event); game.OnEvent(event); }
+    }
+    static void PerspectiveChord(NoTrace::Game &game, EngineContext &context) {
+      Key(game, context, sf::Keyboard::Scan::LShift, true, true); Key(game, context, NoTrace::ControlsConfig::PerspectiveKey, true, true);
+      Key(game, context, NoTrace::ControlsConfig::PerspectiveKey, false); Key(game, context, sf::Keyboard::Scan::LShift, false);
+    }
+    static void Fire(EngineContext &context) {
+      const sf::Vector2i point{};
+      context.input.CaptureEvent(sf::Event::MouseButtonPressed{sf::Mouse::Button::Left, point});
+      context.input.CaptureEvent(sf::Event::MouseButtonReleased{sf::Mouse::Button::Left, point});
+    }
+    static void Look(EngineContext &context, sf::Vector2f delta) { context.cursor.SetPosition(context.window.GetLogicalSize() * .5f + delta); }
     static tgui::Button::Ptr Button(NoTrace::Game &game, const std::string &prefix) {
       for (const auto &widget : game.panel_->getWidgets()) {
         const auto button = std::dynamic_pointer_cast<tgui::Button>(widget);
@@ -97,7 +114,7 @@ namespace {
       else throw std::runtime_error("Opción QA desconocida: " + key);
     }
     if ((options.role != "host" && options.role != "client") ||
-        (options.scenario != "mission" && options.scenario != "client-drop" && options.scenario != "host-drop") ||
+        (options.scenario != "mission" && options.scenario != "client-drop" && options.scenario != "host-drop" && options.scenario != "fps") ||
         options.host.empty() || options.port == 0 || options.port > 65535 || options.timeout == 0 || options.timeout > 360 ||
         options.runId.size() != 32 || !std::ranges::all_of(options.runId, [](unsigned char value) { return std::isxdigit(value) != 0; }) ||
         options.coord.empty() || options.output.empty()) throw std::runtime_error("Contrato CLI QA inválido");
@@ -162,9 +179,12 @@ namespace {
             if (const auto *key = event->getIf<sf::Event::KeyPressed>(); key && key->scancode == sf::Keyboard::Scan::Escape) throw Cancelled("Escape cancela la prueba QA");
             if (const auto *resize = event->getIf<sf::Event::Resized>()) { context_.window.HandleResize(resize->size); Access::Initialize(context_); }
           }
-          Access::Time(context_); game_.Update();
-          ActionCommand idle; idle.aimX = 1.f; SessionState().Submit(idle);
-          Drive(); game_.UpdateBackground();
+          Access::Time(context_);
+          if (options_.scenario == "fps") { Drive(); game_.Update(); }
+          else {
+            game_.Update(); ActionCommand idle; idle.aimX = 1.f; SessionState().Submit(idle); Drive();
+          }
+          game_.UpdateBackground();
           Access::Render(game_, context_, window_);
           if (Elapsed() - progressAt_ >= 1.f) { progressAt_ = Elapsed(); WriteJson(options_.output / "qa-progress.json", Report("RUNNING", "")); }
         }
@@ -198,6 +218,10 @@ namespace {
     float progressAt_ = -1.f;
     float extractionDeniedAt_ = -1.f;
     bool recovery_ = false, complete_ = false, objectiveSeen_ = false, clientLossEndedMission_ = false;
+    int fpsMagazine_ = 0, fpsAmmo_ = 0;
+    float fpsWear_ = 0.f;
+    std::size_t fpsShots_ = 0;
+    FirstPersonCamera fpsCamera_;
 
     Session &SessionState() { return Access::Session(game_); }
     const WorldState &World() { return SessionState().GetWorld(); }
@@ -216,6 +240,10 @@ namespace {
     bool AllReady() { return Room() && std::ranges::all_of(SessionState().GetLobbyPlayers(), [](const LobbyPlayer &player) { return player.ready; }); }
     Json State() {
       Json state{{"connected", SessionState().IsConnected()}, {"phase", static_cast<int>(World().phase)}, {"tick", World().tick}, {"seed", World().seed}, {"elapsed", World().elapsed}, {"player", SessionState().GetLocalPlayerId()}, {"rosterCount", SessionState().GetLobbyPlayers().size()}, {"status", SessionState().GetStatus()}};
+      if (options_.scenario == "fps") {
+        const auto camera = Access::Camera(game_);
+        state["localCameraEvidence"] = {{"firstPerson", Access::FirstPerson(game_)}, {"yaw", camera.yaw}, {"pitch", camera.pitch}, {"fov", camera.fieldOfView}};
+      }
       if (const auto *local = Local()) {
         state["local"] = {{"position", {local->position.x, local->position.y}}, {"elevation", local->elevation}, {"support", local->supportId},
           {"traversal", static_cast<int>(local->traversal.mode)}, {"health", local->health}, {"stamina", local->stamina}, {"incapacitated", local->incapacitated},
@@ -282,7 +310,110 @@ namespace {
       Require(Access::Connection(game_), "No se pudo recuperar el acceso a CIO mediante la GUI");
     }
 
+    bool DriveFirstPerson() {
+      if (!stage_.starts_with("fps_")) return false;
+      Require(StageSeconds() < 12.f, "No progresa el control FPS real en " + stage_);
+      if (stage_ == "fps_finish") {
+        if (Marker("client-fps-ack.json").is_object()) complete_ = true;
+        return true;
+      }
+      Require(SessionState().IsConnected() && IsTraining(World()) && Local(), "El caso FPS perdió su sala de entrenamiento real");
+      const auto &actor = *Local();
+      const auto shots = [&](EventKind kind) { return static_cast<std::size_t>(std::ranges::count(World().events, kind, &MissionEvent::kind)); };
+      const auto pulse = [&](sf::Keyboard::Scan key) { Access::Key(game_, context_, key, true); Access::Key(game_, context_, key, false); };
+      if (stage_ == "fps_base_barrier") {
+        if (!Marker("host-fps-base.json").is_object() || !Marker("client-fps-base.json").is_object()) return true;
+        Require(!Access::FirstPerson(game_), "La perspectiva inicial de una sala nueva no es táctica");
+        baselinePosition_ = actor.position; fpsMagazine_ = actor.lethalMagazine; fpsAmmo_ = actor.loadout.lethalAmmo;
+        if (Host()) { Capture("03-host-tactical"); Stage("fps_host_observe"); }
+        else {
+          fpsCamera_ = Access::Camera(game_); const auto equipment = actor.loadout;
+          Access::PerspectiveChord(game_, context_);
+          Require(Access::FirstPerson(game_) && actor.position == baselinePosition_ && actor.loadout.lethalAmmo == equipment.lethalAmmo && actor.lethalMagazine == fpsMagazine_,
+            "Shift+F no abre la cámara FPS o modifica posición, munición o cargador");
+          Case("client_shift_f_enters_without_world_mutation", {{"position", {actor.position.x, actor.position.y}}, {"magazine", actor.lethalMagazine}});
+          Capture("03-client-first-person"); Mark("client-fps-entered.json"); Stage("fps_look");
+        }
+      } else if (stage_ == "fps_host_observe") {
+        Require(!Access::FirstPerson(game_) && (actor.position - baselinePosition_).length() < .01f && actor.lethalMagazine == fpsMagazine_ && actor.loadout.lethalAmmo == fpsAmmo_,
+          "La perspectiva del cliente cambia la cámara, posición o cargador del anfitrión");
+        if (Marker("client-fps-entered.json").is_object() && !Marker("host-fps-independent.json").is_object()) {
+          Case("host_keeps_independent_tactical_camera"); Capture("04-host-client-in-fps"); Mark("host-fps-independent.json");
+        }
+        if (const auto done = Marker("client-fps-done.json"); done.is_object()) {
+          const auto *remote = AgentById(done.at("player").get<PlayerId>());
+          Require(remote && remote->lethalMagazine == done.at("lethalMagazine").get<int>() && remote->nonLethalMagazine == done.at("nonLethalMagazine").get<int>() &&
+            shots(EventKind::WeaponLethal) == 1 && shots(EventKind::WeaponNonLethal) == 1,
+            "Los controles FPS no producen los dos disparos y cargadores únicos en el mundo del anfitrión");
+          Case("host_authority_observes_real_fps_shots", {{"lethalShots", 1}, {"nonLethalShots", 1}, {"remotePosition", {remote->position.x, remote->position.y}}});
+          Capture("09-host-authoritative-inventory"); Mark("host-fps-done.json"); Stage("fps_finish");
+        }
+      } else if (stage_ == "fps_look") {
+        if (StageSeconds() < .3f || !Marker("host-fps-independent.json").is_object()) return true;
+        fpsCamera_ = Access::Camera(game_); Access::Look(context_, {60.f, -20.f}); Stage("fps_look_check");
+      } else if (stage_ == "fps_look_check") {
+        if (StageSeconds() < .3f) return true;
+        const auto camera = Access::Camera(game_); const sf::Vector2f forward{std::cos(camera.yaw), std::sin(camera.yaw)};
+        Require(std::abs(camera.yaw - fpsCamera_.yaw) > .05f && std::abs(camera.pitch - fpsCamera_.pitch) > .01f &&
+          actor.facing.dot(forward) > .99f && (actor.position - baselinePosition_).length() < .01f && actor.lethalMagazine == fpsMagazine_,
+          "El ratón FPS no rota cámara y cuerpo autoritativo sin desplazar ni gastar equipo");
+        Case("mouse_look_is_local_with_authoritative_body", {{"yaw", camera.yaw}, {"pitch", camera.pitch}, {"facing", {actor.facing.x, actor.facing.y}}});
+        Access::Key(game_, context_, sf::Keyboard::Scan::W, true); Stage("fps_move");
+      } else if (stage_ == "fps_move") {
+        if (StageSeconds() < .5f) return true;
+        Access::Key(game_, context_, sf::Keyboard::Scan::W, false);
+        Require((actor.position - baselinePosition_).length() > 4.f, "W no mueve al cliente FPS mediante la simulación compartida");
+        Case("fps_w_moves_the_existing_agent", {{"distance", (actor.position - baselinePosition_).length()}, {"elevation", actor.elevation}, {"support", actor.supportId}});
+        Capture("05-client-fps-after-movement"); pulse(sf::Keyboard::Scan::Num1); Stage("fps_pistol_ready");
+      } else if (stage_ == "fps_pistol_ready") {
+        if (actor.selectedWeapon != WeaponKind::Pistol || actor.actionCooldown > 0.f || actor.reloadRemaining > 0.f || StageSeconds() < .3f) return true;
+        fpsMagazine_ = actor.lethalMagazine; fpsWear_ = actor.pistolSuppressor; fpsShots_ = shots(EventKind::WeaponLethal);
+        Require(fpsMagazine_ > 0, "El arma preparada no contiene munición física"); Access::Fire(context_); Stage("fps_pistol_shot");
+      } else if (stage_ == "fps_pistol_shot") {
+        if (actor.lethalMagazine != fpsMagazine_ - 1 || shots(EventKind::WeaponLethal) != fpsShots_ + 1) return true;
+        Require(actor.pistolSuppressor == fpsWear_ - WeaponConfig::PistolSuppressorWear, "El disparo FPS ignora desgaste real del silenciador");
+        Case("fps_mouse_fires_one_authoritative_pistol_round", {{"magazineBefore", fpsMagazine_}, {"magazineAfter", actor.lethalMagazine}, {"wearAfter", actor.pistolSuppressor}});
+        Capture("06-client-fps-real-shot"); Stage("fps_pistol_no_repeat");
+      } else if (stage_ == "fps_pistol_no_repeat") {
+        if (StageSeconds() < .3f) return true;
+        Require(actor.lethalMagazine == fpsMagazine_ - 1 && shots(EventKind::WeaponLethal) == fpsShots_ + 1, "Un clic FPS produce disparos repetidos");
+        pulse(sf::Keyboard::Scan::R); Stage("fps_reload_begin");
+      } else if (stage_ == "fps_reload_begin") {
+        if (actor.reloadRemaining <= 0.f) return true;
+        Case("fps_reload_uses_existing_weapon_timer", {{"remaining", actor.reloadRemaining}}); Stage("fps_reload_end");
+      } else if (stage_ == "fps_reload_end") {
+        if (actor.reloadRemaining > 0.f) return true;
+        Require(actor.lethalMagazine == WeaponConfig::PistolCapacity, "R no rellena el cargador físico de la pistola FPS");
+        Capture("07-client-fps-reloaded"); pulse(sf::Keyboard::Scan::Num2); Stage("fps_nonlethal_ready");
+      } else if (stage_ == "fps_nonlethal_ready") {
+        if (actor.selectedWeapon != WeaponKind::NonLethal || actor.actionCooldown > 0.f) return true;
+        fpsMagazine_ = actor.nonLethalMagazine; fpsWear_ = actor.nonLethalSuppressor; fpsShots_ = shots(EventKind::WeaponNonLethal);
+        Access::Fire(context_); Stage("fps_nonlethal_shot");
+      } else if (stage_ == "fps_nonlethal_shot") {
+        if (actor.nonLethalMagazine != fpsMagazine_ - 1 || shots(EventKind::WeaponNonLethal) != fpsShots_ + 1) return true;
+        Require(actor.nonLethalSuppressor == fpsWear_ - WeaponConfig::NonLethalSuppressorWear, "El arma no letal FPS usa un desgaste distinto");
+        Case("fps_selected_nonlethal_uses_existing_inventory", {{"magazine", actor.nonLethalMagazine}, {"wear", actor.nonLethalSuppressor}});
+        Capture("08-client-fps-nonlethal"); baselinePosition_ = actor.position; Stage("fps_exit");
+      } else if (stage_ == "fps_exit") {
+        if (StageSeconds() < .3f) return true;
+        baselinePosition_ = actor.position; const int magazine = actor.nonLethalMagazine;
+        Access::PerspectiveChord(game_, context_);
+        Require(!Access::FirstPerson(game_) && actor.position == baselinePosition_ && actor.nonLethalMagazine == magazine,
+          "Volver de FPS a táctico teletransporta o cambia el cargador");
+        Case("client_shift_f_returns_without_world_mutation"); Capture("09-client-tactical-restored");
+        Stage("fps_client_wait");
+      } else if (stage_ == "fps_client_wait") {
+        Require(actor.cqcAttackTime <= 0.f && !actor.cqcPressPending && !actor.cqcHoldingGuard && !actor.cqcHoldingAgent && !actor.cqcInputDown,
+          "El pulso Shift+F de salida con liberación en el mismo frame se filtra como CQC");
+        if (StageSeconds() < .35f) return true;
+        if (!Marker("client-fps-done.json").is_object()) Mark("client-fps-done.json", {{"player", actor.id}, {"lethalMagazine", actor.lethalMagazine}, {"nonLethalMagazine", actor.nonLethalMagazine}});
+        if (Marker("host-fps-done.json").is_object()) { Mark("client-fps-ack.json"); complete_ = true; }
+      } else throw std::runtime_error("Etapa FPS desconocida: " + stage_);
+      return true;
+    }
+
     void Drive() {
+      if (DriveFirstPerson()) return;
       if (stage_ == "start") {
         Capture("01-connection");
         if (Host()) { Connect(true); Require(SessionState().IsConnected(), "No se pudo crear la sala"); Mark("host-room-ready.json"); Stage("room_wait"); }
@@ -301,7 +432,9 @@ namespace {
         } else if (!SessionState().IsConnected() && StageSeconds() > 12.f) throw std::runtime_error("No se estableció la sala: " + SessionState().GetStatus());
       } else if (stage_ == "room_barrier") {
         if (Marker("host-room-seen.json").is_object() && Marker("client-room-seen.json").is_object() && StageSeconds() >= 2.f) {
-          if (options_.scenario == "mission") {
+          if (options_.scenario == "fps") {
+            Click("RECORRER LA BASE"); Capture("02-base-tactical"); Mark(options_.role + "-fps-base.json"); Stage("fps_base_barrier");
+          } else if (options_.scenario == "mission") {
             if (Host()) Stage("base_client_leave_wait");
             else { Click("DESCONECTAR"); Require(!SessionState().IsConnected() && Access::Connection(game_), "La desconexión GUI no limpió al cliente"); Capture("03-base-disconnected"); Mark("client-base-left.json"); Stage("base_leave_ack_wait"); }
           } else Stage("prepare");
