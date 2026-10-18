@@ -110,7 +110,11 @@ namespace NoTrace::PresentationConfig {
   inline const sf::Color Outline{9, 15, 23};
   inline const sf::Color Skin{184, 149, 119};
   inline const sf::Color DummyWood{130, 91, 56};
-  inline const sf::Color DummyCloth{170, 151, 107};
+  inline const sf::Color DummyCloth{193, 169, 125};
+  inline const sf::Color DummyClothLight{222, 202, 158};
+  inline const sf::Color DummyStitch{119, 94, 61};
+  inline const sf::Color DummyMetal{57, 59, 56};
+  inline const sf::Color DummyMetalEdge{108, 106, 91};
   inline const sf::Color DummyTarget{222, 214, 187};
   inline const std::array<sf::Color, 4> AgentUniforms{{{46, 92, 111}, {75, 101, 76}, {101, 80, 113}, {116, 97, 65}}};
 }

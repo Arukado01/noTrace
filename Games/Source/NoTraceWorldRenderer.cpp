@@ -635,39 +635,110 @@ namespace NoTrace {
 
   void WorldRenderer::DummyArt(const Guard &dummy, const WorldState &world, sf::Vector2f camera) const {
     using namespace PresentationConfig;
-    const auto base = GroundToScreen(dummy.position, camera, dummy.elevation);
-    sf::Vector2f sway;
+    const auto forward = CombatGeometry::Unit(dummy.facing);
+    const sf::Vector2f side{forward.y, -forward.x};
+    const float scale = DummyHeight / 46.f;
+    float recoil = 0.f, compression = 0.f;
     if (dummy.staggerRemaining > 0.f) {
       const float reaction = std::sin(std::clamp(dummy.staggerRemaining / CqcConfig::KickStagger, 0.f, 1.f) * std::numbers::pi_v<float>);
-      sway = {(dummy.facing.x - dummy.facing.y) * CqcRecoil * reaction, CqcRecoil * reaction};
+      recoil = CqcRecoil * reaction;
     }
     if (dummy.heldBy != 0) {
       const auto holder = std::ranges::find_if(world.agents, [&](const Agent &agent) { return agent.id == dummy.heldBy; });
-      if (holder != world.agents.end()) sway.y += CqcGripSway * holder->cqcProgress;
+      if (holder != world.agents.end()) compression = CqcGripSway * holder->cqcProgress;
     }
-    const auto feet = base + sway;
-    const float verticalScale = DummyHeight / 76.f;
-    const auto at = [&](float x, float y) { return feet + sf::Vector2f{x, y * verticalScale}; };
-    Box({dummy.position - sf::Vector2f{12.f, 12.f}, {24.f, 24.f}}, 5.f, camera, WallTop, WallLeft, WallRight);
-    PixelLine(base - sf::Vector2f{0.f, 5.f}, at(0.f, -68.f), Shade(DummyWood, 0.65f), 7.f);
-    PixelLine(at(-28.f, -42.f), at(28.f, -42.f), DummyWood, 8.f);
-    Polygon({at(-14.f, -58.f), at(14.f, -58.f), at(18.f, -40.f), at(11.f, -17.f), at(-11.f, -17.f), at(-18.f, -40.f)}, DummyCloth);
-    PixelLine(at(-12.f, -57.f), at(12.f, -57.f), DummyTarget, 3.f);
-    PixelRect(at(-10.f, -76.f), {20.f, 16.f * verticalScale}, DummyWood);
-    PixelRect(at(-7.f, -73.f), {14.f, 10.f * verticalScale}, DummyCloth);
-    const auto target = at(0.f, -38.f);
-    for (const float radius : {13.f, 8.f}) {
-      PixelLine(target + sf::Vector2f{-radius, 0.f}, target + sf::Vector2f{0.f, -radius}, DummyTarget);
-      PixelLine(target + sf::Vector2f{0.f, -radius}, target + sf::Vector2f{radius, 0.f}, DummyTarget);
-      PixelLine(target + sf::Vector2f{radius, 0.f}, target + sf::Vector2f{0.f, radius}, DummyTarget);
-      PixelLine(target + sf::Vector2f{0.f, radius}, target + sf::Vector2f{-radius, 0.f}, DummyTarget);
+    const auto pose = [&](sf::Vector3f point) {
+      const float bend = std::clamp((point.z - 20.f) / 26.f, 0.f, 1.f);
+      point.y -= recoil * bend; point.z -= compression * bend;
+      const auto ground = dummy.position + (side * point.x + forward * point.y) * scale;
+      return sf::Vector3f{ground.x, ground.y, dummy.elevation + point.z * scale};
+    };
+    const auto project = [&](sf::Vector3f point) { return GroundToScreen({point.x, point.y}, camera, point.z); };
+    struct Face { std::array<sf::Vector3f, 4> points; sf::Color color; float depth; };
+    std::vector<Face> faces;
+    faces.reserve(1024);
+    const auto face = [&](std::array<sf::Vector3f, 4> points, sf::Color color) {
+      for (auto &point : points) point = pose(point);
+      const auto first = points[1] - points[0], second = points[2] - points[0];
+      const sf::Vector3f normal{first.y * second.z - first.z * second.y, first.z * second.x - first.x * second.z, first.x * second.y - first.y * second.x};
+      const float length = normal.length();
+      if (length <= 0.f || normal.x + normal.y + GroundProjection.y * 2.f * normal.z <= 0.f) return;
+      const auto light = normal / length;
+      color = Shade(color, .82f + .12f * light.x - .08f * light.y + .18f * light.z);
+      const auto center = (points[0] + points[1] + points[2] + points[3]) / 4.f;
+      faces.push_back({points, color, center.x + center.y + GroundProjection.y * 2.f * center.z});
+    };
+    const auto prism = [&](float x, float y, float bottom, float top, float lowerWidth, float upperWidth, float depth, sf::Color color, float bevel = .4f) {
+      const auto ring = [&](float width, float height) {
+        const float cut = std::min(bevel, std::min(width, depth) * .45f);
+        return std::array<sf::Vector3f, 8>{{{x - width + cut, y - depth, height}, {x + width - cut, y - depth, height},
+          {x + width, y - depth + cut, height}, {x + width, y + depth - cut, height}, {x + width - cut, y + depth, height},
+          {x - width + cut, y + depth, height}, {x - width, y + depth - cut, height}, {x - width, y - depth + cut, height}}};
+      };
+      const auto low = ring(lowerWidth, bottom), high = ring(upperWidth, top);
+      for (std::size_t index = 0; index < low.size(); ++index) {
+        const auto next = (index + 1) % low.size();
+        face({low[index], low[next], high[next], high[index]}, color);
+        face({sf::Vector3f{x, y, top}, high[index], high[next], high[next]}, color);
+      }
+    };
+    // Las piezas comparten altura real y orientación, incluidas la peana y las caras de lona.
+    prism(0.f, 0.f, 0.f, 2.5f, 9.f, 9.f, 5.5f, DummyWood, .6f);
+    prism(0.f, 0.f, .2f, 1.8f, 6.f, 6.f, 5.6f, DummyMetal, .2f);
+    prism(0.f, -1.8f, 2.5f, 21.f, 1.4f, 1.1f, 1.2f, DummyMetal, .2f);
+    for (const float sign : {-1.f, 1.f}) {
+      const float leg = sign * 3.7f, arm = sign * 9.f;
+      prism(leg, 1.1f, 2.5f, 4.3f, 2.2f, 2.f, 3.2f, DummyWood);
+      prism(leg, 0.f, 4.3f, 6.f, 1.4f, 1.4f, 1.7f, DummyMetalEdge, .6f);
+      prism(leg, 0.f, 6.f, 12.8f, 1.5f, 1.7f, 1.7f, DummyWood);
+      prism(leg, 0.f, 12.8f, 15.f, 1.9f, 1.9f, 1.9f, DummyMetal, .8f);
+      prism(leg, 0.f, 15.f, 20.f, 1.7f, 1.8f, 1.9f, DummyWood);
+      prism(leg, 0.f, 20.f, 22.f, 2.f, 2.f, 2.f, DummyMetalEdge, .8f);
+      prism(arm, 0.f, 32.f, 34.5f, 1.8f, 1.8f, 2.f, DummyMetalEdge, .8f);
+      prism(arm, 0.f, 25.5f, 32.f, 1.5f, 1.8f, 1.8f, DummyWood);
+      prism(arm, 0.f, 23.5f, 25.5f, 1.7f, 1.7f, 1.9f, DummyMetal, .7f);
+      prism(arm, .2f, 17.5f, 23.5f, 1.4f, 1.6f, 1.7f, DummyWood);
+      prism(arm, .2f, 16.5f, 17.5f, 1.3f, 1.3f, 1.5f, DummyMetal);
+      prism(arm, .5f, 13.8f, 16.5f, 1.3f, 1.5f, 1.6f, DummyWood, .7f);
+      for (const float front : {-1.f, 1.f}) {
+        prism(leg - .4f, front * 1.75f, 7.f, 11.5f, .13f, .13f, .09f, Shade(DummyWood, 1.2f), .04f);
+        prism(arm - .45f, front * 1.85f, 27.f, 31.f, .13f, .13f, .09f, Shade(DummyWood, 1.2f), .04f);
+        prism(leg, front * 1.98f, 13.4f, 14.4f, .6f, .6f, .16f, DummyMetalEdge, .3f);
+        prism(arm, front * 2.05f, 32.6f, 33.8f, .65f, .65f, .16f, DummyMetal, .3f);
+        prism(arm, front * 1.96f, 24.f, 25.f, .55f, .55f, .16f, DummyMetalEdge, .3f);
+      }
     }
-    PixelLine(target - sf::Vector2f{4.f, 0.f}, target + sf::Vector2f{4.f, 0.f}, Outline);
-    PixelLine(target - sf::Vector2f{0.f, 4.f}, target + sf::Vector2f{0.f, 4.f}, Outline);
+    prism(0.f, 0.f, 20.5f, 23.f, 2.8f, 2.8f, 2.5f, DummyMetal);
+    prism(0.f, 0.f, 22.f, 34.5f, 5.8f, 7.f, 3.6f, DummyCloth, 1.f);
+    prism(0.f, 0.f, 34.5f, 37.f, 2.1f, 2.1f, 2.2f, DummyMetal, .7f);
+    prism(0.f, 0.f, 37.f, 45.2f, 3.4f, 3.7f, 3.f, DummyCloth, 1.1f);
+    prism(0.f, 0.f, 45.2f, 46.f, 3.7f, 2.8f, 3.f, DummyClothLight, .9f);
+    for (const float front : {-1.f, 1.f}) {
+      prism(0.f, front * 3.06f, 44.f, 44.3f, 2.7f, 2.7f, .1f, DummyStitch, .05f);
+      for (float height = 24.f; height < 34.f; height += 1.8f)
+        prism(0.f, front * 3.82f, height, height + .22f, .55f, .55f, .1f, DummyClothLight, .05f);
+      for (const float sign : {-1.f, 1.f})
+        prism(sign * 4.5f, front * 3.7f, 23.f, 24.7f, 1.f, 1.f, .25f, DummyWood, .1f);
+    }
+    std::stable_sort(faces.begin(), faces.end(), [](const Face &a, const Face &b) { return a.depth < b.depth; });
+    sf::VertexArray mesh(sf::PrimitiveType::Triangles);
+    for (const auto &part : faces) {
+      for (const auto index : {0u, 1u, 2u}) mesh.append({project(part.points[index]), part.color});
+      if (part.points[2] != part.points[3]) for (const auto index : {0u, 2u, 3u}) mesh.append({project(part.points[index]), part.color});
+    }
+    ctx_.renderer.Draw(mesh);
+    const float frontFacing = forward.x + forward.y;
+    if (std::abs(frontFacing) > .25f) {
+      const float front = frontFacing > 0.f ? 1.f : -1.f;
+      // Las puntadas conservan un píxel visible aunque el redondeo colapse una cara muy fina.
+      PixelLine(project(pose({0.f, front * 3.8f, 23.f})), project(pose({0.f, front * 3.8f, 34.f})), DummyStitch, 1.f);
+      PixelLine(project(pose({0.f, front * 3.16f, 38.f})), project(pose({0.f, front * 3.16f, 44.5f})), DummyStitch, 1.f);
+    }
     if (dummy.trainingFeedback > 0.f) {
       auto impact = Amber; impact.a = static_cast<std::uint8_t>(std::clamp(dummy.trainingFeedback, 0.f, 1.f) * 220.f);
-      PixelLine(target + sf::Vector2f{-17.f, -7.f}, target + sf::Vector2f{-12.f, -3.f}, impact);
-      PixelLine(target + sf::Vector2f{12.f, 3.f}, target + sf::Vector2f{17.f, 7.f}, impact);
+      const auto target = project(pose({0.f, 4.f, 29.f}));
+      PixelLine(target + sf::Vector2f{-9.f, -5.f}, target + sf::Vector2f{-5.f, -2.f}, impact);
+      PixelLine(target + sf::Vector2f{5.f, 2.f}, target + sf::Vector2f{9.f, 5.f}, impact);
     }
   }
 
