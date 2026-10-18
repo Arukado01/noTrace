@@ -14,6 +14,8 @@ EngineConfig::EngineConfig() {
   minimumWindowSize = {json["minimumWindowSize"][0], json["minimumWindowSize"][1]};
   windowIcon = json["windowIcon"];
   fullscreen = json["fullscreen"];
+  borderless = json.value("borderless", false);
+  verticalSync = json.value("verticalSync", false);
   framerateLimit = json["framerateLimit"];
   displayConfirmationSeconds = json["displayConfirmationSeconds"];
   disableSfmlLogs = json["disableSfmlLogs"];

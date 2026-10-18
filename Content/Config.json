@@ -5,6 +5,8 @@
     "minimumWindowSize": [800, 450],
     "windowIcon": "Content/Textures/NoTrace/Branding/WindowIcon.png",
     "fullscreen": false,
+    "borderless": false,
+    "verticalSync": false,
     "framerateLimit": 60,
     "displayConfirmationSeconds": 12,
     "disableSfmlLogs": true,
