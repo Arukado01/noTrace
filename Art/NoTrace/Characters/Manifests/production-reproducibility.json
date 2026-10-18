@@ -6,62 +6,62 @@
   "sameSourceRegeneration": [
     {
       "file": "Characters-00.png",
-      "sha256": "ef065edad48b9b9a7b1cc2fb12461c1038083d94752419b8f3209fa0ca6fb74e",
+      "sha256": "6ec1f1bb23e0b714687970c0a362e3b6be68fb927ed4c2d9487901130cfaa934",
       "identical": true
     },
     {
       "file": "Characters-01.png",
-      "sha256": "ebbb58470e484c0141f8a9195fe7858dcb5b492f0743735bb0fd32486864c249",
+      "sha256": "d66457e412e343795261e79c6004003aa6a49c6fee6e864d0e9bb240aa5054ef",
       "identical": true
     },
     {
       "file": "Characters-02.png",
-      "sha256": "c1461084824f08e6c625bc7b9a2991dfa4320938c2df6b3b1291a53d209c101d",
+      "sha256": "5bcd32596526b1a418ff25bc4fd2d62c5f8adff95c5d3589262981f02a3227df",
       "identical": true
     },
     {
       "file": "Characters-03.png",
-      "sha256": "ea2ce2e5e02463eaa85301ac2be4d2160f923113044360c0aeeb723dbe6fff27",
+      "sha256": "a42443f94662ee5eaf8990a67dfc70b1ea43c5e166f394e3c919b5ee915c5c90",
       "identical": true
     },
     {
       "file": "Characters-04.png",
-      "sha256": "599f88e3d97845ffe6f7a01b1be4f0372736fa96571ff3a374aa8d5728478a11",
+      "sha256": "f954a9b165412a067f660cdeecb441d4becfc111956d18f67d07160013e2365a",
       "identical": true
     },
     {
       "file": "Characters-05.png",
-      "sha256": "93ac2c8119010a0fad432e4626ae5c3f11cf327f35223bc74b873c172f789886",
+      "sha256": "e419fedcb40b65c7f28a28f1c2c98128e686e4019951c40059a29a40d8be76b9",
       "identical": true
     },
     {
       "file": "Characters-06.png",
-      "sha256": "ce95930933763938b60dc8b11a2a5878b659cdf8c09368f55eefd7866f45bbae",
+      "sha256": "08ae25c5e69bad98715340c1fd0852002c4ed20e854c9e1450e04903cd0b8bed",
       "identical": true
     },
     {
       "file": "Characters-07.png",
-      "sha256": "02085c9b207920cf3e90557f6fa30b7f38fa022197485d2cad60826822af1b49",
+      "sha256": "699984a8f3b3f1654d4729c93cc151fcab5746caacb6fb31289667b7fba7d4ed",
       "identical": true
     },
     {
       "file": "Characters-08.png",
-      "sha256": "76e108f1608441f66798c3a67081fdc2a6edcf8ca6bdf2142c05a4b2f6858849",
+      "sha256": "374cf78f152375d1421a05664adc78e58652a62409c5d0dfc111eabc011dcb2e",
       "identical": true
     },
     {
       "file": "Characters-09.png",
-      "sha256": "c56ab43d92e4c21e42220983463688d029e31c74ee6dad1c07e289f00929f19d",
+      "sha256": "b6da8a15b63ac38dd9e2703569c77ab7d55cfc1a76539b595dd8f99f4dd2229b",
       "identical": true
     },
     {
       "file": "Characters-10.png",
-      "sha256": "71ff6c0b7235c8dbe18daf161a72b63ab2510cb28c4993ef63b5482be875cc68",
+      "sha256": "cf9dc7ca543693391f809d9a866806328a51e3e2dc0292b89cddfe0456fd39bf",
       "identical": true
     },
     {
       "file": "Characters-11.png",
-      "sha256": "861d1b3b5ed35ee027c311cae57fbce670c9defbd8a0d174d528e36fc1153b27",
+      "sha256": "c5d32211d7b73beedf7b44fee24ed58c774608ac684421319e3aad17bd4aa69e",
       "identical": true
     },
     {
@@ -76,7 +76,7 @@
     },
     {
       "file": "CharacterAtlasRuntime.json",
-      "sha256": "5bad05eea94f5a2475936e3d83ed88f7e3e483ca19fc397df5a84a1c1b9aa225",
+      "sha256": "11b7555a59009798a388648ea7e3055cccdc4ef8800f89f9a5dbed313b0b7a36",
       "identical": true
     }
   ],
@@ -86,7 +86,7 @@
   "tools": [
     {
       "file": "Tools/GenerateNoTraceCharactersActions.py",
-      "sha256": "e0138692041b4d73fa5b7a70e26f46fb5729c123158bdf30fb9d58057e67470f"
+      "sha256": "549af5275eb5d6d66da0bb7fdae31a4f463273ad20e87450935e0e148a70d35a"
     },
     {
       "file": "Tools/GenerateNoTraceCharactersCatalog.py",
@@ -105,8 +105,12 @@
       "sha256": "4a9f10d3076b72fdac1bf9843f1c6a94a00f97e0e8521f3edf835e668342e706"
     },
     {
+      "file": "Tools/GenerateNoTraceCharactersProne.py",
+      "sha256": "db97fb249519d96944410071dddc0a81317ed8f4919d20ecc3b6410843a69145"
+    },
+    {
       "file": "Tools/GenerateNoTraceCharactersRepro.py",
-      "sha256": "635ec27459d7d9af30a6b114fc4899bcd46d6e755249b7a064f66fd41168c0cf"
+      "sha256": "6ecba04d001e6ce8a695607b6fcced5c2863d95bac0007c1090a9a0f25bc859f"
     },
     {
       "file": "Tools/GenerateNoTraceCharactersReview.py",
@@ -114,11 +118,11 @@
     },
     {
       "file": "Tools/GenerateNoTraceCharactersRig.py",
-      "sha256": "4ccfbdee3558635c58dc0d68c9d3c76c5f00765efd6d3760af0bd9f7778e094f"
+      "sha256": "150c28c4eb8839594656b6a8500d396c666e184ddf52ef1d77244eaaca513394"
     },
     {
       "file": "Tools/GenerateNoTraceCharactersValidate.py",
-      "sha256": "b9d080d0fb5b0ef5af8d0aca44a912d65999c58a6d89a8f42c1f6f4068caa3ea"
+      "sha256": "29a5833681f2b4b70610f1290989e2c9dc6ec6ca8853842110cbdb97406e0db4"
     }
   ],
   "scope": "Regeneraci\u00f3n offline desde piezas originales; no modifica Content ni sustituye pruebas gr\u00e1ficas runtime"
