@@ -1,5 +1,6 @@
 #include "NoTraceGame.h"
 #include "Config/NoTraceAudioConfig.h"
+#include "Config/NoTraceMusicConfig.h"
 #include "Config/NoTraceGameplayConfig.h"
 #include "Config/NoTracePreparationConfig.h"
 #include "Config/NoTraceConfig.h"
@@ -113,6 +114,7 @@ namespace NoTrace {
 
   void Game::Start() {
     ApplyUserPreferences(ctx);
+    missionMusic_ = false; ctx.audio.PlayMusic(ctx.resources, MusicConfig::Lobby); ctx.audio.SetMusicIntensity(0.f);
     session_.Stop(); held_.fill(false); previousPhase_ = GamePhase::Base;
     ready_ = false; paused_ = false; showOrders_ = false; lastSound_ = 0;
     lastNetworkTime_ = ctx.time.GetElapsedTime();
@@ -322,6 +324,12 @@ namespace NoTrace {
     SyncFirstPersonInput();
     if (firstPerson_) firstPersonRenderer_.Update(session_.GetWorld(), session_.GetLocalPlayerId(), ctx.time.GetDeltaTime());
     const auto phase = session_.GetWorld().phase;
+    const bool missionMusic = session_.IsConnected() && phase != GamePhase::Base;
+    if (missionMusic != missionMusic_) {
+      ctx.audio.PlayMusic(ctx.resources, missionMusic ? MusicConfig::Mission : MusicConfig::Lobby);
+      missionMusic_ = missionMusic;
+    }
+    ctx.audio.SetMusicIntensity(phase == GamePhase::Mission && session_.IsConnected() ? MusicConfig::Intensity(session_.GetWorld().securityAlert) : 0.f);
     if (phase != previousPhase_) {
       if (phase == GamePhase::Mission) { ClosePanel(); lastSound_ = 0; }
       else if (phase == GamePhase::Results) {
@@ -652,9 +660,10 @@ namespace NoTrace {
   }
 
   void Game::OnCleanup() {
+    ctx.audio.StopMusic(MusicConfig::SceneFadeOutSeconds);
     LeaveFirstPerson(); ctx.cursor.SetCaptured(false); ctx.cursor.SetVisible(true);
     preparingDecoy_ = false; worldRenderer_.SetDecoyPreview(false, {}, 0.f);
-    session_.Stop(); audioPlayback_.StopAmbience(); ctx.audio.StopAll(); ctx.gui.Remove(root_); ctx.cursor.SetHovered(false);
+    session_.Stop(); audioPlayback_.StopAmbience(); ctx.audio.StopAllVoices(); ctx.gui.Remove(root_); ctx.cursor.SetHovered(false);
     ctx.renderer.ResetView(); ctx.renderer.SetPostProcessingEnabled(true); ctx.renderer.SetTextureSmoothing(true);
   }
 }

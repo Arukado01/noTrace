@@ -122,6 +122,7 @@ void Engine::Update() {
     currentScene_->Update();
   }
   currentScene_->UpdateBackground();
+  context_.audio.Update(context_.time.GetDeltaTime());
 }
 
 void Engine::Render() {

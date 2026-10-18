@@ -8,5 +8,7 @@ namespace NoTrace::OptionsConfig {
   inline constexpr float EffectsVolume = 100.f;
   inline constexpr std::string_view AmbienceVolumeSaveKey = "NoTrace:AmbienceVolume";
   inline constexpr float AmbienceVolume = 70.f;
+  inline constexpr std::string_view MusicVolumeSaveKey = "NoTrace:MusicVolume";
+  inline constexpr float MusicVolume = 70.f;
   inline constexpr std::array<unsigned int, 7> FramerateLimits{0, 30, 60, 120, 144, 240, 360};
 }

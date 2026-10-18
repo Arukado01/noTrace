@@ -1,6 +1,7 @@
 #include "NoTrace.h"
 #include "Config/NoTraceConfig.h"
 #include "Config/NoTraceGameplayConfig.h"
+#include "Config/NoTraceMusicConfig.h"
 
 #include <algorithm>
 #include <cmath>
@@ -137,6 +138,7 @@ namespace NoTrace {
 
   void Menu::Start() {
     ApplyUserPreferences(ctx); PrepareScreen(ctx, root_); ShowPage(MenuPage::Main);
+    ctx.audio.PlayMusic(ctx.resources, MusicConfig::Menu); ctx.audio.SetMusicIntensity(0.f);
     SyncDisplayOptions();
   }
 
@@ -171,6 +173,7 @@ namespace NoTrace {
   }
 
   void Menu::OnCleanup() {
+    ctx.audio.StopMusic(MusicConfig::SceneFadeOutSeconds);
     ctx.cursor.SetHovered(false);
     ctx.renderer.SetPostProcessingEnabled(true);
     ctx.renderer.SetTextureSmoothing(true);
@@ -191,7 +194,9 @@ namespace NoTrace {
   }
 
   void Reception::Start() {
+    ApplyUserPreferences(ctx);
     PrepareScreen(ctx, root_);
+    ctx.audio.PlayMusic(ctx.resources, MusicConfig::Lobby); ctx.audio.SetMusicIntensity(0.f);
     root_->getRenderer()->setOpacity(0.f);
     fade_ = 0.f;
     backButton_->setFocused(true);
@@ -216,6 +221,7 @@ namespace NoTrace {
   }
 
   void Reception::OnCleanup() {
+    ctx.audio.StopMusic(MusicConfig::SceneFadeOutSeconds);
     ctx.cursor.SetHovered(false);
     ctx.renderer.SetPostProcessingEnabled(true);
     ctx.renderer.SetTextureSmoothing(true);

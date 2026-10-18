@@ -65,6 +65,7 @@ namespace NoTrace {
     Page page_ = Page::Connection;
     GamePhase previousPhase_ = GamePhase::Base;
     bool paused_ = false;
+    bool missionMusic_ = false;
     bool showOrders_ = false;
     bool ready_ = false;
     bool preparingDecoy_ = false;

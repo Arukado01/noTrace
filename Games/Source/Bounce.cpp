@@ -61,6 +61,7 @@ void Game::InitMusic() {
 
 // Se llama cada vez que la escena (re)empieza, incluyendo el reinicio tras perder.
 void Game::Start() {
+  ctx.audio.StopMusic();
   ctx.cursor.SetVisible(false); // El mouse no se usa en este juego
 
   BindInputs();

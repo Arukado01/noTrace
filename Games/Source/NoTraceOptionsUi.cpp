@@ -90,10 +90,12 @@ namespace NoTrace {
     const float master = Preference(context.save, VOLUME_SAVE_KEY, gConfig.globalVolume, MIN_VOLUME, MAX_VOLUME);
     const float effects = Preference(context.save, OptionsConfig::EffectsVolumeSaveKey, OptionsConfig::EffectsVolume, MIN_VOLUME, MAX_VOLUME);
     const float ambience = Preference(context.save, OptionsConfig::AmbienceVolumeSaveKey, OptionsConfig::AmbienceVolume, MIN_VOLUME, MAX_VOLUME);
+    const float music = Preference(context.save, OptionsConfig::MusicVolumeSaveKey, OptionsConfig::MusicVolume, MIN_VOLUME, MAX_VOLUME);
     const float cursor = Preference(context.save, CURSOR_SPEED_SAVE_KEY, gConfig.cursorSpeed, MIN_CURSOR_SPEED, MAX_CURSOR_SPEED);
-    context.audio.SetGlobalVolume(master); context.audio.SetEffectsVolume(effects); context.audio.SetAmbienceVolume(ambience); context.cursor.SetSpeed(cursor);
+    context.audio.SetGlobalVolume(master); context.audio.SetEffectsVolume(effects); context.audio.SetAmbienceVolume(ambience); context.audio.SetMusicVolume(music); context.cursor.SetSpeed(cursor);
     context.save.Set(VOLUME_SAVE_KEY, master); context.save.Set(OptionsConfig::EffectsVolumeSaveKey, effects);
     context.save.Set(OptionsConfig::AmbienceVolumeSaveKey, ambience);
+    context.save.Set(OptionsConfig::MusicVolumeSaveKey, music);
     context.save.Set(CURSOR_SPEED_SAVE_KEY, cursor);
     context.save.Set(FirstPersonConfig::FovSaveKey, Preference(context.save, FirstPersonConfig::FovSaveKey,
       FirstPersonConfig::DefaultFov, FirstPersonConfig::MinimumFov, FirstPersonConfig::MaximumFov));
@@ -133,19 +135,22 @@ namespace NoTrace {
       });
       panel->add(slider); return slider;
     };
-    widgets.masterVolume = volume("Volumen general", 210.f, context.audio.GetGlobalVolume(), [&context](float value) {
+    widgets.masterVolume = volume("Volumen general", 206.f, context.audio.GetGlobalVolume(), [&context](float value) {
       context.audio.SetGlobalVolume(value); context.save.Set(VOLUME_SAVE_KEY, context.audio.GetGlobalVolume());
     });
-    widgets.effectsVolume = volume("Volumen de efectos", 244.f, context.audio.GetEffectsVolume(), [&context](float value) {
+    widgets.effectsVolume = volume("Volumen de efectos", 234.f, context.audio.GetEffectsVolume(), [&context](float value) {
       context.audio.SetEffectsVolume(value); context.save.Set(OptionsConfig::EffectsVolumeSaveKey, context.audio.GetEffectsVolume());
     });
-    widgets.ambienceVolume = volume("Volumen de ambiente", 278.f, context.audio.GetAmbienceVolume(), [&context](float value) {
+    widgets.ambienceVolume = volume("Volumen de ambiente", 262.f, context.audio.GetAmbienceVolume(), [&context](float value) {
       context.audio.SetAmbienceVolume(value); context.save.Set(OptionsConfig::AmbienceVolumeSaveKey, context.audio.GetAmbienceVolume());
     });
-    auto cursorLabel = Text(panel, "Cursor del mando: " + std::to_string(static_cast<int>(context.cursor.GetSpeed())), 30.f, 312.f, 300.f);
+    widgets.musicVolume = volume("Volumen de música", 290.f, context.audio.GetMusicVolume(), [&context](float value) {
+      context.audio.SetMusicVolume(value); context.save.Set(OptionsConfig::MusicVolumeSaveKey, context.audio.GetMusicVolume());
+    });
+    auto cursorLabel = Text(panel, "Cursor del mando: " + std::to_string(static_cast<int>(context.cursor.GetSpeed())), 30.f, 318.f, 300.f);
     widgets.cursorSpeed = tgui::Slider::create(MIN_CURSOR_SPEED, MAX_CURSOR_SPEED);
     widgets.cursorSpeed->setStep(CURSOR_SPEED_STEP); widgets.cursorSpeed->setFocusable(true);
-    widgets.cursorSpeed->setPosition({340.f, 320.f}); widgets.cursorSpeed->setSize({404.f, 22.f});
+    widgets.cursorSpeed->setPosition({340.f, 326.f}); widgets.cursorSpeed->setSize({404.f, 22.f});
     widgets.cursorSpeed->setValue(context.cursor.GetSpeed());
     widgets.cursorSpeed->onValueChange([&context, cursorLabel](float value) {
       context.cursor.SetSpeed(value); context.save.Set(CURSOR_SPEED_SAVE_KEY, value);
@@ -172,7 +177,7 @@ namespace NoTrace {
     });
     Action(context, panel, "RESTABLECER AUDIO Y MANDO", 399.f, 474.f, 345.f, [widgets] {
       widgets.masterVolume->setValue(gConfig.globalVolume); widgets.effectsVolume->setValue(OptionsConfig::EffectsVolume);
-      widgets.ambienceVolume->setValue(OptionsConfig::AmbienceVolume);
+      widgets.ambienceVolume->setValue(OptionsConfig::AmbienceVolume); widgets.musicVolume->setValue(OptionsConfig::MusicVolume);
       widgets.cursorSpeed->setValue(gConfig.cursorSpeed);
       widgets.status->setText("Audio y velocidad del mando restaurados y guardados.");
     });
@@ -202,6 +207,7 @@ namespace NoTrace {
     widgets.masterVolume->setValue(context.audio.GetGlobalVolume());
     widgets.effectsVolume->setValue(context.audio.GetEffectsVolume());
     widgets.ambienceVolume->setValue(context.audio.GetAmbienceVolume());
+    widgets.musicVolume->setValue(context.audio.GetMusicVolume());
     widgets.cursorSpeed->setValue(context.cursor.GetSpeed());
     widgets.firstPersonFov->setValue(Preference(context.save, FirstPersonConfig::FovSaveKey, FirstPersonConfig::DefaultFov, FirstPersonConfig::MinimumFov, FirstPersonConfig::MaximumFov));
   }
@@ -250,7 +256,7 @@ namespace NoTrace {
 
   void HandleOptionsKey(const sf::Event &event, const OptionsWidgets &widgets) {
     const auto *key = event.getIf<sf::Event::KeyPressed>(); if (!key) return;
-    for (const auto &slider : {widgets.masterVolume, widgets.effectsVolume, widgets.ambienceVolume, widgets.cursorSpeed, widgets.firstPersonFov}) {
+    for (const auto &slider : {widgets.masterVolume, widgets.effectsVolume, widgets.ambienceVolume, widgets.musicVolume, widgets.cursorSpeed, widgets.firstPersonFov}) {
       if (!slider || !slider->isFocused()) continue;
       switch (key->scancode) {
       case sf::Keyboard::Scan::Left: slider->setValue(slider->getValue() - slider->getStep()); break;

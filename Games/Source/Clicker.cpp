@@ -32,6 +32,7 @@ void Game::InitStats() {
 }
 
 void Game::Start() {
+  ctx.audio.StopMusic();
   ctx.cursor.SetSpeed(CURSOR_SPEED);
 
   StartInputs();
