@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "tool": "imagegen integrado",
+  "origin": "Arte original generado para NO TRACE, sin recursos externos ni copias de juegos comerciales.",
+  "sources": [
+    {
+      "file": "Sources/MilitaryFurniture16-v1.png",
+      "status": "rejected",
+      "reason": "El layout 4x4 invade celdas de filas vecinas; no se integra ni se usa como atlas.",
+      "role": "Referencia de identidad para nuevas fuentes separadas."
+    },
+    {
+      "file": "Sources/MilitaryFurnitureA-v2.png",
+      "status": "accepted-source",
+      "prompt": "Use case: precise-object-edit. Reference image is original NO TRACE modern military pixel art furniture identity. Create a CORRECTED production sheet containing ONLY FIRST EIGHT objects from reference, redraw and rearrange with LARGE EMPTY MARGINS. Transparent RGBA background, no ground/backdrop. Canvas 1536x1024, precisely FOUR columns and TWO rows of 384x512 cells. EVERY object must be entirely within its cell, including shadow, with minimum 48px left/right and 80px top/bottom transparent blank. No sprite piece may cross a cell border. Row1 centers at y256, row2 centers at y768. Object maximum width280px, maximum height330px. Strong readable 2:1 axonometric pixel art and consistent light from upper left. Keep original identities/materials and all anatomy/architecture intact, crisp deliberately painted pixels rather than vector primitives. Row1 left to right: olive military field desk normal with drawers and steel legs, SAME desk overturned fully upside-down tabletop grounded fourlegs upwards, closed military double locker, SAME locker open with aperture. Row2 left to right: military olive ammunition crates, wooden logistics crate with steel banding, industrial open waste container, server rack with cables. Only EIGHT isolated complete objects. No text, no labels, no grid. Ensure completely transparent empty space everywhere between sprites; preserve attached compact shadows only.",
+      "review": "Ocho objetos completos separados; rectángulos fuente explícitos en el empaquetador."
+    },
+    {
+      "file": "Sources/MilitaryFurnitureB-v2.png",
+      "status": "accepted-source",
+      "prompt": "Use case: precise-object-edit. Using the reference's ORIGINAL modern tactical military pixel-art visual identity, generate a SECOND production furniture asset sheet. Exactly eight isolated objects, arrange FOUR columns and TWO rows, canvas1536x1024, transparent RGBA background. Subjects maximum280px wide330px high, at least48px transparent gap left/right and80px top/bottom inside each384x512cell. Row1 centerline y256 row2 y768. Preserve sophisticated original pixelart details, dimensional 2:1 axonometric perspective and lighting from upper left. No source objects cropped, no overlaps. Row1 left-to-right: (1) military computer security console with physical keyboard/trackball and restrained green screen, no readable text; (2) concrete-mounted industrial lever OFF with real steel pivot, shaft and amber grip lowered towardleft; (3) the exact SAME lever ON raised vertical, identical base/size/palette; (4) physical dual pushbutton electrical panel, one redbutton and one greenbutton, real metalhousing and electrical conduit. Row2 left-to-right: (5) reinforced military security door CLOSED in substantial steelframe, (6) exactSAME doorOPEN with panel entirely withdrawn and clear empty aperture, (7) olive field medical supply cabinet with supplies, (8) functional freight elevator platform steelcheckerplate deck, back safetyrails, hydraulic liftposts. No characters. No captions/labels/gridlines/ground/backdrop. ONLY eight complete cutouts with abundant completely transparent separation and attached compact contactshadows. Do not include any fragment of any other object.",
+      "review": "Ocho objetos completos separados; rectángulos fuente explícitos en el empaquetador."
+    },
+    {
+      "file": "Sources/MilitaryMaterials16-v1.png",
+      "status": "accepted-source",
+      "prompt": "Production asset for original modern military infiltration pixel-art game. Generate ONE flat seamless MATERIAL TILE ATLAS, 1024x1024 pixels, strict FOUR columns FOUR rows of 256x256 tiles, no border/gaps/grid lines. Camera strictly TOP DOWN for all materials, uniform neutral light, no perspective, no objects, no characters, NO text or labels or numbers. Hard crisp pixel clusters, professional hand-painted pixel texture, low-frequency detail, restrained realistic colors. Each individual cell tiles seamlessly with itself, edges match. Row-major sixteen materials: 1 cool weathered reinforced CONCRETE floor with subtle aggregate and seams; 2 painted olive industrial STEEL floor panels with small corner fasteners; 3 dark steel GRATE with repeating fine square mesh; 4 muted dark gray INDUSTRIAL epoxy floor with understated scuffs; 5 compacted dark SOIL gravel exterior; 6 warm gray concrete WALL face with vertical subtle cast marks; 7 olive painted corrugated STEEL WALL face; 8 reinforced blue-green GLASS with very subtle angled reflection no cracks; 9 steel SECURITY DOOR panel with reinforced ribs, seamless; 10 yellow and black SAFETY strip repeating diagonals worn realistically; 11 reddish-brown industrial BRICK facade; 12 gray STAIR TREADS with subtle grip grooves; 13 server-room light-gray ANTISTATIC floor tiles; 14 workshop dirty gridded diamond STEEL checker plate; 15 insulated gray ceiling VENTILATION grill slots; 16 dark green reinforced FABRIC supplies/tarps. Cohesive low-saturation tactical base material language, light source upper-left only subtle surface microshading. Match material identities clearly while maintaining readability for actors over them. Not generic geometric placeholders; visibly authored material surfaces. No borders, no cast objects or shadows.",
+      "review": "16 materiales diferenciados; resolución real1254x1254 particionada por proporciones y reducida nearest a128."
+    }
+  ],
+  "integration": "Pendiente; fuentes y atlas de revisión aislados en Art."
+}

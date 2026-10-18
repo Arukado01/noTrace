@@ -1,0 +1,829 @@
+{
+  "schema": 1,
+  "origin": "Fuentes originales generadas para NO TRACE con imagegen integrado.",
+  "processing": "Partición de celdas, recorte de margen y reducción nearest; se conserva el alfa generado.",
+  "furniture": {
+    "sources": [
+      {
+        "path": "Art\\NoTrace\\Environment\\Sources\\MilitaryFurnitureA-v2.png",
+        "sha256": "f04389fc3c7d9420f08a8c2f76294364134c06bc77b6c22b0e3aa935e043431e"
+      },
+      {
+        "path": "Art\\NoTrace\\Environment\\Sources\\MilitaryFurnitureB-v2.png",
+        "sha256": "3eeb37421d646d783ac1a3adbf6a234cb95dfc4e904c8a583f5104a5b7d0c2a6"
+      }
+    ],
+    "frames": [
+      {
+        "name": "FieldDesk",
+        "index": 0,
+        "rect": [
+          0,
+          0,
+          192,
+          192
+        ],
+        "source": "MilitaryFurnitureA-v2.png",
+        "sourceCell": [
+          30,
+          100,
+          425,
+          470
+        ],
+        "sourceCrop": [
+          27,
+          58,
+          380,
+          336
+        ],
+        "artBounds": [
+          10,
+          41,
+          172,
+          135
+        ],
+        "anchor": [
+          96,
+          165
+        ],
+        "rgbaSha256": "bd17f15233bb77821c7cfe647f2e6a8d951492223849c9a9fe2519067d8f4444"
+      },
+      {
+        "name": "FieldDeskOverturned",
+        "index": 1,
+        "rect": [
+          192,
+          0,
+          192,
+          192
+        ],
+        "source": "MilitaryFurnitureA-v2.png",
+        "sourceCell": [
+          430,
+          100,
+          820,
+          470
+        ],
+        "sourceCrop": [
+          17,
+          62,
+          373,
+          347
+        ],
+        "artBounds": [
+          10,
+          38,
+          172,
+          138
+        ],
+        "anchor": [
+          96,
+          165
+        ],
+        "rgbaSha256": "470744f5573e28f1638e4defaf0f84f91ba13c4090724cc7459c2f84d8d99fec"
+      },
+      {
+        "name": "LockerClosed",
+        "index": 2,
+        "rect": [
+          384,
+          0,
+          192,
+          192
+        ],
+        "source": "MilitaryFurnitureA-v2.png",
+        "sourceCell": [
+          835,
+          80,
+          1130,
+          470
+        ],
+        "sourceCrop": [
+          33,
+          41,
+          251,
+          360
+        ],
+        "artBounds": [
+          41,
+          16,
+          109,
+          160
+        ],
+        "anchor": [
+          96,
+          163
+        ],
+        "rgbaSha256": "e6efb4bcac7a529294a055aa1a1b65c8d74b601840b9dd94e403a530e7cdd366"
+      },
+      {
+        "name": "LockerOpen",
+        "index": 3,
+        "rect": [
+          576,
+          0,
+          192,
+          192
+        ],
+        "source": "MilitaryFurnitureA-v2.png",
+        "sourceCell": [
+          1160,
+          70,
+          1520,
+          470
+        ],
+        "sourceCrop": [
+          43,
+          44,
+          328,
+          373
+        ],
+        "artBounds": [
+          26,
+          16,
+          139,
+          160
+        ],
+        "anchor": [
+          96,
+          163
+        ],
+        "rgbaSha256": "04b3e0244c17403670fc568ff6e355edb5f275379007afbdf14c2d22c71d9c7e"
+      },
+      {
+        "name": "AmmunitionCrates",
+        "index": 4,
+        "rect": [
+          0,
+          192,
+          192,
+          192
+        ],
+        "source": "MilitaryFurnitureA-v2.png",
+        "sourceCell": [
+          25,
+          520,
+          415,
+          940
+        ],
+        "sourceCrop": [
+          27,
+          83,
+          372,
+          380
+        ],
+        "artBounds": [
+          10,
+          28,
+          172,
+          148
+        ],
+        "anchor": [
+          96,
+          164
+        ],
+        "rgbaSha256": "c0b6d463e7442dcf726d4b7dbc0ce3ab3ae227f588bdd3e0cd73526d2d5b7822"
+      },
+      {
+        "name": "LogisticsCrate",
+        "index": 5,
+        "rect": [
+          192,
+          192,
+          192,
+          192
+        ],
+        "source": "MilitaryFurnitureA-v2.png",
+        "sourceCell": [
+          420,
+          520,
+          800,
+          940
+        ],
+        "sourceCrop": [
+          8,
+          79,
+          348,
+          373
+        ],
+        "artBounds": [
+          10,
+          27,
+          172,
+          149
+        ],
+        "anchor": [
+          96,
+          164
+        ],
+        "rgbaSha256": "0b4a4165cc095258dacf2eca1d2c18c07dde3c3c7db6a46507be58bf1f0cffb0"
+      },
+      {
+        "name": "WasteBin",
+        "index": 6,
+        "rect": [
+          384,
+          192,
+          192,
+          192
+        ],
+        "source": "MilitaryFurnitureA-v2.png",
+        "sourceCell": [
+          810,
+          520,
+          1180,
+          940
+        ],
+        "sourceCrop": [
+          27,
+          37,
+          336,
+          371
+        ],
+        "artBounds": [
+          22,
+          16,
+          148,
+          160
+        ],
+        "anchor": [
+          96,
+          163
+        ],
+        "rgbaSha256": "abaa5af6876223be717f5add8ca9d65e9c1c133d43bbdafed5405c462e36ffef"
+      },
+      {
+        "name": "ServerRack",
+        "index": 7,
+        "rect": [
+          576,
+          192,
+          192,
+          192
+        ],
+        "source": "MilitaryFurnitureA-v2.png",
+        "sourceCell": [
+          1200,
+          520,
+          1525,
+          940
+        ],
+        "sourceCrop": [
+          34,
+          43,
+          275,
+          384
+        ],
+        "artBounds": [
+          39,
+          16,
+          113,
+          160
+        ],
+        "anchor": [
+          96,
+          163
+        ],
+        "rgbaSha256": "e91536fd18d1bdecef6cb7d6523149ce999aa88f98327fcdf2063cf0a9c0c227"
+      },
+      {
+        "name": "SecurityConsole",
+        "index": 8,
+        "rect": [
+          0,
+          384,
+          192,
+          192
+        ],
+        "source": "MilitaryFurnitureB-v2.png",
+        "sourceCell": [
+          20,
+          100,
+          435,
+          480
+        ],
+        "sourceCrop": [
+          26,
+          43,
+          409,
+          368
+        ],
+        "artBounds": [
+          10,
+          30,
+          172,
+          146
+        ],
+        "anchor": [
+          96,
+          164
+        ],
+        "rgbaSha256": "5587dc8209ccb96995e48253b886fc6364cf47d05310fb632dbd823112b1502b"
+      },
+      {
+        "name": "LeverOff",
+        "index": 9,
+        "rect": [
+          192,
+          384,
+          192,
+          192
+        ],
+        "source": "MilitaryFurnitureB-v2.png",
+        "sourceCell": [
+          450,
+          180,
+          800,
+          480
+        ],
+        "sourceCrop": [
+          10,
+          47,
+          331,
+          281
+        ],
+        "artBounds": [
+          10,
+          51,
+          172,
+          125
+        ],
+        "anchor": [
+          96,
+          166
+        ],
+        "rgbaSha256": "40c5d155d5ebdf11a29125a7ad723b520aedb905de8faf021341c4fb6e5bb604"
+      },
+      {
+        "name": "LeverOn",
+        "index": 10,
+        "rect": [
+          384,
+          384,
+          192,
+          192
+        ],
+        "source": "MilitaryFurnitureB-v2.png",
+        "sourceCell": [
+          800,
+          100,
+          1140,
+          480
+        ],
+        "sourceCrop": [
+          11,
+          30,
+          321,
+          361
+        ],
+        "artBounds": [
+          21,
+          16,
+          150,
+          160
+        ],
+        "anchor": [
+          96,
+          163
+        ],
+        "rgbaSha256": "82ececa0efe4b37766e2b723391289ba71f532d6c6a7b49e6891105caa6587e3"
+      },
+      {
+        "name": "PushButtons",
+        "index": 11,
+        "rect": [
+          576,
+          384,
+          192,
+          192
+        ],
+        "source": "MilitaryFurnitureB-v2.png",
+        "sourceCell": [
+          1150,
+          100,
+          1520,
+          480
+        ],
+        "sourceCrop": [
+          9,
+          38,
+          344,
+          341
+        ],
+        "artBounds": [
+          10,
+          20,
+          172,
+          156
+        ],
+        "anchor": [
+          96,
+          164
+        ],
+        "rgbaSha256": "c5c4a800ce3366f433a3aa18c5eba152aca8d464667655206960e13a9419e580"
+      },
+      {
+        "name": "SecurityDoorClosed",
+        "index": 12,
+        "rect": [
+          0,
+          576,
+          192,
+          192
+        ],
+        "source": "MilitaryFurnitureB-v2.png",
+        "sourceCell": [
+          20,
+          520,
+          415,
+          940
+        ],
+        "sourceCrop": [
+          30,
+          25,
+          369,
+          380
+        ],
+        "artBounds": [
+          19,
+          16,
+          153,
+          160
+        ],
+        "anchor": [
+          96,
+          163
+        ],
+        "rgbaSha256": "08ff6209cd081b4f3c7b71da71258eadffcc7a490d32e8fb37b285de2f323cc0"
+      },
+      {
+        "name": "SecurityDoorOpen",
+        "index": 13,
+        "rect": [
+          192,
+          576,
+          192,
+          192
+        ],
+        "source": "MilitaryFurnitureB-v2.png",
+        "sourceCell": [
+          415,
+          520,
+          785,
+          940
+        ],
+        "sourceCrop": [
+          12,
+          24,
+          349,
+          381
+        ],
+        "artBounds": [
+          20,
+          16,
+          151,
+          160
+        ],
+        "anchor": [
+          96,
+          163
+        ],
+        "rgbaSha256": "5f13a150216340360ebe8628e09a812550467d492e7ae5e30bc76c449c8d67f6"
+      },
+      {
+        "name": "MedicalCabinet",
+        "index": 14,
+        "rect": [
+          384,
+          576,
+          192,
+          192
+        ],
+        "source": "MilitaryFurnitureB-v2.png",
+        "sourceCell": [
+          785,
+          520,
+          1130,
+          940
+        ],
+        "sourceCrop": [
+          4,
+          45,
+          337,
+          364
+        ],
+        "artBounds": [
+          12,
+          16,
+          167,
+          160
+        ],
+        "anchor": [
+          96,
+          163
+        ],
+        "rgbaSha256": "a236c966217e9dd30a2bcc0effab267299e6f5b8c4ddae25b9d9089493c1e41f"
+      },
+      {
+        "name": "FreightLift",
+        "index": 15,
+        "rect": [
+          576,
+          576,
+          192,
+          192
+        ],
+        "source": "MilitaryFurnitureB-v2.png",
+        "sourceCell": [
+          1130,
+          520,
+          1535,
+          940
+        ],
+        "sourceCrop": [
+          3,
+          36,
+          385,
+          376
+        ],
+        "artBounds": [
+          10,
+          23,
+          172,
+          153
+        ],
+        "anchor": [
+          96,
+          164
+        ],
+        "rgbaSha256": "443b9aaef0b42c01896b0706b2409afcca39414b2977f14cdd9a9e32c708898d"
+      }
+    ]
+  },
+  "materials": {
+    "source": "Art\\NoTrace\\Environment\\Sources\\MilitaryMaterials16-v1.png",
+    "sourceSha256": "835e8870b044d67be8287a22705c2b224d36c208d5291ad3d43094e3737bdf96",
+    "frames": [
+      {
+        "name": "Concrete",
+        "index": 0,
+        "rect": [
+          0,
+          0,
+          128,
+          128
+        ],
+        "sourceCell": [
+          0,
+          0,
+          314,
+          314
+        ]
+      },
+      {
+        "name": "Steel",
+        "index": 1,
+        "rect": [
+          128,
+          0,
+          128,
+          128
+        ],
+        "sourceCell": [
+          314,
+          0,
+          627,
+          314
+        ]
+      },
+      {
+        "name": "Grate",
+        "index": 2,
+        "rect": [
+          256,
+          0,
+          128,
+          128
+        ],
+        "sourceCell": [
+          627,
+          0,
+          940,
+          314
+        ]
+      },
+      {
+        "name": "Industrial",
+        "index": 3,
+        "rect": [
+          384,
+          0,
+          128,
+          128
+        ],
+        "sourceCell": [
+          940,
+          0,
+          1254,
+          314
+        ]
+      },
+      {
+        "name": "Soil",
+        "index": 4,
+        "rect": [
+          0,
+          128,
+          128,
+          128
+        ],
+        "sourceCell": [
+          0,
+          314,
+          314,
+          627
+        ]
+      },
+      {
+        "name": "ConcreteWall",
+        "index": 5,
+        "rect": [
+          128,
+          128,
+          128,
+          128
+        ],
+        "sourceCell": [
+          314,
+          314,
+          627,
+          627
+        ]
+      },
+      {
+        "name": "SteelWall",
+        "index": 6,
+        "rect": [
+          256,
+          128,
+          128,
+          128
+        ],
+        "sourceCell": [
+          627,
+          314,
+          940,
+          627
+        ]
+      },
+      {
+        "name": "Glass",
+        "index": 7,
+        "rect": [
+          384,
+          128,
+          128,
+          128
+        ],
+        "sourceCell": [
+          940,
+          314,
+          1254,
+          627
+        ]
+      },
+      {
+        "name": "SecurityDoor",
+        "index": 8,
+        "rect": [
+          0,
+          256,
+          128,
+          128
+        ],
+        "sourceCell": [
+          0,
+          627,
+          314,
+          940
+        ]
+      },
+      {
+        "name": "Safety",
+        "index": 9,
+        "rect": [
+          128,
+          256,
+          128,
+          128
+        ],
+        "sourceCell": [
+          314,
+          627,
+          627,
+          940
+        ]
+      },
+      {
+        "name": "Brick",
+        "index": 10,
+        "rect": [
+          256,
+          256,
+          128,
+          128
+        ],
+        "sourceCell": [
+          627,
+          627,
+          940,
+          940
+        ]
+      },
+      {
+        "name": "StairTread",
+        "index": 11,
+        "rect": [
+          384,
+          256,
+          128,
+          128
+        ],
+        "sourceCell": [
+          940,
+          627,
+          1254,
+          940
+        ]
+      },
+      {
+        "name": "Antistatic",
+        "index": 12,
+        "rect": [
+          0,
+          384,
+          128,
+          128
+        ],
+        "sourceCell": [
+          0,
+          940,
+          314,
+          1254
+        ]
+      },
+      {
+        "name": "DiamondPlate",
+        "index": 13,
+        "rect": [
+          128,
+          384,
+          128,
+          128
+        ],
+        "sourceCell": [
+          314,
+          940,
+          627,
+          1254
+        ]
+      },
+      {
+        "name": "Ventilation",
+        "index": 14,
+        "rect": [
+          256,
+          384,
+          128,
+          128
+        ],
+        "sourceCell": [
+          627,
+          940,
+          940,
+          1254
+        ]
+      },
+      {
+        "name": "Fabric",
+        "index": 15,
+        "rect": [
+          384,
+          384,
+          128,
+          128
+        ],
+        "sourceCell": [
+          940,
+          940,
+          1254,
+          1254
+        ]
+      }
+    ]
+  },
+  "outputs": {
+    "MilitaryFurniture.png": "4c034de4b3e557f94b37c970eb4a0b77cb5ae6b411607b366d43acb18d739d8b",
+    "MilitaryMaterials.png": "d0b561085194f90705ac73a1b7b17b79f1f2bac7585416541ad63483db157d73"
+  }
+}
