@@ -67,6 +67,8 @@ namespace NoTrace {
     int pendingPuzzleInput_ = -1;
     bool pendingPuzzleHeld_ = false;
     int pendingWeaponChoice_ = -1;
+    std::array<tgui::Button::Ptr, 2> weaponSlots_;
+    std::array<tgui::Label::Ptr, 2> weaponAmmo_;
     unsigned int puzzleStageRendered_ = 0;
     std::uint32_t puzzleTargetRendered_ = 0;
 
@@ -78,6 +80,7 @@ namespace NoTrace {
     void BuildResults();
     void BuildPuzzle();
     void BuildWeapons();
+    void RefreshWeapons();
     void BuildControls();
     void BuildPause();
     void BuildOptions();
@@ -85,7 +88,7 @@ namespace NoTrace {
     void NavigateBack();
     void RefreshHud();
     void PersistResults();
-    void PlayCue(const std::string &file, float volume = 32.f, float pan = 0.f);
+    void PlayCue(const std::string &file, float volume = 32.f, float pan = 0.f, float pitch = 1.f);
     const Agent *LocalAgent() const;
     bool Pressed(Action action, bool edge = false);
     tgui::Button::Ptr Button(const std::string &text, float y, std::function<void()> callback);

@@ -139,6 +139,12 @@ namespace NoTrace {
   }
 
   void Game::Update() {
+    if (page_ == Page::Weapons) {
+      if (!ctx.input.Held(WeaponMenu)) ClosePanel();
+      else {
+        session_.Submit({}); RefreshWeapons(); return;
+      }
+    }
     if (!paused_ && page_ == Page::Puzzle && session_.IsConnected()) {
       ActionCommand command;
       if (const auto *agent = LocalAgent()) { command.puzzleInput = pendingPuzzleInput_; command.puzzleTarget = agent->puzzle.target; command.puzzleHeld = pendingPuzzleHeld_; }
@@ -149,7 +155,7 @@ namespace NoTrace {
       session_.Submit({}); held_.fill(false); return;
     }
     if (Pressed(Lobby, true) && session_.GetWorld().phase == GamePhase::Base) { Open(Page::Deployment); return; }
-    if (Pressed(WeaponMenu, true)) { Open(Page::Weapons); return; }
+    if (ctx.input.Held(WeaponMenu)) { Open(Page::Weapons); return; }
     if (Pressed(Orders, true)) showOrders_ = !showOrders_;
     const auto *agent = LocalAgent();
     if (!agent) return;
@@ -173,12 +179,6 @@ namespace NoTrace {
     command.aiming = ctx.input.Held(NonLethal);
     command.dive = ctx.input.JustPressed(Dive); command.roll = ctx.input.JustPressed(Roll);
     command.toggleSuppressor = ctx.input.JustPressed(Suppressor);
-    if (agent->cover.active && command.aiming) {
-      const sf::Vector2f tangent{-agent->cover.normal.y, agent->cover.normal.x};
-      const float side = direction.dot(tangent);
-      command.peekLeft = side > 0.1f; command.peekRight = side < -0.1f;
-      command.moveX = 0.f; command.moveY = 0.f;
-    }
     command.run = Pressed(Run); command.crouch = Pressed(Crouch, true); command.prone = Pressed(Prone, true);
     command.interact = Pressed(Interact, true);
     command.dragBody = held_[Interact];
@@ -247,7 +247,7 @@ namespace NoTrace {
           const float distance = (agent->position - sound.position).length();
           const float gain = std::clamp(1.f - distance / std::max(1.f, sound.radius), 0.08f, 1.f);
           const float wall = Visibility::HasLineOfSight(world, agent->position, sound.position) ? 1.f : AudioConfig::WallHearingFactor;
-          PlayCue(AudioConfig::File(sound.kind), 65.f * gain * wall, std::clamp((sound.position.x - agent->position.x) / std::max(1.f, sound.radius), -1.f, 1.f));
+          PlayCue(AudioConfig::File(sound.kind), 65.f * gain * wall * AudioConfig::Gain(sound.kind), std::clamp((sound.position.x - agent->position.x) / std::max(1.f, sound.radius), -1.f, 1.f), AudioConfig::Pitch(sound.kind));
         }
         lastSound_ = sound.sequence;
       }
@@ -258,6 +258,7 @@ namespace NoTrace {
       if (page_ == Page::Puzzle && puzzleProgress_ && agent) puzzleProgress_->setValue(static_cast<unsigned int>(std::clamp(agent->puzzle.coordinationProgress / DevicesConfig::CoordinationHoldDuration, 0.f, 1.f) * 100.f));
     }
     if (page_ == Page::Options && observedDisplay_ != ctx.window.GetDisplaySettings()) SyncDisplayOptions();
+    if (page_ == Page::Weapons) RefreshWeapons();
     RefreshHud();
   }
 
@@ -266,7 +267,8 @@ namespace NoTrace {
   }
 
   void Game::OnEvent(const sf::Event &event) {
-    if (event.is<sf::Event::FocusLost>()) { pendingPuzzleHeld_ = false; session_.Submit({}); }
+    if (event.is<sf::Event::FocusLost>()) { if (page_ == Page::Weapons) ClosePanel(); pendingPuzzleHeld_ = false; session_.Submit({}); }
+    if (const auto *key = event.getIf<sf::Event::KeyReleased>(); key && key->scancode == sf::Keyboard::Scan::Q && page_ == Page::Weapons) ClosePanel();
     if (const auto *key = event.getIf<sf::Event::KeyPressed>()) {
       if (key->scancode == sf::Keyboard::Scan::Escape) { NavigateBack(); return; }
       if (page_ == Page::Options) for (const auto &widget : panel_->getWidgets()) {
@@ -305,6 +307,7 @@ namespace NoTrace {
     if (preparingDecoy_) cancelledDecoy_ = true;
     preparingDecoy_ = false; worldRenderer_.SetDecoyPreview(false, {}, 0.f);
     page_ = page; session_.Submit({}); panel_->removeAllWidgets(); panel_->setVisible(true);
+    panel_->setSize({780.f, 596.f}); panel_->setPosition({410.f, 135.f});
     status_.reset(); roster_.reset(); briefing_.reset(); deploy_.reset(); ctx.cursor.SetHovered(false);
     if (page == Page::Connection) BuildConnection();
     else if (page == Page::Results) BuildResults();
@@ -378,7 +381,7 @@ namespace NoTrace {
       }
     } else if (page == Page::Intelligence) {
       Label("CENTRO DE INTELIGENCIA", {30.f, 20.f}, {714.f, 45.f}, 28);
-      Label(contract.name + "\n" + contract.briefing + "\n\nLa niebla oculta lo que no observas; el ojo indica detección real. Los pasos no identifican al enemigo.\n\nE: interactuar / escondite. Mantén E para arrastrar. En armario, T abre la puerta; entrada y salida frontales. La mesa permite observar al frente.\n\nF breve: puño y patada. Mantener detrás: agarre, también a aliados. Durante el agarre, pulsa tres veces para asfixiar. Soltar libera. V: empujar.\n\nQ: pared. G: mantener y soltar señuelo; Esc o clic derecho cancela. R: cobertura; Alt + dirección: asomarse.\n\nTab: orden privada. E: reanimar u operar objetivos.", {30.f, 82.f}, {714.f, 450.f}, 18);
+      Label(contract.name + "\n" + contract.briefing + "\n\nLa niebla oculta lo que no observas; el ojo indica detección real. Los pasos no identifican al enemigo.\n\nE: interactuar / escondite. Mantén E para arrastrar. En armario, T abre la puerta; entrada y salida frontales. La mesa permite observar al frente.\n\nF breve: puño y patada. Mantener detrás: agarre, también a aliados. Durante el agarre, alterna tres pulsaciones para asfixiar. Mantener F 2,25 s libera. V: empujar.\n\nQ mantenida: selector de armas. R: recargar. Alt: cubrirse; asomado automático en extremos. F en cobertura: pared. G: mantener y soltar señuelo.\n\nTab: orden privada. E: operar objetivos o rescatar al compañero antes de 55 s.", {30.f, 82.f}, {714.f, 450.f}, 18);
     } else {
       Label("DESPLIEGUE / SALA LAN", {30.f, 20.f}, {714.f, 45.f}, 28);
       status_ = Label("", {30.f, 79.f}, {714.f, 65.f}, 18);
@@ -480,7 +483,7 @@ namespace NoTrace {
     if (found != world.results.end()) {
       const auto &result = found->second;
       Label(std::string(RankName(result.rank)), {30.f, 90.f}, {714.f, 65.f}, 42);
-      Label(std::format("{}  ·  {} puntos\n\n{}\n\nObjetivos: {}/{}    Secundarios: {}\nAlarmas confirmadas: {}    Tiempo: {:.0f} s\n\n{}", result.success ? "OPERACIÓN CUMPLIDA" : "OPERACIÓN FALLIDA", result.score, result.reason, world.objectives, GetContract(world.contract).requiredObjectives, world.secondary, world.alarmCount, world.elapsed, result.maestroEligible ? "Disciplina Maestro: sin armas, CQC ni detección." : "La puntuación conserva cada acción y detección de la misión."), {30.f, 175.f}, {714.f, 290.f}, 21);
+      Label(std::format("{}  ·  {} puntos\n\n{}\n\nObjetivos: {}/{}    Secundarios: {}\nAlarmas confirmadas: {}    Tiempo: {:.0f} s\n\n{}", result.success ? "OPERACIÓN CUMPLIDA" : "OPERACIÓN FALLIDA", result.score, result.reason, world.objectives, GetContract(world.contract).requiredObjectives, world.secondary, world.alarmCount, world.elapsed, result.maestroEligible ? "Disciplina Maestro: sin armas, CQC ni detección." : "S++ no disponible: " + result.maestroDeniedReason), {30.f, 175.f}, {714.f, 290.f}, 18);
     } else Label("Esperando el informe del anfitrión…", {30.f, 100.f}, {714.f, 100.f}, 24);
     auto retry = Button("REINTENTAR OPERACIÓN", 475.f, [this] { if (session_.RestartOperation()) { ClosePanel(); } }); retry->setEnabled(!session_.IsClient());
     auto back = Button("REGRESAR A LA BASE", 535.f, [this] { session_.ReturnToBase(); }); back->setEnabled(!session_.IsClient()); back->setSize({344.f, 44.f});
@@ -503,7 +506,7 @@ namespace NoTrace {
       health_->setText("VIDA " + std::to_string(health_->getValue()) + "%");
       stamina_->setText("RESIST. " + std::to_string(stamina_->getValue()) + "%");
       lobby_->setText(world.phase == GamePhase::Mission ? "PAUSA  [ESC]" : "BASE / SALA  [F2]");
-      agent_->setText(std::format("{} | {}{} | {}{} | L {}/{} · NL {}/{} · G {} · T {}", agent->name, StanceName(agent->stance), !agent->alive ? " / ELIMINADO" : agent->incapacitated ? " / INCONSCIENTE" : agent->hidden ? " / OCULTO" : agent->extracted ? " / EXTRAÍDO" : agent->cover.active ? " / COBERTURA" : "", agent->selectedWeapon == WeaponKind::Pistol ? "PISTOLA" : "NO LETAL", agent->reloadRemaining > 0.f ? " / RECARGANDO" : "", agent->lethalMagazine, agent->loadout.lethalAmmo, agent->nonLethalMagazine, agent->loadout.nonLethalAmmo, agent->loadout.decoys, agent->loadout.tools));
+      agent_->setText(std::format("{} | {}{} | {}{} | L {}/{}+{} · NL {}/{}+{} · G {} · T {}", agent->name, StanceName(agent->stance), !agent->alive ? " / ELIMINADO" : agent->incapacitated ? " / INCONSCIENTE" : agent->hidden ? " / OCULTO" : agent->extracted ? " / EXTRAÍDO" : agent->cover.active ? " / COBERTURA" : "", agent->selectedWeapon == WeaponKind::Pistol ? "PISTOLA" : "NO LETAL", agent->reloadRemaining > 0.f ? " / RECARGANDO" : "", agent->lethalMagazine, WeaponConfig::PistolCapacity, ReserveAmmo(*agent, WeaponKind::Pistol), agent->nonLethalMagazine, WeaponConfig::NonLethalCapacity, ReserveAmmo(*agent, WeaponKind::NonLethal), agent->loadout.decoys, agent->loadout.tools));
       private_->setText(tgui::String(std::string(PrivateOrderText(agent->privateOrder)) + (agent->privateComplete ? "\nORDEN CUMPLIDA" : "")));
       private_->setVisible(showOrders_ && world.phase == GamePhase::Mission && page_ == Page::None);
       std::string hint = world.phase == GamePhase::Base ? "Recorre la base y pulsa E en una estación. F2 abre la sala de despliegue." : "Recupera los objetivos y vuelve al punto verde de extracción. Tab: orden privada.";
@@ -526,8 +529,9 @@ namespace NoTrace {
           Visibility::GuardVisible(world, *agent, guard) && (guard.position - agent->position).length() < GameplayConfig::CqcDistance) hint = guard.trainingDummy ? "Mantén E para mover la diana de prácticas; suelta para dejarla." : "Mantener E para arrastrar el cuerpo.";
       if (agent->draggingGuard >= 0 && nearest >= GameplayConfig::InteractionDistance) hint = "Mantén E para arrastrar; suelta E para dejar el cuerpo.";
       if (agent->hidden) hint = "E  //  Salir del escondite; T abre o cierra la puerta del armario";
-      if (agent->cqcHoldingGuard || agent->cqcHoldingAgent) hint = std::format("CQC  //  F: suelta brevemente y pulsa para asfixiar ({}/3). Soltar libera; V empuja.", agent->cqcProgress);
+      if (agent->cqcHoldingGuard || agent->cqcHoldingAgent) hint = std::format("CQC  //  F: suelta brevemente y pulsa para asfixiar ({}/3). Mantener F prolongadamente libera; V empuja.", agent->cqcProgress);
       if (preparingDecoy_) hint = "SEÑUELO  //  Apunta con el cursor; suelta G para lanzar. Clic derecho o Esc cancela.";
+      if (agent->incapacitated) hint = std::format("RESCATE  //  {:.0f} s: un compañero debe acercarse y pulsar E.", std::ceil(agent->incapacityRemaining));
       hint_->setText(tgui::String(hint));
     } else { agent_->setText("Accede a CIO para preparar tu operación."); hint_->setText("Elige individual, crea una sala o conecta por IP local."); private_->setVisible(false); health_->setVisible(false); stamina_->setVisible(false); }
     std::string feedback = world.phase == GamePhase::Mission && session_.GetLobbyPlayers().size() > 1 ? "Operación en curso." : world.message;
@@ -578,14 +582,15 @@ namespace NoTrace {
     if (found == world.results.end()) return;
     const auto key = "NoTrace:Best:" + std::to_string(static_cast<int>(world.contract));
     ctx.save.Set(key, std::max(ctx.save.Get(key, 0), found->second.score));
+    ctx.save.Set("NoTrace:LastMaestroDeniedReason", found->second.maestroDeniedReason);
     ctx.save.Set("NoTrace:Operations", ctx.save.Get("NoTrace:Operations", 0) + 1);
     LOG_INFO("NO TRACE: contrato {}, rango {}, puntos {}, éxito {}", static_cast<int>(world.contract), RankName(found->second.rank), found->second.score, found->second.success);
   }
 
-  void Game::PlayCue(const std::string &file, float volume, float pan) {
+  void Game::PlayCue(const std::string &file, float volume, float pan, float pitch) {
     if (auto *buffer = ctx.resources.FetchSound(file)) {
       if (voices_.size() >= AudioConfig::MaximumVoices) voices_.erase(voices_.begin());
-      auto sound = std::make_unique<sf::Sound>(*buffer); sound->setVolume(volume);
+      auto sound = std::make_unique<sf::Sound>(*buffer); sound->setVolume(volume); sound->setPitch(pitch);
       sound->setRelativeToListener(true); sound->setPosition({pan, 0.f, -1.f}); sound->setAttenuation(0.f);
       sound->play(); voices_.push_back(std::move(sound));
     }

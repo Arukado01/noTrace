@@ -1,27 +1,55 @@
 #include "NoTraceGame.h"
 #include "Config/NoTraceConfig.h"
+#include "Config/NoTraceWeaponConfig.h"
 #include <algorithm>
 #include <format>
+#include <TGUI/Backend/Renderer/SFML-Graphics/CanvasSFML.hpp>
+#include <SFML/Graphics/ConvexShape.hpp>
+#include <SFML/Graphics/RectangleShape.hpp>
 
 namespace NoTrace {
   void Game::BuildWeapons() {
-    Label("EQUIPO TÁCTICO", {30.f, 20.f}, {714.f, 45.f}, 29);
-    const auto *agent = LocalAgent();
-    if (!agent) { Button("VOLVER", 520.f, [this] { ClosePanel(); }); return; }
-    Label("Selecciona el arma. Clic derecho apunta; clic izquierdo dispara.\nH monta o desmonta el silenciador del arma seleccionada.", {30.f, 80.f}, {714.f, 70.f}, 18);
+    panel_->setSize({780.f, 330.f}); panel_->setPosition({410.f, 280.f});
     for (int index = 0; index < 2; ++index) {
-      const bool pistol = index == 0;
-      const int magazine = pistol ? agent->lethalMagazine : agent->nonLethalMagazine;
-      const int total = pistol ? agent->loadout.lethalAmmo : agent->loadout.nonLethalAmmo;
-      const float durability = pistol ? agent->pistolSuppressor : agent->nonLethalSuppressor;
-      const bool attached = pistol ? agent->pistolSuppressorEquipped : agent->nonLethalSuppressorEquipped;
-      Button(std::format("{}  ·  {}/{}  ·  {}", pistol ? "1 / PISTOLA LETAL" : "2 / ARMA NO LETAL", magazine, total,
-          durability <= 0.f ? "SILENCIADOR ROTO" : attached ? std::format("SIL. {:.0f}%", durability) : "SIN SILENCIADOR"),
-          180.f + index * 90.f, [this, index] { pendingWeaponChoice_ = index; ClosePanel(); });
+      auto slot = tgui::Button::create(); slot->setPosition({30.f + index * 375.f, 25.f}); slot->setSize({345.f, 275.f});
+      slot->onPress([this, index] { pendingWeaponChoice_ = index; }); panel_->add(slot); weaponSlots_[index] = slot;
+      auto art = tgui::CanvasSFML::create({310.f, 180.f}); art->setPosition({48.f + index * 375.f, 45.f}); art->setIgnoreMouseEvents(true);
+      art->clear(sf::Color::Transparent);
+      const sf::Color steel{175, 192, 197}, shadow{54, 70, 78}, accent = index == 0 ? sf::Color{214, 151, 116} : sf::Color{102, 203, 194};
+      const auto block = [&](sf::Vector2f position, sf::Vector2f size, sf::Color color) {
+        sf::RectangleShape shape(size); shape.setPosition(position); shape.setFillColor(color); art->draw(shape);
+      };
+      if (index == 0) {
+        block({38.f, 50.f}, {225.f, 36.f}, steel); block({246.f, 56.f}, {29.f, 24.f}, shadow);
+        block({72.f, 86.f}, {45.f, 12.f}, steel); block({72.f, 98.f}, {9.f, 22.f}, steel); block({72.f, 120.f}, {45.f, 8.f}, steel);
+        sf::ConvexShape grip(4); grip.setPoint(0,{39.f,84.f}); grip.setPoint(1,{74.f,84.f}); grip.setPoint(2,{92.f,155.f}); grip.setPoint(3,{47.f,155.f}); grip.setFillColor(shadow); art->draw(grip);
+        block({44.f, 59.f}, {21.f, 6.f}, accent); block({229.f, 44.f}, {7.f, 6.f}, shadow);
+      } else {
+        block({28.f, 57.f}, {218.f, 30.f}, shadow); block({112.f, 42.f}, {102.f, 49.f}, steel);
+        block({245.f, 50.f}, {39.f, 42.f}, accent); block({61.f, 90.f}, {34.f, 66.f}, steel);
+        block({103.f, 91.f}, {58.f, 8.f}, steel); block({153.f, 91.f}, {8.f, 29.f}, steel); block({100.f, 113.f}, {61.f, 8.f}, steel);
+        for (int cell = 0; cell < 3; ++cell) block({122.f + cell * 26.f, 52.f}, {14.f, 25.f}, accent);
+        block({37.f, 87.f}, {15.f, 19.f}, accent);
+      }
+      art->display(); panel_->add(art);
+      weaponAmmo_[index] = Label("", {55.f + index * 375.f, 239.f}, {295.f, 48.f}, 30);
+      weaponAmmo_[index]->setHorizontalAlignment(tgui::HorizontalAlignment::Center);
     }
-    Label(std::format("EQUIPO ESPECIAL\nG / Discos señuelo: {}\nT / Herramientas: {}\nCambiar de arma conserva munición y desgaste.", agent->loadout.decoys, agent->loadout.tools),
-        {30.f, 370.f}, {714.f, 130.f}, 20);
-    Button("VOLVER AL JUEGO", 520.f, [this] { ClosePanel(); });
+    RefreshWeapons();
+  }
+
+  void Game::RefreshWeapons() {
+    const auto *agent = LocalAgent(); if (!agent || page_ != Page::Weapons) return;
+    for (int index = 0; index < 2; ++index) {
+      if (!weaponSlots_[index] || !weaponAmmo_[index]) continue;
+      const bool selected = (pendingWeaponChoice_ >= 0 ? pendingWeaponChoice_ : static_cast<int>(agent->selectedWeapon)) == index;
+      auto renderer = weaponSlots_[index]->getRenderer();
+      renderer->setBackgroundColor(selected ? tgui::Color{31, 62, 68} : tgui::Color{15, 28, 39});
+      renderer->setBackgroundColorHover({47, 71, 78}); renderer->setBorderColor(selected ? tgui::Color{115, 230, 198} : tgui::Color{68, 86, 99});
+      renderer->setBorders(selected ? 4.f : 1.f);
+      weaponAmmo_[index]->setText(std::format("{} / {}", index == 0 ? agent->lethalMagazine : agent->nonLethalMagazine,
+        index == 0 ? WeaponConfig::PistolCapacity : WeaponConfig::NonLethalCapacity));
+    }
   }
 
   void Game::BuildControls() {

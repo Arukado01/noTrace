@@ -14,6 +14,7 @@
 #include <cmath>
 #include <numbers>
 #include <fstream>
+#include <format>
 #include <stdexcept>
 
 namespace NoTrace {
@@ -571,6 +572,19 @@ namespace NoTrace {
       PixelLine(feet + sf::Vector2f{8.f, 12.f}, feet + sf::Vector2f{18.f, 8.f}, Green);
     }
     Humanoid(feet, agent.facing, agent.stance, uniform, AgentFrame(agent, world, local), !agent.alive || agent.incapacitated);
+    if (agent.cover.active && agent.actionPose == ActionPose::KnockWall && agent.actionPoseTime > 0.f) {
+      const auto contact = GroundToScreen(WorldGeometry::ClosestPoint(agent.cover.anchor, agent.cover.surface), camera) - sf::Vector2f{0.f, CombatGeometry::TorsoCenterHeight(agent.stance)};
+      const sf::Vector2f tangent{-agent.cover.normal.y, agent.cover.normal.x};
+      const auto shoulder = GroundToScreen(agent.position + tangent * 4.f, camera) - sf::Vector2f{0.f, CombatGeometry::TorsoCenterHeight(agent.stance) + 4.f};
+      const float phase = std::clamp(1.f - agent.actionPoseTime / GameplayConfig::AttackAnimationDuration, 0.f, 1.f);
+      const auto wrist = contact + (shoulder - contact) * (0.35f * std::sin(phase * std::numbers::pi_v<float>));
+      const sf::Vector2f elbow{shoulder.x, wrist.y};
+      const sf::Color sleeve{58, 67, 54}, seam{87, 95, 77}, glove{35, 41, 35}, outline{16, 20, 17};
+      PixelLine(shoulder, elbow, outline, 3.f); PixelLine(elbow, wrist, outline, 3.f);
+      PixelLine(shoulder, elbow, sleeve, 2.f); PixelLine(elbow, wrist, sleeve, 2.f);
+      PixelLine(shoulder - sf::Vector2f{1.f,1.f}, elbow - sf::Vector2f{1.f,1.f}, seam, 1.f);
+      PixelRect(wrist - sf::Vector2f{1.f,1.f}, {2.f,2.f}, glove);
+    }
     if (!deferCqc && agent.alive && !agent.incapacitated) CqcArt(agent, world, camera, feet, uniform);
     if (!agent.alive || agent.incapacitated) PixelRect(feet + sf::Vector2f{-2.f, -6.f}, {6.f, 4.f}, agent.alive ? Amber : Red);
     if (local || agent.hidden || !agent.connected) {
@@ -768,7 +782,7 @@ namespace NoTrace {
     auto color = PresentationConfig::Amber;
     const float fraction = std::clamp(noise.remaining / std::max(0.001f, noise.duration), 0.f, 1.f);
     color.a = static_cast<std::uint8_t>(fraction * 150.f);
-    const float radius = std::min(noise.radius, PresentationConfig::NoiseMarkerMaximumRadius) * (1.f - fraction * 0.35f);
+    const float radius = noise.radius;
     sf::VertexArray ring(sf::PrimitiveType::Lines);
     for (int step = 0; step < PresentationConfig::NoiseCircleSegments; ++step) {
       for (int endpoint = 0; endpoint <= 1; ++endpoint) {
@@ -988,6 +1002,30 @@ namespace NoTrace {
     }
   }
 
+  void WorldRenderer::RescueIndicators(const WorldState &world, const Agent *observer) const {
+    if (!observer || world.phase != GamePhase::Mission) return;
+    if (observer->incapacitated) {
+      Label(std::format("RESCATE NECESARIO  /  {:.0f} s", std::ceil(observer->incapacityRemaining)), {800.f, 190.f}, PresentationConfig::Red, 26);
+    }
+    std::vector<RescueSignal> signals = world.rescueSignals;
+    if (!world.visibility.authoritative && observer->privateOrder != PrivateOrder::Traitor) for (const auto &ally : world.agents) {
+      if (ally.id == observer->id || !ally.connected || !ally.incapacitated || ally.privateOrder == PrivateOrder::Traitor) continue;
+      const auto delta = ally.position - observer->position;
+      signals.push_back({ally.id, delta.lengthSquared() > 0.001f ? delta / delta.length() : sf::Vector2f{1.f,0.f}, ally.incapacityRemaining});
+    }
+    for (const auto &signal : signals) {
+      sf::Vector2f direction{(signal.direction.x - signal.direction.y) * PresentationConfig::GroundProjection.x,
+        (signal.direction.x + signal.direction.y) * PresentationConfig::GroundProjection.y};
+      if (direction.lengthSquared() < 0.001f) continue;
+      direction /= direction.length();
+      const sf::Vector2f side{-direction.y, direction.x}, center{800.f, 450.f};
+      const float edge = std::min(650.f / std::max(.001f,std::abs(direction.x)), 235.f / std::max(.001f,std::abs(direction.y)));
+      const auto tip = center + direction * edge;
+      Polygon({tip, tip - direction * 28.f + side * 13.f, tip - direction * 20.f, tip - direction * 28.f - side * 13.f}, PresentationConfig::Amber);
+      Label(std::format("{}  /  {:.0f} s", signal.agent, std::ceil(signal.remaining)), tip + side * 42.f, PresentationConfig::Amber, 18);
+    }
+  }
+
   void WorldRenderer::Render(const WorldState &world, PlayerId localPlayer, bool hudVisible) const {
     ctx_.renderer.ResetView();
     PixelRect({}, ctx_.window.GetLogicalSize(), PresentationConfig::Void);
@@ -1106,5 +1144,6 @@ namespace NoTrace {
     for (const auto &guard : world.guards) if (guardVisible(guard)) DummyStatus(guard, world, camera, observer);
     Minimap(world, localPlayer, visibility);
     if (hudVisible) DetectionEye(world, observer);
+    RescueIndicators(world, observer);
   }
 }

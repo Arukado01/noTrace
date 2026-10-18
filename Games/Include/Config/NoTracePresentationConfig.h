@@ -63,7 +63,6 @@ namespace NoTrace::PresentationConfig {
   inline constexpr float CqcRecoil = 4.f;
   inline constexpr float CqcGripSway = 2.f;
   inline constexpr float CqcFallDuration = 0.35f;
-  inline constexpr float NoiseMarkerMaximumRadius = 90.f;
   inline constexpr float DummyHeight = ActorHeight;
   inline constexpr sf::Vector2f DummyHealthBarSize{72.f, 8.f};
   inline constexpr float DecoyGuideStep = 12.f;

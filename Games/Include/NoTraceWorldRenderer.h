@@ -67,6 +67,7 @@ namespace NoTrace {
     void Box(sf::FloatRect bounds, float height, sf::Vector2f camera, sf::Color top, sf::Color left, sf::Color right) const;
     void Floor(const WorldState &world, sf::Vector2f camera) const;
     void Fog(const WorldState &world, sf::Vector2f camera, const VisibilityGrid &visibility) const;
+    void RescueIndicators(const WorldState &world, const Agent *observer) const;
     void ObstacleArt(const Obstacle &obstacle, sf::Vector2f camera) const;
     void ObjectArt(const Interactable &object, sf::Vector2f camera, bool nearby) const;
     SpriteFrame AgentFrame(const Agent &agent, const WorldState &world, bool local) const;
@@ -189,7 +190,7 @@ namespace NoTrace {
         const float phase = 1.f - agent.actionPoseTime / duration;
         switch (agent.actionPose) {
         case ActionPose::ThrowDecoy: return select(Clip::Throw, phase);
-        case ActionPose::KnockWall: return select(Clip::WallBang, phase);
+        case ActionPose::KnockWall: return ClipFrame(Clip::CoverIdle, agent.cover.active ? agent.cover.normal : agent.facing, 0.f, 0.f);
         case ActionPose::Push: return select(Clip::Push, phase);
         case ActionPose::Punch: return select(Clip::Punch, phase);
         case ActionPose::Kick: return select(Clip::Kick, phase);
@@ -209,6 +210,7 @@ namespace NoTrace {
         return select(agent.stance == Stance::Crouched ? Clip::CrouchEnter : Clip::CrouchExit, 1.f - agent.transitionTime / GameplayConfig::StanceTransitionDuration);
       if (throwingPreview) return select(Clip::Throw, 0.25f);
       if (agent.aiming) return select(Clip::Aim);
+      if (agent.cover.active && agent.cover.peekSide == PeekSide::None) return ClipFrame(agent.moving ? Clip::CoverMove : Clip::CoverIdle, agent.cover.normal, agent.animationTime);
       if (agent.cover.active) return select(agent.moving ? Clip::CoverMove : Clip::CoverIdle);
       if (agent.stance == Stance::Prone) return select(agent.moving ? Clip::Crawl : Clip::ProneIdle);
       if (agent.stance == Stance::Crouched) return select(agent.moving ? agent.running ? Clip::CrouchRun : Clip::CrouchWalk : Clip::CrouchIdle);
@@ -226,8 +228,8 @@ namespace NoTrace {
       if (guard.staggerRemaining > 0.f) return select(Clip::Damage, std::clamp(1.f - guard.staggerRemaining / CqcConfig::PunchStagger, 0.f, 1.f));
       if (guard.attackTime > 0.f) return select(guard.meleeAttack ? Clip::Punch : Clip::Shoot, 1.f - guard.attackTime / GameplayConfig::AttackAnimationDuration);
       const auto destination = guard.state == GuardState::Patrol && !guard.patrol.empty() ? guard.patrol[guard.waypoint % guard.patrol.size()] : guard.lastKnown;
-      const bool moving = world.visibility.authoritative ? guard.stepTime > 0.f :
-          (destination - guard.position).lengthSquared() > GameplayConfig::InvestigationStopDistance * GameplayConfig::InvestigationStopDistance;
+      const bool moving = (guard.state != GuardState::Patrol || guard.patrolPauseRemaining <= 0.f) && (world.visibility.authoritative ? guard.stepTime > 0.f :
+          (destination - guard.position).lengthSquared() > GameplayConfig::InvestigationStopDistance * GameplayConfig::InvestigationStopDistance);
       return select(moving ? guard.state == GuardState::Alert ? Clip::Run : Clip::Walk : Clip::Idle);
     }
     static SpriteFrame SelectSprite(sf::Vector2f facing, Stance stance, float animation, bool moving, bool running, bool down, bool grappling,
