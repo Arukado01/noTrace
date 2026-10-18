@@ -1,0 +1,11 @@
+cmake_minimum_required(VERSION 3.28)
+project(NoTraceProductionLauncher LANGUAGES CXX)
+
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded")
+add_executable(NoTracePlay WIN32 Main.cpp)
+target_compile_features(NoTracePlay PRIVATE cxx_std_20)
+target_compile_definitions(NoTracePlay PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+target_compile_options(NoTracePlay PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/W4> $<$<CXX_COMPILER_ID:MSVC>:/utf-8>)
+target_link_libraries(NoTracePlay PRIVATE bcrypt shell32 user32)
+set_target_properties(NoTracePlay PROPERTIES OUTPUT_NAME play)
