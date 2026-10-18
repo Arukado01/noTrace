@@ -14,7 +14,8 @@ CLIPS = ["Idle", "Walk", "Run", "CrouchIdle", "CrouchWalk"]
 DIRECTIONS = ["S", "SE", "E", "NE", "N", "NW", "W", "SW"]
 CELL = 192
 ANCHOR = (96.0, 144.0)
-JOINT_PARENTS = {"pelvis": None, "neck": "pelvis", "head": "neck", "backpack": "neck", "weapon_grip": "right_wrist", "weapon_muzzle": "weapon_grip"}
+JOINT_PARENTS = {"pelvis": None, "waist": "pelvis", "neck": "pelvis", "head": "neck", "backpack": "neck", "weapon_grip": "right_wrist", "weapon_muzzle": "weapon_grip"}
+JOINT_PARENTS.update({"rig_frame_origin": "pelvis", **{"rig_frame_"+name: "rig_frame_origin" for name in ["spine", "left", "dorsal"]}})
 PART_JOINTS = {"head": ("neck", "head"), "torso": ("pelvis", "neck"), "pelvis": ("pelvis",), "backpack": ("backpack",)}
 for side in ["left", "right"]:
     JOINT_PARENTS.update({side + "_shoulder": "neck", side + "_elbow": side + "_shoulder", side + "_wrist": side + "_elbow", side + "_hip": "pelvis",
@@ -46,6 +47,9 @@ def retarget_joint(points, joint, target):
 
 
 def body_frame(points):
+    if all("rig_frame_"+name in points for name in ["origin", "spine", "left", "dorsal"]):
+        origin = points["rig_frame_origin"]
+        return {name: unit(add(points["rig_frame_"+name], scale(origin, -1))) for name in ["spine", "left", "dorsal"]}
     spine = unit(add(points["neck"], scale(points["pelvis"], -1.0)))
     left = unit(add(points["left_shoulder"], scale(points["right_shoulder"], -1.0)))
     dorsal = unit((spine[1]*left[2]-spine[2]*left[1], spine[2]*left[0]-spine[0]*left[2], spine[0]*left[1]-spine[1]*left[0]))
@@ -145,6 +149,206 @@ def read_parts(root, direction):
         result[name] = piece.resize((max(1, round(piece.width * mip_scale)), max(1, round(piece.height * mip_scale))), Image.Resampling.BOX)
         metadata.append({"piece": name, "file": source.as_posix(), "sourceSha256": hashlib.sha256(source.read_bytes()).hexdigest()})
     return result, metadata
+
+
+def load_canonical_registration(root):
+    return json.loads((Path(root) / "Manifests/rig-pieces.canonical.json").read_text(encoding="utf-8"))
+
+
+def read_registered_parts(root, direction):
+    root = Path(root)
+    registration = load_canonical_registration(root)
+    entries = registration["directions"][direction]
+    result = {}
+    for role in NAMES:
+        view = dict(entries[role])
+        path = root / view["file"]
+        if hashlib.sha256(path.read_bytes()).hexdigest() != view["sourceSha256"]:
+            raise ValueError("Cambió una pieza canónica original: " + str(path))
+        image = Image.open(path).convert("RGBA")
+        factor = view["bindScale"]
+        if list(image.size) != view["sourceSize"] or not math.isfinite(factor) or factor <= 0:
+            raise ValueError("Registro canónico original no válido: " + str(path))
+        view["image"] = image
+        view["mip"] = image
+        view["uniformScale"] = view["bindScale"] = factor
+        view["role"], view["sourceDirection"] = role, direction
+        result[role] = view
+    return result
+
+
+def render_registered_piece(canvas, view, target, angle=0.0, anchor="proximalPx"):
+    # La escala uniforme de reposo queda bloqueada por recurso; la pose sólo traslada y gira la pieza completa.
+    factor = view["bindScale"]
+    if view.get("uniformScale", factor) != factor:
+        raise ValueError("Una pose intenta cambiar el bind de reposo")
+    return uniform_piece(canvas, view["image"], view[anchor], target, factor, angle, view["image"])
+
+
+def registered_length(view):
+    return math.dist(view["proximalPx"], view["distalPx"]) * view["bindScale"]
+
+
+def _registered_rotate(point, angle):
+    return (point[0]*math.cos(angle)-point[1]*math.sin(angle), point[0]*math.sin(angle)+point[1]*math.cos(angle))
+
+
+def _registered_blend_axis(first, last, amount, outward=0.0):
+    if amount <= 0:
+        return first
+    if amount >= 1:
+        return last
+    angle = math.atan2(last[1], last[0])-math.atan2(first[1], first[0])
+    angle = math.atan2(math.sin(angle), math.cos(angle))
+    # La tibia se pliega por su lado del cuerpo en vez de atravesar la pierna contraria.
+    if abs(angle) > math.pi/2 and _registered_rotate(first, angle*.5)[0]*outward < -1e-8:
+        angle -= math.copysign(math.tau, angle)
+    return _registered_rotate(first, angle*amount)
+
+
+def registered_source_point(view, point, target, angle=0.0, anchor="anchorPx"):
+    return add(target, _registered_rotate(scale(add(point, scale(view[anchor], -1)), view["bindScale"]), angle))
+
+
+def registered_head_anchor(view, points):
+    spine = body_frame(points)["spine"]
+    pitch = math.hypot(*spine[:2])/max(1e-9, length(spine))
+    amount = max(0.0, min(1.0, (pitch-.45)/.5))
+    amount = amount*amount*(3-2*amount)
+    first = view.get("uprightCervicalPx", view["anchorPx"])
+    last = view.get("pronePosteriorCervicalPx", first)
+    return tuple(first[i]+(last[i]-first[i])*amount for i in range(2))
+
+
+def _registered_chain(first, target, upper, lower, hint):
+    delta = add(target, scale(first, -1))
+    distance = length(delta)
+    axis = unit(delta) if distance > 1e-9 else (0.0, 1.0)
+    reachable = max(abs(upper-lower)+1e-6, min(upper+lower-1e-6, distance))
+    target = add(first, scale(axis, reachable))
+    along = (upper*upper-lower*lower+reachable*reachable)/(2*reachable)
+    radius = math.sqrt(max(0.0, upper*upper-along*along))
+    centre = add(first, scale(axis, along))
+    normal = (-axis[1], axis[0])
+    options = [add(centre, scale(normal, sign*radius)) for sign in [-1, 1]]
+    return min(options, key=lambda point: math.dist(point, hint)), target
+
+
+def _registered_lift(point, reference, direction):
+    height = reference[2]
+    horizontal = (point[0]-ANCHOR[0])/1.35
+    depth = (point[1]-ANCHOR[1]+height)/.675
+    x, y = (horizontal+depth)*.5, (depth-horizontal)*.5
+    angle = math.pi/4-DIRECTIONS.index(direction)*math.pi/4
+    return (x*math.cos(angle)+y*math.sin(angle), x*math.sin(angle)-y*math.cos(angle), height)
+
+
+def resolve_registered(views, intentPoints, cameraDirection, clip="Idle", phase=0, stance="Standing"):
+    # La intención de movimiento se resuelve en una única métrica de sockets; ninguna pose modifica el bind del recurso.
+    intent = {name: tuple(point) for name, point in intentPoints.items()}
+    if clip == "ReviveRise" and phase == 7 and stance != "Prone":
+        return resolve_registered(views, intent, cameraDirection, "CrouchIdle" if stance == "Crouched" else "Idle", 0, stance)
+    posture_transition = clip in ["CrouchEnter", "CrouchExit"]
+    if posture_transition and phase in [0, 7]:
+        destination = "CrouchIdle" if (clip == "CrouchEnter") == (phase == 7) else "Idle"
+        return resolve_registered(views, skeleton(destination, 0), cameraDirection, destination, 0, "Standing")
+    intent_frame = body_frame(intent)
+    project_intent = {name: project(point, cameraDirection) for name, point in intent.items()}
+    crouched = stance == "Crouched" or clip.startswith("Crouch")
+    crouch_amount = float(crouched)
+    if posture_transition:
+        progress = max(0.0, min(1.0, phase/7))
+        crouch_amount = progress*progress*(3-2*progress)
+        if clip == "CrouchExit":
+            crouch_amount = 1-crouch_amount
+    horizontal = math.hypot(*(intent["neck"][i]-intent["pelvis"][i] for i in range(2)))
+    prone = stance == "Prone" or horizontal/max(1e-9, math.dist(intent["neck"], intent["pelvis"])) > .7
+    standing, kneeling = skeleton("Idle", 0), skeleton("CrouchIdle", 0)
+    reference = {name: add(scale(standing[name], 1-crouch_amount), scale(kneeling[name], crouch_amount)) for name in standing}
+    reference_pixels = {name: project(point, cameraDirection) for name, point in reference.items()}
+    heading = DIRECTIONS.index(cameraDirection)*math.pi/4
+    core_angle = math.radians(10+22*crouch_amount)*math.sin(heading)
+    old_axis = add(project_intent["pelvis"], scale(project_intent["neck"], -1))
+    rest_axis = add(reference_pixels["pelvis"], scale(reference_pixels["neck"], -1))
+    delta_angle = math.atan2(old_axis[1], old_axis[0])-math.atan2(rest_axis[1], rest_axis[0])
+    core_angle += math.atan2(math.sin(delta_angle), math.cos(delta_angle))
+    if clip in ["Idle", "CrouchIdle"]:
+        core_angle += (intent["neck"][2]-reference["neck"][2])*.0175
+    pelvis_angle = 0.0
+    pelvis = views["pelvis"]
+    torso = views["torso"]
+    if prone:
+        centre, core_angle, pelvis_angle = registered_prone_core(views, intent, cameraDirection)
+    else:
+        centre = add(scale(registered_rest_pelvis(views, cameraDirection, False), 1-crouch_amount),
+                     scale(registered_rest_pelvis(views, cameraDirection, True), crouch_amount))
+        centre = add(centre, add(project_intent["pelvis"], scale(reference_pixels["pelvis"], -1)))
+    projected = {"pelvis": centre}
+    projected["waist"] = registered_source_point(pelvis, pelvis["waistPx"], centre, pelvis_angle)
+    torso_offset = _registered_rotate(scale(add(torso["distalPx"], scale(torso["proximalPx"], -1)), torso["bindScale"]), core_angle)
+    projected["neck"] = add(projected["waist"], scale(torso_offset, -1))
+    simple_motion = posture_transition or clip in ["Idle", "Walk", "Run", "CrouchIdle", "CrouchWalk", "CrouchRun"]
+    for side, sign in [("left", 1), ("right", -1)]:
+        hip, shoulder = side+"_hip", side+"_shoulder"
+        projected[hip] = registered_source_point(pelvis, pelvis[side+"HipPx"], centre, pelvis_angle)
+        projected[shoulder] = registered_source_point(torso, torso[side+"ShoulderPx"], projected["neck"], core_angle, "proximalPx")
+        thigh, shin = registered_length(views[side+"_thigh"]), registered_length(views[side+"_shin"])
+        standing_knee, standing_ankle = registered_rest_leg(views, cameraDirection, side, False, projected[hip])
+        kneeling_knee, kneeling_ankle = registered_rest_leg(views, cameraDirection, side, True, projected[hip])
+        first_axis = _registered_blend_axis(add(standing_knee, scale(projected[hip], -1)), add(kneeling_knee, scale(projected[hip], -1)), crouch_amount)
+        last_axis = _registered_blend_axis(add(standing_ankle, scale(standing_knee, -1)), add(kneeling_ankle, scale(kneeling_knee, -1)),
+                                           crouch_amount, projected[hip][0]-centre[0] if posture_transition else 0)
+        rest_knee = add(projected[hip], first_axis)
+        rest_ankle = add(rest_knee, last_axis)
+        ankle = side+"_ankle"
+        if simple_motion:
+            target = add(rest_ankle, add(project_intent[ankle], scale(reference_pixels[ankle], -1)))
+            hint = rest_knee
+        else:
+            target = add(projected[hip], add(project_intent[ankle], scale(project_intent[hip], -1)))
+            hint = add(projected[hip], add(project_intent[side+"_knee"], scale(project_intent[hip], -1)))
+        projected[side+"_knee"], projected[ankle] = _registered_chain(projected[hip], target, thigh, shin, hint)
+        upper, fore = registered_length(views[side+"_upper_arm"]), registered_length(views[side+"_forearm"])
+        if prone:
+            target, hint = registered_prone_arm(views, intent, cameraDirection, side, projected[shoulder])
+        elif simple_motion:
+            elbow = add(projected[shoulder], (sign*.6, math.sqrt(max(0, upper*upper-.36))))
+            wrist = add(elbow, (sign*.3, math.sqrt(max(0, fore*fore-.09))))
+            forward = add(project((5, 0, 0), cameraDirection), scale(ANCHOR, -1))
+            ready = add(projected["neck"], (forward[0]+sign*2, 16))
+            target = add(scale(wrist, 1-crouch_amount), scale(ready, crouch_amount))
+            target = add(target, add(project_intent[side+"_wrist"], scale(reference_pixels[side+"_wrist"], -1)))
+            hint = add(scale(elbow, 1-crouch_amount), scale(add(projected[shoulder], (sign*3, upper)), crouch_amount))
+        else:
+            target = add(projected[shoulder], add(project_intent[side+"_wrist"], scale(project_intent[shoulder], -1)))
+            hint = add(projected[shoulder], add(project_intent[side+"_elbow"], scale(project_intent[shoulder], -1)))
+        projected[side+"_elbow"], projected[side+"_wrist"] = _registered_chain(projected[shoulder], target, upper, fore, hint)
+        boot = views[side+"_boot"]
+        old_toe = add(project_intent[side+"_toe"], scale(project_intent[ankle], -1))
+        rest_toe = add(reference_pixels[side+"_toe"], scale(reference_pixels[ankle], -1))
+        boot_angle = math.atan2(old_toe[1], old_toe[0])-math.atan2(rest_toe[1], rest_toe[0])
+        projected[side+"_toe"] = registered_source_point(boot, boot["distalPx"], projected[ankle], boot_angle)
+    if simple_motion and crouch_amount < 1:
+        soles = [projected[s+"_ankle"][1]+(views[s+"_boot"]["image"].getbbox()[3]-views[s+"_boot"]["anchorPx"][1])*views[s+"_boot"]["bindScale"] for s in ["left", "right"]]
+        ground = (144-max(soles))*(1-crouch_amount)
+        projected = {name: add(point, (0, ground)) for name, point in projected.items()}
+    final = {name: _registered_lift(point, intent.get(name, intent["pelvis"]), cameraDirection) for name, point in projected.items()}
+    # El marco FK conserva la orientación de intención sin deducirla de sockets pintados en distintas vistas.
+    final["rig_frame_origin"] = final["pelvis"]
+    for name, axis in intent_frame.items():
+        final["rig_frame_"+name] = add(final["rig_frame_origin"], axis)
+    head = views["head"]
+    anchor = registered_head_anchor(head, final)
+    projected["head"] = add(projected["neck"], scale(add(head["cranialCentrePx"], scale(anchor, -1)), head["bindScale"]))
+    projected["backpack"] = add(projected["neck"], add(project_intent["backpack"], scale(project_intent["neck"], -1)))
+    final["head"] = _registered_lift(projected["head"], intent["head"], cameraDirection)
+    final["backpack"] = _registered_lift(projected["backpack"], intent["backpack"], cameraDirection)
+    if "weapon_grip" in intent:
+        projected["weapon_grip"] = projected["right_wrist"]
+        projected["weapon_muzzle"] = add(projected["right_wrist"], add(project_intent["weapon_muzzle"], scale(project_intent["weapon_grip"], -1)))
+        for name in ["weapon_grip", "weapon_muzzle"]:
+            final[name] = _registered_lift(projected[name], intent[name], cameraDirection)
+    return final
 
 
 def bone(canvas, piece, first, second, width, source_prox=(0.5, 0.12), source_dist=(0.5, 0.88)):
@@ -303,3 +507,156 @@ if __name__ == "__main__":
     parser.add_argument("--direction", choices=DIRECTIONS)
     arguments = parser.parse_args()
     generate(arguments.root, [arguments.direction] if arguments.direction else DIRECTIONS)
+
+
+def _registered_render_angle(source_first, source_last, target_first, target_last):
+    source = tuple(source_last[index]-source_first[index] for index in range(2))
+    target = tuple(target_last[index]-target_first[index] for index in range(2))
+    if math.hypot(*source) <= 1e-8 or math.hypot(*target) <= 1e-8:
+        raise ValueError("El dibujo canónico recibió un eje sin orientación")
+    return math.atan2(target[1], target[0])-math.atan2(source[1], source[0])
+
+
+def _registered_render_dorsal_visible(points, camera_direction):
+    dorsal = local(body_frame(points)["dorsal"], camera_direction)
+    # La normal de la cámara se obtiene de la proyección isométrica real, incluyendo su componente vertical.
+    return dorsal[0]+dorsal[1]+1.35*dorsal[2] > 0.0
+
+
+def render_registered(views, final_points, cameraDirection="S", layer="full", trace=None):
+    if layer not in {"full", "lower", "upper", "cqcBody", "cqcArms"}:
+        raise ValueError("Capa canónica desconocida: " + layer)
+    canvas = Image.new("RGBA", (CELL, CELL))
+    projected = {name: project(point, cameraDirection) for name, point in final_points.items()}
+    sides = sorted(["right", "left"], key=lambda side: sum(local(final_points[side+"_hip"], cameraDirection)[:2]))
+    arms = layer not in {"lower", "cqcBody"}
+    body = layer != "cqcArms"
+    lower = layer not in {"upper", "cqcArms"}
+    upper = layer != "lower"
+    active = set()
+
+    def place(role, target, angle=0.0, anchor="proximalPx", view_override=None):
+        view = views[role] if view_override is None else view_override
+        transform = render_registered_piece(canvas, view, target, angle, anchor)
+        active.add(role)
+        if trace is not None:
+            trace.append({**transform, "role": role, "sourceFile": view["file"], "sourceDirection": view["sourceDirection"],
+                          "sourceSha256": view["sourceSha256"], "bindScale": view["bindScale"], "active": True, "layer": layer})
+        return transform
+
+    def bone(role, first, last):
+        view = views[role]
+        angle = _registered_render_angle(view["proximalPx"], view["distalPx"], projected[first], projected[last])
+        return place(role, projected[first], angle)
+
+    torso = views["torso"]
+    torso_angle = _registered_render_angle(torso["proximalPx"], torso["distalPx"], projected["neck"], projected["waist"])
+    pelvis = views["pelvis"]
+    pelvis_angle = _registered_render_angle(pelvis["rightHipPx"], pelvis["leftHipPx"], projected["right_hip"], projected["left_hip"])
+    dorsal_visible = _registered_render_dorsal_visible(final_points, cameraDirection)
+
+    def pack():
+        view = views["backpack"]
+        angle = _registered_render_angle(view["proximalPx"], view["distalPx"], projected["waist"], projected["neck"])
+        place("backpack", projected["backpack"], angle, "anchorPx")
+
+    if upper and body and not dorsal_visible:
+        pack()
+    if lower:
+        for side in sides:
+            for role, first, last in [("thigh", "hip", "knee"), ("shin", "knee", "ankle"), ("boot", "ankle", "toe")]:
+                bone(side+"_"+role, side+"_"+first, side+"_"+last)
+        place("pelvis", projected["pelvis"], pelvis_angle, "anchorPx")
+    if upper:
+        shoulder_depths = [sum(local(final_points[side+"_shoulder"], cameraDirection)[:2]) for side in sides]
+        near = sides[-1] if abs(shoulder_depths[1]-shoulder_depths[0]) > 1e-6 else None
+        if arms:
+            for side in sides:
+                if side != near:
+                    bone(side+"_upper_arm", side+"_shoulder", side+"_elbow")
+        if body:
+            place("torso", projected["neck"], torso_angle)
+        if arms and near is not None:
+            bone(near+"_upper_arm", near+"_shoulder", near+"_elbow")
+        if body and dorsal_visible:
+            pack()
+        if arms:
+            for side in sides:
+                bone(side+"_forearm", side+"_elbow", side+"_wrist")
+                if not views[side+"_forearm"].get("embeddedHand"):
+                    view = views[side+"_hand"]
+                    wrist = view["anchorPx"]
+                    fingers = view.get("fingerCentrePx", [view["image"].width*.5, view["image"].height*.5])
+                    angle = _registered_render_angle(wrist, fingers, projected[side+"_elbow"], projected[side+"_wrist"])
+                    place(side+"_hand", projected[side+"_wrist"], angle, "anchorPx")
+        if body:
+            view = dict(views["head"])
+            view["_registeredCervicalPx"] = registered_head_anchor(view, final_points)
+            cranial = view.get("cranialCentrePx", view["distalPx"])
+            angle = _registered_render_angle(view["_registeredCervicalPx"], cranial, projected["neck"], projected["head"])
+            place("head", projected["neck"], angle, "_registeredCervicalPx", view)
+    if trace is not None:
+        for role, view in views.items():
+            if role not in active:
+                trace.append({"role": role, "sourceFile": view["file"], "sourceDirection": view["sourceDirection"],
+                              "sourceSha256": view["sourceSha256"], "bindScale": view["bindScale"], "active": False, "layer": layer})
+    return canvas
+
+
+def registered_prone_core(views, intentPoints, cameraDirection):
+    centre = project(intentPoints["pelvis"], cameraDirection)
+    neck = project(intentPoints["neck"], cameraDirection)
+    torso = views["torso"]
+    core_angle = _registered_render_angle(torso["proximalPx"], torso["distalPx"], neck, centre)
+    pelvis = views["pelvis"]
+    pelvis_angle = _registered_render_angle(pelvis["anchorPx"], pelvis["waistPx"], centre, neck)
+    return centre, core_angle, pelvis_angle
+
+
+def registered_prone_arm(views, intentPoints, cameraDirection, side, shoulder2D):
+    shoulder = intentPoints[side+"_shoulder"]
+    elbow = intentPoints[side+"_elbow"]
+    wrist = intentPoints[side+"_wrist"]
+    first = add(elbow, scale(shoulder, -1))
+    last = add(wrist, scale(elbow, -1))
+    denominator = length(first)*length(last)
+    if denominator <= 1e-9:
+        raise ValueError("La intención tumbada tiene una cadena de brazo sin longitud")
+    cosine = max(-1.0, min(1.0, dot(first, last)/denominator))
+    upper = registered_length(views[side+"_upper_arm"])
+    forearm = registered_length(views[side+"_forearm"])
+    # La flexión tridimensional se conserva con las longitudes autoradas, sin estirar la imagen para alcanzar la muñeca antigua.
+    reach = math.sqrt(max(0.0, upper*upper+forearm*forearm+2*upper*forearm*cosine))
+    source_shoulder = project(shoulder, cameraDirection)
+    screen_reach = add(project(wrist, cameraDirection), scale(source_shoulder, -1))
+    screen_bend = add(project(elbow, cameraDirection), scale(source_shoulder, -1))
+    direction = unit(screen_reach) if length(screen_reach) > 1e-9 else unit(screen_bend)
+    if length(direction) <= 1e-9:
+        raise ValueError("La intención tumbada no define una orientación visible de brazo")
+    target = add(shoulder2D, scale(direction, reach))
+    hint = add(shoulder2D, scale(unit(screen_bend), upper))
+    return target, hint
+
+
+def registered_rest_pelvis(views, cameraDirection, crouched):
+    heading = DIRECTIONS.index(cameraDirection)*math.pi/4
+    return (ANCHOR[0]-8*math.sin(heading) if crouched else ANCHOR[0], 134.0 if crouched else 113.5)
+
+
+def registered_rest_leg(views, cameraDirection, side, crouched, hip):
+    upper = registered_length(views[side+"_thigh"])
+    lower = registered_length(views[side+"_shin"])
+    sign = 1 if side == "left" else -1
+    if crouched:
+        # Las claves FK mantienen una rodilla de apoyo y otra adelantada; las piezas no cambian de dimensión.
+        thigh_angles = {"left": [83, 50, 20, -50, -97, -130, 160, 125],
+                        "right": [97, 110, 110, 104, -83, 70, 70, 70]}
+        shin_angles = {"left": [-100, 97, 97, 95, 80, 83, 83, 83],
+                       "right": [-80, 210, 210, -124, 100, -50, -30, -30]}
+        index = DIRECTIONS.index(cameraDirection)
+        first_angle = math.radians(thigh_angles[side][index])
+        last_angle = math.radians(shin_angles[side][index])
+    else:
+        first_angle, last_angle = math.pi/2-sign*.035, math.pi/2-sign*.015
+    knee = add(hip, (upper*math.cos(first_angle), upper*math.sin(first_angle)))
+    return knee, add(knee, (lower*math.cos(last_angle), lower*math.sin(last_angle)))

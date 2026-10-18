@@ -440,14 +440,38 @@ def weapon_image(root, direction, points, weapon="Pistol", suppressed=False):
     return image, first, last
 
 
+def animation_variants():
+    variants = [(name, family, first, "Standing") for name, family, first, _, _ in CLIPS if family < 14]
+    variants += [(name, family, WEAPON_CLIPS.index(name) * 8, stance) for family, stance in [(5, "Crouched"), (6, "Prone")] for name in WEAPON_CLIPS]
+    variants += [(name, family, first + offset, stance) for name, family, first, _, _ in CLIPS if family in [11, 12] for stance, offset in [("Crouched", 16), ("Prone", 32)]]
+    variants += [("ReviveRise", 14, offset, stance) for stance, offset in [("Standing", 0), ("Crouched", 8), ("Prone", 16)]]
+    return variants
+
+
+def frame_semantics(name, family, first, stance, direction, frame, points, muzzle, grip):
+    return {"index": family * 512 + DIRECTIONS.index(direction) * 64 + first + frame,
+            "clip": name, "stance": stance, "direction": direction, "phase": frame,
+            "groundAnchor": ANCHOR, "pelvis": project(points["pelvis"], direction), "muzzle": muzzle, "grip": grip,
+            "carryGrip": project(points["right_wrist"], direction),
+            "supportWidth": 52.0 if stance == "Prone" or name in ["ProneIdle", "Crawl", "Unconscious"] else 24.0,
+            "joints": points}
+
+
+def resolved_frame(bindings, name, family, first, stance, direction, phase):
+    points = bindings.resolve_pose(body_pose(name, phase, stance), direction, name, phase, stance)
+    layers = ["full", "lower", "upper"] + (["cqcBody", "cqcArms"] if name in ["Grab", "Choke"] else [])
+    images = {layer: bindings.render(points, direction, name, phase, stance, layer) for layer in layers}
+    muzzle, grip = [-1.0, -1.0], [-1.0, -1.0]
+    if "weapon_grip" in points and name != "Throw":
+        _, grip, muzzle = weapon_image(bindings.root, direction, points)
+    return frame_semantics(name, family, first, stance, direction, phase, points, muzzle, grip), images
+
+
 def generate(root, content=None, baseline=None, references=None, exceptions=None, toe_witness=None, report_path=None, death_witness=None, crouch_push_witness=None, ik_floor_witness=None, recovery_witness=None, expected_contract_sha256=None):
     output = root / "Atlas"
     output.mkdir(parents=True, exist_ok=True)
     pages, metadata, review_sequences = [], [], []
-    clip_variants = [(name, family, first, "Standing") for name, family, first, _, _ in CLIPS if family < 14]
-    clip_variants += [(name, family, WEAPON_CLIPS.index(name) * 8, stance) for family, stance in [(5, "Crouched"), (6, "Prone")] for name in WEAPON_CLIPS]
-    clip_variants += [(name, family, first + offset, stance) for name, family, first, _, _ in CLIPS if family in [11, 12] for stance, offset in [("Crouched", 16), ("Prone", 32)]]
-    clip_variants += [("ReviveRise", 14, offset, stance) for stance, offset in [("Standing", 0), ("Crouched", 8), ("Prone", 16)]]
+    clip_variants = animation_variants()
     parts_by_direction = {direction: read_parts(root, direction)[0] for direction in DIRECTIONS}
     prone_rig = ProneBindings(root)
     for name, family, first, stance in clip_variants:
@@ -460,31 +484,23 @@ def generate(root, content=None, baseline=None, references=None, exceptions=None
         sequence = []
         for direction_index, direction in enumerate(DIRECTIONS):
             for frame in range(8):
-                points = body_pose(name, frame, stance)
-                rendered = prone_rig.render(points, direction, name, frame, stance)
-                rendered_lower = prone_rig.render(points, direction, name, frame, stance, "lower")
-                rendered_upper = prone_rig.render(points, direction, name, frame, stance, "upper")
-                muzzle, grip = [-1.0, -1.0], [-1.0, -1.0]
-                if "weapon_grip" in points and name != "Throw":
-                    prop, grip, muzzle = weapon_image(root, direction, points)
+                semantic, images = resolved_frame(prone_rig, name, family, first, stance, direction, frame)
+                points, rendered = semantic["joints"], images["full"]
                 rect = [frame * CELL, direction_index * CELL, CELL, CELL]
                 full.alpha_composite(rendered, rect[:2])
-                lower.alpha_composite(rendered_lower, rect[:2])
-                upper.alpha_composite(rendered_upper, rect[:2])
+                lower.alpha_composite(images["lower"], rect[:2])
+                upper.alpha_composite(images["upper"], rect[:2])
                 for layer, sheet in cqc_layers.items():
-                    sheet.alpha_composite(prone_rig.render(points, direction, name, frame, stance, layer), rect[:2])
+                    sheet.alpha_composite(images[layer], rect[:2])
                 bounds = rendered.getchannel("A").point(lambda value: 255 if value >= 32 else 0).getbbox()
                 if bounds and (bounds[0] <= 1 or bounds[1] <= 1 or bounds[2] >= CELL - 1 or bounds[3] >= CELL - 1):
                     raise ValueError("La pose invade borde: " + filename + "/" + direction + "/" + str(frame) + str(bounds))
-                index = family * 512 + direction_index * 64 + first + frame
-                metadata.append({"index": index, "clip": name, "stance": stance, "direction": direction, "phase": frame, "page": page_number, "rect": rect,
-                                 "groundAnchor": ANCHOR, "pelvis": project(points["pelvis"], direction), "muzzle": muzzle, "grip": grip, "carryGrip": project(points["right_wrist"], direction),
-                                 "supportWidth": 52.0 if stance == "Prone" or name in ["ProneIdle", "Crawl", "Unconscious"] else 24.0,
-                                 "joints": points, "pixelSha256": hashlib.sha256(rendered.tobytes()).hexdigest()})
+                metadata.append({**semantic,
+                                 "page": page_number, "rect": rect, "pixelSha256": hashlib.sha256(rendered.tobytes()).hexdigest()})
                 if direction == "SE":
                     preview = rendered.copy()
                     if "weapon_grip" in points and name != "Throw":
-                        preview.alpha_composite(prop)
+                        preview.alpha_composite(weapon_image(root, direction, points)[0])
                     sequence.append(preview)
         for layer, image in [("full", full), ("lower", lower), ("upper", upper), *cqc_layers.items()]:
             save_png(image, output / (filename + "-" + layer + ".png"))
@@ -610,6 +626,8 @@ def quality_galleries(root, output, parts_by_direction, prone_rig=None):
             view = Image.new("RGBA", (CELL * 4, CELL * 2), (25, 33, 42, 255))
             for direction_index, direction in enumerate(DIRECTIONS):
                 points = body_pose(clip, frame, stance)
+                if prone_rig:
+                    points = prone_rig.resolve_pose(points, direction, clip, frame, stance)
                 image = prone_rig.render(points, direction, clip, frame, stance) if prone_rig else render(parts_by_direction[direction], points, direction)
                 if "weapon_grip" in points:
                     image.alpha_composite(weapon_image(root, direction, points, "Pistol", True)[0])

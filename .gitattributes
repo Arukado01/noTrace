@@ -1,2 +1,5 @@
 Tools/Audio/Music/Compose.py -text
 Tools/Audio/Music/Score.json -text whitespace=cr-at-eol
+Tools/GenerateNoTraceCharacters*.py text eol=lf
+Tools/InspectNoTraceCharacterRig.py text eol=lf
+Tools/RegisterNoTraceCharacterPoses.py text eol=lf

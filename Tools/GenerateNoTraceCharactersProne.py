@@ -35,6 +35,23 @@ def authored_direction(direction, axis):
     return rig.DIRECTIONS[(rig.DIRECTIONS.index(direction) + round(math.atan2(axis[1], axis[0]) / (math.pi / 4))) % 8]
 
 
+def canonical_direction(points, direction):
+    frame = rig.body_frame(points)
+    # De pie mira contra el dorso; al tumbarse el eje longitudinal indica el frente de la postura.
+    axis = frame["spine"] if abs(frame["spine"][2]) <= abs(frame["dorsal"][2]) else tuple(-value for value in frame["dorsal"])
+    return authored_direction(direction, tuple(value * 10 for value in axis))
+
+
+def canonical_body_direction(points, direction):
+    frame = rig.body_frame(points)
+    angle = math.pi/4-rig.DIRECTIONS.index(direction)*math.pi/4
+    camera = (math.cos(angle)+math.sin(angle), math.sin(angle)-math.cos(angle), 1.35)
+    lateral = sum(camera[index]*frame["left"][index] for index in range(3))
+    frontal = -sum(camera[index]*frame["dorsal"][index] for index in range(3))
+    # La vista corporal sigue la superficie visible; la cabeza conserva su orientación anatómica independiente.
+    return rig.DIRECTIONS[round(math.atan2(-lateral, frontal)/(math.pi/4)) % len(rig.DIRECTIONS)]
+
+
 def transverse_diameter(image, first, second):
     dx, dy = second[0] - first[0], second[1] - first[1]
     size = math.hypot(dx, dy)
@@ -54,11 +71,16 @@ def transverse_diameter(image, first, second):
 
 
 class ProneBindings:
-    def __init__(self, root):
+    def __init__(self, root, canonical=False):
         self.root = Path(root)
         self.workspace = self.root.resolve().parents[2]
-        manifest = json.loads((self.root / "Manifests/prone-rig-pieces.registration.json").read_text(encoding="utf-8"))
         self.banks, self.auxiliary, self.original, self.records = {}, [], {}, []
+        self.canonical = None
+        if canonical:
+            self.canonical = {direction: rig.read_registered_parts(self.root, direction) for direction in rig.DIRECTIONS}
+            self.original = {direction: {role: view["image"] for role, view in views.items()} for direction, views in self.canonical.items()}
+            return
+        manifest = json.loads((self.root / "Manifests/prone-rig-pieces.registration.json").read_text(encoding="utf-8"))
         sources = {}
 
         def read_source(path, expected):
@@ -89,6 +111,19 @@ class ProneBindings:
         for direction in rig.DIRECTIONS:
             pieces = rig.read_parts(self.root, direction)[0]
             self.original[direction] = pieces
+
+    def resolve_pose(self, points, direction, clip, phase, stance="Standing"):
+        if self.canonical is None:
+            return dict(points)
+        # Exportar y dibujar comparten la misma pose resuelta, sin recolocar piezas durante el dibujo.
+        return rig.resolve_registered(self.views_for(points, direction), points, direction, clip, phase, stance)
+
+    def views_for(self, points, direction):
+        if self.canonical is None:
+            raise ValueError("La selección por superficie necesita el registro canónico")
+        views = dict(self.canonical[canonical_body_direction(points, direction)])
+        views["head"] = self.canonical[canonical_direction(points, direction)]["head"]
+        return views
 
     @staticmethod
     def read_view(source, entry, digest):
@@ -186,6 +221,9 @@ class ProneBindings:
         self.records.append({"clip": clip, "phase": phase, "direction": direction, "role": role, "view": view["id"], "moderateViewAvailable": bool(valid)})
 
     def render(self, points, direction, clip, phase, stance="Standing", layer="full"):
+        if self.canonical is not None:
+            # La vista procede del mismo registro; cámara, pose y jerarquía siguen siendo las compartidas.
+            return rig.render_registered(self.views_for(points, direction), points, direction, layer)
         original = self.original[direction]
         if not required(clip, stance) or layer in ["cqcBody", "cqcArms"]:
             return rig.render(original, points, direction, layer)

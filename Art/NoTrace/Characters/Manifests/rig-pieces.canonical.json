@@ -1,0 +1,6695 @@
+{
+  "author": "Carlos Cortina",
+  "organization": "CIO",
+  "date": "2026-10-18",
+  "schemaVersion": 1,
+  "status": "CANONICAL_BIND_PROTOTYPE_REQUIRES_POSE_REVIEW",
+  "rule": "Los PNG originales completos conservan forma y paleta. Cada recurso tiene un bind uniforme de reposo bloqueado; la pose sólo traslada/gira. Sin crop, espejo, recolor, escala temporal ni normalización de mips.",
+  "directions": {
+    "S": {
+      "head": {
+        "file": "Pieces/S-head.png",
+        "sourceSize": [
+          226,
+          244
+        ],
+        "sourceSha256": "99583d347485e1f0ff1c5ec3a2da65b0329db7940c8c621de04317b6c4e38f3b",
+        "proximalPx": [
+          113,
+          226
+        ],
+        "distalPx": [
+          113,
+          75
+        ],
+        "anchorPx": [
+          113,
+          226
+        ],
+        "cranialCentrePx": [
+          113,
+          75
+        ],
+        "annotation": "Manual anatomical landmarks: lower cervical collar socket, helmet/cranium volume centre, plus headVolumeCentrePx for full-piece mass centre. Complete original bitmap unchanged.",
+        "sourcePixelAlpha": {
+          "neck": 253,
+          "cranialCentre": 253
+        },
+        "headVolumeCentrePx": [
+          113,
+          104
+        ],
+        "uprightCervicalPx": [
+          113,
+          226
+        ],
+        "pronePosteriorCervicalPx": [
+          113,
+          20
+        ],
+        "posteriorSourceAlpha": 253,
+        "naturalProneReference": {
+          "cervicalSourcePx": [
+            192,
+            300
+          ],
+          "cranialSourcePx": [
+            192,
+            326
+          ],
+          "meaning": "Posterior cervical occluded behind/above helmet; collar beneath face is not the posterior socket.",
+          "file": "Sources/OperativeProneAimFire-S-v1.png",
+          "frameSourceRect": [
+            0,
+            0,
+            384,
+            512
+          ],
+          "sourceSha256": "9bf4c528f50d984bc941ce45ef75ba6a05f7ed18287a0f12e283c666e234f233",
+          "coordinateUncertaintyPixels": 12
+        },
+        "bindScale": 0.061946902654867256,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "head",
+          "nominalPixels": 14,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "backpack": {
+        "file": "Pieces/S-backpack.png",
+        "sourceSize": [
+          269,
+          267
+        ],
+        "sourceSha256": "0c705bb9b59f7943cc76bd55ff9a314bc3ec8835fec2030af56914a024a59c6e",
+        "sourceRgbaSha256": "74d37aa81b37f62521c7509b7829c753271cb8a4113c295196c4e71591372cad",
+        "anchorPx": [
+          139,
+          155
+        ],
+        "centrePx": [
+          139,
+          155
+        ],
+        "proximalPx": [
+          139,
+          240
+        ],
+        "distalPx": [
+          139,
+          80
+        ],
+        "attachmentPx": [
+          139,
+          87
+        ],
+        "recommendedUniformScale": 0.05947955390334572,
+        "annotation": "Complete original pack, anchor=main pouch volume centre for existing backpackJoint semantic; proximal/distal are lower/upper core body axis, not radio antenna or carry handle. attachmentPx annotates backpanel/strap connection separately and can be inside a real open loop. No source pixels removed or recoloured.",
+        "alphaAtLandmarks": {
+          "centre": 253,
+          "lowerCore": 253,
+          "upperCore": 253,
+          "strapAttachment": 253
+        },
+        "bindScale": 0.05947955390334572,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "backpack",
+          "nominalPixels": 16,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "left_upper_arm": {
+        "file": "Pieces/S-right_upper_arm.png",
+        "sourceSize": [
+          162,
+          265
+        ],
+        "sourceSha256": "46190b91ac60db0d6aad62beeb9fca61a9d5b9becaa2dcc2644cddcb6fb8da06",
+        "sourcePixelSha256": "9b55a11d9bd3967021fb8d22be6a97c675c8f8c33c6a58499e53c3f3fcab001c",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-S-v2.png",
+        "bankSourceSha256": "e306ad6b3bca732fd6999df78b0c99f67cdd1458aca503273bdc2f4b6de5d0b3",
+        "bankSourceRect": [
+          1034,
+          355,
+          162,
+          265
+        ],
+        "proximalPx": [
+          48,
+          31
+        ],
+        "distalPx": [
+          106,
+          243
+        ],
+        "anchorPx": [
+          48,
+          31
+        ],
+        "bankSourceProximalPx": [
+          1082,
+          386
+        ],
+        "bankSourceDistalPx": [
+          1140,
+          598
+        ],
+        "jointSemantics": [
+          "shoulder",
+          "elbow"
+        ],
+        "uncertaintyPixels": 3,
+        "embeddedHand": false,
+        "semanticMapping": "Asociación anatómica frontal por punta exterior/parche exterior; nombre de archivo contradice el lado pintado.",
+        "bindScale": 0.04938271604938271,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "left_upper_arm",
+          "nominalPixels": 8,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "left_forearm": {
+        "file": "Pieces/S-left_forearm.png",
+        "sourceSize": [
+          191,
+          245
+        ],
+        "sourceSha256": "5a7fb1c75d00bed6f2eb148e5f7b14094313a46397c960776b330590024c5f1c",
+        "sourcePixelSha256": "6b3109fc336ab0b4856d17e504886d079b490982c5297c757790206e2ef86833",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-S-v2.png",
+        "bankSourceSha256": "e306ad6b3bca732fd6999df78b0c99f67cdd1458aca503273bdc2f4b6de5d0b3",
+        "bankSourceRect": [
+          378,
+          366,
+          191,
+          245
+        ],
+        "proximalPx": [
+          47,
+          29
+        ],
+        "distalPx": [
+          156,
+          218
+        ],
+        "anchorPx": [
+          47,
+          29
+        ],
+        "bankSourceProximalPx": [
+          425,
+          395
+        ],
+        "bankSourceDistalPx": [
+          534,
+          584
+        ],
+        "jointSemantics": [
+          "elbow",
+          "wrist"
+        ],
+        "uncertaintyPixels": 3,
+        "embeddedHand": false,
+        "bindScale": 0.03926701570680628,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "left_forearm",
+          "nominalPixels": 7.5,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "right_upper_arm": {
+        "file": "Pieces/S-left_upper_arm.png",
+        "sourceSize": [
+          160,
+          264
+        ],
+        "sourceSha256": "d098df10165103804faa1144a605f27076d5698904e8e12602c976fd04e91d8e",
+        "sourcePixelSha256": "10bc5762ac1fac035796e0abd03f7940b561ad0de344735630c4f61fd264992b",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-S-v2.png",
+        "bankSourceSha256": "e306ad6b3bca732fd6999df78b0c99f67cdd1458aca503273bdc2f4b6de5d0b3",
+        "bankSourceRect": [
+          64,
+          352,
+          160,
+          264
+        ],
+        "proximalPx": [
+          107,
+          29
+        ],
+        "distalPx": [
+          49,
+          242
+        ],
+        "anchorPx": [
+          107,
+          29
+        ],
+        "bankSourceProximalPx": [
+          171,
+          381
+        ],
+        "bankSourceDistalPx": [
+          113,
+          594
+        ],
+        "jointSemantics": [
+          "shoulder",
+          "elbow"
+        ],
+        "uncertaintyPixels": 3,
+        "embeddedHand": false,
+        "semanticMapping": "Asociación anatómica frontal por punta exterior/parche exterior; nombre de archivo contradice el lado pintado.",
+        "bindScale": 0.05,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "right_upper_arm",
+          "nominalPixels": 8,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "right_forearm": {
+        "file": "Pieces/S-right_forearm.png",
+        "sourceSize": [
+          176,
+          242
+        ],
+        "sourceSha256": "88aa4e08a86086bb6726c6e029fb805b0cded9fe751d48b3364167de7ca956de",
+        "sourcePixelSha256": "5a9158887999314055d373bef58847b5a3ab401137188c067574078ed9f56c83",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-S-v2.png",
+        "bankSourceSha256": "e306ad6b3bca732fd6999df78b0c99f67cdd1458aca503273bdc2f4b6de5d0b3",
+        "bankSourceRect": [
+          87,
+          650,
+          176,
+          242
+        ],
+        "proximalPx": [
+          38,
+          29
+        ],
+        "distalPx": [
+          146,
+          214
+        ],
+        "anchorPx": [
+          38,
+          29
+        ],
+        "bankSourceProximalPx": [
+          125,
+          679
+        ],
+        "bankSourceDistalPx": [
+          233,
+          864
+        ],
+        "jointSemantics": [
+          "elbow",
+          "wrist"
+        ],
+        "uncertaintyPixels": 3,
+        "embeddedHand": false,
+        "bindScale": 0.04261363636363636,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "right_forearm",
+          "nominalPixels": 7.5,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "left_boot": {
+        "file": "Pieces/S-right_boot.png",
+        "sourceSize": [
+          183,
+          221
+        ],
+        "sourceSha256": "cce4bc16e9516b13e70251b19cca6d5715c7cbe440734b16d52d927cbbf7f58d",
+        "sourcePixelSha256": "a8ffaaeb0600079e6552a0d278a5d30f27522e87657f492dc9d4e42e89802163",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-S-v2.png",
+        "bankSourceSha256": "e306ad6b3bca732fd6999df78b0c99f67cdd1458aca503273bdc2f4b6de5d0b3",
+        "bankSourceRect": [
+          1035,
+          977,
+          183,
+          221
+        ],
+        "proximalPx": [
+          45,
+          121
+        ],
+        "distalPx": [
+          124,
+          173
+        ],
+        "anchorPx": [
+          45,
+          121
+        ],
+        "bankSourceProximalPx": [
+          1080,
+          1098
+        ],
+        "bankSourceDistalPx": [
+          1159,
+          1150
+        ],
+        "jointSemantics": [
+          "ankle",
+          "forefoot"
+        ],
+        "uncertaintyPixels": 10,
+        "embeddedHand": false,
+        "topAttachmentPx": [
+          61,
+          25
+        ],
+        "toeTipPx": [
+          174,
+          183
+        ],
+        "semanticMapping": "Asociación anatómica frontal por punta exterior/parche exterior; nombre de archivo contradice el lado pintado.",
+        "bindScale": 0.04918032786885246,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "left_boot",
+          "nominalPixels": 9,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "right_boot": {
+        "file": "Pieces/S-left_boot.png",
+        "sourceSize": [
+          185,
+          216
+        ],
+        "sourceSha256": "85a792358a7aef412b47e3dae0fb3a255948a0bd91e10d1105faec77f5031380",
+        "sourcePixelSha256": "2aee66db0543d1bc83b826ae71a3537bab4dcadecec99307ec1dd5a753ed7db4",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-S-v2.png",
+        "bankSourceSha256": "e306ad6b3bca732fd6999df78b0c99f67cdd1458aca503273bdc2f4b6de5d0b3",
+        "bankSourceRect": [
+          30,
+          981,
+          185,
+          216
+        ],
+        "proximalPx": [
+          137,
+          119
+        ],
+        "distalPx": [
+          57,
+          168
+        ],
+        "anchorPx": [
+          137,
+          119
+        ],
+        "bankSourceProximalPx": [
+          167,
+          1100
+        ],
+        "bankSourceDistalPx": [
+          87,
+          1149
+        ],
+        "jointSemantics": [
+          "ankle",
+          "forefoot"
+        ],
+        "uncertaintyPixels": 10,
+        "embeddedHand": false,
+        "topAttachmentPx": [
+          126,
+          24
+        ],
+        "toeTipPx": [
+          8,
+          177
+        ],
+        "semanticMapping": "Asociación anatómica frontal por punta exterior/parche exterior; nombre de archivo contradice el lado pintado.",
+        "bindScale": 0.04864864864864865,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "right_boot",
+          "nominalPixels": 9,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "left_thigh": {
+        "file": "Pieces/S-left_thigh.png",
+        "sourceSize": [
+          154,
+          259
+        ],
+        "sourceSha256": "e40fabd079f631f3958e311fd0a83c484e5958bc9292dad2808856233afbb97e",
+        "sourcePixelSha256": "35d3015380f5452aeecb461972b521279f1b55993243473f6dfcf33c56ea2864",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-S-v2.png",
+        "bankSourceSha256": "e306ad6b3bca732fd6999df78b0c99f67cdd1458aca503273bdc2f4b6de5d0b3",
+        "bankSourceRect": [
+          708,
+          637,
+          154,
+          259
+        ],
+        "proximalPx": [
+          78,
+          21
+        ],
+        "distalPx": [
+          77,
+          211
+        ],
+        "anchorPx": [
+          78,
+          21
+        ],
+        "jointSemantics": [
+          "hip",
+          "knee"
+        ],
+        "uncertaintyPixels": 8,
+        "bankSourceProximalPx": [
+          786,
+          658
+        ],
+        "bankSourceDistalPx": [
+          785,
+          848
+        ],
+        "bindScale": 0.06493506493506493,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "left_thigh",
+          "nominalPixels": 10,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "left_shin": {
+        "file": "Pieces/S-left_shin.png",
+        "sourceSize": [
+          130,
+          267
+        ],
+        "sourceSha256": "9e9d0604370c6c026e95c92bffe9a279145b2d56f2e049df3ca22aedc36b8c3a",
+        "sourcePixelSha256": "ce37c5ef534647d59214bdd583eea9a07464e05b515383e0526762be755c5b81",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-S-v2.png",
+        "bankSourceSha256": "e306ad6b3bca732fd6999df78b0c99f67cdd1458aca503273bdc2f4b6de5d0b3",
+        "bankSourceRect": [
+          1024,
+          626,
+          130,
+          267
+        ],
+        "proximalPx": [
+          66,
+          75
+        ],
+        "distalPx": [
+          65,
+          247
+        ],
+        "anchorPx": [
+          66,
+          75
+        ],
+        "jointSemantics": [
+          "knee",
+          "ankle"
+        ],
+        "uncertaintyPixels": 8,
+        "bankSourceProximalPx": [
+          1090,
+          701
+        ],
+        "bankSourceDistalPx": [
+          1089,
+          873
+        ],
+        "bindScale": 0.06923076923076923,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "left_shin",
+          "nominalPixels": 9,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "right_thigh": {
+        "file": "Pieces/S-right_thigh.png",
+        "sourceSize": [
+          195,
+          288
+        ],
+        "sourceSha256": "7c180e51fd20bc74d4fa5322283f1415b35b5da72a3c2e13c211ce0cb5006e1a",
+        "sourcePixelSha256": "5dc3eb83f46796039babadc784d56c3faa8923c1ea639bdeba230ed145647bec",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-S-v2.png",
+        "bankSourceSha256": "e306ad6b3bca732fd6999df78b0c99f67cdd1458aca503273bdc2f4b6de5d0b3",
+        "bankSourceRect": [
+          376,
+          906,
+          195,
+          288
+        ],
+        "proximalPx": [
+          114,
+          22
+        ],
+        "distalPx": [
+          111,
+          236
+        ],
+        "anchorPx": [
+          114,
+          22
+        ],
+        "jointSemantics": [
+          "hip",
+          "knee"
+        ],
+        "uncertaintyPixels": 8,
+        "bankSourceProximalPx": [
+          490,
+          928
+        ],
+        "bankSourceDistalPx": [
+          487,
+          1142
+        ],
+        "bindScale": 0.05128205128205128,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "right_thigh",
+          "nominalPixels": 10,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "right_shin": {
+        "file": "Pieces/S-right_shin.png",
+        "sourceSize": [
+          132,
+          275
+        ],
+        "sourceSha256": "082912e542b52c2b04e8f1ab2d50628279b8f5ce1e90ac9d8a31639cbc787135",
+        "sourcePixelSha256": "bdd6cabd4a634bc903438b332f25921c6508e368a779d7983bfbd8b6f9ae0b08",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-S-v2.png",
+        "bankSourceSha256": "e306ad6b3bca732fd6999df78b0c99f67cdd1458aca503273bdc2f4b6de5d0b3",
+        "bankSourceRect": [
+          713,
+          909,
+          132,
+          275
+        ],
+        "proximalPx": [
+          77,
+          75
+        ],
+        "distalPx": [
+          67,
+          254
+        ],
+        "anchorPx": [
+          77,
+          75
+        ],
+        "jointSemantics": [
+          "knee",
+          "ankle"
+        ],
+        "uncertaintyPixels": 8,
+        "bankSourceProximalPx": [
+          790,
+          984
+        ],
+        "bankSourceDistalPx": [
+          780,
+          1163
+        ],
+        "bindScale": 0.06818181818181818,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "right_shin",
+          "nominalPixels": 9,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "left_hand": {
+        "file": "Pieces/S-left_hand.png",
+        "sourceSize": [
+          186,
+          166
+        ],
+        "sourceSha256": "3a1d0b68767da8f85ffeb705b9c42f71783604be74f14341b5f1684e9cc62ed1",
+        "sourcePixelSha256": "093934f84e1268b41ffbe05d5421d69bdeb587796ca6756194d69c218fa3ec65",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-S-v2.png",
+        "bankSourceSha256": "e306ad6b3bca732fd6999df78b0c99f67cdd1458aca503273bdc2f4b6de5d0b3",
+        "bankSourceRect": [
+          691,
+          427,
+          186,
+          166
+        ],
+        "proximalPx": [
+          30,
+          36
+        ],
+        "distalPx": null,
+        "anchorPx": [
+          30,
+          36
+        ],
+        "jointSemantics": [
+          "wrist",
+          null
+        ],
+        "uncertaintyPixels": 4,
+        "bankSourceProximalPx": [
+          721,
+          463
+        ],
+        "bankSourceDistalPx": null,
+        "bindScale": 0.03313253012048193,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "left_hand",
+          "nominalPixels": 5.5,
+          "axis": "height",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "right_hand": {
+        "file": "Pieces/S-right_hand.png",
+        "sourceSize": [
+          213,
+          137
+        ],
+        "sourceSha256": "beff101a7fe44cf863748c2829c8c7ca3d4747af43baa3e1d82e678b8af7e7d4",
+        "sourcePixelSha256": "2e03d41074a2c8b4c46754b0a8dc2a8768a5b86293d2347b1e14f00ecb4f0246",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-S-v2.png",
+        "bankSourceSha256": "e306ad6b3bca732fd6999df78b0c99f67cdd1458aca503273bdc2f4b6de5d0b3",
+        "bankSourceRect": [
+          372,
+          710,
+          213,
+          137
+        ],
+        "proximalPx": [
+          24,
+          43
+        ],
+        "distalPx": null,
+        "anchorPx": [
+          24,
+          43
+        ],
+        "jointSemantics": [
+          "wrist",
+          null
+        ],
+        "uncertaintyPixels": 4,
+        "bankSourceProximalPx": [
+          396,
+          753
+        ],
+        "bankSourceDistalPx": null,
+        "bindScale": 0.040145985401459854,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "right_hand",
+          "nominalPixels": 5.5,
+          "axis": "height",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "torso": {
+        "file": "Pieces/S-torso.png",
+        "sourceSize": [
+          270,
+          265
+        ],
+        "sourceSha256": "b98f9809e5b409496438497031f8ab1d6a37b4d64fd4f42e5da7ec22bf72d7b7",
+        "anchorPx": [
+          137,
+          30
+        ],
+        "proximalPx": [
+          137,
+          30
+        ],
+        "distalPx": [
+          133,
+          240
+        ],
+        "uncertaintyPixels": 4,
+        "waistPx": [
+          133,
+          240
+        ],
+        "leftShoulderPx": [
+          231,
+          86
+        ],
+        "rightShoulderPx": [
+          39,
+          86
+        ],
+        "bindScale": 0.09259259259259259,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "torso",
+          "nominalPixels": 25,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "pelvis": {
+        "file": "Pieces/S-pelvis.png",
+        "sourceSize": [
+          264,
+          220
+        ],
+        "sourceSha256": "c9050c339d983a66c78b18ba76fb6a35614391363fd5b2b57bbff9cb652ec9b5",
+        "anchorPx": [
+          129,
+          192
+        ],
+        "proximalPx": [
+          129,
+          192
+        ],
+        "distalPx": null,
+        "uncertaintyPixels": 4,
+        "waistPx": [
+          132,
+          108
+        ],
+        "leftHipPx": [
+          188,
+          193
+        ],
+        "rightHipPx": [
+          70,
+          191
+        ],
+        "bindScale": 0.05303030303030303,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "pelvis",
+          "nominalPixels": 14,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      }
+    },
+    "SE": {
+      "head": {
+        "file": "Pieces/SE-head.png",
+        "sourceSize": [
+          174,
+          193
+        ],
+        "sourceSha256": "90b7aa0ab62e33afe86b91fa8aaaebd8b9f4c731740f1f70aa30f133ac16dd9d",
+        "proximalPx": [
+          77,
+          173
+        ],
+        "distalPx": [
+          100,
+          65
+        ],
+        "anchorPx": [
+          77,
+          173
+        ],
+        "cranialCentrePx": [
+          100,
+          65
+        ],
+        "annotation": "Manual anatomical landmarks: lower cervical collar socket, helmet/cranium volume centre, plus headVolumeCentrePx for full-piece mass centre. Complete original bitmap unchanged.",
+        "sourcePixelAlpha": {
+          "neck": 253,
+          "cranialCentre": 252
+        },
+        "headVolumeCentrePx": [
+          100,
+          86
+        ],
+        "uprightCervicalPx": [
+          77,
+          173
+        ],
+        "pronePosteriorCervicalPx": [
+          48,
+          47
+        ],
+        "posteriorSourceAlpha": 252,
+        "naturalProneReference": {
+          "cervicalSourcePx": [
+            271,
+            265
+          ],
+          "cranialSourcePx": [
+            294,
+            273
+          ],
+          "meaning": "Posterior projection is upper-left behind cranial volume.",
+          "file": "Sources/OperativeProneAimFire-SE-v1.png",
+          "frameSourceRect": [
+            0,
+            0,
+            384,
+            512
+          ],
+          "sourceSha256": "2c4205c67710bae17dbae3605238f76d8cce54d453b433af555951157c2afcfc",
+          "coordinateUncertaintyPixels": 12
+        },
+        "bindScale": 0.08045977011494253,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "head",
+          "nominalPixels": 14,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "backpack": {
+        "file": "Pieces/SE-backpack.png",
+        "sourceSize": [
+          217,
+          233
+        ],
+        "sourceSha256": "c50f4edc1feca01526206d0ff518fd53ff0797b1d8b51e9ca6f34f58c9afd8db",
+        "sourceRgbaSha256": "62b14120547a6113e496afde47ae767e918c8e2a1f2dfef5ba259dc3589bc117",
+        "anchorPx": [
+          92,
+          147
+        ],
+        "centrePx": [
+          92,
+          147
+        ],
+        "proximalPx": [
+          102,
+          211
+        ],
+        "distalPx": [
+          91,
+          77
+        ],
+        "attachmentPx": [
+          139,
+          120
+        ],
+        "recommendedUniformScale": 0.07373271889400922,
+        "annotation": "Complete original pack, anchor=main pouch volume centre for existing backpackJoint semantic; proximal/distal are lower/upper core body axis, not radio antenna or carry handle. attachmentPx annotates backpanel/strap connection separately and can be inside a real open loop. No source pixels removed or recoloured.",
+        "alphaAtLandmarks": {
+          "centre": 253,
+          "lowerCore": 253,
+          "upperCore": 253,
+          "strapAttachment": 253
+        },
+        "bindScale": 0.07373271889400922,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "backpack",
+          "nominalPixels": 16,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "left_upper_arm": {
+        "file": "Pieces/SE-left_upper_arm.png",
+        "sourceSize": [
+          129,
+          213
+        ],
+        "sourceSha256": "d7901899a66a19418c38dd78372dee770f1d00e08fdafde185b20bfc4ca5785c",
+        "sourcePixelSha256": "24ff32606e876ee051989a726aa5849bc9e35fc9a3fc18c07504306e94d1b157",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-SE-v3.png",
+        "bankSourceSize": [
+          1536,
+          1024
+        ],
+        "bankSourceSha256": "44b0f0d8fab594d6e562963f88d6d68b4080345c71b23aaae53e8a65a0889a7c",
+        "bankSourceRect": [
+          154,
+          293,
+          129,
+          213
+        ],
+        "proximalPx": [
+          77,
+          49
+        ],
+        "distalPx": [
+          105,
+          189
+        ],
+        "anchorPx": [
+          77,
+          49
+        ],
+        "bankSourceProximalPx": [
+          231,
+          342
+        ],
+        "bankSourceDistalPx": [
+          259,
+          482
+        ],
+        "jointSemantics": [
+          "shoulder",
+          "elbow"
+        ],
+        "uncertaintyPixels": 6,
+        "embeddedHand": false,
+        "bindScale": 0.06201550387596899,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "left_upper_arm",
+          "nominalPixels": 8,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "left_forearm": {
+        "file": "Pieces/SE-left_forearm.png",
+        "sourceSize": [
+          145,
+          181
+        ],
+        "sourceSha256": "084da97ce953ca548c3c61a7f588cace2c4744623881e81ed8a0a90821fb3b28",
+        "sourcePixelSha256": "3dd766ad91cfc744f12b4935e176cceea367bc2170062de9186369c6f5c91a3b",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-SE-v3.png",
+        "bankSourceSize": [
+          1536,
+          1024
+        ],
+        "bankSourceSha256": "44b0f0d8fab594d6e562963f88d6d68b4080345c71b23aaae53e8a65a0889a7c",
+        "bankSourceRect": [
+          526,
+          303,
+          145,
+          181
+        ],
+        "proximalPx": [
+          38,
+          25
+        ],
+        "distalPx": [
+          121,
+          155
+        ],
+        "anchorPx": [
+          38,
+          25
+        ],
+        "bankSourceProximalPx": [
+          564,
+          328
+        ],
+        "bankSourceDistalPx": [
+          647,
+          458
+        ],
+        "jointSemantics": [
+          "elbow",
+          "wrist"
+        ],
+        "uncertaintyPixels": 3,
+        "embeddedHand": false,
+        "bindScale": 0.05172413793103448,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "left_forearm",
+          "nominalPixels": 7.5,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "right_upper_arm": {
+        "file": "Pieces/SE-right_upper_arm.png",
+        "sourceSize": [
+          153,
+          208
+        ],
+        "sourceSha256": "87cb85620299790bb53fe09b08d10e28c9b47c74f66ee91423d718423bee6395",
+        "sourcePixelSha256": "e66608feaa9d59bf68b6b6c85b09e0eca692ede9a1d12a0df13b25220c7d1ffb",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-SE-v3.png",
+        "bankSourceSize": [
+          1536,
+          1024
+        ],
+        "bankSourceSha256": "44b0f0d8fab594d6e562963f88d6d68b4080345c71b23aaae53e8a65a0889a7c",
+        "bankSourceRect": [
+          1290,
+          288,
+          153,
+          208
+        ],
+        "proximalPx": [
+          68,
+          42
+        ],
+        "distalPx": [
+          104,
+          188
+        ],
+        "anchorPx": [
+          68,
+          42
+        ],
+        "bankSourceProximalPx": [
+          1358,
+          330
+        ],
+        "bankSourceDistalPx": [
+          1394,
+          476
+        ],
+        "jointSemantics": [
+          "shoulder",
+          "elbow"
+        ],
+        "uncertaintyPixels": 6,
+        "embeddedHand": false,
+        "bindScale": 0.05228758169934641,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "right_upper_arm",
+          "nominalPixels": 8,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "right_forearm": {
+        "file": "Pieces/SE-right_forearm.png",
+        "sourceSize": [
+          155,
+          196
+        ],
+        "sourceSha256": "344fac204aec400de36601f8b22345020ac5804f2751bf196b47c03babc8f0ec",
+        "sourcePixelSha256": "73208df562c03e26b4bb85dd9c9067c82c67a60b888f70a803520ada20dbb2e3",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-SE-v3.png",
+        "bankSourceSize": [
+          1536,
+          1024
+        ],
+        "bankSourceSha256": "44b0f0d8fab594d6e562963f88d6d68b4080345c71b23aaae53e8a65a0889a7c",
+        "bankSourceRect": [
+          145,
+          528,
+          155,
+          196
+        ],
+        "proximalPx": [
+          114,
+          26
+        ],
+        "distalPx": [
+          38,
+          172
+        ],
+        "anchorPx": [
+          114,
+          26
+        ],
+        "bankSourceProximalPx": [
+          259,
+          554
+        ],
+        "bankSourceDistalPx": [
+          183,
+          700
+        ],
+        "jointSemantics": [
+          "elbow",
+          "wrist"
+        ],
+        "uncertaintyPixels": 3,
+        "embeddedHand": false,
+        "bindScale": 0.04838709677419355,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "right_forearm",
+          "nominalPixels": 7.5,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "left_boot": {
+        "file": "Pieces/SE-left_boot.png",
+        "sourceSize": [
+          173,
+          172
+        ],
+        "sourceSha256": "2f381324dc5ee70dba3f564647089f8c1133fcd49e7a1af9529b4dc38640dc32",
+        "sourcePixelSha256": "ebe969a05e0c03e8c676b1d84d14ae8a7ad31ec2ac2612953a2b0e390833cd6f",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-SE-v3.png",
+        "bankSourceSize": [
+          1536,
+          1024
+        ],
+        "bankSourceSha256": "44b0f0d8fab594d6e562963f88d6d68b4080345c71b23aaae53e8a65a0889a7c",
+        "bankSourceRect": [
+          139,
+          784,
+          173,
+          172
+        ],
+        "proximalPx": [
+          52,
+          91
+        ],
+        "distalPx": [
+          128,
+          124
+        ],
+        "anchorPx": [
+          52,
+          91
+        ],
+        "bankSourceProximalPx": [
+          191,
+          875
+        ],
+        "bankSourceDistalPx": [
+          267,
+          908
+        ],
+        "jointSemantics": [
+          "ankle",
+          "forefoot"
+        ],
+        "uncertaintyPixels": 10,
+        "embeddedHand": false,
+        "topAttachmentPx": [
+          63,
+          22
+        ],
+        "toeTipPx": [
+          164,
+          128
+        ],
+        "bindScale": 0.05202312138728324,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "left_boot",
+          "nominalPixels": 9,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "right_boot": {
+        "file": "Pieces/SE-right_boot.png",
+        "sourceSize": [
+          170,
+          173
+        ],
+        "sourceSha256": "51035695122e6296cb850d71985be5b11e50c8696a0720e22d26840c8bd74a40",
+        "sourcePixelSha256": "0199db7eea31950d1b28168de4d998176050e8a38afd15bfddaf9068a90ea303",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-SE-v3.png",
+        "bankSourceSize": [
+          1536,
+          1024
+        ],
+        "bankSourceSha256": "44b0f0d8fab594d6e562963f88d6d68b4080345c71b23aaae53e8a65a0889a7c",
+        "bankSourceRect": [
+          1280,
+          788,
+          170,
+          173
+        ],
+        "proximalPx": [
+          52,
+          90
+        ],
+        "distalPx": [
+          127,
+          129
+        ],
+        "anchorPx": [
+          52,
+          90
+        ],
+        "bankSourceProximalPx": [
+          1332,
+          878
+        ],
+        "bankSourceDistalPx": [
+          1407,
+          917
+        ],
+        "jointSemantics": [
+          "ankle",
+          "forefoot"
+        ],
+        "uncertaintyPixels": 10,
+        "embeddedHand": false,
+        "topAttachmentPx": [
+          59,
+          24
+        ],
+        "toeTipPx": [
+          160,
+          133
+        ],
+        "bindScale": 0.052941176470588235,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "right_boot",
+          "nominalPixels": 9,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "left_thigh": {
+        "file": "Pieces/SE-left_thigh.png",
+        "sourceSize": [
+          148,
+          223
+        ],
+        "sourceSha256": "cec54f75fb8aaaea112e04d856a5114ffe8c30bc6590bad6d0b6d5f47cb1428c",
+        "sourcePixelSha256": "d88da122feb34f8910594c9fb2443383eddedd00adaa42ecff463fb2bead5b59",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-SE-v3.png",
+        "bankSourceSha256": "44b0f0d8fab594d6e562963f88d6d68b4080345c71b23aaae53e8a65a0889a7c",
+        "bankSourceRect": [
+          901,
+          510,
+          148,
+          223
+        ],
+        "proximalPx": [
+          69,
+          23
+        ],
+        "distalPx": [
+          100,
+          185
+        ],
+        "anchorPx": [
+          69,
+          23
+        ],
+        "jointSemantics": [
+          "hip",
+          "knee"
+        ],
+        "uncertaintyPixels": 8,
+        "bankSourceProximalPx": [
+          970,
+          533
+        ],
+        "bankSourceDistalPx": [
+          1001,
+          695
+        ],
+        "embeddedWeapon": false,
+        "bindScale": 0.06756756756756757,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "left_thigh",
+          "nominalPixels": 10,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "left_shin": {
+        "file": "Pieces/SE-left_shin.png",
+        "sourceSize": [
+          116,
+          210
+        ],
+        "sourceSha256": "578f3f798e369f49aad5629b36982ec7a1e7c06c36dca74e79b4f1c922573838",
+        "sourcePixelSha256": "6197d30ff37ab665b31875244fa8ea916450ec70e5d1b42eca52540a5293d874",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-SE-v3.png",
+        "bankSourceSha256": "44b0f0d8fab594d6e562963f88d6d68b4080345c71b23aaae53e8a65a0889a7c",
+        "bankSourceRect": [
+          1295,
+          512,
+          116,
+          210
+        ],
+        "proximalPx": [
+          78,
+          89
+        ],
+        "distalPx": [
+          54,
+          191
+        ],
+        "anchorPx": [
+          78,
+          89
+        ],
+        "jointSemantics": [
+          "knee",
+          "ankle"
+        ],
+        "uncertaintyPixels": 8,
+        "bankSourceProximalPx": [
+          1373,
+          601
+        ],
+        "bankSourceDistalPx": [
+          1349,
+          703
+        ],
+        "embeddedWeapon": false,
+        "bindScale": 0.07758620689655173,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "left_shin",
+          "nominalPixels": 9,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "right_thigh": {
+        "file": "Pieces/SE-right_thigh.png",
+        "sourceSize": [
+          170,
+          235
+        ],
+        "sourceSha256": "b9e749748f35ec4eecb0e83f289f5d1db38237d9d94258f73d4388ca4ada9ea7",
+        "sourcePixelSha256": "1ed267e664b3a4f606de45234318e24bf0483986feb9d8053b1b2c8fa8b26190",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-SE-v3.png",
+        "bankSourceSha256": "44b0f0d8fab594d6e562963f88d6d68b4080345c71b23aaae53e8a65a0889a7c",
+        "bankSourceRect": [
+          509,
+          727,
+          170,
+          235
+        ],
+        "proximalPx": [
+          96,
+          24
+        ],
+        "distalPx": [
+          115,
+          204
+        ],
+        "anchorPx": [
+          96,
+          24
+        ],
+        "jointSemantics": [
+          "hip",
+          "knee"
+        ],
+        "uncertaintyPixels": 8,
+        "bankSourceProximalPx": [
+          605,
+          751
+        ],
+        "bankSourceDistalPx": [
+          624,
+          931
+        ],
+        "embeddedWeapon": false,
+        "bindScale": 0.058823529411764705,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "right_thigh",
+          "nominalPixels": 10,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "right_shin": {
+        "file": "Pieces/SE-right_shin.png",
+        "sourceSize": [
+          130,
+          214
+        ],
+        "sourceSha256": "7dc3fdc9fc67c1a51656a7293b5a3331e2032e73285fddc4322cdbaa52872d5e",
+        "sourcePixelSha256": "6aa62d1f112cae7ae1664c14d83608557c666aeda15e0f70d20b168f136aab42",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-SE-v3.png",
+        "bankSourceSha256": "44b0f0d8fab594d6e562963f88d6d68b4080345c71b23aaae53e8a65a0889a7c",
+        "bankSourceRect": [
+          898,
+          741,
+          130,
+          214
+        ],
+        "proximalPx": [
+          84,
+          82
+        ],
+        "distalPx": [
+          52,
+          195
+        ],
+        "anchorPx": [
+          84,
+          82
+        ],
+        "jointSemantics": [
+          "knee",
+          "ankle"
+        ],
+        "uncertaintyPixels": 8,
+        "bankSourceProximalPx": [
+          982,
+          823
+        ],
+        "bankSourceDistalPx": [
+          950,
+          936
+        ],
+        "embeddedWeapon": false,
+        "bindScale": 0.06923076923076923,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "right_shin",
+          "nominalPixels": 9,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "left_hand": {
+        "file": "Pieces/SE-left_hand.png",
+        "sourceSize": [
+          144,
+          118
+        ],
+        "sourceSha256": "31995d8bb034c0bf195517109cebc0f762c83f7857c75aa0fe19fe75c55d2713",
+        "sourcePixelSha256": "b1e3d5027630d5c7998c83f52713eba056dd81d3c46e09b8c3e83e86069099ad",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-SE-v3.png",
+        "bankSourceSha256": "44b0f0d8fab594d6e562963f88d6d68b4080345c71b23aaae53e8a65a0889a7c",
+        "bankSourceRect": [
+          893,
+          350,
+          144,
+          118
+        ],
+        "proximalPx": [
+          33,
+          34
+        ],
+        "distalPx": null,
+        "anchorPx": [
+          33,
+          34
+        ],
+        "jointSemantics": [
+          "wrist",
+          null
+        ],
+        "uncertaintyPixels": 4,
+        "bankSourceProximalPx": [
+          926,
+          384
+        ],
+        "bankSourceDistalPx": null,
+        "embeddedWeapon": false,
+        "bindScale": 0.046610169491525424,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "left_hand",
+          "nominalPixels": 5.5,
+          "axis": "height",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "right_hand": {
+        "file": "Pieces/SE-right_hand.png",
+        "sourceSize": [
+          155,
+          113
+        ],
+        "sourceSha256": "07c0d9642a3344b9d1191f1c72212e624193d70db83230eeb65272b515929e28",
+        "sourcePixelSha256": "53a04a7a5dcede5afc60b6b70c92448ce5eff962aa49c7343cef5ebce3ae8c7b",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-SE-v3.png",
+        "bankSourceSha256": "44b0f0d8fab594d6e562963f88d6d68b4080345c71b23aaae53e8a65a0889a7c",
+        "bankSourceRect": [
+          527,
+          578,
+          155,
+          113
+        ],
+        "proximalPx": [
+          29,
+          32
+        ],
+        "distalPx": null,
+        "anchorPx": [
+          29,
+          32
+        ],
+        "jointSemantics": [
+          "wrist",
+          null
+        ],
+        "uncertaintyPixels": 4,
+        "bankSourceProximalPx": [
+          556,
+          610
+        ],
+        "bankSourceDistalPx": null,
+        "embeddedWeapon": false,
+        "bindScale": 0.048672566371681415,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "right_hand",
+          "nominalPixels": 5.5,
+          "axis": "height",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "torso": {
+        "file": "Pieces/SE-torso.png",
+        "sourceSize": [
+          256,
+          198
+        ],
+        "sourceSha256": "b841694ca292ebef3531f045e1d195edb75c06d10781739e766b9417bdf69844",
+        "anchorPx": [
+          136,
+          30
+        ],
+        "proximalPx": [
+          136,
+          30
+        ],
+        "distalPx": [
+          149,
+          176
+        ],
+        "uncertaintyPixels": 4,
+        "waistPx": [
+          149,
+          176
+        ],
+        "leftShoulderPx": [
+          225,
+          62
+        ],
+        "rightShoulderPx": [
+          42,
+          106
+        ],
+        "bindScale": 0.0859375,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "torso",
+          "nominalPixels": 22,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "pelvis": {
+        "file": "Pieces/SE-pelvis.png",
+        "sourceSize": [
+          214,
+          148
+        ],
+        "sourceSha256": "2cdc2ec6df5d010a1de25d257f4f683aa37bbe329ce9cbd03c9632c9b406e2b0",
+        "anchorPx": [
+          111.5,
+          119
+        ],
+        "proximalPx": [
+          111.5,
+          119
+        ],
+        "distalPx": null,
+        "uncertaintyPixels": 4,
+        "waistPx": [
+          105,
+          61
+        ],
+        "leftHipPx": [
+          160,
+          116
+        ],
+        "rightHipPx": [
+          63,
+          122
+        ],
+        "bindScale": 0.06542056074766354,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "pelvis",
+          "nominalPixels": 14,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      }
+    },
+    "E": {
+      "head": {
+        "file": "Pieces/E-head.png",
+        "sourceSize": [
+          211,
+          231
+        ],
+        "sourceSha256": "2ae71a924fa87eaeb389b494052f47d4f9f40604dbca860bd2cf070bdadaa974",
+        "proximalPx": [
+          80,
+          209
+        ],
+        "distalPx": [
+          111,
+          62
+        ],
+        "anchorPx": [
+          80,
+          209
+        ],
+        "cranialCentrePx": [
+          111,
+          62
+        ],
+        "annotation": "Manual anatomical landmarks: lower cervical collar socket, helmet/cranium volume centre, plus headVolumeCentrePx for full-piece mass centre. Complete original bitmap unchanged.",
+        "sourcePixelAlpha": {
+          "neck": 251,
+          "cranialCentre": 253
+        },
+        "headVolumeCentrePx": [
+          111,
+          100
+        ],
+        "uprightCervicalPx": [
+          80,
+          209
+        ],
+        "pronePosteriorCervicalPx": [
+          80,
+          209
+        ],
+        "posteriorSourceAlpha": 251,
+        "naturalProneReference": {
+          "cervicalSourcePx": [
+            264,
+            306
+          ],
+          "cranialSourcePx": [
+            289,
+            267
+          ],
+          "meaning": "Lateral upright helmet; cervical at rear/lower neck, not rotation with horizontal torso.",
+          "file": "Sources/OperativeProneAimFire-E-v1.png",
+          "frameSourceRect": [
+            0,
+            0,
+            384,
+            512
+          ],
+          "sourceSha256": "41038c91e0a1df6e8f4e603ef6390bb408644ae22645c5ee158fe7b634643c5b",
+          "coordinateUncertaintyPixels": 12
+        },
+        "bindScale": 0.06635071090047394,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "head",
+          "nominalPixels": 14,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "backpack": {
+        "file": "Pieces/E-backpack.png",
+        "sourceSize": [
+          214,
+          275
+        ],
+        "sourceSha256": "d0c0f9bb9953a2a9797f92b386fd37a665f9be8d22faf0888a732d7d5e765586",
+        "sourceRgbaSha256": "685ddbda255617662aa844724a7dc1ec0ba2a13ebc863ea88ffbafa3001291d9",
+        "anchorPx": [
+          66,
+          162
+        ],
+        "centrePx": [
+          66,
+          162
+        ],
+        "proximalPx": [
+          69,
+          243
+        ],
+        "distalPx": [
+          56,
+          97
+        ],
+        "attachmentPx": [
+          129,
+          140
+        ],
+        "recommendedUniformScale": 0.07476635514018691,
+        "annotation": "Complete original pack, anchor=main pouch volume centre for existing backpackJoint semantic; proximal/distal are lower/upper core body axis, not radio antenna or carry handle. attachmentPx annotates backpanel/strap connection separately and can be inside a real open loop. No source pixels removed or recoloured.",
+        "alphaAtLandmarks": {
+          "centre": 253,
+          "lowerCore": 252,
+          "upperCore": 253,
+          "strapAttachment": 0
+        },
+        "bindScale": 0.07476635514018691,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "backpack",
+          "nominalPixels": 16,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "left_upper_arm": {
+        "file": "Pieces/E-left_upper_arm.png",
+        "sourceSize": [
+          162,
+          248
+        ],
+        "sourceSha256": "91ca15ebb13c0e0d3bb11ab4b35d83e8f5203e576675642aa20d2881b89025cb",
+        "sourcePixelSha256": "2a1c83677ef17428c10a46c7d3271c7f03da1d1744911332246c358879b06bbb",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-E-v3.png",
+        "bankSourceSha256": "5097dd60b82088fa81e5a139943ef12b9c8bc9cb9f9a208e00ac9ba5999f29f9",
+        "bankSourceRect": [
+          85,
+          372,
+          162,
+          248
+        ],
+        "proximalPx": [
+          38,
+          29
+        ],
+        "distalPx": [
+          128,
+          220
+        ],
+        "anchorPx": [
+          38,
+          29
+        ],
+        "bankSourceProximalPx": [
+          123,
+          401
+        ],
+        "bankSourceDistalPx": [
+          213,
+          592
+        ],
+        "jointSemantics": [
+          "shoulder",
+          "elbow"
+        ],
+        "uncertaintyPixels": 3,
+        "embeddedHand": false,
+        "bindScale": 0.04938271604938271,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "left_upper_arm",
+          "nominalPixels": 8,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "left_forearm": {
+        "file": "Pieces/E-left_forearm.png",
+        "sourceSize": [
+          215,
+          272
+        ],
+        "sourceSha256": "c9ea5ecebbe0e19e3151702788725f79d2284fdbb0b7f1b6dd784ca039186a9c",
+        "sourcePixelSha256": "6d80e9918e687f55db9f160daf044b5c44599d4dbaf241173c706414d87fb274",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-E-v3.png",
+        "bankSourceSha256": "5097dd60b82088fa81e5a139943ef12b9c8bc9cb9f9a208e00ac9ba5999f29f9",
+        "bankSourceRect": [
+          372,
+          364,
+          215,
+          272
+        ],
+        "proximalPx": [
+          44,
+          28
+        ],
+        "distalPx": [
+          145,
+          185
+        ],
+        "anchorPx": [
+          44,
+          28
+        ],
+        "bankSourceProximalPx": [
+          416,
+          392
+        ],
+        "bankSourceDistalPx": [
+          517,
+          549
+        ],
+        "jointSemantics": [
+          "elbow",
+          "wrist"
+        ],
+        "uncertaintyPixels": 5,
+        "embeddedHand": true,
+        "bindScale": 0.03488372093023256,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "left_forearm",
+          "nominalPixels": 7.5,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "right_upper_arm": {
+        "file": "Pieces/E-right_upper_arm.png",
+        "sourceSize": [
+          165,
+          249
+        ],
+        "sourceSha256": "439cfd651b81874cad2e60c28a6660f2ba53351fa3f7f7e1f3394df7d4dc4647",
+        "sourcePixelSha256": "771263d55b3bd47c8f1e81286a711d1cc4bbcb5fdc640fc270298db9ddb99d4d",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-E-v3.png",
+        "bankSourceSha256": "5097dd60b82088fa81e5a139943ef12b9c8bc9cb9f9a208e00ac9ba5999f29f9",
+        "bankSourceRect": [
+          1014,
+          371,
+          165,
+          249
+        ],
+        "proximalPx": [
+          124,
+          29
+        ],
+        "distalPx": [
+          39,
+          222
+        ],
+        "anchorPx": [
+          124,
+          29
+        ],
+        "bankSourceProximalPx": [
+          1138,
+          400
+        ],
+        "bankSourceDistalPx": [
+          1053,
+          593
+        ],
+        "jointSemantics": [
+          "shoulder",
+          "elbow"
+        ],
+        "uncertaintyPixels": 3,
+        "embeddedHand": false,
+        "bindScale": 0.048484848484848485,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "right_upper_arm",
+          "nominalPixels": 8,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "right_forearm": {
+        "file": "Pieces/E-right_forearm.png",
+        "sourceSize": [
+          202,
+          274
+        ],
+        "sourceSha256": "808e5c251e44daec6341a8fad4b4ea7349af6eaf142cee3f91b7f3c0824a975a",
+        "sourcePixelSha256": "94fafc2587b728a6bdfaec08a49540dacde76dac3e9cbf59a435c0a9f9d35da6",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-E-v3.png",
+        "bankSourceSha256": "5097dd60b82088fa81e5a139943ef12b9c8bc9cb9f9a208e00ac9ba5999f29f9",
+        "bankSourceRect": [
+          67,
+          651,
+          202,
+          274
+        ],
+        "proximalPx": [
+          160,
+          29
+        ],
+        "distalPx": [
+          66,
+          190
+        ],
+        "anchorPx": [
+          160,
+          29
+        ],
+        "bankSourceProximalPx": [
+          227,
+          680
+        ],
+        "bankSourceDistalPx": [
+          133,
+          841
+        ],
+        "jointSemantics": [
+          "elbow",
+          "wrist"
+        ],
+        "uncertaintyPixels": 5,
+        "embeddedHand": true,
+        "bindScale": 0.03712871287128713,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "right_forearm",
+          "nominalPixels": 7.5,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "left_boot": {
+        "file": "Pieces/E-left_boot.png",
+        "sourceSize": [
+          196,
+          174
+        ],
+        "sourceSha256": "13c6c3ab918798c6beb4976fd55e1260216248383083121f63e8e1f21860487e",
+        "sourcePixelSha256": "a5b0c09120d4534c69f9b06cc48e266f7cf854951913b1c5d0a52e0275761f11",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-E-v3.png",
+        "bankSourceSha256": "5097dd60b82088fa81e5a139943ef12b9c8bc9cb9f9a208e00ac9ba5999f29f9",
+        "bankSourceRect": [
+          73,
+          1015,
+          196,
+          174
+        ],
+        "proximalPx": [
+          48,
+          91
+        ],
+        "distalPx": [
+          146,
+          135
+        ],
+        "anchorPx": [
+          48,
+          91
+        ],
+        "bankSourceProximalPx": [
+          121,
+          1106
+        ],
+        "bankSourceDistalPx": [
+          219,
+          1150
+        ],
+        "jointSemantics": [
+          "ankle",
+          "forefoot"
+        ],
+        "uncertaintyPixels": 10,
+        "embeddedHand": false,
+        "topAttachmentPx": [
+          68,
+          18
+        ],
+        "toeTipPx": [
+          188,
+          137
+        ],
+        "bindScale": 0.04591836734693878,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "left_boot",
+          "nominalPixels": 9,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "right_boot": {
+        "file": "Pieces/E-right_boot.png",
+        "sourceSize": [
+          200,
+          190
+        ],
+        "sourceSha256": "3f4516dc65b21a95ac58d58ed8bf1b1f44744a611e85cc4cbcb47486b073eead",
+        "sourcePixelSha256": "e8ccc560290f73dbed026b42418f6f959b91c5d409750accafc7c53ec957ebff",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-E-v3.png",
+        "bankSourceSha256": "5097dd60b82088fa81e5a139943ef12b9c8bc9cb9f9a208e00ac9ba5999f29f9",
+        "bankSourceRect": [
+          1020,
+          1009,
+          200,
+          190
+        ],
+        "proximalPx": [
+          49,
+          104
+        ],
+        "distalPx": [
+          148,
+          151
+        ],
+        "anchorPx": [
+          49,
+          104
+        ],
+        "bankSourceProximalPx": [
+          1069,
+          1113
+        ],
+        "bankSourceDistalPx": [
+          1168,
+          1160
+        ],
+        "jointSemantics": [
+          "ankle",
+          "forefoot"
+        ],
+        "uncertaintyPixels": 10,
+        "embeddedHand": false,
+        "topAttachmentPx": [
+          61,
+          21
+        ],
+        "toeTipPx": [
+          192,
+          155
+        ],
+        "bindScale": 0.045,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "right_boot",
+          "nominalPixels": 9,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "left_thigh": {
+        "file": "Pieces/E-left_thigh.png",
+        "sourceSize": [
+          159,
+          270
+        ],
+        "sourceSha256": "bae700f748698c24424d8019bd4805f8d6117de59b0643924716a6d16d4ef888",
+        "sourcePixelSha256": "3abe29ad438f110fd2e34ad7be3f19efcb051de89062b624bedddf6e3d9e3973",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-E-v3.png",
+        "bankSourceSha256": "5097dd60b82088fa81e5a139943ef12b9c8bc9cb9f9a208e00ac9ba5999f29f9",
+        "bankSourceRect": [
+          733,
+          640,
+          159,
+          270
+        ],
+        "proximalPx": [
+          69,
+          21
+        ],
+        "distalPx": [
+          97,
+          225
+        ],
+        "anchorPx": [
+          69,
+          21
+        ],
+        "jointSemantics": [
+          "hip",
+          "knee"
+        ],
+        "uncertaintyPixels": 8,
+        "bankSourceProximalPx": [
+          802,
+          661
+        ],
+        "bankSourceDistalPx": [
+          830,
+          865
+        ],
+        "bindScale": 0.06289308176100629,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "left_thigh",
+          "nominalPixels": 10,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "left_shin": {
+        "file": "Pieces/E-left_shin.png",
+        "sourceSize": [
+          134,
+          276
+        ],
+        "sourceSha256": "7b64fa812eb178c674c4a739246425769c93d32a5e0a1a60e9905af098ea9c83",
+        "sourcePixelSha256": "7e142da7dc5bf790ca302eebd2af455d73bc7268e405a099dfb1e2a2c09fb4e9",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-E-v3.png",
+        "bankSourceSha256": "5097dd60b82088fa81e5a139943ef12b9c8bc9cb9f9a208e00ac9ba5999f29f9",
+        "bankSourceRect": [
+          1046,
+          638,
+          134,
+          276
+        ],
+        "proximalPx": [
+          78,
+          78
+        ],
+        "distalPx": [
+          56,
+          256
+        ],
+        "anchorPx": [
+          78,
+          78
+        ],
+        "jointSemantics": [
+          "knee",
+          "ankle"
+        ],
+        "uncertaintyPixels": 8,
+        "bankSourceProximalPx": [
+          1124,
+          716
+        ],
+        "bankSourceDistalPx": [
+          1102,
+          894
+        ],
+        "bindScale": 0.06716417910447761,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "left_shin",
+          "nominalPixels": 9,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "right_thigh": {
+        "file": "Pieces/E-right_thigh.png",
+        "sourceSize": [
+          156,
+          273
+        ],
+        "sourceSha256": "1fa2c14e5cc42a01aadb626f953e3effaebc82f017e5231ed7fd4a8d448f020d",
+        "sourcePixelSha256": "43c0888f7a6f01845cdd74a54c1876fa9c0531977e6d88f85a15ce5ea2b5fae6",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-E-v3.png",
+        "bankSourceSha256": "5097dd60b82088fa81e5a139943ef12b9c8bc9cb9f9a208e00ac9ba5999f29f9",
+        "bankSourceRect": [
+          395,
+          924,
+          156,
+          273
+        ],
+        "proximalPx": [
+          95,
+          22
+        ],
+        "distalPx": [
+          91,
+          229
+        ],
+        "anchorPx": [
+          95,
+          22
+        ],
+        "jointSemantics": [
+          "hip",
+          "knee"
+        ],
+        "uncertaintyPixels": 8,
+        "bankSourceProximalPx": [
+          490,
+          946
+        ],
+        "bankSourceDistalPx": [
+          486,
+          1153
+        ],
+        "bindScale": 0.0641025641025641,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "right_thigh",
+          "nominalPixels": 10,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "right_shin": {
+        "file": "Pieces/E-right_shin.png",
+        "sourceSize": [
+          142,
+          256
+        ],
+        "sourceSha256": "89d0fc9badee6020d49cdcc1a50f59d9e55799af5ee2f50a1b822f5e4ee30073",
+        "sourcePixelSha256": "3732b83da7483253c457cafe29f22325ec91c080897d5d4e91d102af50c0dfe1",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-E-v3.png",
+        "bankSourceSha256": "5097dd60b82088fa81e5a139943ef12b9c8bc9cb9f9a208e00ac9ba5999f29f9",
+        "bankSourceRect": [
+          734,
+          934,
+          142,
+          256
+        ],
+        "proximalPx": [
+          82,
+          65
+        ],
+        "distalPx": [
+          52,
+          235
+        ],
+        "anchorPx": [
+          82,
+          65
+        ],
+        "jointSemantics": [
+          "knee",
+          "ankle"
+        ],
+        "uncertaintyPixels": 8,
+        "bankSourceProximalPx": [
+          816,
+          999
+        ],
+        "bankSourceDistalPx": [
+          786,
+          1169
+        ],
+        "bindScale": 0.06338028169014084,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "right_shin",
+          "nominalPixels": 9,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "left_hand": {
+        "file": "Pieces/E-left_hand.png",
+        "sourceSize": [
+          171,
+          126
+        ],
+        "sourceSha256": "000a52280da9fc0c3f4231653485a29011ecce83fa472b0fd015172d40643868",
+        "sourcePixelSha256": "a3364b389b10238a15eb7c561a01caef792b61e328b8291b5b76f046ceefb03e",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-E-v3.png",
+        "bankSourceSha256": "5097dd60b82088fa81e5a139943ef12b9c8bc9cb9f9a208e00ac9ba5999f29f9",
+        "bankSourceRect": [
+          724,
+          456,
+          171,
+          126
+        ],
+        "proximalPx": [
+          20,
+          68
+        ],
+        "distalPx": null,
+        "anchorPx": [
+          20,
+          68
+        ],
+        "jointSemantics": [
+          "wrist",
+          null
+        ],
+        "uncertaintyPixels": 4,
+        "bankSourceProximalPx": [
+          744,
+          524
+        ],
+        "bankSourceDistalPx": null,
+        "bindScale": 0.04365079365079365,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "left_hand",
+          "nominalPixels": 5.5,
+          "axis": "height",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "right_hand": {
+        "file": "Pieces/E-right_hand.png",
+        "sourceSize": [
+          183,
+          123
+        ],
+        "sourceSha256": "324c8c99ccd041fbefe79934e0f7fab9344f28552e03e0cf7a311c9a66edaa7c",
+        "sourcePixelSha256": "72cb966be7c339b7c5ce596d6ad627e567b21b96d174aef2279bc176ae318f3a",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-E-v3.png",
+        "bankSourceSha256": "5097dd60b82088fa81e5a139943ef12b9c8bc9cb9f9a208e00ac9ba5999f29f9",
+        "bankSourceRect": [
+          397,
+          738,
+          183,
+          123
+        ],
+        "proximalPx": [
+          20,
+          65
+        ],
+        "distalPx": null,
+        "anchorPx": [
+          20,
+          65
+        ],
+        "jointSemantics": [
+          "wrist",
+          null
+        ],
+        "uncertaintyPixels": 4,
+        "bankSourceProximalPx": [
+          417,
+          803
+        ],
+        "bankSourceDistalPx": null,
+        "bindScale": 0.044715447154471545,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "right_hand",
+          "nominalPixels": 5.5,
+          "axis": "height",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "torso": {
+        "file": "Pieces/E-torso.png",
+        "sourceSize": [
+          204,
+          281
+        ],
+        "sourceSha256": "6481aa0a0e2cc167bf42bdf8d9674ec433206b6b3a913ebea4e3d327a307176a",
+        "anchorPx": [
+          93,
+          30
+        ],
+        "proximalPx": [
+          93,
+          30
+        ],
+        "distalPx": [
+          106,
+          254
+        ],
+        "uncertaintyPixels": 4,
+        "waistPx": [
+          106,
+          254
+        ],
+        "leftShoulderPx": [
+          68,
+          91
+        ],
+        "rightShoulderPx": [
+          83,
+          113
+        ],
+        "bindScale": 0.08823529411764706,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "torso",
+          "nominalPixels": 18,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "pelvis": {
+        "file": "Pieces/E-pelvis.png",
+        "sourceSize": [
+          202,
+          166
+        ],
+        "sourceSha256": "8ed520ce444ae65cd6af6b843433051b82e7076baebd5ec3944a24ea08bcde79",
+        "anchorPx": [
+          103,
+          132
+        ],
+        "proximalPx": [
+          103,
+          132
+        ],
+        "distalPx": null,
+        "uncertaintyPixels": 4,
+        "waistPx": [
+          106,
+          41
+        ],
+        "leftHipPx": [
+          103,
+          113
+        ],
+        "rightHipPx": [
+          103,
+          147
+        ],
+        "bindScale": 0.06930693069306931,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "pelvis",
+          "nominalPixels": 14,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      }
+    },
+    "NE": {
+      "head": {
+        "file": "Pieces/NE-head.png",
+        "sourceSize": [
+          187,
+          202
+        ],
+        "sourceSha256": "9c5da2064aef4de37d6db81e93e397b077c7fbc757a9406906ed339383d3311b",
+        "proximalPx": [
+          99,
+          179
+        ],
+        "distalPx": [
+          102,
+          70
+        ],
+        "anchorPx": [
+          99,
+          179
+        ],
+        "cranialCentrePx": [
+          102,
+          70
+        ],
+        "annotation": "Manual anatomical landmarks: lower cervical collar socket, helmet/cranium volume centre, plus headVolumeCentrePx for full-piece mass centre. Complete original bitmap unchanged.",
+        "sourcePixelAlpha": {
+          "neck": 248,
+          "cranialCentre": 253
+        },
+        "headVolumeCentrePx": [
+          102,
+          87
+        ],
+        "uprightCervicalPx": [
+          99,
+          179
+        ],
+        "pronePosteriorCervicalPx": [
+          99,
+          179
+        ],
+        "posteriorSourceAlpha": 248,
+        "naturalProneReference": {
+          "cervicalSourcePx": [
+            271,
+            190
+          ],
+          "cranialSourcePx": [
+            284,
+            159
+          ],
+          "meaning": "Rear-side nape below helmet remains visible.",
+          "file": "Sources/OperativeProneAimFire-NE-v1.png",
+          "frameSourceRect": [
+            0,
+            0,
+            384,
+            512
+          ],
+          "sourceSha256": "33b09b35cdc4792ad42c7b96e080a7ac410007600bdc563cc4e4e1aca3a7911b",
+          "coordinateUncertaintyPixels": 12
+        },
+        "bindScale": 0.0748663101604278,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "head",
+          "nominalPixels": 14,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "backpack": {
+        "file": "Pieces/NE-backpack.png",
+        "sourceSize": [
+          227,
+          222
+        ],
+        "sourceSha256": "a4164c97f7765e6efa86dcce184907bc9431e5d2022b96985083fd20d76f5307",
+        "sourceRgbaSha256": "2dd510fa66400b88bae250e5e1a3ac5e1da48607e3ad928a6ab8487685ae983c",
+        "anchorPx": [
+          100,
+          140
+        ],
+        "centrePx": [
+          100,
+          140
+        ],
+        "proximalPx": [
+          107,
+          206
+        ],
+        "distalPx": [
+          99,
+          83
+        ],
+        "attachmentPx": [
+          168,
+          110
+        ],
+        "recommendedUniformScale": 0.07048458149779736,
+        "annotation": "Complete original pack, anchor=main pouch volume centre for existing backpackJoint semantic; proximal/distal are lower/upper core body axis, not radio antenna or carry handle. attachmentPx annotates backpanel/strap connection separately and can be inside a real open loop. No source pixels removed or recoloured.",
+        "alphaAtLandmarks": {
+          "centre": 253,
+          "lowerCore": 252,
+          "upperCore": 253,
+          "strapAttachment": 253
+        },
+        "bindScale": 0.07048458149779736,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "backpack",
+          "nominalPixels": 16,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "left_upper_arm": {
+        "file": "Pieces/NE-left_upper_arm.png",
+        "sourceSize": [
+          159,
+          230
+        ],
+        "sourceSha256": "ef3bedfe1f97946d7ea3c62be83c98f960c993698de06a263b0f83ee85926e1d",
+        "sourcePixelSha256": "491452564ff9e84484f50e5977a0f856e82a7f4aac1703c684c279109c3807d1",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-NE-v2.png",
+        "bankSourceSize": [
+          1536,
+          1024
+        ],
+        "bankSourceSha256": "95ae8413b3e7542e9a95c477b3dd9ee819ebfacb365bb77365e8d498754960d6",
+        "bankSourceRect": [
+          185,
+          269,
+          159,
+          230
+        ],
+        "proximalPx": [
+          113,
+          37
+        ],
+        "distalPx": [
+          39,
+          206
+        ],
+        "anchorPx": [
+          113,
+          37
+        ],
+        "bankSourceProximalPx": [
+          298,
+          306
+        ],
+        "bankSourceDistalPx": [
+          224,
+          475
+        ],
+        "jointSemantics": [
+          "shoulder",
+          "elbow"
+        ],
+        "uncertaintyPixels": 6,
+        "embeddedHand": false,
+        "bindScale": 0.050314465408805034,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "left_upper_arm",
+          "nominalPixels": 8,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "left_forearm": {
+        "file": "Pieces/NE-left_forearm.png",
+        "sourceSize": [
+          148,
+          203
+        ],
+        "sourceSha256": "ffd063f9599c0121364a83b6b387cb0a87939c432fdcc524837168937a051141",
+        "sourcePixelSha256": "6e325f9e81eadc0188681c6e23db93b844dda80ab8548dd39a924e09c9c92883",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-NE-v2.png",
+        "bankSourceSize": [
+          1536,
+          1024
+        ],
+        "bankSourceSha256": "95ae8413b3e7542e9a95c477b3dd9ee819ebfacb365bb77365e8d498754960d6",
+        "bankSourceRect": [
+          542,
+          293,
+          148,
+          203
+        ],
+        "proximalPx": [
+          42,
+          25
+        ],
+        "distalPx": [
+          119,
+          179
+        ],
+        "anchorPx": [
+          42,
+          25
+        ],
+        "bankSourceProximalPx": [
+          584,
+          318
+        ],
+        "bankSourceDistalPx": [
+          661,
+          472
+        ],
+        "jointSemantics": [
+          "elbow",
+          "wrist"
+        ],
+        "uncertaintyPixels": 3,
+        "embeddedHand": false,
+        "bindScale": 0.05067567567567568,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "left_forearm",
+          "nominalPixels": 7.5,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "right_upper_arm": {
+        "file": "Pieces/NE-right_upper_arm.png",
+        "sourceSize": [
+          136,
+          205
+        ],
+        "sourceSha256": "57a5dfad7ba1685b8e72550134479682f0f9fbb32fe2f195d2b3b2986759b049",
+        "sourcePixelSha256": "241a706ac34684d95380dd5b9ed9d41f10b3ac1abb195008c3e6ff7d4f3fae8c",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-NE-v2.png",
+        "bankSourceSize": [
+          1536,
+          1024
+        ],
+        "bankSourceSha256": "95ae8413b3e7542e9a95c477b3dd9ee819ebfacb365bb77365e8d498754960d6",
+        "bankSourceRect": [
+          1257,
+          289,
+          136,
+          205
+        ],
+        "proximalPx": [
+          49,
+          33
+        ],
+        "distalPx": [
+          87,
+          182
+        ],
+        "anchorPx": [
+          49,
+          33
+        ],
+        "bankSourceProximalPx": [
+          1306,
+          322
+        ],
+        "bankSourceDistalPx": [
+          1344,
+          471
+        ],
+        "jointSemantics": [
+          "shoulder",
+          "elbow"
+        ],
+        "uncertaintyPixels": 6,
+        "embeddedHand": false,
+        "bindScale": 0.058823529411764705,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "right_upper_arm",
+          "nominalPixels": 8,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "right_forearm": {
+        "file": "Pieces/NE-right_forearm.png",
+        "sourceSize": [
+          146,
+          202
+        ],
+        "sourceSha256": "8dca9960ee58be327cc687a30a968ca359dc706dc24112db2e0bd64ef44867ea",
+        "sourcePixelSha256": "ce77617f40fb5b18786bc8b2e5e8b9b0322ebece5693585bf9c811c5904c1b41",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-NE-v2.png",
+        "bankSourceSize": [
+          1536,
+          1024
+        ],
+        "bankSourceSha256": "95ae8413b3e7542e9a95c477b3dd9ee819ebfacb365bb77365e8d498754960d6",
+        "bankSourceRect": [
+          164,
+          529,
+          146,
+          202
+        ],
+        "proximalPx": [
+          105,
+          26
+        ],
+        "distalPx": [
+          33,
+          178
+        ],
+        "anchorPx": [
+          105,
+          26
+        ],
+        "bankSourceProximalPx": [
+          269,
+          555
+        ],
+        "bankSourceDistalPx": [
+          197,
+          707
+        ],
+        "jointSemantics": [
+          "elbow",
+          "wrist"
+        ],
+        "uncertaintyPixels": 3,
+        "embeddedHand": false,
+        "bindScale": 0.05136986301369863,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "right_forearm",
+          "nominalPixels": 7.5,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "left_boot": {
+        "file": "Pieces/NE-left_boot.png",
+        "sourceSize": [
+          172,
+          176
+        ],
+        "sourceSha256": "57e33b8d2aa13d48a312b81d8ec694b7327cd9502910fe6de982ed30c19f9505",
+        "sourcePixelSha256": "e45044b37574bce4af07620699670ba50df80c7bc9e6acdc99b47a2b1f709567",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-NE-v2.png",
+        "bankSourceSize": [
+          1536,
+          1024
+        ],
+        "bankSourceSha256": "95ae8413b3e7542e9a95c477b3dd9ee819ebfacb365bb77365e8d498754960d6",
+        "bankSourceRect": [
+          156,
+          800,
+          172,
+          176
+        ],
+        "proximalPx": [
+          61,
+          101
+        ],
+        "distalPx": [
+          134,
+          118
+        ],
+        "anchorPx": [
+          61,
+          101
+        ],
+        "bankSourceProximalPx": [
+          217,
+          901
+        ],
+        "bankSourceDistalPx": [
+          290,
+          918
+        ],
+        "jointSemantics": [
+          "ankle",
+          "forefoot"
+        ],
+        "uncertaintyPixels": 10,
+        "embeddedHand": false,
+        "topAttachmentPx": [
+          51,
+          17
+        ],
+        "toeTipPx": [
+          166,
+          123
+        ],
+        "bindScale": 0.05232558139534884,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "left_boot",
+          "nominalPixels": 9,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "right_boot": {
+        "file": "Pieces/NE-right_boot.png",
+        "sourceSize": [
+          173,
+          186
+        ],
+        "sourceSha256": "7b7a79452e56407beda58ed01a2cff61440f03dd19ab35379312172bfe961f12",
+        "sourcePixelSha256": "884c95742c6f10bee6c15ee546a75349cc5ddc9024b2f5c4072a5d21bc3d53b9",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-NE-v2.png",
+        "bankSourceSize": [
+          1536,
+          1024
+        ],
+        "bankSourceSha256": "95ae8413b3e7542e9a95c477b3dd9ee819ebfacb365bb77365e8d498754960d6",
+        "bankSourceRect": [
+          1250,
+          787,
+          173,
+          186
+        ],
+        "proximalPx": [
+          58,
+          110
+        ],
+        "distalPx": [
+          137,
+          136
+        ],
+        "anchorPx": [
+          58,
+          110
+        ],
+        "bankSourceProximalPx": [
+          1308,
+          897
+        ],
+        "bankSourceDistalPx": [
+          1387,
+          923
+        ],
+        "jointSemantics": [
+          "ankle",
+          "forefoot"
+        ],
+        "uncertaintyPixels": 10,
+        "embeddedHand": false,
+        "topAttachmentPx": [
+          60,
+          18
+        ],
+        "toeTipPx": [
+          167,
+          137
+        ],
+        "bindScale": 0.05202312138728324,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "right_boot",
+          "nominalPixels": 9,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "left_thigh": {
+        "file": "Pieces/NE-left_thigh.png",
+        "sourceSize": [
+          145,
+          221
+        ],
+        "sourceSha256": "ff963eb110a7d289d0ecc9e9ca054f4ae24f3c608e0d782ddc752c194276efa3",
+        "sourcePixelSha256": "b99d8c1d1cd9d0f7af7747a8f8f573fed59705b411376c0de48c41791a160471",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-NE-v2.png",
+        "bankSourceSha256": "95ae8413b3e7542e9a95c477b3dd9ee819ebfacb365bb77365e8d498754960d6",
+        "bankSourceRect": [
+          880,
+          517,
+          145,
+          221
+        ],
+        "proximalPx": [
+          84,
+          24
+        ],
+        "distalPx": [
+          79,
+          190
+        ],
+        "anchorPx": [
+          84,
+          24
+        ],
+        "jointSemantics": [
+          "hip",
+          "knee"
+        ],
+        "uncertaintyPixels": 8,
+        "bankSourceProximalPx": [
+          964,
+          541
+        ],
+        "bankSourceDistalPx": [
+          959,
+          707
+        ],
+        "embeddedWeapon": false,
+        "bindScale": 0.06896551724137931,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "left_thigh",
+          "nominalPixels": 10,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "left_shin": {
+        "file": "Pieces/NE-left_shin.png",
+        "sourceSize": [
+          127,
+          223
+        ],
+        "sourceSha256": "cde70dda2d30e1f4446287fa8ea032826b11c07451118040eb83eacc16990213",
+        "sourcePixelSha256": "72b88ad626d98dad17771f8f360b0fefceed65956cdd6da52aa857d090e668e7",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-NE-v2.png",
+        "bankSourceSha256": "95ae8413b3e7542e9a95c477b3dd9ee819ebfacb365bb77365e8d498754960d6",
+        "bankSourceRect": [
+          1252,
+          511,
+          127,
+          223
+        ],
+        "proximalPx": [
+          79,
+          62
+        ],
+        "distalPx": [
+          47,
+          203
+        ],
+        "anchorPx": [
+          79,
+          62
+        ],
+        "jointSemantics": [
+          "knee",
+          "ankle"
+        ],
+        "uncertaintyPixels": 8,
+        "bankSourceProximalPx": [
+          1331,
+          573
+        ],
+        "bankSourceDistalPx": [
+          1299,
+          714
+        ],
+        "embeddedWeapon": false,
+        "bindScale": 0.07086614173228346,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "left_shin",
+          "nominalPixels": 9,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "right_thigh": {
+        "file": "Pieces/NE-right_thigh.png",
+        "sourceSize": [
+          166,
+          243
+        ],
+        "sourceSha256": "fd72a60c0b00b03a9e3e57bf4d9018750c5978d355c36e10d383f2aa55dc4fda",
+        "sourcePixelSha256": "3531e4faf114a5d5b9ca9c32b441c261212ddabe768e8475a41f1dfea0b0348c",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-NE-v2.png",
+        "bankSourceSha256": "95ae8413b3e7542e9a95c477b3dd9ee819ebfacb365bb77365e8d498754960d6",
+        "bankSourceRect": [
+          545,
+          734,
+          166,
+          243
+        ],
+        "proximalPx": [
+          73,
+          25
+        ],
+        "distalPx": [
+          85,
+          211
+        ],
+        "anchorPx": [
+          73,
+          25
+        ],
+        "jointSemantics": [
+          "hip",
+          "knee"
+        ],
+        "uncertaintyPixels": 8,
+        "bankSourceProximalPx": [
+          618,
+          759
+        ],
+        "bankSourceDistalPx": [
+          630,
+          945
+        ],
+        "embeddedWeapon": false,
+        "bindScale": 0.060240963855421686,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "right_thigh",
+          "nominalPixels": 10,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "right_shin": {
+        "file": "Pieces/NE-right_shin.png",
+        "sourceSize": [
+          130,
+          231
+        ],
+        "sourceSha256": "da7b94cebd6df45f0294e00c120b570bae0fda15ba856dc205390019a3d31e6b",
+        "sourcePixelSha256": "0212127dacc3c319831ffa88adfe7bdde7a36cbe962797f0829722341518c7e3",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-NE-v2.png",
+        "bankSourceSha256": "95ae8413b3e7542e9a95c477b3dd9ee819ebfacb365bb77365e8d498754960d6",
+        "bankSourceRect": [
+          903,
+          746,
+          130,
+          231
+        ],
+        "proximalPx": [
+          54,
+          52
+        ],
+        "distalPx": [
+          77,
+          212
+        ],
+        "anchorPx": [
+          54,
+          52
+        ],
+        "jointSemantics": [
+          "knee",
+          "ankle"
+        ],
+        "uncertaintyPixels": 8,
+        "bankSourceProximalPx": [
+          957,
+          798
+        ],
+        "bankSourceDistalPx": [
+          980,
+          958
+        ],
+        "embeddedWeapon": false,
+        "bindScale": 0.06923076923076923,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "right_shin",
+          "nominalPixels": 9,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "left_hand": {
+        "file": "Pieces/NE-left_hand.png",
+        "sourceSize": [
+          142,
+          130
+        ],
+        "sourceSha256": "840ba8f0729d2a113985a12e764e5375cd8d3cc2d66bda391fdfe5b72c097d56",
+        "sourcePixelSha256": "7e6cfdf4d0df7414ec094370b85da3b11f4903aad9d595c1749aead30821c75c",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-NE-v2.png",
+        "bankSourceSha256": "95ae8413b3e7542e9a95c477b3dd9ee819ebfacb365bb77365e8d498754960d6",
+        "bankSourceRect": [
+          881,
+          359,
+          142,
+          130
+        ],
+        "proximalPx": [
+          30,
+          27
+        ],
+        "distalPx": null,
+        "anchorPx": [
+          30,
+          27
+        ],
+        "jointSemantics": [
+          "wrist",
+          null
+        ],
+        "uncertaintyPixels": 4,
+        "bankSourceProximalPx": [
+          911,
+          386
+        ],
+        "bankSourceDistalPx": null,
+        "embeddedWeapon": false,
+        "bindScale": 0.04230769230769231,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "left_hand",
+          "nominalPixels": 5.5,
+          "axis": "height",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "right_hand": {
+        "file": "Pieces/NE-right_hand.png",
+        "sourceSize": [
+          147,
+          135
+        ],
+        "sourceSha256": "e7cb5d3a3e931d404f6998650f21a3be00db7b6024799fa0646ea5231b43de2a",
+        "sourcePixelSha256": "153e44a8619bd7c0e39f3c0e17aa2136eef1b5e36d35e10aad6e9eb98bc258c8",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-NE-v2.png",
+        "bankSourceSha256": "95ae8413b3e7542e9a95c477b3dd9ee819ebfacb365bb77365e8d498754960d6",
+        "bankSourceRect": [
+          553,
+          571,
+          147,
+          135
+        ],
+        "proximalPx": [
+          24,
+          31
+        ],
+        "distalPx": null,
+        "anchorPx": [
+          24,
+          31
+        ],
+        "jointSemantics": [
+          "wrist",
+          null
+        ],
+        "uncertaintyPixels": 4,
+        "bankSourceProximalPx": [
+          577,
+          602
+        ],
+        "bankSourceDistalPx": null,
+        "embeddedWeapon": false,
+        "bindScale": 0.040740740740740744,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "right_hand",
+          "nominalPixels": 5.5,
+          "axis": "height",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "torso": {
+        "file": "Pieces/NE-torso.png",
+        "sourceSize": [
+          239,
+          216
+        ],
+        "sourceSha256": "56fd76a0dafea8014e226756277fbb05cdb41019b1a462e757fe9b804a91755a",
+        "sourceRgbaSha256": "8097bfe6429c76a834b4a586d3edb651212837803b46bf3c547ff6dc5209fc48",
+        "uncertaintyPixels": 4,
+        "landmarkAlpha": {
+          "neck": 253,
+          "waist": 253,
+          "leftShoulder": 253,
+          "rightShoulder": 252
+        },
+        "neckPx": [
+          106,
+          23
+        ],
+        "waistPx": [
+          113,
+          195
+        ],
+        "leftShoulderPx": [
+          35,
+          85
+        ],
+        "rightShoulderPx": [
+          187,
+          101
+        ],
+        "anchorPx": [
+          106,
+          23
+        ],
+        "proximalPx": [
+          106,
+          23
+        ],
+        "distalPx": [
+          113,
+          195
+        ],
+        "bindScale": 0.09205020920502092,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "torso",
+          "nominalPixels": 22,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "pelvis": {
+        "file": "Pieces/NE-pelvis.png",
+        "sourceSize": [
+          254,
+          197
+        ],
+        "sourceSha256": "158ba6a9d4f35091529b74e46adb6e7ec52d9d48b41db0d58326c353d749362a",
+        "sourceRgbaSha256": "a4e7cc9c5202c4ecacac5212d074e20a2dc8bc9299ff2d9512aa1ecd0582b16a",
+        "uncertaintyPixels": 4,
+        "landmarkAlpha": {
+          "waist": 252,
+          "leftHip": 253,
+          "rightHip": 252
+        },
+        "waistPx": [
+          128,
+          65
+        ],
+        "leftHipPx": [
+          91,
+          160
+        ],
+        "rightHipPx": [
+          174,
+          170
+        ],
+        "anchorPx": [
+          132.5,
+          165.0
+        ],
+        "proximalPx": [
+          132.5,
+          165.0
+        ],
+        "distalPx": null,
+        "bindScale": 0.05511811023622047,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "pelvis",
+          "nominalPixels": 14,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      }
+    },
+    "N": {
+      "head": {
+        "file": "Pieces/N-head.png",
+        "sourceSize": [
+          188,
+          215
+        ],
+        "sourceSha256": "79508620d82b3dab4ce56d91e53517443adb0eddd2f2b31b4a3425dd463d8efe",
+        "proximalPx": [
+          94,
+          193
+        ],
+        "distalPx": [
+          94,
+          68
+        ],
+        "anchorPx": [
+          94,
+          193
+        ],
+        "cranialCentrePx": [
+          94,
+          68
+        ],
+        "annotation": "Manual anatomical landmarks: lower cervical collar socket, helmet/cranium volume centre, plus headVolumeCentrePx for full-piece mass centre. Complete original bitmap unchanged.",
+        "sourcePixelAlpha": {
+          "neck": 252,
+          "cranialCentre": 253
+        },
+        "headVolumeCentrePx": [
+          94,
+          95
+        ],
+        "uprightCervicalPx": [
+          94,
+          193
+        ],
+        "pronePosteriorCervicalPx": [
+          94,
+          193
+        ],
+        "posteriorSourceAlpha": 252,
+        "naturalProneReference": {
+          "cervicalSourcePx": [
+            202,
+            180
+          ],
+          "cranialSourcePx": [
+            202,
+            143
+          ],
+          "meaning": "Rear nape below helmet, dorsal view.",
+          "file": "Sources/OperativeProneAimFire-N-v1.png",
+          "frameSourceRect": [
+            0,
+            0,
+            384,
+            512
+          ],
+          "sourceSha256": "e6b01a80cdcbb6bf654490242aa640f3d50e47224da85bdddc794a7e573bff24",
+          "coordinateUncertaintyPixels": 12
+        },
+        "bindScale": 0.07446808510638298,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "head",
+          "nominalPixels": 14,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "backpack": {
+        "file": "Pieces/N-backpack.png",
+        "sourceSize": [
+          237,
+          252
+        ],
+        "sourceSha256": "f5e7d6be5d9d845ac2fcd721a1ee2c2d52a35b289e67b2fab0a8c4fdff45ca75",
+        "sourceRgbaSha256": "e4e7855520891f96ded3deba73955615d15f163d67bffc2cc06159bb83d4d9a9",
+        "anchorPx": [
+          123,
+          163
+        ],
+        "centrePx": [
+          123,
+          163
+        ],
+        "proximalPx": [
+          124,
+          231
+        ],
+        "distalPx": [
+          121,
+          90
+        ],
+        "attachmentPx": [
+          119,
+          95
+        ],
+        "recommendedUniformScale": 0.06751054852320675,
+        "annotation": "Complete original pack, anchor=main pouch volume centre for existing backpackJoint semantic; proximal/distal are lower/upper core body axis, not radio antenna or carry handle. attachmentPx annotates backpanel/strap connection separately and can be inside a real open loop. No source pixels removed or recoloured.",
+        "alphaAtLandmarks": {
+          "centre": 253,
+          "lowerCore": 253,
+          "upperCore": 252,
+          "strapAttachment": 253
+        },
+        "bindScale": 0.06751054852320675,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "backpack",
+          "nominalPixels": 16,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "left_upper_arm": {
+        "file": "Pieces/N-left_upper_arm.png",
+        "sourceSize": [
+          197,
+          253
+        ],
+        "sourceSha256": "5b0cf4e8380a1f8ddae68a88e7e16917520bc734deebd714b2a277f3b67256cf",
+        "sourcePixelSha256": "d203119573c0f6e5a6ce0234d737e2420586343cba32b1b17924c8ed72f0be5c",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-N-v2.png",
+        "bankSourceSize": [
+          1385,
+          1136
+        ],
+        "bankSourceSha256": "f49f48363068d26f7cf0d5b5a4ff5762df96ccb207dd1ce15971ad03ee096d98",
+        "bankSourceRect": [
+          79,
+          320,
+          197,
+          253
+        ],
+        "proximalPx": [
+          130,
+          37
+        ],
+        "distalPx": [
+          52,
+          228
+        ],
+        "anchorPx": [
+          130,
+          37
+        ],
+        "bankSourceProximalPx": [
+          209,
+          357
+        ],
+        "bankSourceDistalPx": [
+          131,
+          548
+        ],
+        "jointSemantics": [
+          "shoulder",
+          "elbow"
+        ],
+        "uncertaintyPixels": 6,
+        "embeddedHand": false,
+        "bindScale": 0.04060913705583756,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "left_upper_arm",
+          "nominalPixels": 8,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "left_forearm": {
+        "file": "Pieces/N-left_forearm.png",
+        "sourceSize": [
+          146,
+          237
+        ],
+        "sourceSha256": "9e04a6c0628a0222feaadd683dcdc78cdcc6336232082dbaabfdd7bee84976e8",
+        "sourcePixelSha256": "53b98b1edb56df64b52c60af425f006f3d48603a4d040566bf0caeac65f34d91",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-N-v2.png",
+        "bankSourceSize": [
+          1385,
+          1136
+        ],
+        "bankSourceSha256": "f49f48363068d26f7cf0d5b5a4ff5762df96ccb207dd1ce15971ad03ee096d98",
+        "bankSourceRect": [
+          457,
+          326,
+          146,
+          237
+        ],
+        "proximalPx": [
+          56,
+          27
+        ],
+        "distalPx": [
+          111,
+          212
+        ],
+        "anchorPx": [
+          56,
+          27
+        ],
+        "bankSourceProximalPx": [
+          513,
+          353
+        ],
+        "bankSourceDistalPx": [
+          568,
+          538
+        ],
+        "jointSemantics": [
+          "elbow",
+          "wrist"
+        ],
+        "uncertaintyPixels": 3,
+        "embeddedHand": false,
+        "bindScale": 0.05136986301369863,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "left_forearm",
+          "nominalPixels": 7.5,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "right_upper_arm": {
+        "file": "Pieces/N-right_upper_arm.png",
+        "sourceSize": [
+          197,
+          254
+        ],
+        "sourceSha256": "86bd8d4af4f1c9bf8a9d859a2832a8e17f121f5e986a6dbee4669b8437b069d3",
+        "sourcePixelSha256": "27d63d693ca3cac7b314f122f420ba07dea3228c235c394bff4750dc548079ce",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-N-v2.png",
+        "bankSourceSize": [
+          1385,
+          1136
+        ],
+        "bankSourceSha256": "f49f48363068d26f7cf0d5b5a4ff5762df96ccb207dd1ce15971ad03ee096d98",
+        "bankSourceRect": [
+          1109,
+          319,
+          197,
+          254
+        ],
+        "proximalPx": [
+          65,
+          36
+        ],
+        "distalPx": [
+          145,
+          223
+        ],
+        "anchorPx": [
+          65,
+          36
+        ],
+        "bankSourceProximalPx": [
+          1174,
+          355
+        ],
+        "bankSourceDistalPx": [
+          1254,
+          542
+        ],
+        "jointSemantics": [
+          "shoulder",
+          "elbow"
+        ],
+        "uncertaintyPixels": 6,
+        "embeddedHand": false,
+        "bindScale": 0.04060913705583756,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "right_upper_arm",
+          "nominalPixels": 8,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "right_forearm": {
+        "file": "Pieces/N-right_forearm.png",
+        "sourceSize": [
+          139,
+          222
+        ],
+        "sourceSha256": "91f1a3ae7b21bfbb3e69e468fae114ad19c83d76fd073d67d1eb6f045ac916d7",
+        "sourcePixelSha256": "fda32655914471b8b7f96a71080a5f169c668bf0559f1ab18123fcb30ca59f9d",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-N-v2.png",
+        "bankSourceSize": [
+          1385,
+          1136
+        ],
+        "bankSourceSha256": "f49f48363068d26f7cf0d5b5a4ff5762df96ccb207dd1ce15971ad03ee096d98",
+        "bankSourceRect": [
+          91,
+          607,
+          139,
+          222
+        ],
+        "proximalPx": [
+          80,
+          27
+        ],
+        "distalPx": [
+          40,
+          196
+        ],
+        "anchorPx": [
+          80,
+          27
+        ],
+        "bankSourceProximalPx": [
+          171,
+          634
+        ],
+        "bankSourceDistalPx": [
+          131,
+          803
+        ],
+        "jointSemantics": [
+          "elbow",
+          "wrist"
+        ],
+        "uncertaintyPixels": 3,
+        "embeddedHand": false,
+        "bindScale": 0.0539568345323741,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "right_forearm",
+          "nominalPixels": 7.5,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "left_boot": {
+        "file": "Pieces/N-left_boot.png",
+        "sourceSize": [
+          152,
+          179
+        ],
+        "sourceSha256": "31b7b93fbbe3fe5ff4a205ac6d38f6387bf8c7ec4b464671c5e6745e28f583cd",
+        "sourcePixelSha256": "f0ed9cae0fcc79339e51be3b8c96896ac20a9cb5bc7b8d50ea233fbb4d5d9aff",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-N-v2.png",
+        "bankSourceSize": [
+          1385,
+          1136
+        ],
+        "bankSourceSha256": "f49f48363068d26f7cf0d5b5a4ff5762df96ccb207dd1ce15971ad03ee096d98",
+        "bankSourceRect": [
+          92,
+          896,
+          152,
+          179
+        ],
+        "proximalPx": [
+          74,
+          101
+        ],
+        "distalPx": [
+          113,
+          122
+        ],
+        "anchorPx": [
+          74,
+          101
+        ],
+        "bankSourceProximalPx": [
+          166,
+          997
+        ],
+        "bankSourceDistalPx": [
+          205,
+          1018
+        ],
+        "jointSemantics": [
+          "ankle",
+          "forefoot"
+        ],
+        "uncertaintyPixels": 10,
+        "embeddedHand": false,
+        "topAttachmentPx": [
+          70,
+          28
+        ],
+        "toeTipPx": [
+          145,
+          133
+        ],
+        "bindScale": 0.05921052631578947,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "left_boot",
+          "nominalPixels": 9,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "right_boot": {
+        "file": "Pieces/N-right_boot.png",
+        "sourceSize": [
+          151,
+          180
+        ],
+        "sourceSha256": "742198580e75f054cd1d60ee5a66e21937d755b74ed1bcf0d8b5973977f39d01",
+        "sourcePixelSha256": "2770b230ba381b3c7aa48a2af7e5ae9d554c7fc0c2e2a2bfab09e9256f41dd68",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-N-v2.png",
+        "bankSourceSize": [
+          1385,
+          1136
+        ],
+        "bankSourceSha256": "f49f48363068d26f7cf0d5b5a4ff5762df96ccb207dd1ce15971ad03ee096d98",
+        "bankSourceRect": [
+          1144,
+          895,
+          151,
+          180
+        ],
+        "proximalPx": [
+          80,
+          107
+        ],
+        "distalPx": [
+          43,
+          127
+        ],
+        "anchorPx": [
+          80,
+          107
+        ],
+        "bankSourceProximalPx": [
+          1224,
+          1002
+        ],
+        "bankSourceDistalPx": [
+          1187,
+          1022
+        ],
+        "jointSemantics": [
+          "ankle",
+          "forefoot"
+        ],
+        "uncertaintyPixels": 10,
+        "embeddedHand": false,
+        "topAttachmentPx": [
+          80,
+          29
+        ],
+        "toeTipPx": [
+          8,
+          133
+        ],
+        "bindScale": 0.059602649006622516,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "right_boot",
+          "nominalPixels": 9,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "left_thigh": {
+        "file": "Pieces/N-left_thigh.png",
+        "sourceSize": [
+          148,
+          240
+        ],
+        "sourceSha256": "50e522c826ba0922559d6591f87da86627afbac93ef3d9ac82fb01ef568555c4",
+        "sourcePixelSha256": "b287fc47852bd4a99133f48881a08351e8f3c4d38298c5b42f3c8678d296fd15",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-N-v2.png",
+        "bankSourceSha256": "f49f48363068d26f7cf0d5b5a4ff5762df96ccb207dd1ce15971ad03ee096d98",
+        "bankSourceRect": [
+          785,
+          590,
+          148,
+          240
+        ],
+        "proximalPx": [
+          75,
+          20
+        ],
+        "distalPx": [
+          80,
+          202
+        ],
+        "anchorPx": [
+          75,
+          20
+        ],
+        "jointSemantics": [
+          "hip",
+          "knee"
+        ],
+        "uncertaintyPixels": 8,
+        "bankSourceProximalPx": [
+          860,
+          610
+        ],
+        "bankSourceDistalPx": [
+          865,
+          792
+        ],
+        "embeddedWeapon": false,
+        "bindScale": 0.06756756756756757,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "left_thigh",
+          "nominalPixels": 10,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "left_shin": {
+        "file": "Pieces/N-left_shin.png",
+        "sourceSize": [
+          131,
+          232
+        ],
+        "sourceSha256": "01473a9405e0193cb9e06a51bd2e7bb6fc2d2a5c471790cfe2f4ecab6a5cac50",
+        "sourcePixelSha256": "f5fc70252c0ce9830f361ba0b18f4a84ef293740a8b39029e82a41f66ffdf51d",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-N-v2.png",
+        "bankSourceSha256": "f49f48363068d26f7cf0d5b5a4ff5762df96ccb207dd1ce15971ad03ee096d98",
+        "bankSourceRect": [
+          1153,
+          597,
+          131,
+          232
+        ],
+        "proximalPx": [
+          52,
+          46
+        ],
+        "distalPx": [
+          72,
+          211
+        ],
+        "anchorPx": [
+          52,
+          46
+        ],
+        "jointSemantics": [
+          "knee",
+          "ankle"
+        ],
+        "uncertaintyPixels": 8,
+        "bankSourceProximalPx": [
+          1205,
+          643
+        ],
+        "bankSourceDistalPx": [
+          1225,
+          808
+        ],
+        "embeddedWeapon": false,
+        "bindScale": 0.06870229007633588,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "left_shin",
+          "nominalPixels": 9,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "right_thigh": {
+        "file": "Pieces/N-right_thigh.png",
+        "sourceSize": [
+          179,
+          236
+        ],
+        "sourceSha256": "529b14db754f93149421e0efcc956eb51a7243d281d9d26e70911526e87ddb0e",
+        "sourcePixelSha256": "d0ff6854901b5c60f40bf39c6fe4f5b79430a0260f40181a5a6d9cd4bff2ec90",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-N-v2.png",
+        "bankSourceSha256": "f49f48363068d26f7cf0d5b5a4ff5762df96ccb207dd1ce15971ad03ee096d98",
+        "bankSourceRect": [
+          448,
+          844,
+          179,
+          236
+        ],
+        "proximalPx": [
+          69,
+          21
+        ],
+        "distalPx": [
+          79,
+          201
+        ],
+        "anchorPx": [
+          69,
+          21
+        ],
+        "jointSemantics": [
+          "hip",
+          "knee"
+        ],
+        "uncertaintyPixels": 8,
+        "bankSourceProximalPx": [
+          517,
+          865
+        ],
+        "bankSourceDistalPx": [
+          527,
+          1045
+        ],
+        "embeddedWeapon": false,
+        "bindScale": 0.055865921787709494,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "right_thigh",
+          "nominalPixels": 10,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "right_shin": {
+        "file": "Pieces/N-right_shin.png",
+        "sourceSize": [
+          129,
+          232
+        ],
+        "sourceSha256": "a5838a847f78319cc53622fca017a1dd2881f5f2c6e441c8c820bbe9a1253b35",
+        "sourcePixelSha256": "7a9c24c7974b3a098de0f4783937a06fb3f1979924e017fbce3f09306a16ab75",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-N-v2.png",
+        "bankSourceSha256": "f49f48363068d26f7cf0d5b5a4ff5762df96ccb207dd1ce15971ad03ee096d98",
+        "bankSourceRect": [
+          795,
+          848,
+          129,
+          232
+        ],
+        "proximalPx": [
+          73,
+          48
+        ],
+        "distalPx": [
+          73,
+          212
+        ],
+        "anchorPx": [
+          73,
+          48
+        ],
+        "jointSemantics": [
+          "knee",
+          "ankle"
+        ],
+        "uncertaintyPixels": 8,
+        "bankSourceProximalPx": [
+          868,
+          896
+        ],
+        "bankSourceDistalPx": [
+          868,
+          1060
+        ],
+        "embeddedWeapon": false,
+        "bindScale": 0.06976744186046512,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "right_shin",
+          "nominalPixels": 9,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "left_hand": {
+        "file": "Pieces/N-left_hand.png",
+        "sourceSize": [
+          124,
+          173
+        ],
+        "sourceSha256": "35cab72d18cd97dc7d5513a2cffffd1b5777d97f1d84999307839aeae858cb34",
+        "sourcePixelSha256": "27ff2d95ac62a63ba0de4c45254fef4a16716d9502cb1f73c345008b5ffe10c0",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-N-v2.png",
+        "bankSourceSha256": "f49f48363068d26f7cf0d5b5a4ff5762df96ccb207dd1ce15971ad03ee096d98",
+        "bankSourceRect": [
+          797,
+          391,
+          124,
+          173
+        ],
+        "proximalPx": [
+          82,
+          29
+        ],
+        "distalPx": null,
+        "anchorPx": [
+          82,
+          29
+        ],
+        "jointSemantics": [
+          "wrist",
+          null
+        ],
+        "uncertaintyPixels": 4,
+        "bankSourceProximalPx": [
+          879,
+          420
+        ],
+        "bankSourceDistalPx": null,
+        "embeddedWeapon": false,
+        "bindScale": 0.031791907514450865,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "left_hand",
+          "nominalPixels": 5.5,
+          "axis": "height",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "right_hand": {
+        "file": "Pieces/N-right_hand.png",
+        "sourceSize": [
+          165,
+          132
+        ],
+        "sourceSha256": "9c01824d2f04aa829e52fa6588fffa1bee9bc74a03fb54c8813a0a3c5afa0f24",
+        "sourcePixelSha256": "d843c0b58d78468d98ab78009c34ae1f2630b65cea5b27d53b7f96d01f743546",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-N-v2.png",
+        "bankSourceSha256": "f49f48363068d26f7cf0d5b5a4ff5762df96ccb207dd1ce15971ad03ee096d98",
+        "bankSourceRect": [
+          441,
+          658,
+          165,
+          132
+        ],
+        "proximalPx": [
+          29,
+          31
+        ],
+        "distalPx": null,
+        "anchorPx": [
+          29,
+          31
+        ],
+        "jointSemantics": [
+          "wrist",
+          null
+        ],
+        "uncertaintyPixels": 4,
+        "bankSourceProximalPx": [
+          470,
+          689
+        ],
+        "bankSourceDistalPx": null,
+        "embeddedWeapon": false,
+        "bindScale": 0.041666666666666664,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "right_hand",
+          "nominalPixels": 5.5,
+          "axis": "height",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "torso": {
+        "file": "Pieces/N-torso.png",
+        "sourceSize": [
+          283,
+          272
+        ],
+        "sourceSha256": "af8aece405cbecfcdf97a486efed9a2013dc7d0c7fe4347542ccb643bda764da",
+        "sourceRgbaSha256": "2d972723ea0e1705b5ff74dd9610d9ccfa6010f96566191a41cba034bb1971f9",
+        "uncertaintyPixels": 4,
+        "landmarkAlpha": {
+          "neck": 253,
+          "waist": 253,
+          "leftShoulder": 253,
+          "rightShoulder": 252
+        },
+        "neckPx": [
+          141,
+          31
+        ],
+        "waistPx": [
+          141,
+          250
+        ],
+        "leftShoulderPx": [
+          48,
+          84
+        ],
+        "rightShoulderPx": [
+          234,
+          84
+        ],
+        "anchorPx": [
+          141,
+          31
+        ],
+        "proximalPx": [
+          141,
+          31
+        ],
+        "distalPx": [
+          141,
+          250
+        ],
+        "bindScale": 0.08833922261484099,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "torso",
+          "nominalPixels": 25,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "pelvis": {
+        "file": "Pieces/N-pelvis.png",
+        "sourceSize": [
+          259,
+          233
+        ],
+        "sourceSha256": "f9be0f868facff57a8893599a7a8a1664426308709f31ee8fb2e32ef02ca4d9c",
+        "sourceRgbaSha256": "f09e00f2970cca8396b0339d8673e99409e838cf9ca53081b6e354ff9e648aa8",
+        "uncertaintyPixels": 4,
+        "landmarkAlpha": {
+          "waist": 252,
+          "leftHip": 253,
+          "rightHip": 252
+        },
+        "waistPx": [
+          131,
+          84
+        ],
+        "leftHipPx": [
+          80,
+          193
+        ],
+        "rightHipPx": [
+          182,
+          193
+        ],
+        "anchorPx": [
+          131.0,
+          193.0
+        ],
+        "proximalPx": [
+          131.0,
+          193.0
+        ],
+        "distalPx": null,
+        "bindScale": 0.05405405405405406,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "pelvis",
+          "nominalPixels": 14,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      }
+    },
+    "NW": {
+      "head": {
+        "file": "Pieces/NW-head.png",
+        "sourceSize": [
+          219,
+          246
+        ],
+        "sourceSha256": "6e3f278635e6351e129fe6709c153fab0ae94be2a3a475d60f4abba4f4e6fb7c",
+        "proximalPx": [
+          127,
+          220
+        ],
+        "distalPx": [
+          108,
+          80
+        ],
+        "anchorPx": [
+          127,
+          220
+        ],
+        "cranialCentrePx": [
+          108,
+          80
+        ],
+        "annotation": "Manual anatomical landmarks: lower cervical collar socket, helmet/cranium volume centre, plus headVolumeCentrePx for full-piece mass centre. Complete original bitmap unchanged.",
+        "sourcePixelAlpha": {
+          "neck": 252,
+          "cranialCentre": 253
+        },
+        "headVolumeCentrePx": [
+          108,
+          116
+        ],
+        "uprightCervicalPx": [
+          127,
+          220
+        ],
+        "pronePosteriorCervicalPx": [
+          127,
+          220
+        ],
+        "posteriorSourceAlpha": 252,
+        "naturalProneReference": {
+          "cervicalSourcePx": [
+            128,
+            195
+          ],
+          "cranialSourcePx": [
+            125,
+            176
+          ],
+          "meaning": "Rear-side nape below helmet remains visible.",
+          "file": "Sources/OperativeProneAimFire-NW-v1.png",
+          "frameSourceRect": [
+            0,
+            0,
+            384,
+            512
+          ],
+          "sourceSha256": "669629bd26b81d4381162b5364a5fed501f7c69d25e08cfa8a139cff132953fe",
+          "coordinateUncertaintyPixels": 12
+        },
+        "bindScale": 0.0639269406392694,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "head",
+          "nominalPixels": 14,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "backpack": {
+        "file": "Pieces/NW-backpack.png",
+        "sourceSize": [
+          242,
+          255
+        ],
+        "sourceSha256": "c57fb39ddb366141cce417fdd4ece766ef21ba730cbd29b1b8259b5b5825511d",
+        "sourceRgbaSha256": "16ec2a300c2921b3cba1888164c64e4b21a7e01d24522d36a9e43a99bed3321d",
+        "anchorPx": [
+          164,
+          170
+        ],
+        "centrePx": [
+          164,
+          170
+        ],
+        "proximalPx": [
+          167,
+          235
+        ],
+        "distalPx": [
+          155,
+          101
+        ],
+        "attachmentPx": [
+          82,
+          137
+        ],
+        "recommendedUniformScale": 0.06611570247933884,
+        "annotation": "Complete original pack, anchor=main pouch volume centre for existing backpackJoint semantic; proximal/distal are lower/upper core body axis, not radio antenna or carry handle. attachmentPx annotates backpanel/strap connection separately and can be inside a real open loop. No source pixels removed or recoloured.",
+        "alphaAtLandmarks": {
+          "centre": 253,
+          "lowerCore": 253,
+          "upperCore": 253,
+          "strapAttachment": 253
+        },
+        "bindScale": 0.06611570247933884,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "backpack",
+          "nominalPixels": 16,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "left_upper_arm": {
+        "file": "Pieces/NW-left_upper_arm.png",
+        "sourceSize": [
+          176,
+          231
+        ],
+        "sourceSha256": "edec7adadab9036f4335fcef096f25b6fb8b6a8905c9687d84530feaa6a7ccd7",
+        "sourcePixelSha256": "bc4a2c7e361854f7e7fcbfb527d44deb413b4fee7421516fe8963fa1daf9f358",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-NW-v3.png",
+        "bankSourceSize": [
+          1536,
+          1024
+        ],
+        "bankSourceSha256": "d18b887aef9098b6f7831e231d9bdf4790a2f77c01ef13266c85adcb6d8d2901",
+        "bankSourceRect": [
+          151,
+          269,
+          176,
+          231
+        ],
+        "proximalPx": [
+          65,
+          35
+        ],
+        "distalPx": [
+          131,
+          190
+        ],
+        "anchorPx": [
+          65,
+          35
+        ],
+        "bankSourceProximalPx": [
+          216,
+          304
+        ],
+        "bankSourceDistalPx": [
+          282,
+          459
+        ],
+        "jointSemantics": [
+          "shoulder",
+          "elbow"
+        ],
+        "uncertaintyPixels": 6,
+        "embeddedHand": false,
+        "bindScale": 0.045454545454545456,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "left_upper_arm",
+          "nominalPixels": 8,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "left_forearm": {
+        "file": "Pieces/NW-left_forearm.png",
+        "sourceSize": [
+          163,
+          225
+        ],
+        "sourceSha256": "ad46db573f357fafcc52329e34887e7cdb588c743a1af2806cc699f96a5a0338",
+        "sourcePixelSha256": "7f12fc2b0b0c21ee640d7be5d862103fa002fb65360568443e69d754d46c0371",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-NW-v3.png",
+        "bankSourceSize": [
+          1536,
+          1024
+        ],
+        "bankSourceSha256": "d18b887aef9098b6f7831e231d9bdf4790a2f77c01ef13266c85adcb6d8d2901",
+        "bankSourceRect": [
+          510,
+          275,
+          163,
+          225
+        ],
+        "proximalPx": [
+          56,
+          29
+        ],
+        "distalPx": [
+          118,
+          193
+        ],
+        "anchorPx": [
+          56,
+          29
+        ],
+        "bankSourceProximalPx": [
+          566,
+          304
+        ],
+        "bankSourceDistalPx": [
+          628,
+          468
+        ],
+        "jointSemantics": [
+          "elbow",
+          "wrist"
+        ],
+        "uncertaintyPixels": 3,
+        "embeddedHand": false,
+        "bindScale": 0.046012269938650305,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "left_forearm",
+          "nominalPixels": 7.5,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "right_upper_arm": {
+        "file": "Pieces/NW-right_upper_arm.png",
+        "sourceSize": [
+          157,
+          231
+        ],
+        "sourceSha256": "9ca4df1e8b895addd02176df88dc651c8ee6e2accb08bbd0ffe30d28fa2651be",
+        "sourcePixelSha256": "5f4dc31f6788c117ff2f1afbd0367c00ad46cbb87c3374f23b28e899e22a66d0",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-NW-v3.png",
+        "bankSourceSize": [
+          1536,
+          1024
+        ],
+        "bankSourceSha256": "d18b887aef9098b6f7831e231d9bdf4790a2f77c01ef13266c85adcb6d8d2901",
+        "bankSourceRect": [
+          1245,
+          269,
+          157,
+          231
+        ],
+        "proximalPx": [
+          92,
+          32
+        ],
+        "distalPx": [
+          42,
+          188
+        ],
+        "anchorPx": [
+          92,
+          32
+        ],
+        "bankSourceProximalPx": [
+          1337,
+          301
+        ],
+        "bankSourceDistalPx": [
+          1287,
+          457
+        ],
+        "jointSemantics": [
+          "shoulder",
+          "elbow"
+        ],
+        "uncertaintyPixels": 6,
+        "embeddedHand": false,
+        "bindScale": 0.050955414012738856,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "right_upper_arm",
+          "nominalPixels": 8,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "right_forearm": {
+        "file": "Pieces/NW-right_forearm.png",
+        "sourceSize": [
+          185,
+          236
+        ],
+        "sourceSha256": "5a4ddd76c159bd692952ec45302560d35e32c0841544f36d488fa875b7afbdea",
+        "sourcePixelSha256": "ebce2876878570b53ff62d2f5f9604d2a80f88ad31da5775c63616f7dae61f21",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-NW-v3.png",
+        "bankSourceSize": [
+          1536,
+          1024
+        ],
+        "bankSourceSha256": "d18b887aef9098b6f7831e231d9bdf4790a2f77c01ef13266c85adcb6d8d2901",
+        "bankSourceRect": [
+          130,
+          519,
+          185,
+          236
+        ],
+        "proximalPx": [
+          136,
+          30
+        ],
+        "distalPx": [
+          43,
+          200
+        ],
+        "anchorPx": [
+          136,
+          30
+        ],
+        "bankSourceProximalPx": [
+          266,
+          549
+        ],
+        "bankSourceDistalPx": [
+          173,
+          719
+        ],
+        "jointSemantics": [
+          "elbow",
+          "wrist"
+        ],
+        "uncertaintyPixels": 3,
+        "embeddedHand": false,
+        "bindScale": 0.04054054054054054,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "right_forearm",
+          "nominalPixels": 7.5,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "left_boot": {
+        "file": "Pieces/NW-left_boot.png",
+        "sourceSize": [
+          186,
+          209
+        ],
+        "sourceSha256": "765690ce8f83a81f9cec199d6d5488513a970c8764584ba6dfa3aac99b63c972",
+        "sourcePixelSha256": "5a4788f1cc55ad83c231223a7ccf5353b8aadf11165ca0e7c069ebd853a4246b",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-NW-v3.png",
+        "bankSourceSize": [
+          1536,
+          1024
+        ],
+        "bankSourceSha256": "d18b887aef9098b6f7831e231d9bdf4790a2f77c01ef13266c85adcb6d8d2901",
+        "bankSourceRect": [
+          103,
+          790,
+          186,
+          209
+        ],
+        "proximalPx": [
+          124,
+          123
+        ],
+        "distalPx": [
+          50,
+          153
+        ],
+        "anchorPx": [
+          124,
+          123
+        ],
+        "bankSourceProximalPx": [
+          227,
+          913
+        ],
+        "bankSourceDistalPx": [
+          153,
+          943
+        ],
+        "jointSemantics": [
+          "ankle",
+          "forefoot"
+        ],
+        "uncertaintyPixels": 10,
+        "embeddedHand": false,
+        "topAttachmentPx": [
+          124,
+          23
+        ],
+        "toeTipPx": [
+          13,
+          153
+        ],
+        "bindScale": 0.04838709677419355,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "left_boot",
+          "nominalPixels": 9,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "right_boot": {
+        "file": "Pieces/NW-right_boot.png",
+        "sourceSize": [
+          191,
+          207
+        ],
+        "sourceSha256": "fb57f124e371eacceb61837cad15ff60d9dbf04bcdc0c5fc939af57362556f59",
+        "sourcePixelSha256": "66596c11bd61cdbf92cc3a0b42462897b6a6be34af5dc828f00cfa77cc3f4cb7",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-NW-v3.png",
+        "bankSourceSize": [
+          1536,
+          1024
+        ],
+        "bankSourceSha256": "d18b887aef9098b6f7831e231d9bdf4790a2f77c01ef13266c85adcb6d8d2901",
+        "bankSourceRect": [
+          1231,
+          790,
+          191,
+          207
+        ],
+        "proximalPx": [
+          129,
+          125
+        ],
+        "distalPx": [
+          48,
+          153
+        ],
+        "anchorPx": [
+          129,
+          125
+        ],
+        "bankSourceProximalPx": [
+          1360,
+          915
+        ],
+        "bankSourceDistalPx": [
+          1279,
+          943
+        ],
+        "jointSemantics": [
+          "ankle",
+          "forefoot"
+        ],
+        "uncertaintyPixels": 10,
+        "embeddedHand": false,
+        "topAttachmentPx": [
+          105,
+          26
+        ],
+        "toeTipPx": [
+          11,
+          159
+        ],
+        "bindScale": 0.04712041884816754,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "right_boot",
+          "nominalPixels": 9,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "left_thigh": {
+        "file": "Pieces/NW-left_thigh.png",
+        "sourceSize": [
+          167,
+          240
+        ],
+        "sourceSha256": "afb422a4e4793239e3cd897bb82f98905de584cc16cf25083264d6107be815e4",
+        "sourcePixelSha256": "2a119a0f3d7c90570b13018db4264c3d2a8aefb1aa35d528d54928103c1344c1",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-NW-v3.png",
+        "bankSourceSha256": "d18b887aef9098b6f7831e231d9bdf4790a2f77c01ef13266c85adcb6d8d2901",
+        "bankSourceRect": [
+          881,
+          503,
+          167,
+          240
+        ],
+        "proximalPx": [
+          68,
+          22
+        ],
+        "distalPx": [
+          110,
+          202
+        ],
+        "anchorPx": [
+          68,
+          22
+        ],
+        "jointSemantics": [
+          "hip",
+          "knee"
+        ],
+        "uncertaintyPixels": 8,
+        "bankSourceProximalPx": [
+          949,
+          525
+        ],
+        "bankSourceDistalPx": [
+          991,
+          705
+        ],
+        "embeddedWeapon": false,
+        "bindScale": 0.059880239520958084,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "left_thigh",
+          "nominalPixels": 10,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "left_shin": {
+        "file": "Pieces/NW-left_shin.png",
+        "sourceSize": [
+          150,
+          250
+        ],
+        "sourceSha256": "694506e345ce916a200edccfe629cf5c36634af6187be74805fc3e5c6b69ec21",
+        "sourcePixelSha256": "e61725295911da566e8094590cda6bc8bf8b3b02406d6fa0eeea41ece3d19833",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-NW-v3.png",
+        "bankSourceSha256": "d18b887aef9098b6f7831e231d9bdf4790a2f77c01ef13266c85adcb6d8d2901",
+        "bankSourceRect": [
+          1250,
+          503,
+          150,
+          250
+        ],
+        "proximalPx": [
+          55,
+          71
+        ],
+        "distalPx": [
+          97,
+          227
+        ],
+        "anchorPx": [
+          55,
+          71
+        ],
+        "jointSemantics": [
+          "knee",
+          "ankle"
+        ],
+        "uncertaintyPixels": 8,
+        "bankSourceProximalPx": [
+          1305,
+          574
+        ],
+        "bankSourceDistalPx": [
+          1347,
+          730
+        ],
+        "embeddedWeapon": false,
+        "bindScale": 0.06,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "left_shin",
+          "nominalPixels": 9,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "right_thigh": {
+        "file": "Pieces/NW-right_thigh.png",
+        "sourceSize": [
+          176,
+          265
+        ],
+        "sourceSha256": "3469ec4fce92ded0c274eaf9364b16b60e4baa30574768e1b9bcd7f0a7348b78",
+        "sourcePixelSha256": "2aa953941bee23f3b2c7ef6a8c9f9f5bb73edf2d0d055e4b8c69e30d89c3e615",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-NW-v3.png",
+        "bankSourceSha256": "d18b887aef9098b6f7831e231d9bdf4790a2f77c01ef13266c85adcb6d8d2901",
+        "bankSourceRect": [
+          499,
+          738,
+          176,
+          265
+        ],
+        "proximalPx": [
+          93,
+          20
+        ],
+        "distalPx": [
+          94,
+          229
+        ],
+        "anchorPx": [
+          93,
+          20
+        ],
+        "jointSemantics": [
+          "hip",
+          "knee"
+        ],
+        "uncertaintyPixels": 8,
+        "bankSourceProximalPx": [
+          592,
+          758
+        ],
+        "bankSourceDistalPx": [
+          593,
+          967
+        ],
+        "embeddedWeapon": false,
+        "bindScale": 0.056818181818181816,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "right_thigh",
+          "nominalPixels": 10,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "right_shin": {
+        "file": "Pieces/NW-right_shin.png",
+        "sourceSize": [
+          157,
+          258
+        ],
+        "sourceSha256": "1ec94f224e24a16d762b48ebc7af99fceb6a35b405b6ac76ff733e49902d0bd8",
+        "sourcePixelSha256": "29e6d2a754061a37ed824bec9ccd12853d5e08f54908958aecabf43179702df5",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-NW-v3.png",
+        "bankSourceSha256": "d18b887aef9098b6f7831e231d9bdf4790a2f77c01ef13266c85adcb6d8d2901",
+        "bankSourceRect": [
+          897,
+          746,
+          157,
+          258
+        ],
+        "proximalPx": [
+          91,
+          74
+        ],
+        "distalPx": [
+          59,
+          232
+        ],
+        "anchorPx": [
+          91,
+          74
+        ],
+        "jointSemantics": [
+          "knee",
+          "ankle"
+        ],
+        "uncertaintyPixels": 8,
+        "bankSourceProximalPx": [
+          988,
+          820
+        ],
+        "bankSourceDistalPx": [
+          956,
+          978
+        ],
+        "embeddedWeapon": false,
+        "bindScale": 0.05732484076433121,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "right_shin",
+          "nominalPixels": 9,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "left_hand": {
+        "file": "Pieces/NW-left_hand.png",
+        "sourceSize": [
+          172,
+          211
+        ],
+        "sourceSha256": "502a11ac0cf4de4029cd92dbb460dd0f865a95022a27f34b58aad1cfebab6980",
+        "sourcePixelSha256": "c76f5c154751cf7c37b108898eda4a8848f5025a0255e5d656a83b3b47ae3718",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-NW-v3.png",
+        "bankSourceSha256": "d18b887aef9098b6f7831e231d9bdf4790a2f77c01ef13266c85adcb6d8d2901",
+        "bankSourceRect": [
+          871,
+          284,
+          172,
+          211
+        ],
+        "proximalPx": [
+          119,
+          35
+        ],
+        "distalPx": null,
+        "anchorPx": [
+          119,
+          35
+        ],
+        "jointSemantics": [
+          "wrist",
+          null
+        ],
+        "uncertaintyPixels": 4,
+        "bankSourceProximalPx": [
+          990,
+          319
+        ],
+        "bankSourceDistalPx": null,
+        "embeddedWeapon": false,
+        "bindScale": 0.026066350710900472,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "left_hand",
+          "nominalPixels": 5.5,
+          "axis": "height",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "right_hand": {
+        "file": "Pieces/SW-right_hand.png",
+        "sourceSize": [
+          147,
+          150
+        ],
+        "sourceSha256": "51e92f032627006669053eabbb693d432f48899ee3989aa1cc12359f6def03ec",
+        "sourcePixelSha256": "e5e91897f6d1d0bd40ebc6ba448c4a3d56df4ae9851bd1877e72d81081a8a808",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-SW-v2.png",
+        "bankSourceSha256": "0ed8410a28f51fc20c311b02ea58b6aecbf5a93ad6cd7d13543a13b9e0904cb9",
+        "bankSourceRect": [
+          510,
+          560,
+          147,
+          150
+        ],
+        "proximalPx": [
+          111,
+          30
+        ],
+        "distalPx": null,
+        "anchorPx": [
+          111,
+          30
+        ],
+        "jointSemantics": [
+          "wrist",
+          null
+        ],
+        "uncertaintyPixels": 4,
+        "bankSourceProximalPx": [
+          621,
+          590
+        ],
+        "bankSourceDistalPx": null,
+        "embeddedWeapon": false,
+        "semanticMapping": "NW-right_hand contiene pistola pintada; se usa SW-right_hand completa vacía del mismo lado anatómico, sin espejo.",
+        "bindScale": 0.03666666666666667,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "right_hand",
+          "nominalPixels": 5.5,
+          "axis": "height",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "torso": {
+        "file": "Pieces/NW-torso.png",
+        "sourceSize": [
+          270,
+          242
+        ],
+        "sourceSha256": "a653a4616424944ecd2d3fdfc8b6d09a0428ea7934b4f43cf4e6d7354d234cd4",
+        "sourceRgbaSha256": "bca6f4f330dff5b0967d8e3db7810be9ddfbc01243666aa23e108a7c96761d29",
+        "uncertaintyPixels": 4,
+        "landmarkAlpha": {
+          "neck": 253,
+          "waist": 252,
+          "leftShoulder": 253,
+          "rightShoulder": 253
+        },
+        "neckPx": [
+          145,
+          29
+        ],
+        "waistPx": [
+          161,
+          223
+        ],
+        "leftShoulderPx": [
+          58,
+          116
+        ],
+        "rightShoulderPx": [
+          218,
+          79
+        ],
+        "anchorPx": [
+          145,
+          29
+        ],
+        "proximalPx": [
+          145,
+          29
+        ],
+        "distalPx": [
+          161,
+          223
+        ],
+        "bindScale": 0.08148148148148149,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "torso",
+          "nominalPixels": 22,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "pelvis": {
+        "file": "Pieces/NW-pelvis.png",
+        "sourceSize": [
+          243,
+          171
+        ],
+        "sourceSha256": "e4714b2e9adabaa2a59673a1f8b5b938beff53db63d55a289673cd94fe66e4e0",
+        "sourceRgbaSha256": "248fc7c48dcdd523110081833f2844df538484eefb301e30769f37889cfff402",
+        "uncertaintyPixels": 4,
+        "landmarkAlpha": {
+          "waist": 252,
+          "leftHip": 253,
+          "rightHip": 253
+        },
+        "waistPx": [
+          137,
+          32
+        ],
+        "leftHipPx": [
+          106,
+          144
+        ],
+        "rightHipPx": [
+          184,
+          131
+        ],
+        "anchorPx": [
+          145.0,
+          137.5
+        ],
+        "proximalPx": [
+          145.0,
+          137.5
+        ],
+        "distalPx": null,
+        "bindScale": 0.05761316872427984,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "pelvis",
+          "nominalPixels": 14,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      }
+    },
+    "W": {
+      "head": {
+        "file": "Pieces/W-head.png",
+        "sourceSize": [
+          217,
+          235
+        ],
+        "sourceSha256": "4f1a3bdb605fc46835f1db3110e4254aa1c0da19815a48753e8235169fdadd47",
+        "proximalPx": [
+          139,
+          211
+        ],
+        "distalPx": [
+          97,
+          65
+        ],
+        "anchorPx": [
+          139,
+          211
+        ],
+        "cranialCentrePx": [
+          97,
+          65
+        ],
+        "annotation": "Manual anatomical landmarks: lower cervical collar socket, helmet/cranium volume centre, plus headVolumeCentrePx for full-piece mass centre. Complete original bitmap unchanged.",
+        "sourcePixelAlpha": {
+          "neck": 253,
+          "cranialCentre": 253
+        },
+        "headVolumeCentrePx": [
+          97,
+          103
+        ],
+        "uprightCervicalPx": [
+          139,
+          211
+        ],
+        "pronePosteriorCervicalPx": [
+          139,
+          211
+        ],
+        "posteriorSourceAlpha": 253,
+        "naturalProneReference": {
+          "cervicalSourcePx": [
+            139,
+            288
+          ],
+          "cranialSourcePx": [
+            113,
+            247
+          ],
+          "meaning": "Lateral upright helmet; cervical at rear/lower neck.",
+          "file": "Sources/OperativeProneAimFire-W-v1.png",
+          "frameSourceRect": [
+            0,
+            0,
+            384,
+            512
+          ],
+          "sourceSha256": "6b687a813eca12c70cd7c4923c6c4500db412250c93b1f794067dbf3a4d64cdf",
+          "coordinateUncertaintyPixels": 12
+        },
+        "bindScale": 0.06451612903225806,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "head",
+          "nominalPixels": 14,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "backpack": {
+        "file": "Pieces/W-backpack.png",
+        "sourceSize": [
+          228,
+          248
+        ],
+        "sourceSha256": "c3103a76e0e46f5e3f74827bfbe47fe6dab82ef8bd7f45189d5815a4aa0d02f4",
+        "sourceRgbaSha256": "1a974e3d51bc177817a6917e72666c737aa95d7833ef5e75089ef4b2e7b9d8e4",
+        "anchorPx": [
+          162,
+          146
+        ],
+        "centrePx": [
+          162,
+          146
+        ],
+        "proximalPx": [
+          165,
+          222
+        ],
+        "distalPx": [
+          156,
+          79
+        ],
+        "attachmentPx": [
+          87,
+          130
+        ],
+        "recommendedUniformScale": 0.07017543859649122,
+        "annotation": "Complete original pack, anchor=main pouch volume centre for existing backpackJoint semantic; proximal/distal are lower/upper core body axis, not radio antenna or carry handle. attachmentPx annotates backpanel/strap connection separately and can be inside a real open loop. No source pixels removed or recoloured.",
+        "alphaAtLandmarks": {
+          "centre": 253,
+          "lowerCore": 253,
+          "upperCore": 253,
+          "strapAttachment": 253
+        },
+        "bindScale": 0.07017543859649122,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "backpack",
+          "nominalPixels": 16,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "left_upper_arm": {
+        "file": "Pieces/W-left_upper_arm.png",
+        "sourceSize": [
+          127,
+          258
+        ],
+        "sourceSha256": "d60d582f31965bed7eeaab6f528c7fee27d3c0df2ee583ab3e14230716e80783",
+        "sourcePixelSha256": "1aedf91dc6537862347b3aed887640d86cfccf9b68a82d98e30592ecb1e05b3f",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-W-v3.png",
+        "bankSourceSize": [
+          1295,
+          1215
+        ],
+        "bankSourceSha256": "e7cdb1086a7b8c7af908e3f239ef41bc9403df5bf5b3a213e8115c1fdc17ff3e",
+        "bankSourceRect": [
+          118,
+          331,
+          127,
+          258
+        ],
+        "proximalPx": [
+          65,
+          29
+        ],
+        "distalPx": [
+          72,
+          237
+        ],
+        "anchorPx": [
+          65,
+          29
+        ],
+        "bankSourceProximalPx": [
+          183,
+          360
+        ],
+        "bankSourceDistalPx": [
+          190,
+          568
+        ],
+        "jointSemantics": [
+          "shoulder",
+          "elbow"
+        ],
+        "uncertaintyPixels": 6,
+        "embeddedHand": false,
+        "bindScale": 0.06299212598425197,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "left_upper_arm",
+          "nominalPixels": 8,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "left_forearm": {
+        "file": "Pieces/W-left_forearm.png",
+        "sourceSize": [
+          134,
+          242
+        ],
+        "sourceSha256": "c028181dcb61c66f4781499b9b213dbcf324e7fdf706e44c83a3a479d35f7b12",
+        "sourcePixelSha256": "b3722349c86af9819061ccf8595ec19b02185d1a36c24d2e39769a034d577ce8",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-W-v3.png",
+        "bankSourceSize": [
+          1295,
+          1215
+        ],
+        "bankSourceSha256": "e7cdb1086a7b8c7af908e3f239ef41bc9403df5bf5b3a213e8115c1fdc17ff3e",
+        "bankSourceRect": [
+          433,
+          347,
+          134,
+          242
+        ],
+        "proximalPx": [
+          83,
+          26
+        ],
+        "distalPx": [
+          34,
+          220
+        ],
+        "anchorPx": [
+          83,
+          26
+        ],
+        "bankSourceProximalPx": [
+          516,
+          373
+        ],
+        "bankSourceDistalPx": [
+          467,
+          567
+        ],
+        "jointSemantics": [
+          "elbow",
+          "wrist"
+        ],
+        "uncertaintyPixels": 3,
+        "embeddedHand": false,
+        "bindScale": 0.055970149253731345,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "left_forearm",
+          "nominalPixels": 7.5,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "right_upper_arm": {
+        "file": "Pieces/W-right_upper_arm.png",
+        "sourceSize": [
+          128,
+          258
+        ],
+        "sourceSha256": "dbe5a4c2ec073ad60e5995a89bff4ef37e31c50e5e44eba4721b19d5c6ab37c0",
+        "sourcePixelSha256": "c8931e88d1a22b1b6ebc2312b1d8161a1382a8323e40ca2c2f05fa9b88b3ccf5",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-W-v3.png",
+        "bankSourceSize": [
+          1295,
+          1215
+        ],
+        "bankSourceSha256": "e7cdb1086a7b8c7af908e3f239ef41bc9403df5bf5b3a213e8115c1fdc17ff3e",
+        "bankSourceRect": [
+          1070,
+          331,
+          128,
+          258
+        ],
+        "proximalPx": [
+          53,
+          28
+        ],
+        "distalPx": [
+          59,
+          238
+        ],
+        "anchorPx": [
+          53,
+          28
+        ],
+        "bankSourceProximalPx": [
+          1123,
+          359
+        ],
+        "bankSourceDistalPx": [
+          1129,
+          569
+        ],
+        "jointSemantics": [
+          "shoulder",
+          "elbow"
+        ],
+        "uncertaintyPixels": 6,
+        "embeddedHand": false,
+        "bindScale": 0.0625,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "right_upper_arm",
+          "nominalPixels": 8,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "right_forearm": {
+        "file": "Pieces/W-right_forearm.png",
+        "sourceSize": [
+          153,
+          256
+        ],
+        "sourceSha256": "5edfa0927e4cd79a06c7beeb64be0ca360b262b34308180f85adcfd83a83b7f9",
+        "sourcePixelSha256": "dd3de98a4f675581ea28746c54e6e7cbf7e33881e9c89ba9d47b8e3b2b7b9f8e",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-W-v3.png",
+        "bankSourceSize": [
+          1295,
+          1215
+        ],
+        "bankSourceSha256": "e7cdb1086a7b8c7af908e3f239ef41bc9403df5bf5b3a213e8115c1fdc17ff3e",
+        "bankSourceRect": [
+          110,
+          617,
+          153,
+          256
+        ],
+        "proximalPx": [
+          46,
+          28
+        ],
+        "distalPx": [
+          111,
+          232
+        ],
+        "anchorPx": [
+          46,
+          28
+        ],
+        "bankSourceProximalPx": [
+          156,
+          645
+        ],
+        "bankSourceDistalPx": [
+          221,
+          849
+        ],
+        "jointSemantics": [
+          "elbow",
+          "wrist"
+        ],
+        "uncertaintyPixels": 3,
+        "embeddedHand": false,
+        "bindScale": 0.049019607843137254,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "right_forearm",
+          "nominalPixels": 7.5,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "left_boot": {
+        "file": "Pieces/W-left_boot.png",
+        "sourceSize": [
+          203,
+          159
+        ],
+        "sourceSha256": "48805f61b62aa9cff89d09caea08d361bd0f55fc5f29d2bb6416764c41703406",
+        "sourcePixelSha256": "dc655349511e238268e8157707166ffe8db6ed7ab0b6a49fc6b24745470a4003",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-W-v3.png",
+        "bankSourceSize": [
+          1295,
+          1215
+        ],
+        "bankSourceSha256": "e7cdb1086a7b8c7af908e3f239ef41bc9403df5bf5b3a213e8115c1fdc17ff3e",
+        "bankSourceRect": [
+          61,
+          1005,
+          203,
+          159
+        ],
+        "proximalPx": [
+          148,
+          85
+        ],
+        "distalPx": [
+          48,
+          116
+        ],
+        "anchorPx": [
+          148,
+          85
+        ],
+        "bankSourceProximalPx": [
+          209,
+          1090
+        ],
+        "bankSourceDistalPx": [
+          109,
+          1121
+        ],
+        "jointSemantics": [
+          "ankle",
+          "forefoot"
+        ],
+        "uncertaintyPixels": 10,
+        "embeddedHand": false,
+        "topAttachmentPx": [
+          143,
+          20
+        ],
+        "toeTipPx": [
+          9,
+          115
+        ],
+        "bindScale": 0.04433497536945813,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "left_boot",
+          "nominalPixels": 9,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "right_boot": {
+        "file": "Pieces/W-left_boot.png",
+        "sourceSize": [
+          203,
+          159
+        ],
+        "sourceSha256": "48805f61b62aa9cff89d09caea08d361bd0f55fc5f29d2bb6416764c41703406",
+        "sourcePixelSha256": "dc655349511e238268e8157707166ffe8db6ed7ab0b6a49fc6b24745470a4003",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-W-v3.png",
+        "bankSourceSize": [
+          1295,
+          1215
+        ],
+        "bankSourceSha256": "e7cdb1086a7b8c7af908e3f239ef41bc9403df5bf5b3a213e8115c1fdc17ff3e",
+        "bankSourceRect": [
+          61,
+          1005,
+          203,
+          159
+        ],
+        "proximalPx": [
+          148,
+          85
+        ],
+        "distalPx": [
+          48,
+          116
+        ],
+        "anchorPx": [
+          148,
+          85
+        ],
+        "bankSourceProximalPx": [
+          209,
+          1090
+        ],
+        "bankSourceDistalPx": [
+          109,
+          1121
+        ],
+        "jointSemantics": [
+          "ankle",
+          "forefoot"
+        ],
+        "uncertaintyPixels": 10,
+        "embeddedHand": false,
+        "topAttachmentPx": [
+          143,
+          20
+        ],
+        "toeTipPx": [
+          9,
+          115
+        ],
+        "semanticMapping": "La otra bota W apunta en dirección opuesta; se reutiliza el bitmap completo W-left_boot compatible, sin espejo.",
+        "bindScale": 0.04433497536945813,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "right_boot",
+          "nominalPixels": 9,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "left_thigh": {
+        "file": "Pieces/W-left_thigh.png",
+        "sourceSize": [
+          157,
+          276
+        ],
+        "sourceSha256": "c6afb0d085f198c80df30f4b979ce57a6e57e20c86b76ca951fd902e7e498c17",
+        "sourcePixelSha256": "5136d7be09df69d69e0f1bfd8ce79d8f05848b3a93ba0c47e9d83c8f3b1e638c",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-W-v3.png",
+        "bankSourceSha256": "e7cdb1086a7b8c7af908e3f239ef41bc9403df5bf5b3a213e8115c1fdc17ff3e",
+        "bankSourceRect": [
+          732,
+          603,
+          157,
+          276
+        ],
+        "proximalPx": [
+          102,
+          25
+        ],
+        "distalPx": [
+          51,
+          206
+        ],
+        "anchorPx": [
+          102,
+          25
+        ],
+        "jointSemantics": [
+          "hip",
+          "knee"
+        ],
+        "uncertaintyPixels": 8,
+        "bankSourceProximalPx": [
+          834,
+          628
+        ],
+        "bankSourceDistalPx": [
+          783,
+          809
+        ],
+        "embeddedWeapon": false,
+        "bindScale": 0.06369426751592357,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "left_thigh",
+          "nominalPixels": 10,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "left_shin": {
+        "file": "Pieces/W-left_shin.png",
+        "sourceSize": [
+          140,
+          266
+        ],
+        "sourceSha256": "123d2d72ddb9c25cadcd69d0a09ae3aee9166a8cdce7f93271e2700a8cc68645",
+        "sourcePixelSha256": "be2973415c651988ce77e42906a8ba44fe8792a31cc52c60107959099db79708",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-W-v3.png",
+        "bankSourceSha256": "e7cdb1086a7b8c7af908e3f239ef41bc9403df5bf5b3a213e8115c1fdc17ff3e",
+        "bankSourceRect": [
+          1062,
+          599,
+          140,
+          266
+        ],
+        "proximalPx": [
+          53,
+          79
+        ],
+        "distalPx": [
+          88,
+          248
+        ],
+        "anchorPx": [
+          53,
+          79
+        ],
+        "jointSemantics": [
+          "knee",
+          "ankle"
+        ],
+        "uncertaintyPixels": 8,
+        "bankSourceProximalPx": [
+          1115,
+          678
+        ],
+        "bankSourceDistalPx": [
+          1150,
+          847
+        ],
+        "embeddedWeapon": false,
+        "bindScale": 0.06428571428571428,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "left_shin",
+          "nominalPixels": 9,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "right_thigh": {
+        "file": "Pieces/W-right_thigh.png",
+        "sourceSize": [
+          158,
+          275
+        ],
+        "sourceSha256": "497e3201fc0a162654dec71fec53d16d60c7203e35feb18da3680ceeb9d74b85",
+        "sourcePixelSha256": "d4ab0355c8312624c08afc46768545895937a213e3f654aadeda76c9769162d7",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-W-v3.png",
+        "bankSourceSha256": "e7cdb1086a7b8c7af908e3f239ef41bc9403df5bf5b3a213e8115c1fdc17ff3e",
+        "bankSourceRect": [
+          432,
+          880,
+          158,
+          275
+        ],
+        "proximalPx": [
+          67,
+          25
+        ],
+        "distalPx": [
+          71,
+          241
+        ],
+        "anchorPx": [
+          67,
+          25
+        ],
+        "jointSemantics": [
+          "hip",
+          "knee"
+        ],
+        "uncertaintyPixels": 8,
+        "bankSourceProximalPx": [
+          499,
+          905
+        ],
+        "bankSourceDistalPx": [
+          503,
+          1121
+        ],
+        "embeddedWeapon": false,
+        "bindScale": 0.06329113924050633,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "right_thigh",
+          "nominalPixels": 10,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "right_shin": {
+        "file": "Pieces/W-right_shin.png",
+        "sourceSize": [
+          149,
+          262
+        ],
+        "sourceSha256": "7bf1ba81e0aa7eb5402cd3045f1e5c80b9f34dea2d4d70404b214cdbc87c2f0a",
+        "sourcePixelSha256": "71927c2063f8415a744c749293e501da7b6ae169b4b74301b42b3303c704da37",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-W-v3.png",
+        "bankSourceSha256": "e7cdb1086a7b8c7af908e3f239ef41bc9403df5bf5b3a213e8115c1fdc17ff3e",
+        "bankSourceRect": [
+          735,
+          892,
+          149,
+          262
+        ],
+        "proximalPx": [
+          81,
+          75
+        ],
+        "distalPx": [
+          56,
+          242
+        ],
+        "anchorPx": [
+          81,
+          75
+        ],
+        "jointSemantics": [
+          "knee",
+          "ankle"
+        ],
+        "uncertaintyPixels": 8,
+        "bankSourceProximalPx": [
+          816,
+          967
+        ],
+        "bankSourceDistalPx": [
+          791,
+          1134
+        ],
+        "embeddedWeapon": false,
+        "bindScale": 0.06040268456375839,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "right_shin",
+          "nominalPixels": 9,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "left_hand": {
+        "file": "Pieces/W-left_hand.png",
+        "sourceSize": [
+          185,
+          143
+        ],
+        "sourceSha256": "37634cf0c618af34fae73e14ef20e125b59e3341312f32d472328d1bbfbb45b3",
+        "sourcePixelSha256": "02107b07e79e9aaf6a3c2e823159251ee0b0b9aceb66195f634b18d38a666c80",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-W-v3.png",
+        "bankSourceSha256": "e7cdb1086a7b8c7af908e3f239ef41bc9403df5bf5b3a213e8115c1fdc17ff3e",
+        "bankSourceRect": [
+          706,
+          409,
+          185,
+          143
+        ],
+        "proximalPx": [
+          155,
+          32
+        ],
+        "distalPx": null,
+        "anchorPx": [
+          155,
+          32
+        ],
+        "jointSemantics": [
+          "wrist",
+          null
+        ],
+        "uncertaintyPixels": 4,
+        "bankSourceProximalPx": [
+          861,
+          441
+        ],
+        "bankSourceDistalPx": null,
+        "embeddedWeapon": false,
+        "bindScale": 0.038461538461538464,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "left_hand",
+          "nominalPixels": 5.5,
+          "axis": "height",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "right_hand": {
+        "file": "Pieces/W-right_hand.png",
+        "sourceSize": [
+          186,
+          124
+        ],
+        "sourceSha256": "3bb062c7ce6056387e6e25b9bde7d40a692e690c028484d473544fea46838900",
+        "sourcePixelSha256": "282e59df464d8cd8a08e93320b16a7497fd910af86d4f55393a4b7f721327d50",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-W-v3.png",
+        "bankSourceSha256": "e7cdb1086a7b8c7af908e3f239ef41bc9403df5bf5b3a213e8115c1fdc17ff3e",
+        "bankSourceRect": [
+          412,
+          701,
+          186,
+          124
+        ],
+        "proximalPx": [
+          163,
+          46
+        ],
+        "distalPx": null,
+        "anchorPx": [
+          163,
+          46
+        ],
+        "jointSemantics": [
+          "wrist",
+          null
+        ],
+        "uncertaintyPixels": 4,
+        "bankSourceProximalPx": [
+          575,
+          747
+        ],
+        "bankSourceDistalPx": null,
+        "embeddedWeapon": false,
+        "bindScale": 0.04435483870967742,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "right_hand",
+          "nominalPixels": 5.5,
+          "axis": "height",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "torso": {
+        "file": "Pieces/W-torso.png",
+        "sourceSize": [
+          194,
+          278
+        ],
+        "sourceSha256": "54738daa8143252612acf2ef20353206d8e1d91dc936bec0475fb14e234f438e",
+        "anchorPx": [
+          91,
+          27
+        ],
+        "proximalPx": [
+          91,
+          27
+        ],
+        "distalPx": [
+          93,
+          255
+        ],
+        "uncertaintyPixels": 4,
+        "waistPx": [
+          93,
+          255
+        ],
+        "leftShoulderPx": [
+          116,
+          117
+        ],
+        "rightShoulderPx": [
+          118,
+          96
+        ],
+        "bindScale": 0.09278350515463918,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "torso",
+          "nominalPixels": 18,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "pelvis": {
+        "file": "Pieces/W-pelvis.png",
+        "sourceSize": [
+          220,
+          211
+        ],
+        "sourceSha256": "860058d5ffd591d61e2662bee678de47e3deed88721c6443d2272ee795d638dc",
+        "anchorPx": [
+          109,
+          173.5
+        ],
+        "proximalPx": [
+          109,
+          173.5
+        ],
+        "distalPx": null,
+        "uncertaintyPixels": 4,
+        "waistPx": [
+          105,
+          91
+        ],
+        "leftHipPx": [
+          107,
+          164
+        ],
+        "rightHipPx": [
+          111,
+          183
+        ],
+        "bindScale": 0.06363636363636363,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "pelvis",
+          "nominalPixels": 14,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      }
+    },
+    "SW": {
+      "head": {
+        "file": "Pieces/SW-head.png",
+        "sourceSize": [
+          199,
+          223
+        ],
+        "sourceSha256": "92f2a89e5649edb27fdbd22e6eb87432cb1e151e1cd872f92baec1444dc4ddc7",
+        "proximalPx": [
+          109,
+          201
+        ],
+        "distalPx": [
+          91,
+          70
+        ],
+        "anchorPx": [
+          109,
+          201
+        ],
+        "cranialCentrePx": [
+          91,
+          70
+        ],
+        "annotation": "Manual anatomical landmarks: lower cervical collar socket, helmet/cranium volume centre, plus headVolumeCentrePx for full-piece mass centre. Complete original bitmap unchanged.",
+        "sourcePixelAlpha": {
+          "neck": 252,
+          "cranialCentre": 252
+        },
+        "headVolumeCentrePx": [
+          91,
+          100
+        ],
+        "uprightCervicalPx": [
+          109,
+          201
+        ],
+        "pronePosteriorCervicalPx": [
+          137,
+          48
+        ],
+        "posteriorSourceAlpha": 252,
+        "naturalProneReference": {
+          "cervicalSourcePx": [
+            145,
+            314
+          ],
+          "cranialSourcePx": [
+            128,
+            322
+          ],
+          "meaning": "Posterior projection is upper-right behind cranial volume.",
+          "file": "Sources/OperativeProneAimFire-SW-v1.png",
+          "frameSourceRect": [
+            0,
+            0,
+            384,
+            512
+          ],
+          "sourceSha256": "90af27fbeaec2fee9b6765af71ff97663e088c704dc12661857f1e553c807291",
+          "coordinateUncertaintyPixels": 12
+        },
+        "bindScale": 0.07035175879396985,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "head",
+          "nominalPixels": 14,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "backpack": {
+        "file": "Pieces/SW-backpack.png",
+        "sourceSize": [
+          255,
+          245
+        ],
+        "sourceSha256": "dbc805ad032507954f6eb2e64bd7389e9346844487aa9eee84efe85d835acd6e",
+        "sourceRgbaSha256": "6e9c3d9284c0966c7b86a3e880ebb4e8e281be2c55252f7190d27458cae866ff",
+        "anchorPx": [
+          107,
+          153
+        ],
+        "centrePx": [
+          107,
+          153
+        ],
+        "proximalPx": [
+          114,
+          223
+        ],
+        "distalPx": [
+          98,
+          84
+        ],
+        "attachmentPx": [
+          166,
+          115
+        ],
+        "recommendedUniformScale": 0.06274509803921569,
+        "annotation": "Complete original pack, anchor=main pouch volume centre for existing backpackJoint semantic; proximal/distal are lower/upper core body axis, not radio antenna or carry handle. attachmentPx annotates backpanel/strap connection separately and can be inside a real open loop. No source pixels removed or recoloured.",
+        "alphaAtLandmarks": {
+          "centre": 253,
+          "lowerCore": 253,
+          "upperCore": 253,
+          "strapAttachment": 252
+        },
+        "bindScale": 0.06274509803921569,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "backpack",
+          "nominalPixels": 16,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "left_upper_arm": {
+        "file": "Pieces/SW-left_upper_arm.png",
+        "sourceSize": [
+          167,
+          226
+        ],
+        "sourceSha256": "15943e9e52b5659239e39d30b4ea1a76066352a903d8e5317400e15aa4c6c535",
+        "sourcePixelSha256": "ce1f137b06715b2fa3d3e8750a6d3ee1767e9bde2fb3c9ca6965aba4c47c2db7",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-SW-v2.png",
+        "bankSourceSize": [
+          1536,
+          1024
+        ],
+        "bankSourceSha256": "0ed8410a28f51fc20c311b02ea58b6aecbf5a93ad6cd7d13543a13b9e0904cb9",
+        "bankSourceRect": [
+          135,
+          282,
+          167,
+          226
+        ],
+        "proximalPx": [
+          132,
+          28
+        ],
+        "distalPx": [
+          34,
+          201
+        ],
+        "anchorPx": [
+          132,
+          28
+        ],
+        "bankSourceProximalPx": [
+          267,
+          310
+        ],
+        "bankSourceDistalPx": [
+          169,
+          483
+        ],
+        "jointSemantics": [
+          "shoulder",
+          "elbow"
+        ],
+        "uncertaintyPixels": 6,
+        "embeddedHand": false,
+        "bindScale": 0.04790419161676647,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "left_upper_arm",
+          "nominalPixels": 8,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "left_forearm": {
+        "file": "Pieces/SW-left_forearm.png",
+        "sourceSize": [
+          142,
+          211
+        ],
+        "sourceSha256": "42b3a97a52cf2fd5b9714a3fad52c808fb07f3da3ca6c396792a31c2be961059",
+        "sourcePixelSha256": "fa21acaa50eff87242b6a9f94bd9a006fb542f8a75f2486201e1e39d53aef561",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-SW-v2.png",
+        "bankSourceSize": [
+          1536,
+          1024
+        ],
+        "bankSourceSha256": "0ed8410a28f51fc20c311b02ea58b6aecbf5a93ad6cd7d13543a13b9e0904cb9",
+        "bankSourceRect": [
+          516,
+          289,
+          142,
+          211
+        ],
+        "proximalPx": [
+          91,
+          28
+        ],
+        "distalPx": [
+          30,
+          187
+        ],
+        "anchorPx": [
+          91,
+          28
+        ],
+        "bankSourceProximalPx": [
+          607,
+          317
+        ],
+        "bankSourceDistalPx": [
+          546,
+          476
+        ],
+        "jointSemantics": [
+          "elbow",
+          "wrist"
+        ],
+        "uncertaintyPixels": 3,
+        "embeddedHand": false,
+        "bindScale": 0.0528169014084507,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "left_forearm",
+          "nominalPixels": 7.5,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "right_upper_arm": {
+        "file": "Pieces/SW-right_upper_arm.png",
+        "sourceSize": [
+          163,
+          221
+        ],
+        "sourceSha256": "c5cb8e8ae3719c1e02e490f8d2685aa11a4b59a400fcb77010142ec755da0f3b",
+        "sourcePixelSha256": "d2ce713a87daa331f1005864d65038daa2b1da31287ba69886b0c7b3cd3aee86",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-SW-v2.png",
+        "bankSourceSize": [
+          1536,
+          1024
+        ],
+        "bankSourceSha256": "0ed8410a28f51fc20c311b02ea58b6aecbf5a93ad6cd7d13543a13b9e0904cb9",
+        "bankSourceRect": [
+          1245,
+          283,
+          163,
+          221
+        ],
+        "proximalPx": [
+          36,
+          32
+        ],
+        "distalPx": [
+          126,
+          195
+        ],
+        "anchorPx": [
+          36,
+          32
+        ],
+        "bankSourceProximalPx": [
+          1281,
+          315
+        ],
+        "bankSourceDistalPx": [
+          1371,
+          478
+        ],
+        "jointSemantics": [
+          "shoulder",
+          "elbow"
+        ],
+        "uncertaintyPixels": 6,
+        "embeddedHand": false,
+        "bindScale": 0.049079754601226995,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "right_upper_arm",
+          "nominalPixels": 8,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "right_forearm": {
+        "file": "Pieces/SW-right_forearm.png",
+        "sourceSize": [
+          157,
+          204
+        ],
+        "sourceSha256": "c0979d862f1a3a703be99380697e318e7ef63fd71beff6e23ee9a1321efed0d9",
+        "sourcePixelSha256": "c4ce6558724c8e09ff9799ba90bad4c5fe77c92f2f1346de6354264951c30936",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-SW-v2.png",
+        "bankSourceSize": [
+          1536,
+          1024
+        ],
+        "bankSourceSha256": "0ed8410a28f51fc20c311b02ea58b6aecbf5a93ad6cd7d13543a13b9e0904cb9",
+        "bankSourceRect": [
+          145,
+          534,
+          157,
+          204
+        ],
+        "proximalPx": [
+          33,
+          29
+        ],
+        "distalPx": [
+          126,
+          177
+        ],
+        "anchorPx": [
+          33,
+          29
+        ],
+        "bankSourceProximalPx": [
+          178,
+          563
+        ],
+        "bankSourceDistalPx": [
+          271,
+          711
+        ],
+        "jointSemantics": [
+          "elbow",
+          "wrist"
+        ],
+        "uncertaintyPixels": 3,
+        "embeddedHand": false,
+        "bindScale": 0.04777070063694268,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "right_forearm",
+          "nominalPixels": 7.5,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "left_boot": {
+        "file": "Pieces/SW-left_boot.png",
+        "sourceSize": [
+          181,
+          193
+        ],
+        "sourceSha256": "01880efdfd5f1118da06fe2556c31a96597304f149942723412cb89f32108d6c",
+        "sourcePixelSha256": "71187fc8f441956298553138f6554d1d3c46089bdc517c1cb9d5484863fa3139",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-SW-v2.png",
+        "bankSourceSize": [
+          1536,
+          1024
+        ],
+        "bankSourceSha256": "0ed8410a28f51fc20c311b02ea58b6aecbf5a93ad6cd7d13543a13b9e0904cb9",
+        "bankSourceRect": [
+          107,
+          787,
+          181,
+          193
+        ],
+        "proximalPx": [
+          120,
+          103
+        ],
+        "distalPx": [
+          50,
+          155
+        ],
+        "anchorPx": [
+          120,
+          103
+        ],
+        "bankSourceProximalPx": [
+          227,
+          890
+        ],
+        "bankSourceDistalPx": [
+          157,
+          942
+        ],
+        "jointSemantics": [
+          "ankle",
+          "forefoot"
+        ],
+        "uncertaintyPixels": 10,
+        "embeddedHand": false,
+        "topAttachmentPx": [
+          120,
+          20
+        ],
+        "toeTipPx": [
+          12,
+          160
+        ],
+        "bindScale": 0.049723756906077346,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "left_boot",
+          "nominalPixels": 9,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "right_boot": {
+        "file": "Pieces/SW-right_boot.png",
+        "sourceSize": [
+          196,
+          198
+        ],
+        "sourceSha256": "383a73e8a7e0f021f4e2eed20e1fde2e701f4210e1744fa96fb72536d651e000",
+        "sourcePixelSha256": "c4c60dc83d29df00d4c84ed0f27f338ac443e1baccb0760db1b4fb72d1d2d82f",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-SW-v2.png",
+        "bankSourceSize": [
+          1536,
+          1024
+        ],
+        "bankSourceSha256": "0ed8410a28f51fc20c311b02ea58b6aecbf5a93ad6cd7d13543a13b9e0904cb9",
+        "bankSourceRect": [
+          1214,
+          786,
+          196,
+          198
+        ],
+        "proximalPx": [
+          143,
+          110
+        ],
+        "distalPx": [
+          61,
+          159
+        ],
+        "anchorPx": [
+          143,
+          110
+        ],
+        "bankSourceProximalPx": [
+          1357,
+          896
+        ],
+        "bankSourceDistalPx": [
+          1275,
+          945
+        ],
+        "jointSemantics": [
+          "ankle",
+          "forefoot"
+        ],
+        "uncertaintyPixels": 10,
+        "embeddedHand": false,
+        "topAttachmentPx": [
+          129,
+          20
+        ],
+        "toeTipPx": [
+          13,
+          169
+        ],
+        "bindScale": 0.04591836734693878,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "right_boot",
+          "nominalPixels": 9,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "left_thigh": {
+        "file": "Pieces/SW-left_thigh.png",
+        "sourceSize": [
+          169,
+          235
+        ],
+        "sourceSha256": "f24902f092292736d5cf23091c09f6fe86b2627b89cd4e06b974cc39db339856",
+        "sourcePixelSha256": "214c58aba2cc816623bb418827bf483e5e59e2c0281ecc1fa9c684c431d99ad0",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-SW-v2.png",
+        "bankSourceSha256": "0ed8410a28f51fc20c311b02ea58b6aecbf5a93ad6cd7d13543a13b9e0904cb9",
+        "bankSourceRect": [
+          847,
+          513,
+          169,
+          235
+        ],
+        "proximalPx": [
+          97,
+          22
+        ],
+        "distalPx": [
+          49,
+          166
+        ],
+        "anchorPx": [
+          97,
+          22
+        ],
+        "jointSemantics": [
+          "hip",
+          "knee"
+        ],
+        "uncertaintyPixels": 8,
+        "bankSourceProximalPx": [
+          944,
+          535
+        ],
+        "bankSourceDistalPx": [
+          896,
+          679
+        ],
+        "embeddedWeapon": false,
+        "bindScale": 0.05917159763313609,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "left_thigh",
+          "nominalPixels": 10,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "left_shin": {
+        "file": "Pieces/SW-left_shin.png",
+        "sourceSize": [
+          143,
+          235
+        ],
+        "sourceSha256": "7680f9468084760de6728928079bcc3ff72a5ff2bcaf462f875aabc515a70268",
+        "sourcePixelSha256": "857e101498c25620802f2b87d32891fac74f74e06e45bd04771f80ef7ce38520",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-SW-v2.png",
+        "bankSourceSha256": "0ed8410a28f51fc20c311b02ea58b6aecbf5a93ad6cd7d13543a13b9e0904cb9",
+        "bankSourceRect": [
+          1260,
+          513,
+          143,
+          235
+        ],
+        "proximalPx": [
+          51,
+          82
+        ],
+        "distalPx": [
+          94,
+          218
+        ],
+        "anchorPx": [
+          51,
+          82
+        ],
+        "jointSemantics": [
+          "knee",
+          "ankle"
+        ],
+        "uncertaintyPixels": 8,
+        "bankSourceProximalPx": [
+          1311,
+          595
+        ],
+        "bankSourceDistalPx": [
+          1354,
+          731
+        ],
+        "embeddedWeapon": false,
+        "bindScale": 0.06293706293706294,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "left_shin",
+          "nominalPixels": 9,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "right_thigh": {
+        "file": "Pieces/SW-right_thigh.png",
+        "sourceSize": [
+          172,
+          248
+        ],
+        "sourceSha256": "a4e4a545f99febf875b9149aa6c7bab2535e80ab315da3015fce1bad07382253",
+        "sourcePixelSha256": "0a2da32943b2bca4885cdd79e98811a1344dc5321bb591ddab1cd438a0ad1dcb",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-SW-v2.png",
+        "bankSourceSha256": "0ed8410a28f51fc20c311b02ea58b6aecbf5a93ad6cd7d13543a13b9e0904cb9",
+        "bankSourceRect": [
+          501,
+          747,
+          172,
+          248
+        ],
+        "proximalPx": [
+          90,
+          29
+        ],
+        "distalPx": [
+          118,
+          182
+        ],
+        "anchorPx": [
+          90,
+          29
+        ],
+        "jointSemantics": [
+          "hip",
+          "knee"
+        ],
+        "uncertaintyPixels": 8,
+        "bankSourceProximalPx": [
+          591,
+          776
+        ],
+        "bankSourceDistalPx": [
+          619,
+          929
+        ],
+        "embeddedWeapon": false,
+        "bindScale": 0.05813953488372093,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "right_thigh",
+          "nominalPixels": 10,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "right_shin": {
+        "file": "Pieces/SW-right_shin.png",
+        "sourceSize": [
+          124,
+          236
+        ],
+        "sourceSha256": "dfa3c962b2b031fa094d51959552b81dfa54e9a8a47833d2b950d0dfcbed25ef",
+        "sourcePixelSha256": "6c02d47348fb19d00178084076c6d4a216fdbeeae5d01271f69d200eaa64a0ff",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-SW-v2.png",
+        "bankSourceSha256": "0ed8410a28f51fc20c311b02ea58b6aecbf5a93ad6cd7d13543a13b9e0904cb9",
+        "bankSourceRect": [
+          882,
+          753,
+          124,
+          236
+        ],
+        "proximalPx": [
+          72,
+          78
+        ],
+        "distalPx": [
+          75,
+          216
+        ],
+        "anchorPx": [
+          72,
+          78
+        ],
+        "jointSemantics": [
+          "knee",
+          "ankle"
+        ],
+        "uncertaintyPixels": 8,
+        "bankSourceProximalPx": [
+          954,
+          831
+        ],
+        "bankSourceDistalPx": [
+          957,
+          969
+        ],
+        "embeddedWeapon": false,
+        "bindScale": 0.07258064516129033,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "right_shin",
+          "nominalPixels": 9,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "left_hand": {
+        "file": "Pieces/SW-left_hand.png",
+        "sourceSize": [
+          138,
+          168
+        ],
+        "sourceSha256": "84709bb132224eb56b63d46539ec537ba5a63267b0f03c02718d9a19a064e1b9",
+        "sourcePixelSha256": "22557390031b2702c73f94f79e732665498aa61b0c1a4259d29f4f45731d460f",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-SW-v2.png",
+        "bankSourceSha256": "0ed8410a28f51fc20c311b02ea58b6aecbf5a93ad6cd7d13543a13b9e0904cb9",
+        "bankSourceRect": [
+          873,
+          316,
+          138,
+          168
+        ],
+        "proximalPx": [
+          97,
+          28
+        ],
+        "distalPx": null,
+        "anchorPx": [
+          97,
+          28
+        ],
+        "jointSemantics": [
+          "wrist",
+          null
+        ],
+        "uncertaintyPixels": 4,
+        "bankSourceProximalPx": [
+          970,
+          344
+        ],
+        "bankSourceDistalPx": null,
+        "embeddedWeapon": false,
+        "bindScale": 0.03273809523809524,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "left_hand",
+          "nominalPixels": 5.5,
+          "axis": "height",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "right_hand": {
+        "file": "Pieces/SW-right_hand.png",
+        "sourceSize": [
+          147,
+          150
+        ],
+        "sourceSha256": "51e92f032627006669053eabbb693d432f48899ee3989aa1cc12359f6def03ec",
+        "sourcePixelSha256": "e5e91897f6d1d0bd40ebc6ba448c4a3d56df4ae9851bd1877e72d81081a8a808",
+        "bankSource": "Art/NoTrace/Characters/Sources/OperativeRigParts-SW-v2.png",
+        "bankSourceSha256": "0ed8410a28f51fc20c311b02ea58b6aecbf5a93ad6cd7d13543a13b9e0904cb9",
+        "bankSourceRect": [
+          510,
+          560,
+          147,
+          150
+        ],
+        "proximalPx": [
+          111,
+          30
+        ],
+        "distalPx": null,
+        "anchorPx": [
+          111,
+          30
+        ],
+        "jointSemantics": [
+          "wrist",
+          null
+        ],
+        "uncertaintyPixels": 4,
+        "bankSourceProximalPx": [
+          621,
+          590
+        ],
+        "bankSourceDistalPx": null,
+        "embeddedWeapon": false,
+        "bindScale": 0.03666666666666667,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "right_hand",
+          "nominalPixels": 5.5,
+          "axis": "height",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "torso": {
+        "file": "Pieces/SW-torso.png",
+        "sourceSize": [
+          266,
+          259
+        ],
+        "sourceSha256": "f2519cd45b0782d7d241fb7fd4669798725d16d1ed9bc2da42f1a3887c80b982",
+        "anchorPx": [
+          115,
+          39
+        ],
+        "proximalPx": [
+          115,
+          39
+        ],
+        "distalPx": [
+          123,
+          233
+        ],
+        "uncertaintyPixels": 4,
+        "waistPx": [
+          123,
+          233
+        ],
+        "leftShoulderPx": [
+          218,
+          112
+        ],
+        "rightShoulderPx": [
+          42,
+          65
+        ],
+        "bindScale": 0.08270676691729323,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "torso",
+          "nominalPixels": 22,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      },
+      "pelvis": {
+        "file": "Pieces/SW-pelvis.png",
+        "sourceSize": [
+          237,
+          196
+        ],
+        "sourceSha256": "51e2ba38eab2badf1949f90ee42401a8e11537f6d756736f378891cd4e26cae6",
+        "anchorPx": [
+          115,
+          147.5
+        ],
+        "proximalPx": [
+          115,
+          147.5
+        ],
+        "distalPx": null,
+        "uncertaintyPixels": 4,
+        "waistPx": [
+          107,
+          48
+        ],
+        "leftHipPx": [
+          171,
+          152
+        ],
+        "rightHipPx": [
+          59,
+          143
+        ],
+        "bindScale": 0.05907172995780591,
+        "bindReference": {
+          "file": "Tools/GenerateNoTraceCharactersRig.py",
+          "role": "pelvis",
+          "nominalPixels": 14,
+          "axis": "width",
+          "rule": "Se conserva el tamaño transversal/de objeto de reposo preexistente; el bind uniforme queda fijo en todos los clips. No ajuste de pose ni calibración72."
+        }
+      }
+    }
+  }
+}
