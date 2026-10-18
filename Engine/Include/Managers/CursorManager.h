@@ -4,6 +4,7 @@
 #include <SFML/Graphics/View.hpp>
 
 class ResourceManager;
+namespace EngineTests { struct GuiAccess; }
 
 class CursorManager {
 private:
@@ -33,6 +34,7 @@ public:
 
 private:
   friend class Engine;
+  friend struct EngineTests::GuiAccess;
   void Update(float deltaTime);
   void Render() const;
 };

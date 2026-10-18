@@ -21,7 +21,9 @@ CursorManager::CursorManager(sf::RenderWindow &window, ResourceManager &resource
 }
 
 void CursorManager::Update(float deltaTime) {
-  shape_.setPosition(GetPosition());
+  if (window_.getSize().x != 0 && window_.getSize().y != 0) {
+    shape_.setPosition(window_.mapPixelToCoords(sf::Mouse::getPosition(window_), window_.getView()));
+  }
   if (!sf::Joystick::isConnected(0)) {
     return;
   }
@@ -52,8 +54,8 @@ void CursorManager::Render() const {
   }
 
   const sf::View previousView = window_.getView();
-  const sf::Vector2f pixelPosition(sf::Mouse::getPosition(window_));
-  // La punta sigue al píxel del ratón y conserva su tamaño físico fuera del escalado lógico.
+  const sf::Vector2f pixelPosition(window_.mapCoordsToPixel(shape_.getPosition(), previousView));
+  // La punta comparte la muestra del juego y conserva su tamaño físico fuera del escalado lógico.
   window_.setView(sf::View(sf::FloatRect({0.f, 0.f}, sf::Vector2f(windowSize))));
 
   const sf::Texture *selected = hovered_ && hoverTexture_ ? hoverTexture_ : texture_;
@@ -98,10 +100,8 @@ void CursorManager::SetPosition(sf::Vector2f position) {
 }
 
 sf::Vector2f CursorManager::GetPosition() const {
-  if (window_.getSize().x == 0 || window_.getSize().y == 0) {
-    return shape_.getPosition();
-  }
-  return window_.mapPixelToCoords(sf::Mouse::getPosition(window_), window_.getView());
+  // La simulación y el dibujo comparten una sola muestra del cursor durante cada fotograma.
+  return shape_.getPosition();
 }
 
 sf::Vector2f CursorManager::GetPosition(const sf::View &view) const {
@@ -117,5 +117,5 @@ sf::Vector2f CursorManager::GetPosition(const sf::View &view) const {
       {presentation.position.x + viewport.position.x * presentation.size.x,
        presentation.position.y + viewport.position.y * presentation.size.y},
       {viewport.size.x * presentation.size.x, viewport.size.y * presentation.size.y}));
-  return window_.mapPixelToCoords(sf::Mouse::getPosition(window_), composedView);
+  return window_.mapPixelToCoords(window_.mapCoordsToPixel(shape_.getPosition(), window_.getView()), composedView);
 }
