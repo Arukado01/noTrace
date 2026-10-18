@@ -3,6 +3,8 @@
 #include "NoTraceVisibility.h"
 #include "NoTraceWorldGeometry.h"
 #include "NoTraceCombatGeometry.h"
+#include "NoTraceOcclusionGeometry.h"
+#include "NoTraceWorldRenderer.h"
 #include "Config/NoTraceVisibilityConfig.h"
 #include "Config/NoTraceDistractionConfig.h"
 #include <algorithm>
@@ -257,10 +259,119 @@ namespace {
     Require(!Visibility::IsGeometricallyVisible(world, observer, {400.f, 300.f}), "Un muro elevado no bloquea a los actores de su planta");
   }
 
+  VisibilityGrid ReferenceGrid(const WorldState &world, const Agent &observer) {
+    VisibilityGrid grid;
+    grid.observer = observer.id; grid.tick = world.tick; grid.cellSize = VisibilityConfig::CellSize;
+    grid.columns = static_cast<unsigned int>(std::ceil(world.size.x / grid.cellSize));
+    grid.rows = static_cast<unsigned int>(std::ceil(world.size.y / grid.cellSize));
+    grid.cells.resize(static_cast<std::size_t>(grid.columns) * grid.rows);
+    for (unsigned int row = 0; row < grid.rows; ++row) for (unsigned int column = 0; column < grid.columns; ++column) {
+      const sf::Vector2f point{std::min(world.size.x - .01f, (column + .5f) * grid.cellSize), std::min(world.size.y - .01f, (row + .5f) * grid.cellSize)};
+      grid.cells[static_cast<std::size_t>(row) * grid.columns + column] = world.phase != GamePhase::Mission || Visibility::IsGeometricallyVisible(world, observer, point, Stance::Prone);
+    }
+    const auto column = static_cast<unsigned int>(std::max(0.f, observer.position.x) / grid.cellSize);
+    const auto row = static_cast<unsigned int>(std::max(0.f, observer.position.y) / grid.cellSize);
+    if (column < grid.columns && row < grid.rows) grid.cells[static_cast<std::size_t>(row) * grid.columns + column] = 1;
+    grid.visualOrigin = observer.position; grid.elevation = observer.elevation;
+    if (!IsTactical(world)) return grid;
+    grid.visualRadii.resize(VisibilityConfig::VisualRayCount);
+    for (std::size_t ray = 0; ray < grid.visualRadii.size(); ++ray) {
+      const float angle = 2.f * std::numbers::pi_v<float> * static_cast<float>(ray) / grid.visualRadii.size();
+      const sf::Vector2f direction{std::cos(angle), std::sin(angle)};
+      float visible = 0.f, hidden = VisibilityConfig::StandingRange;
+      for (unsigned int iteration = 0; iteration < VisibilityConfig::VisualRayIterations; ++iteration) {
+        const float distance = (visible + hidden) * .5f;
+        if (Visibility::IsGeometricallyVisible(world, observer, observer.position + direction * distance, Stance::Prone)) visible = distance;
+        else hidden = distance;
+      }
+      grid.visualRadii[ray] = visible;
+    }
+    return grid;
+  }
+
+  void PreparedOcclusionMatchesReference() {
+    WorldState world; world.phase = GamePhase::Mission; world.size = {440.f, 360.f};
+    world.obstacles.push_back({{{215.f, 70.f}, {14.f, 160.f}}, CoverKind::High, true, "Muro"});
+    world.obstacles.push_back({{{100.f, 245.f}, {170.f, 12.f}}, CoverKind::Low, true, "Cobertura"});
+    Obstacle glass{{{280.f, 40.f}, {10.f, 120.f}}, CoverKind::High, true, "Cristal"}; glass.blocksVision = false; world.obstacles.push_back(glass);
+    Interactable door{41, ObjectKind::Door, {205.f, 270.f}, "Puerta"}; door.footprint = {14.f, 100.f}; world.objects.push_back(door);
+    Interactable table{42, ObjectKind::Hideout, {140.f, 180.f}, "Mesa"}; table.hideoutKind = HideoutKind::UnderTable; table.occupantAgent = 1; world.objects.push_back(table);
+    Interactable closet{43, ObjectKind::Hideout, {330.f, 180.f}, "Armario"}; closet.hideoutKind = HideoutKind::Closet; closet.occupantAgent = 1; closet.open = true; world.objects.push_back(closet);
+    Interactable zero{0, ObjectKind::Armory, {110.f, 130.f}, "Identificador cero"}; world.objects.push_back(zero);
+    world.walkSurfaces = {{1, 0, WalkSurfaceKind::Floor, {{0.f, 0.f}, world.size}, 0.f},
+      {2, 1, WalkSurfaceKind::Floor, {{230.f, 40.f}, {170.f, 200.f}}, 96.f},
+      {3, 0, WalkSurfaceKind::Stair, {{40.f, 40.f}, {100.f, 100.f}}, 20.f, {.5f, -.125f}},
+      {90, 1, WalkSurfaceKind::ElevatorCabin, {{300.f, 260.f}, {80.f, 80.f}}, 48.f}};
+    Agent observer; observer.id = 1; observer.position = {140.f, 180.f};
+    for (unsigned int state = 0; state < 8; ++state) {
+      world.objects[0].open = state % 2 != 0;
+      world.objects[1].overturned = state == 2;
+      world.objects[1].lifted = state == 3;
+      world.objects[2].hideoutAperture = state == 6 ? .2f : .8f;
+      world.objects[2].open = state != 7;
+      world.walkSurfaces[3].elevation = state % 2 == 0 ? 48.f : 96.f;
+      world.walkSurfaces[1].enabled = state != 3;
+      const WorldGeometry::PreparedOccluders geometry(world);
+      WorldGeometry::PreparedOccluders::Query query(geometry);
+      for (unsigned int direction = 0; direction < 8; ++direction) for (const auto stance : {Stance::Standing, Stance::Crouched, Stance::Prone}) {
+        const float angle = direction * std::numbers::pi_v<float> * .25f;
+        observer.facing = {std::cos(angle), std::sin(angle)}; observer.weaponAim = observer.facing; observer.stance = stance;
+        observer.elevation = state == 4 ? 96.f : 0.f;
+        observer.hideoutId = state == 5 ? table.id : state >= 6 ? closet.id : 0;
+        observer.hidden = observer.hideoutId != 0;
+        observer.position = state >= 6 ? closet.position : table.position;
+        const auto expected = ReferenceGrid(world, observer), actual = Visibility::BuildGrid(world, observer);
+        Require(actual.cells == expected.cells && actual.visualRadii == expected.visualRadii && actual.visualOrigin == expected.visualOrigin && actual.elevation == expected.elevation,
+          "La geometría preparada cambia un bit de la cuadrícula o un radio visual respecto a las consultas originales");
+        const sf::Vector3f from{observer.position.x, observer.position.y, observer.elevation + CombatGeometry::HeadCenterHeight(stance)};
+        const auto full = observer.position + observer.facing * 300.f;
+        query.Select(observer.position, full);
+        for (const float fraction : {.001f, .125f, .5f, 1.f}) for (const float targetZ : {0.f, 8.5f, 40.f, 96.f, 192.f}) for (const auto ignored : {0u, table.id, closet.id}) {
+          const auto position = observer.position + observer.facing * (300.f * fraction);
+          const sf::Vector3f to{position.x, position.y, targetZ};
+          const bool reference = WorldGeometry::RayOccluded(world, from, to, ignored);
+          Require(geometry.Occluded(from, to, ignored) == reference && query.Occluded(from, to, ignored) == reference,
+            "El filtro preparado cambia la oclusión de muros, puerta, mesa, armario, pendiente o cabina móvil");
+        }
+        for (const auto &object : world.objects) {
+          Require(Visibility::ObjectVisible(world, observer, object, &geometry) == Visibility::ObjectVisible(world, observer, object),
+            "La consulta preparada cambia la privacidad o los bordes visibles de un objeto");
+          const auto footprint = WorldGeometry::ObjectFootprint(object);
+          Require(WorldRenderer::FootprintVisible(world, observer, footprint, &geometry) == WorldRenderer::FootprintVisible(world, observer, footprint),
+            "El minimapa preparado cambia la visibilidad exacta de una huella");
+        }
+        for (const auto &obstacle : world.obstacles) Require(WorldRenderer::FootprintVisible(world, observer, obstacle.bounds, &geometry) == WorldRenderer::FootprintVisible(world, observer, obstacle.bounds),
+          "El minimapa preparado revela u oculta el borde de un muro");
+        for (const float distance : {16.f, 100.f, 200.f, 300.f}) for (const float elevation : {0.f, 96.f, 192.f}) {
+          const auto point = observer.position + observer.facing * distance;
+          for (const auto targetStance : {Stance::Standing, Stance::Crouched, Stance::Prone}) Require(
+            Visibility::IsGeometricallyVisible(world, observer, point, targetStance, elevation, &geometry) == Visibility::IsGeometricallyVisible(world, observer, point, targetStance, elevation),
+            "La consulta geométrica preparada cambia alcance, postura, orientación o altura");
+          Guard guard; guard.id = 71; guard.position = point; guard.elevation = elevation;
+          for (const auto guardState : {GuardState::Patrol, GuardState::Incapacitated, GuardState::Dead}) {
+            guard.state = guardState;
+            Require(Visibility::GuardVisible(world, observer, guard, &geometry) == Visibility::GuardVisible(world, observer, guard),
+              "La consulta preparada cambia la visibilidad de un guardia vivo, inconsciente o muerto");
+          }
+          guard.state = GuardState::Patrol; guard.cqcState = CqcState::KnockedDown;
+          Require(Visibility::GuardVisible(world, observer, guard, &geometry) == Visibility::GuardVisible(world, observer, guard),
+            "La consulta preparada pierde la altura del derribo CQC");
+        }
+      }
+    }
+    const WorldGeometry::PreparedOccluders geometry(world);
+    world.visibility.authoritative = true; world.visibility.observer = observer.id;
+    Guard authorized; authorized.id = 72; authorized.position = {1000.f, 1000.f};
+    Require(Visibility::GuardVisible(world, observer, authorized, &geometry) == Visibility::GuardVisible(world, observer, authorized),
+      "La consulta preparada vuelve a filtrar entidades ya autorizadas por el anfitrión");
+    Interactable armed{73, ObjectKind::Explosive, observer.position, "Trampa oculta"}; armed.trap.state = TrapState::Armed;
+    Require(!Visibility::ObjectVisible(world, observer, armed, &geometry), "La consulta preparada revela una trampa armada del estado autorizado");
+  }
+
 }
 int main() {
   try {
-    HeightAndTableCursorGeometry(); BodyExposureAndRescueDirection(); GeometryAndGrid(); ReducedPostureRanges(); PrivateSnapshots(); HideoutPrivacy(); PrivateFootstepFiltering(); HiddenNeutralizationFeedback();
+    PreparedOcclusionMatchesReference(); HeightAndTableCursorGeometry(); BodyExposureAndRescueDirection(); GeometryAndGrid(); ReducedPostureRanges(); PrivateSnapshots(); HideoutPrivacy(); PrivateFootstepFiltering(); HiddenNeutralizationFeedback();
     std::cout << "PASS visibilidad: " << checks << " comprobaciones de campo, paredes, puertas, posturas, privacidad y mascaras\n";
     return 0;
   } catch (const std::exception &error) {
