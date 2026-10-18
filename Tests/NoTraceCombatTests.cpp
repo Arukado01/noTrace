@@ -2,6 +2,7 @@
 #include "NoTraceSimulation.h"
 #include "NoTraceWorldGeometry.h"
 #include "Config/NoTraceWeaponConfig.h"
+#include "Config/NoTraceTrainingConfig.h"
 #include <algorithm>
 #include <cmath>
 #include <iostream>
@@ -208,6 +209,121 @@ namespace {
     simulation.Step(1.f / 60.f, {{1, head}});
     Require(nonLethal.agents[1].alive && nonLethal.agents[1].incapacitated && nonLethal.agents[1].health == GameplayConfig::MaxHealth, "Un impacto no letal en cabeza del agente produce inconsciencia sin muerte");
   }
+
+  void PassiveRecoveryThresholdAndFraction() {
+    Simulation simulation; auto &world = Fixture(simulation);
+    auto &agent = world.agents[0]; agent.health = 80.f; agent.stamina = 20.f;
+    Require(agent.healthRecoveryRemaining == 12.f, "El despliegue inicia doce segundos completos de espera de salud");
+    for (int step = 0; step < 191; ++step) simulation.Step(0.0625f, {});
+    Require(agent.health == 80.f && agent.healthRecoveryRemaining == 0.0625f && agent.stamina == GameplayConfig::MaxStamina,
+      "La resistencia puede recuperarse antes de doce segundos sin adelantar la salud");
+    simulation.Step(0.0625f, {});
+    Require(agent.health == 80.f && agent.healthRecoveryRemaining == 0.f, "El instante exacto de doce segundos no recupera tiempo anterior al umbral");
+    simulation.Step(0.0625f, {});
+    Require(agent.health == 80.f + GameplayConfig::PassiveHealthRecoveryPerSecond * 0.0625f,
+      "El primer intervalo posterior a doce segundos recupera salud lentamente");
+    const float initial = agent.health;
+    agent.healthRecoveryRemaining = 0.04f; simulation.Step(0.1f, {});
+    Require(std::abs(agent.health - initial - GameplayConfig::PassiveHealthRecoveryPerSecond * 0.06f) < 0.0001f,
+      "Un paso que cruza el umbral recupera sólo su fracción posterior");
+    const float beforeSecond = agent.health;
+    for (int step = 0; step < 16; ++step) simulation.Step(0.0625f, {});
+    Require(std::abs(agent.health - beforeSecond - GameplayConfig::PassiveHealthRecoveryPerSecond) < 0.0001f,
+      "Un segundo autoritativo recupera la tasa configurada independientemente de los fotogramas");
+    agent.health = GameplayConfig::MaxHealth - 0.02f; simulation.Step(0.1f, {});
+    Require(agent.health == GameplayConfig::MaxHealth, "La recuperación se limita exactamente a los doscientos puntos de salud");
+    const auto timer = agent.healthRecoveryRemaining;
+    simulation.Step(0.f, {}); simulation.Step(std::numeric_limits<float>::quiet_NaN(), {});
+    Require(agent.health == GameplayConfig::MaxHealth && agent.healthRecoveryRemaining == timer, "Un paso temporal inválido no modifica salud ni espera");
+    Require(world.events.empty(), "La recuperación pasiva no inventa impactos, rescates ni eventos de puntuación");
+  }
+
+  void NewImpactsRestartRecovery() {
+    Simulation simulation; auto &world = Fixture(simulation, true);
+    for (auto &agent : world.agents) agent.privateOrder = PrivateOrder::CopyArchive;
+    auto &target = world.agents[0]; target.health = 150.f;
+    target.healthRecoveryRemaining = 1.f;
+    const auto fire = [&](bool lethal) {
+      auto &actor = world.agents[1]; actor.actionCooldown = 0.f;
+      const auto command = AtZone(actor, target.position, target.facing, target.stance, HitZone::Torso, lethal);
+      simulation.Step(0.0625f, {{2, command}});
+    };
+    fire(true);
+    Require(target.health == 150.f - CombatConfig::LethalTorsoDamage && target.healthRecoveryRemaining == 12.f,
+      "Un impacto letal real reinicia doce segundos completos aunque la espera ya estuviera avanzada");
+    const float wounded = target.health;
+    for (int step = 0; step < 191; ++step) simulation.Step(0.0625f, {});
+    Require(target.health == wounded && target.healthRecoveryRemaining == 0.0625f, "No hay recuperación anticipada tras recibir un impacto nuevo");
+    fire(false);
+    Require(target.health == wounded && !target.incapacitated && target.healthRecoveryRemaining == 12.f,
+      "Un nuevo impacto no letal también reinicia la espera sin convertir resistencia en vida");
+    for (int step = 0; step < 192; ++step) simulation.Step(0.0625f, {});
+    Require(target.health == wounded && target.healthRecoveryRemaining == 0.f, "Los doce segundos se cuentan desde el último impacto de cualquier tipo");
+    simulation.Step(0.0625f, {});
+    Require(target.health > wounded && target.health < wounded + 0.1f, "La recuperación se reanuda progresivamente al completar la espera reiniciada");
+    auto &laterTarget = world.agents[1]; laterTarget.health = 150.f; laterTarget.healthRecoveryRemaining = 1.f;
+    target.actionCooldown = 0.f;
+    const auto reverse = AtZone(target, laterTarget.position, laterTarget.facing, laterTarget.stance, HitZone::Torso, true);
+    simulation.Step(0.0625f, {{1, reverse}});
+    Require(laterTarget.health == 150.f - CombatConfig::LethalTorsoDamage && laterTarget.healthRecoveryRemaining == 12.f,
+      "El impacto conserva doce segundos completos aunque el atacante se actualice antes que la víctima");
+  }
+
+  void RecoveryNeverReanimatesAndKeepsRescueDeadline() {
+    Simulation simulation; auto &world = Fixture(simulation, true);
+    for (auto &agent : world.agents) agent.privateOrder = PrivateOrder::CopyArchive;
+    auto &target = world.agents[0]; target.health = CombatConfig::LethalTorsoDamage; target.stamina = 0.f;
+    const auto command = AtZone(world.agents[1], target.position, target.facing, target.stance, HitZone::Torso, true);
+    simulation.Step(0.0625f, {{2, command}});
+    Require(target.health == 0.f && target.stamina == 0.f && target.lifeState == LifeState::Incapacitated && target.incapacityRemaining == 55.f,
+      "El impacto fatal tiene prioridad sobre resistencia y abre el rescate cooperativo de cincuenta y cinco segundos");
+    for (int step = 0; step < 208; ++step) simulation.Step(0.0625f, {});
+    Require(target.health == 0.f && target.stamina == 0.f && target.incapacitated && target.healthRecoveryRemaining == 12.f && target.incapacityRemaining == 42.f,
+      "Superar doce segundos no regenera vida ni resistencia ni reduce la espera de un incapacitado");
+    ActionCommand rescue; rescue.interact = true;
+    simulation.Step(0.0625f, {{2, rescue}});
+    Require(target.health == GameplayConfig::RevivedHealth && !target.incapacitated && target.lifeState == LifeState::Alive && target.healthRecoveryRemaining == 12.f,
+      "Sólo el rescate explícito recupera al compañero y reinicia su espera de salud");
+    for (int step = 0; step < 192; ++step) simulation.Step(0.0625f, {});
+    Require(target.health == GameplayConfig::RevivedHealth, "Un compañero rescatado espera doce segundos nuevos antes de regenerar");
+    simulation.Step(0.0625f, {});
+    Require(target.health > GameplayConfig::RevivedHealth, "El compañero vuelve a la recuperación pasiva después del rescate y su espera completa");
+
+    auto &expired = Fixture(simulation, true);
+    for (auto &agent : expired.agents) agent.privateOrder = PrivateOrder::CopyArchive;
+    auto &down = expired.agents[0]; down.health = 90.f; down.stamina = 0.f;
+    down.lifeState = LifeState::Incapacitated; down.incapacitated = true; down.incapacityRemaining = 55.f; down.healthRecoveryRemaining = 0.f;
+    for (int step = 0; step < 879; ++step) simulation.Step(0.0625f, {});
+    Require(down.health == 90.f && down.stamina == 0.f && down.incapacitated && down.incapacityRemaining == 0.0625f && expired.phase == GamePhase::Mission,
+      "La inconsciencia con salud positiva tampoco se recupera al esperar ni al regenerar resistencia");
+    simulation.Step(0.0625f, {});
+    Require(down.health == 0.f && down.lifeState == LifeState::Dead && down.rescueExpired && expired.phase == GamePhase::Results,
+      "Al cumplirse exactamente cincuenta y cinco segundos vence el rescate y la recuperación no revierte la derrota");
+    for (int step = 0; step < 240; ++step) simulation.Step(0.0625f, {});
+    Require(down.health == 0.f && down.stamina == 0.f && !expired.results.at(1).success, "La muerte y la derrota impiden cualquier regeneración posterior");
+
+    auto &solo = Fixture(simulation); solo.agents[0].health = 0.f; solo.agents[0].stamina = 0.f; solo.agents[0].healthRecoveryRemaining = 0.f;
+    simulation.Step(0.0625f, {});
+    Require(solo.agents[0].lifeState == LifeState::Dead && solo.agents[0].health == 0.f && solo.agents[0].stamina == 0.f && solo.phase == GamePhase::Results,
+      "La salud cero individual se confirma antes de regeneración o resistencia aunque el temporizador esté listo");
+  }
+
+  void TrainingRetainsSpecialHealthRecovery() {
+    Simulation simulation; simulation.ResetBase();
+    auto &world = const_cast<WorldState &>(simulation.GetState());
+    auto &agent = world.agents[0]; agent.health = 80.f;
+    simulation.Step(0.1f, {});
+    Require(agent.health == 80.f + TrainingConfig::HealthRecoveryPerSecond * 0.1f && agent.healthRecoveryRemaining == 12.f,
+      "La sala de espera conserva su recuperación inmediata especial sin sumar la regeneración lenta de misión");
+    agent.health = 0.f; simulation.Step(0.1f, {});
+    Require(agent.alive && !agent.incapacitated && agent.lifeState == LifeState::Alive && agent.health > 0.f && world.phase == GamePhase::Base,
+      "La salud cero de entrenamiento mantiene su protección sin activar muerte de misión");
+    agent.healthRecoveryRemaining = 0.f; simulation.Deploy(7);
+    Require(agent.health == GameplayConfig::MaxHealth && agent.healthRecoveryRemaining == 12.f, "Desplegar descarta cualquier espera agotada en prácticas");
+    agent.health = 80.f; agent.healthRecoveryRemaining = 0.f; simulation.ReturnToBase();
+    Require(agent.health == GameplayConfig::MaxHealth && agent.healthRecoveryRemaining == 12.f && world.phase == GamePhase::Base,
+      "Volver a la sala reinicia salud y espera sin trasladar una recuperación de misión");
+  }
 }
 
 int main() {
@@ -218,7 +334,11 @@ int main() {
     ProneProtectionAndMelee();
     MissionSurvivabilityAndDiscreteDamage();
     FriendlyZonesAndSnapshots();
-    std::cout << "PASS combate: " << checks << " comprobaciones de zonas, postura, trayectoria y protección tumbado\n";
+    PassiveRecoveryThresholdAndFraction();
+    NewImpactsRestartRecovery();
+    RecoveryNeverReanimatesAndKeepsRescueDeadline();
+    TrainingRetainsSpecialHealthRecovery();
+    std::cout << "PASS combate: " << checks << " comprobaciones de zonas, postura, trayectoria, protección tumbado y recuperación de vida\n";
     return 0;
   } catch (const std::exception &error) {
     std::cerr << "FAIL combate tras " << checks << " comprobaciones: " << error.what() << '\n';

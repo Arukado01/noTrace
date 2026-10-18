@@ -108,6 +108,7 @@ namespace NoTrace {
 
   void Simulation::BuildBase() {
     ResetSecurity();
+    for (auto &agent : world_.agents) agent.healthRecoveryRemaining = GameplayConfig::PassiveHealthRecoveryDelay;
     for (auto &agent : world_.agents) { agent.cover = {}; agent.decoyGuide = {}; agent.hideoutId = 0; agent.hideoutExit = {}; agent.hidden = false; agent.draggingGuard = -1; agent.actionPose = ActionPose::None; agent.actionPoseTime = 0.f; }
     world_.phase = GamePhase::Base;
     world_.size = {1000.f, 760.f};
@@ -141,6 +142,7 @@ namespace NoTrace {
       agent.facing = {1.f, 0.f}; agent.stance = Stance::Standing;
       agent.lifeState = LifeState::Alive; agent.rescueExpired = false; agent.alive = true; agent.incapacitated = false; agent.bodyReported = false; agent.hidden = false; agent.extracted = false; agent.moving = false;
       agent.health = GameplayConfig::MaxHealth; agent.stamina = GameplayConfig::MaxStamina; agent.incapacityRemaining = 0.f; agent.running = false;
+      agent.healthRecoveryRemaining = GameplayConfig::PassiveHealthRecoveryDelay;
       agent.animationTime = 0.f; agent.actionCooldown = 0.f; agent.footstepTime = 0.f; agent.draggingGuard = -1;
       agent.loadout = agent.operationLoadout;
       agent.maneuver = {}; agent.aiming = false; agent.transitionTime = 0.f;
@@ -492,6 +494,13 @@ namespace NoTrace {
     for (auto &agent : world_.agents) if (agent.connected && agent.alive && agent.incapacitated && !agent.extracted) {
       agent.incapacityRemaining = std::max(0.f, agent.incapacityRemaining - dt);
       if (agent.incapacityRemaining <= 0.f) ConfirmDeath(agent, 0, true);
+    }
+    // La recuperación precede a todas las órdenes para que un impacto reinicie el plazo sin depender del orden de agentes.
+    if (world_.phase == GamePhase::Mission && !IsTraining(world_)) for (auto &agent : world_.agents) {
+      if (!agent.connected || !agent.alive || agent.incapacitated || agent.extracted || agent.lifeState != LifeState::Alive || agent.health <= 0.f) continue;
+      const float recoveryTime = std::max(0.f, dt - agent.healthRecoveryRemaining);
+      agent.healthRecoveryRemaining = std::max(0.f, agent.healthRecoveryRemaining - dt);
+      agent.health = std::min(GameplayConfig::MaxHealth, agent.health + GameplayConfig::PassiveHealthRecoveryPerSecond * recoveryTime);
     }
     for (auto &agent : world_.agents) {
       agent.transitionTime = std::max(0.f, agent.transitionTime - dt);
@@ -953,6 +962,7 @@ namespace NoTrace {
     CancelReload(agent); CancelPuzzle(agent); CancelManeuver(agent); ReleaseCqc(agent); ReleaseHideout(agent);
     agent.lifeState = LifeState::Dead; agent.alive = false; agent.incapacitated = false; agent.rescueExpired = rescueExpired;
     agent.health = 0.f; agent.stamina = 0.f; agent.incapacityRemaining = 0.f; agent.friendlyIncapacitated = false;
+    agent.healthRecoveryRemaining = GameplayConfig::PassiveHealthRecoveryDelay;
     agent.aiming = false; agent.moving = false; agent.running = false; agent.hidden = false; agent.draggingGuard = -1; agent.cover = {};
     agent.detectionProgress = 0.f; agent.detectionConfirmed = false; agent.detectionIndicatorRemaining = agent.confirmedIndicatorRemaining = 0.f;
     agent.actionPose = ActionPose::Fall; agent.actionPoseTime = GameplayConfig::AttackAnimationDuration;
@@ -962,6 +972,7 @@ namespace NoTrace {
 
   void Simulation::Incapacitate(Agent &agent, PlayerId actor, std::uint32_t source) {
     if (agent.lifeState == LifeState::Dead || agent.incapacitated) return;
+    agent.healthRecoveryRemaining = GameplayConfig::PassiveHealthRecoveryDelay;
     CancelReload(agent); CancelManeuver(agent); agent.aiming = false;
     CancelPuzzle(agent); ReleaseCqc(agent);
     if (IsTraining(world_)) {
@@ -1001,6 +1012,7 @@ namespace NoTrace {
     agent.incapacitated = false; agent.incapacityRemaining = 0.f; agent.bodyReported = false; agent.friendlyIncapacitated = false;
     agent.cover = {};
     agent.health = std::max(agent.health, GameplayConfig::RevivedHealth);
+    agent.healthRecoveryRemaining = GameplayConfig::PassiveHealthRecoveryDelay;
     agent.stamina = GameplayConfig::RevivedStamina;
     agent.actionCooldown = GameplayConfig::WeaponCooldown;
     agent.actionPose = ActionPose::Recover; agent.actionPoseTime = GameplayConfig::AttackAnimationDuration;
@@ -1013,6 +1025,7 @@ namespace NoTrace {
     // La protección tumbado se aplica también aquí aunque cambie la selección de blancos enemigos.
     if (enemyBullet && agent.stance == Stance::Prone) return;
     if (!std::isfinite(healthDamage) || !std::isfinite(staminaDamage) || healthDamage < 0.f || staminaDamage < 0.f) return;
+    agent.healthRecoveryRemaining = GameplayConfig::PassiveHealthRecoveryDelay;
     CancelReload(agent); CancelPuzzle(agent); CancelManeuver(agent); agent.aiming = false; ReleaseCqc(agent);
     agent.actionPose = ActionPose::TakeDamage; agent.actionPoseTime = GameplayConfig::AttackAnimationDuration;
     agent.health = std::max(0.f, agent.health - healthDamage);
@@ -1343,7 +1356,7 @@ namespace NoTrace {
       auto cover = agent.cover;
       if (filtered && agent.id != player && cover.object != 0 && !visibleObjects.contains(cover.object)) cover = {};
       json value{{"id", agent.id}, {"name", agent.name}, {"position", VectorJson(agent.position)}, {"facing", VectorJson(agent.facing)},
-        {"weaponAim",VectorJson(agent.weaponAim)},
+        {"weaponAim",VectorJson(agent.weaponAim)}, {"healthRecoveryRemaining",agent.healthRecoveryRemaining},
         {"stance", static_cast<int>(agent.stance)}, {"alive", agent.alive}, {"incapacitated", agent.incapacitated}, {"bodyReported", agent.bodyReported}, {"connected", agent.connected}, {"hidden", agent.hidden},
         {"moving", agent.moving}, {"running", agent.running}, {"extracted", agent.extracted}, {"animationTime", agent.animationTime},
         {"health", agent.health}, {"stamina", agent.stamina}, {"incapacityRemaining", agent.incapacityRemaining}, {"actionCooldown", agent.actionCooldown}, {"footstepTime", agent.footstepTime},
@@ -1518,6 +1531,7 @@ namespace NoTrace {
         agent.position = ParseVector(value.at("position")); agent.facing = ParseVector(value.at("facing"));
         agent.weaponAim = ParseVector(value.at("weaponAim"));
         if (agent.weaponAim.lengthSquared() > 1.01f) throw std::runtime_error("Dirección de arma inválida");
+        agent.healthRecoveryRemaining = finite(value.at("healthRecoveryRemaining"), GameplayConfig::PassiveHealthRecoveryDelay);
         agent.stance = ParseEnum<Stance>(value.at("stance"), 2);
         agent.alive = value.at("alive").get<bool>(); agent.incapacitated = value.at("incapacitated").get<bool>(); agent.bodyReported = value.at("bodyReported").get<bool>(); agent.connected = value.at("connected").get<bool>(); agent.hidden = value.at("hidden").get<bool>();
         agent.moving = value.at("moving").get<bool>(); agent.running = value.at("running").get<bool>(); agent.extracted = value.at("extracted").get<bool>();

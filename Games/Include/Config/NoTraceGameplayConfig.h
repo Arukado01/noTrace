@@ -40,6 +40,8 @@ namespace NoTrace::GameplayConfig {
   inline constexpr float ShotTraceDuration = 0.18f;
   inline constexpr float AttackAnimationDuration = 0.24f;
   inline constexpr float MaxHealth = 200.f;
+  inline constexpr float PassiveHealthRecoveryDelay = 12.f;
+  inline constexpr float PassiveHealthRecoveryPerSecond = 1.f;
   inline constexpr float MaxStamina = 100.f;
   inline constexpr float RunningStaminaPerSecond = 22.f;
   inline constexpr float StaminaRecoveryPerSecond = 16.f;

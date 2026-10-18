@@ -139,6 +139,7 @@ namespace NoTrace {
     bool running = false;
     bool extracted = false;
     float health = GameplayConfig::MaxHealth;
+    float healthRecoveryRemaining = GameplayConfig::PassiveHealthRecoveryDelay;
     float stamina = GameplayConfig::MaxStamina;
     float incapacityRemaining = 0.f;
     float animationTime = 0.f;
