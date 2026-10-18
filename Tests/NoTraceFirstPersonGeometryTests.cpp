@@ -1,4 +1,6 @@
 #include "NoTraceFirstPersonGeometry.h"
+#include "NoTraceFirstPersonComposition.h"
+#include "Config/NoTraceFirstPersonArtConfig.h"
 #include <algorithm>
 #include <array>
 #include <bit>
@@ -47,6 +49,31 @@ namespace {
     for (const auto stance : {Stance::Standing, Stance::Crouched, Stance::Prone}) {
       auto agent = world.agents.front(); agent.stance = stance; agent.elevation = 192.f;
       Require(Close(Eye(agent).z, 192.f + CombatGeometry::HeadCenterHeight(stance)), "Los ojos no conservan la altura de la postura y planta reales");
+    }
+  }
+  void ViewmodelComposition() {
+    const sf::Vector2f source{FirstPersonArtConfig::ViewmodelWidth, FirstPersonArtConfig::ViewmodelHeight};
+    const sf::Vector2f anchor{source.x * .5f, source.y};
+    const std::array<sf::Vector2f, 8> viewports{{{1600.f, 900.f}, {1280.f, 800.f}, {1280.f, 960.f}, {2100.f, 900.f},
+      {320.f, 180.f}, {320.f, 200.f}, {320.f, 240.f}, {320.f, 137.f}}};
+    for (const auto viewport : viewports) {
+      const auto idle = FirstPersonComposition::PlaceViewmodel(viewport, source, anchor, 0.f);
+      const auto fire = FirstPersonComposition::PlaceViewmodel(viewport, source, anchor, 1.f);
+      const auto half = FirstPersonComposition::PlaceViewmodel(viewport, source, anchor, .5f);
+      const auto wrist = idle.position + anchor * idle.scale;
+      const auto size = source * idle.scale;
+      Require(Close(wrist.x, viewport.x * .5f) && Close(wrist.y, viewport.y), "Las muñecas dejan de anclarse al centro inferior del viewport");
+      Require(Close(size.x / size.y, source.x / source.y) && Close(size.y / viewport.y, .46f), "El aspecto de manos y arma cambia con la resolución");
+      Require(idle.position.x >= 0.f && idle.position.x + size.x <= viewport.x, "El cambio de aspecto recorta lateralmente el arma");
+      Require(Close(fire.scale, idle.scale) && Close(fire.position.x, idle.position.x) && Close(fire.position.y - idle.position.y, viewport.y / 60.f), "El retroceso cambia el tamaño o desplaza horizontalmente el arma");
+      Require(Close(half.position.y, (idle.position.y + fire.position.y) * .5f), "La recuperación del retroceso salta entre anclas");
+      Require(Close(FirstPersonComposition::PlaceViewmodel(viewport, source, anchor, -1.f).position.y, idle.position.y) &&
+        Close(FirstPersonComposition::PlaceViewmodel(viewport, source, anchor, 2.f).position.y, fire.position.y), "El retroceso sobrepasa su recorrido de presentación");
+      const auto wide = FirstPersonComposition::PlaceViewmodel({viewport.x * 1.5f, viewport.y}, source, anchor, 0.f);
+      Require(SameBits(idle.scale, wide.scale) && SameBits(idle.position.y, wide.position.y), "Una ventana más ancha acerca el silenciador a la mira");
+      Require(idle.position.y + 9.f * idle.scale > viewport.y * .56f, "La muestra opaca más alta del atlas invade el entorno de la mira");
+      const auto center = CameraRay({}, viewport * .5f, viewport);
+      Require(center == sf::Vector3f{1.f, 0.f, 0.f}, "La composición altera el eje central usado para apuntar");
     }
   }
   void DepthAndDoors() {
@@ -294,7 +321,7 @@ namespace {
 
 int main() {
   try {
-    PreparedColumnsMatchBoundaryCases(); PreparedRowsMatchReference(); NearestDepthMatchesReference(); ProjectionAndInvalidInput(); DepthAndDoors(); FloorsStairsAndCabin(); TableOpenSpaceAndPrivacy(); MuzzleConvergenceAndObstruction();
+    PreparedColumnsMatchBoundaryCases(); PreparedRowsMatchReference(); NearestDepthMatchesReference(); ProjectionAndInvalidInput(); ViewmodelComposition(); DepthAndDoors(); FloorsStairsAndCabin(); TableOpenSpaceAndPrivacy(); MuzzleConvergenceAndObstruction();
     std::cout << "PASS primera persona: " << checks << " comprobaciones de proyección, profundidad, plantas, puertas y boca física\n";
     return 0;
   } catch (const std::exception &error) { std::cerr << "FAIL primera persona: " << error.what() << '\n'; return 1; }

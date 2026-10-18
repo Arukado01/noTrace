@@ -15,6 +15,8 @@ namespace NoTrace::FirstPersonConfig {
   inline constexpr unsigned int MinimumRenderHeight = 120;
   inline constexpr unsigned int MaximumRenderHeight = 256;
   inline constexpr float MaterialTileSize = 48.f;
+  inline constexpr float ViewmodelHeightFraction = .46f;
+  inline constexpr float ViewmodelRecoilHeightFraction = 1.f / 60.f;
   inline constexpr float RecoilDuration = .13f;
   inline constexpr float DryFireDuration = .22f;
   inline constexpr float DamageDuration = .28f;

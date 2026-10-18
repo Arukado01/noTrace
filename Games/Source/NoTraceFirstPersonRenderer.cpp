@@ -1,6 +1,7 @@
 #include "NoTraceFirstPersonRenderer.h"
 #include "NoTracePerformance.h"
 #include "NoTraceFirstPersonGeometry.h"
+#include "NoTraceFirstPersonComposition.h"
 #include "NoTraceFirstPersonArt.h"
 #include "Config/NoTraceWeaponConfig.h"
 #include "Core/EngineContext.h"
@@ -263,10 +264,11 @@ namespace NoTrace {
       const unsigned int gesture = observer->reloadRemaining > 0.f ? (observer->reloadRemaining > WeaponConfig::ReloadDuration * .5f ? 2u : 3u) : state_->recoil > 0.f ? 1u : 0u;
       const auto weapon = state_->art.ViewmodelFrame(observer->selectedWeapon, suppressed, gesture);
       const ImagePixels weaponImage(state_->art.ViewmodelPixels());
-      const float weaponScale = width * .64f / weapon.rect.size.x;
       const float recoil = state_->recoil / FirstPersonConfig::RecoilDuration;
-      const float weaponLeft = width * .5f - weapon.anchor.x * weaponScale;
-      const float weaponTop = static_cast<float>(height) - weapon.anchor.y * weaponScale + recoil * 3.f;
+      const auto placement = FirstPersonComposition::PlaceViewmodel({static_cast<float>(width), static_cast<float>(height)}, sf::Vector2f(weapon.rect.size), weapon.anchor, recoil);
+      const float weaponScale = placement.scale;
+      const float weaponLeft = placement.position.x;
+      const float weaponTop = placement.position.y;
       const int weaponRight = std::min(static_cast<int>(width), static_cast<int>(std::ceil(weaponLeft + weapon.rect.size.x * weaponScale)));
       const int weaponBottom = std::min(static_cast<int>(height), static_cast<int>(std::ceil(weaponTop + weapon.rect.size.y * weaponScale)));
       for (int y = std::max(0, static_cast<int>(weaponTop)); y < weaponBottom; ++y) for (int x = std::max(0, static_cast<int>(weaponLeft)); x < weaponRight; ++x) {

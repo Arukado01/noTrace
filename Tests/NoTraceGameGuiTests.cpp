@@ -23,6 +23,7 @@
 #include "NoTraceCoordinationGuiTests.h"
 #include "NoTraceCleanHudGuiTests.h"
 #include "NoTraceFirstPersonGuiTests.h"
+#include "NoTraceFirstPersonCompositionGuiTests.h"
 #include "NoTraceRendererPerformanceGuiTests.h"
 #include "NoTraceInteraction.h"
 #include "NoTraceWorldGeometry.h"
@@ -1354,6 +1355,7 @@ namespace {
         return Access::CaptureFirstPerson(renderer, world, camera, context, window, file, hud);
       };
       EngineTests::RunFirstPersonRenderFixtures(context, window, output, captureFps);
+      EngineTests::RunFirstPersonCompositionFixtures(context, window, output, captureFps);
       game.OnCleanup(); Access::VerifyExampleGames(context, window, output); window.close(); return nlohmann::json::array();
     }
     if (visualSuite == "--interaction-fixes-only") {
@@ -1405,6 +1407,7 @@ namespace {
       return Access::CaptureFirstPerson(renderer, world, camera, context, window, file, hud);
     };
     EngineTests::RunFirstPersonRenderFixtures(context, window, output, captureFps);
+    EngineTests::RunFirstPersonCompositionFixtures(context, window, output, captureFps);
     if (finalVisualsOnly) {
       Access::GetSession(game).SetReady(true); Access::GetSession(game).Deploy(); game.UpdateBackground();
       Access::Require(Access::GetSession(game).GetWorld().phase==GamePhase::Mission,"La comprobación visual no pudo desplegar su operación aislada");
