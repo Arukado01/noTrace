@@ -218,11 +218,20 @@ namespace NoTrace {
       }
       if (agent.draggingGuard >= 0) return select(agent.moving ? Clip::DragLoop : Clip::DragStart, agent.moving ? std::nullopt : std::optional{1.f});
       if (agent.maneuver.kind != ManeuverKind::None) {
-        const auto clip = agent.maneuver.kind == ManeuverKind::Dive ? Clip::Dive : Clip::Roll;
-        const float travel = agent.maneuver.kind == ManeuverKind::Dive ? ManeuverConfig::DiveTravel : ManeuverConfig::RollTravel;
-        const float start = agent.maneuver.kind == ManeuverKind::Dive ? ManeuverConfig::DiveStart : ManeuverConfig::RollStart;
-        const auto phase = agent.maneuver.phase == ManeuverPhase::Start ? 0.f : agent.maneuver.phase == ManeuverPhase::Travel ?
-            0.25f + 0.49f * std::clamp((agent.maneuver.time - start) / travel, 0.f, 1.f) : agent.maneuver.phase == ManeuverPhase::Land ? 0.5f : 0.75f;
+        const auto &motion = agent.maneuver;
+        const bool dive = motion.kind == ManeuverKind::Dive;
+        const auto clip = dive ? Clip::Dive : Clip::Roll;
+        const float travel = dive ? ManeuverConfig::DiveTravel : ManeuverConfig::RollTravel;
+        const float start = dive ? ManeuverConfig::DiveStart : ManeuverConfig::RollStart;
+        const float land = dive ? ManeuverConfig::DiveLand : 0.f;
+        const float recover = dive ? ManeuverConfig::DiveRecover : ManeuverConfig::RollRecover;
+        const float frames = static_cast<float>(SpriteConfig::Animations[static_cast<std::size_t>(clip)].count);
+        // El viaje recorre las poses intermedias; contacto y recuperación avanzan hasta la pose final sin retroceder.
+        const float frame = motion.phase == ManeuverPhase::Start ? std::clamp(motion.time / start, 0.f, 1.f) :
+            motion.phase == ManeuverPhase::Travel ? 1.f + (frames - (dive ? 3.f : 2.f)) * std::clamp((motion.time - start) / travel, 0.f, 1.f) :
+            motion.phase == ManeuverPhase::Land && dive ? frames - 2.f + std::clamp((motion.time - start - travel) / land, 0.f, 1.f) :
+            frames - 1.f + std::clamp((motion.time - start - travel - land) / recover, 0.f, 1.f);
+        const float phase = frame / frames;
         return ClipFrame(clip, agent.maneuver.direction, agent.maneuver.time, phase);
       }
       if (agent.cqcHoldingGuard || agent.cqcHoldingAgent) return agent.actionPose == ActionPose::Choke && agent.actionPoseTime > 0.f ?

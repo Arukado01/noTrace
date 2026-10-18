@@ -1,11 +1,13 @@
 #include "NoTraceSimulation.h"
 #include "NoTraceSpatialFixture.h"
 #include "NoTraceWorldGeometry.h"
+#include "NoTraceWorldRenderer.h"
 #include "Config/NoTraceManeuverConfig.h"
 #include <algorithm>
 #include <cmath>
 #include <iostream>
 #include <numbers>
+#include <set>
 #include <stdexcept>
 
 namespace {
@@ -107,8 +109,40 @@ namespace {
       else Require(world.agents[0].lifeState == LifeState::Dead && !world.agents[0].alive && world.phase == GamePhase::Results, "La maniobra concede invulnerabilidad de entrenamiento a una misión real");
     }
   }
+  void AuthoredSequenceFollowsAuthoritativeTime() {
+    for (const auto kind : {ManeuverKind::Dive, ManeuverKind::Roll}) for (int sector = 0; sector < 8; ++sector) {
+      Simulation simulation; auto &world = Fixture(simulation);
+      auto &agent = world.agents[0]; agent.position = {500.f, 380.f};
+      const float angle = sector * std::numbers::pi_v<float> * .25f;
+      ActionCommand command; command.moveX = std::cos(angle); command.moveY = std::sin(angle); command.run = kind == ManeuverKind::Dive;
+      if (kind == ManeuverKind::Dive) simulation.Step(.1f, {{1, command}});
+      else agent.stance = Stance::Crouched;
+      command.dive = kind == ManeuverKind::Dive; command.roll = kind == ManeuverKind::Roll;
+      simulation.Step(1.f / 120.f, {{1, command}});
+      Require(agent.maneuver.kind == kind, "La prueba no inicia la maniobra autoritativa");
+      const auto clip = kind == ManeuverKind::Dive ? SpriteConfig::Clip::Dive : SpriteConfig::Clip::Roll;
+      const auto &animation = SpriteConfig::Animations[static_cast<std::size_t>(clip)];
+      std::set<std::size_t> observed;
+      std::size_t previous = 0;
+      for (int tick = 0; tick < 180 && agent.maneuver.kind != ManeuverKind::None; ++tick) {
+        const auto before = agent.position;
+        const auto selected = WorldRenderer::SelectActorSprite(agent);
+        const auto phase = selected.index % SpriteConfig::Columns - animation.first;
+        Require(phase < animation.count && phase >= previous, "La presentacion retrocede o sale de la secuencia al aterrizar o recuperarse");
+        Require(agent.position == before, "Seleccionar la pose cambia la posicion autoritativa");
+        if (agent.maneuver.phase == ManeuverPhase::Land) Require(phase == animation.count - 2, "La pose de contacto no corresponde al aterrizaje");
+        if (agent.maneuver.phase == ManeuverPhase::Recover) Require(phase == animation.count - 1, "La recuperacion omite la pose final autorada");
+        observed.insert(phase); previous = phase;
+        simulation.Step(1.f / 120.f, {});
+      }
+      Require(observed.size() == animation.count && *observed.begin() == 0 && *observed.rbegin() == animation.count - 1,
+          "La maniobra omite poses autoradas durante su secuencia completa");
+      Require(agent.maneuver.kind == ManeuverKind::None && agent.stance == (kind == ManeuverKind::Dive ? Stance::Prone : Stance::Crouched),
+          "La secuencia visual altera la postura final de la simulacion");
+    }
+  }
 }
 int main() {
-  try { PhasesAndFinalStance(); InvalidStartsAndCollisions(); EightGroundDirections(); HazardAndTrainingSafety(); std::cout << "PASS maniobras: " << checks << " comprobaciones\n"; return 0; }
+  try { PhasesAndFinalStance(); InvalidStartsAndCollisions(); EightGroundDirections(); HazardAndTrainingSafety(); AuthoredSequenceFollowsAuthoritativeTime(); std::cout << "PASS maniobras: " << checks << " comprobaciones\n"; return 0; }
   catch (const std::exception &error) { std::cerr << "FAIL maniobras tras " << checks << ": " << error.what() << '\n'; return 1; }
 }

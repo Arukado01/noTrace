@@ -65,7 +65,24 @@ namespace EngineTests {
         actor.transitionTime = GameplayConfig::StanceTransitionDuration * (1.f - phase - .0125f);
       };
     };
+    const auto maneuver = [](ManeuverKind kind) {
+      return [kind](Agent &actor, float phase, WorldState &) {
+        const auto frame = static_cast<unsigned int>(std::lround(phase * 8.f));
+        const bool dive = kind == ManeuverKind::Dive;
+        const float start = dive ? ManeuverConfig::DiveStart : ManeuverConfig::RollStart;
+        const float travel = dive ? ManeuverConfig::DiveTravel : ManeuverConfig::RollTravel;
+        const float land = dive ? ManeuverConfig::DiveLand : 0.f;
+        const float recover = dive ? ManeuverConfig::DiveRecover : ManeuverConfig::RollRecover;
+        actor.stance = dive && frame > 0 ? Stance::Prone : dive ? Stance::Standing : Stance::Crouched;
+        actor.maneuver.kind = kind; actor.maneuver.direction = actor.facing;
+        actor.maneuver.phase = frame == 0 ? ManeuverPhase::Start : frame == 7 ? ManeuverPhase::Recover : dive && frame == 6 ? ManeuverPhase::Land : ManeuverPhase::Travel;
+        actor.maneuver.time = frame == 0 ? start * .5f : frame == 7 ? start + travel + land + recover * .5f :
+            dive && frame == 6 ? start + travel + land * .5f : start + travel * (static_cast<float>(frame) - .5f) / (dive ? 5.f : 6.f);
+      };
+    };
     const std::vector<Case> cases{
+      {"dive", maneuver(ManeuverKind::Dive), true, false, true},
+      {"roll", maneuver(ManeuverKind::Roll), true, false, true},
       {"idle-control", loop(SpriteConfig::Clip::Idle, Stance::Standing), true, false, true},
       {"walk-control", loop(SpriteConfig::Clip::Walk, Stance::Standing, true)},
       {"run-control", loop(SpriteConfig::Clip::Run, Stance::Standing, true, true)},
